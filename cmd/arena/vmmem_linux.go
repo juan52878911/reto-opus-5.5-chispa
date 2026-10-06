@@ -5,11 +5,14 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 var vmNameRe = regexp.MustCompile(`arena-[A-Za-z0-9_.-]+`)
@@ -48,6 +51,11 @@ func measureVMMemDetail(ctx context.Context) (map[string]VMMem, error) {
 		args := strings.Join(f[1:], " ")
 		name := vmNameRe.FindString(args)
 		if name == "" {
+			// Con jailer el proceso no lleva el nombre: se cruza por pid con
+			// `kling ps -json`.
+			name = pidToName(ctx, pid)
+		}
+		if name == "" {
 			continue
 		}
 		m, err := readSmapsRollup(pid)
@@ -63,7 +71,13 @@ func measureVMMemDetail(ctx context.Context) (map[string]VMMem, error) {
 }
 
 func readSmapsRollup(pid int) (VMMem, error) {
-	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/smaps_rollup")
+	path := "/proc/" + strconv.Itoa(pid) + "/smaps_rollup"
+	b, err := os.ReadFile(path)
+	if err != nil {
+		// firecracker corre como el usuario del daemon (kindling): sin permiso
+		// directo, se lee con sudo no interactivo (Lima no pide contraseña).
+		b, err = exec.Command("sudo", "-n", "cat", path).Output()
+	}
 	if err != nil {
 		return VMMem{}, err
 	}
@@ -85,4 +99,38 @@ func readSmapsRollup(pid int) (VMMem, error) {
 		}
 	}
 	return m, nil
+}
+
+var (
+	idNamesMu sync.Mutex
+	idNames   = map[int]string{}
+	idNamesAt time.Time
+)
+
+// pidToName traduce el pid de firecracker al nombre de la máquina con
+// `kling ps -json` (cacheado unos segundos). Solo devuelve nombres arena-*.
+func pidToName(ctx context.Context, pid int) string {
+	idNamesMu.Lock()
+	defer idNamesMu.Unlock()
+	if time.Since(idNamesAt) > 5*time.Second {
+		idNamesAt = time.Now()
+		out, err := exec.CommandContext(ctx, "kling", "ps", "-json").Output()
+		if err == nil {
+			var ms []struct {
+				PID  int    `json:"pid"`
+				Name string `json:"name"`
+			}
+			if json.Unmarshal(out, &ms) == nil {
+				idNames = map[int]string{}
+				for _, m := range ms {
+					idNames[m.PID] = m.Name
+				}
+			}
+		}
+	}
+	n := idNames[pid]
+	if !strings.HasPrefix(n, "arena-") {
+		return ""
+	}
+	return n
 }

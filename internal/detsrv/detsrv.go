@@ -134,6 +134,34 @@ func buildMux(id, dim string, load func() (detectors.Detector, error), bank *det
 		}
 		w.WriteHeader(200)
 	})
+	// /decide_multi: un lote con elementos de varios detectores del banco. Así
+	// un nodo recibe un solo viaje por lote aunque sirva 12 detectores.
+	mux.HandleFunc("POST /decide_multi", func(w http.ResponseWriter, r *http.Request) {
+		if bank == nil {
+			http.Error(w, "sin banco", 400)
+			return
+		}
+		var req MultiRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		out := make([]contracts.DecideResult, len(req.Items))
+		for i, it := range req.Items {
+			d, ok := bank.Get(it.Dim, it.Kind)
+			if !ok {
+				http.Error(w, "modelo no está en el banco: "+it.Dim+"-"+it.Kind, 404)
+				return
+			}
+			t0 := time.Now()
+			dec := d.Decide(it.Text)
+			out[i] = contracts.DecideResult{ID: it.ID, Label: dec.Label, Probs: dec.Probs, Escalate: dec.Escalate,
+				LatencyMS: float64(time.Since(t0).Nanoseconds()) / 1e6}
+		}
+		decisions.Add(int64(len(req.Items)))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(MultiResponse{Results: out})
+	})
 	mux.HandleFunc("POST /decide_batch", func(w http.ResponseWriter, r *http.Request) {
 		var req contracts.DecideRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -328,4 +356,45 @@ func (c *Client) BankPut(ctx context.Context, dim, kind string, model []byte) er
 		return fmt.Errorf("bank/put: %s %s", res.Status, b)
 	}
 	return nil
+}
+
+type MultiItem struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+	Dim  string `json:"dim"`
+	Kind string `json:"kind"`
+}
+
+type MultiRequest struct {
+	Items []MultiItem `json:"items"`
+}
+
+type MultiResponse struct {
+	Results []contracts.DecideResult `json:"results"`
+}
+
+// DecideMulti manda un lote mezclado a un nodo (POST /decide_multi).
+func (c *Client) DecideMulti(ctx context.Context, items []MultiItem) ([]contracts.DecideResult, error) {
+	b, _ := json.Marshal(MultiRequest{Items: items})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Base+"/decide_multi", bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("decide_multi: %s", res.Status)
+	}
+	var out MultiResponse
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	if len(out.Results) != len(items) {
+		return nil, fmt.Errorf("decide_multi: %d resultados para %d items", len(out.Results), len(items))
+	}
+	return out.Results, nil
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juan52878911/chispa/contracts"
+	"github.com/juan52878911/chispa/internal/detsrv"
 )
 
 // batcher junta las peticiones de muchos workers hacia una réplica y las manda
@@ -15,6 +16,7 @@ import (
 // convierte microsegundos de Chispa en throughput real.
 type batcher struct {
 	r      *replica
+	node   *detsrv.Client // modo nodo: un lote por microVM con varios detectores
 	in     chan batchReq
 	max    int
 	linger time.Duration
@@ -22,8 +24,9 @@ type batcher struct {
 }
 
 type batchReq struct {
-	item contracts.DecideItem
-	out  chan batchRes
+	item      contracts.DecideItem
+	dim, kind string
+	out       chan batchRes
 }
 
 type batchRes struct {
@@ -69,10 +72,25 @@ func (b *batcher) flush(reqs []batchReq) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if b.node != nil {
+		multi := make([]detsrv.MultiItem, len(reqs))
+		for i, q := range reqs {
+			multi[i] = detsrv.MultiItem{ID: q.item.ID, Text: q.item.Text, Dim: q.dim, Kind: q.kind}
+		}
+		res, err := b.node.DecideMulti(ctx, multi)
+		for i, q := range reqs {
+			if err != nil {
+				q.out <- batchRes{err: err}
+				continue
+			}
+			q.out <- batchRes{res: res[i]}
+		}
+		return
+	}
 	c := b.r.client
 	if c == nil {
 		for _, q := range reqs {
-			q.out <- batchRes{err: fmt.Errorf("%s sin cliente", b.r.id)}
+			q.out <- batchRes{err: fmt.Errorf("réplica sin cliente")}
 		}
 		return
 	}
@@ -88,17 +106,21 @@ func (b *batcher) flush(reqs []batchReq) {
 
 // decide manda un texto por el micro-lote de la réplica.
 func (b *batcher) decide(ctx context.Context, items []contracts.DecideItem) (_ []contracts.DecideResult, err error) {
+	return b.decideFor(ctx, "", "", items)
+}
+
+func (b *batcher) decideFor(ctx context.Context, dim, kind string, items []contracts.DecideItem) (_ []contracts.DecideResult, err error) {
 	// La réplica puede retirarse (y cerrarse su canal) mientras se encola.
 	defer func() {
 		if recover() != nil {
-			err = fmt.Errorf("%s retirada", b.r.id)
+			err = fmt.Errorf("réplica retirada")
 		}
 	}()
 	outs := make([]chan batchRes, len(items))
 	for i, it := range items {
 		outs[i] = make(chan batchRes, 1)
 		select {
-		case b.in <- batchReq{item: it, out: outs[i]}:
+		case b.in <- batchReq{item: it, dim: dim, kind: kind, out: outs[i]}:
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -116,6 +138,31 @@ func (b *batcher) decide(ctx context.Context, items []contracts.DecideItem) (_ [
 		}
 	}
 	return res, nil
+}
+
+// replicaDecide: el voto de una réplica pasa por su micro-lote; en modo nodo,
+// por el de su microVM (compartido por los 12 detectores que sirve).
+func replicaDecide(ctx context.Context, r *replica, items []contracts.DecideItem) ([]contracts.DecideResult, error) {
+	if n, ok := r.handle.(*vmNode); ok {
+		return nodeBatcher(n).decideFor(ctx, r.dim, r.kind, items)
+	}
+	return batcherFor(r).decide(ctx, items)
+}
+
+var nodeBatchers = map[*vmNode]*batcher{}
+
+func nodeBatcher(n *vmNode) *batcher {
+	batchersMu.Lock()
+	defer batchersMu.Unlock()
+	b := nodeBatchers[n]
+	if b == nil {
+		// Un nodo junta el tráfico de 12 detectores: lotes más grandes.
+		b = &batcher{node: detsrv.NewClient(n.base), in: make(chan batchReq, 16*batchMax), max: 4 * batchMax,
+			linger: batchWait, slots: make(chan struct{}, batchInflight)}
+		go b.loop()
+		nodeBatchers[n] = b
+	}
+	return b
 }
 
 var (

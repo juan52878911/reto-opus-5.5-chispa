@@ -51,7 +51,7 @@ func swarmScore(procs []*replica, trueLabel string) attacks.Scorer {
 			wg.Add(1)
 			go func(p *replica) {
 				defer wg.Done()
-				res, err := batcherFor(p).decide(ctx, items)
+				res, err := replicaDecide(ctx, p, items)
 				if err != nil {
 					return
 				}
@@ -423,7 +423,7 @@ func attackOnce(ctx context.Context, r *rand.Rand, fl *fleet, seeds map[string][
 				votes[i] = v
 				return
 			}
-			res, err := batcherFor(p).decide(ctx, item)
+			res, err := replicaDecide(ctx, p, item)
 			if err != nil {
 				v.Error = err.Error()
 				votes[i] = v
