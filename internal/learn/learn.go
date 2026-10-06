@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juan52878911/chispa/contracts"
@@ -37,7 +38,19 @@ type Learner struct {
 	gen      int
 	batches  []contracts.LearnBatch
 	teachUp  bool
+
+	// v3: flujo Chispa → VON y eficiencia en el tiempo.
+	decisions, escalated atomic.Int64
+	teacherCalls         atomic.Int64 // etiquetas pedidas a un maestro que no es VONPool
+	eff                  []contracts.EfficiencyPoint
+	lastDec, lastEsc     int64
+	lastCalls            int64
+	lastTS               time.Time
+	trainN               map[string]int
 }
+
+// MaxHardened acota los ejemplos endurecidos por dimensión (se queda lo más reciente).
+const MaxHardened = 5000
 
 func New(cfg Config) *Learner {
 	if cfg.BatchSize <= 0 {
@@ -49,7 +62,7 @@ func New(cfg Config) *Learner {
 	if cfg.MaxCleanDrop == 0 {
 		cfg.MaxCleanDrop = 0.02
 	}
-	return &Learner{cfg: cfg, enabled: true, pending: map[string][]contracts.Attack{}, hardened: map[string][]contracts.Example{}}
+	return &Learner{cfg: cfg, enabled: true, pending: map[string][]contracts.Attack{}, hardened: map[string][]contracts.Example{}, trainN: map[string]int{}, lastTS: time.Now().UTC()}
 }
 
 func (l *Learner) teacherName() string {
@@ -73,15 +86,30 @@ func (l *Learner) Watch(ctx context.Context) {
 	}
 }
 
-// Offer recibe cada ronda; guarda los ataques que engañaron al enjambre.
+// OfferEscalated es Offer para una decisión escalada (Chispa no está seguro).
+func (l *Learner) OfferEscalated(r contracts.AttackRound) {
+	r.Swarm.Escalated = true
+	l.Offer(r)
+}
+
+// Offer recibe cada ronda (cuenta una decisión). Guarda los ataques que
+// engañaron al enjambre y los que escaló a VON. O(1), no bloquea: si la cola
+// está llena descarta lo más antiguo.
 func (l *Learner) Offer(r contracts.AttackRound) {
-	if !r.Swarm.Fooled {
+	l.decisions.Add(1)
+	if r.Swarm.Escalated {
+		l.escalated.Add(1)
+	}
+	if !r.Swarm.Fooled && !r.Swarm.Escalated {
 		return
 	}
 	l.mu.Lock()
 	dim := r.Attack.Dimension
-	if len(l.pending[dim]) < 4*l.cfg.BatchSize {
-		l.pending[dim] = append(l.pending[dim], r.Attack)
+	if q := l.pending[dim]; len(q) >= 4*l.cfg.BatchSize {
+		copy(q, q[1:])
+		q[len(q)-1] = r.Attack
+	} else {
+		l.pending[dim] = append(q, r.Attack)
 	}
 	ready := l.enabled && !l.running && len(l.pending[dim]) >= l.cfg.BatchSize
 	if ready {
@@ -223,6 +251,7 @@ func (l *Learner) run(dim string) {
 			defer func() { <-sem }()
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 			defer cancel()
+			l.teacherCalls.Add(1)
 			got[i], errs[i] = l.cfg.Teacher.Label(ctx, dim, labels, a.AttackedText)
 		}(i, a)
 	}
@@ -273,6 +302,11 @@ func (l *Learner) run(dim string) {
 		return
 	}
 	lb.ASRBefore, lb.CleanBefore = cur.swarmEval(dim, challenge, clean)
+	l.mu.Lock()
+	if len(l.eff) == 0 {
+		l.addPoint(0, lb.ASRBefore, lb.CleanBefore, len(tr))
+	}
+	l.mu.Unlock()
 
 	// 3. Reentreno en sombra con lo acumulado + este lote.
 	t1 := time.Now()
@@ -283,25 +317,34 @@ func (l *Learner) run(dim string) {
 	for _, a := range trainAtk {
 		hard = append(hard, contracts.Example{ID: a.AttackID, Text: a.AttackedText, Label: a.TrueLabel, Template: "attack/" + a.SeedID})
 	}
+	hard = dedupeCap(hard, MaxHardened)
 	shadow := filepath.Join(l.cfg.ModelsDir, "shadow", fmt.Sprintf("gen-%d-%s", gen, dim))
 	if err := os.MkdirAll(shadow, 0o755); err != nil {
 		fail(err.Error())
 		return
 	}
 	trainSet := append(append([]contracts.Example(nil), tr...), hard...)
-	for _, k := range detectors.Kinds {
+	// Las variantes Chispa de la dimensión se entrenan en paralelo (TrainKind es puro).
+	var tw sync.WaitGroup
+	terrs := make([]error, len(detectors.Kinds))
+	for ki, k := range detectors.Kinds {
 		if k == detectors.KindRules {
 			continue
 		}
-		m, _, err := detectors.TrainKind(k, trainSet, va)
-		if err != nil {
-			fail(err.Error())
-			return
-		}
-		if err := m.Save(detectors.ModelPath(shadow, dim, k)); err != nil {
-			fail(err.Error())
-			return
-		}
+		tw.Add(1)
+		go func() {
+			defer tw.Done()
+			m, _, err := detectors.TrainKind(k, trainSet, va)
+			if err == nil {
+				err = m.Save(detectors.ModelPath(shadow, dim, k))
+			}
+			terrs[ki] = err
+		}()
+	}
+	tw.Wait()
+	if err := firstErr(terrs); err != nil {
+		fail(err.Error())
+		return
 	}
 	lb.TrainMS = float64(time.Since(t1).Milliseconds())
 	sh, err := loadPool(shadow, dim)
@@ -334,6 +377,8 @@ func (l *Learner) run(dim string) {
 		l.mu.Lock()
 		l.gen = gen
 		l.hardened[dim] = hard
+		l.trainN[dim] = len(tr) + len(hard)
+		l.addPoint(gen, lb.ASRAfter, lb.CleanAfter, len(tr)+len(hard))
 		l.mu.Unlock()
 		if l.cfg.Promote != nil {
 			if err := l.cfg.Promote(dim); err != nil {
@@ -359,4 +404,57 @@ func firstErr(errs []error) error {
 		}
 	}
 	return nil
+}
+
+// dedupeCap quita duplicados por texto normalizado (gana el más reciente) y
+// se queda con los últimos max.
+func dedupeCap(xs []contracts.Example, max int) []contracts.Example {
+	seen := make(map[string]struct{}, len(xs))
+	out := make([]contracts.Example, 0, len(xs))
+	for i := len(xs) - 1; i >= 0; i-- {
+		k := normalize(xs[i].Text)
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, xs[i])
+	}
+	if len(out) > max {
+		out = out[:max]
+	}
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
+	}
+	return out
+}
+
+func (l *Learner) vonCalls() int64 {
+	if p, ok := l.cfg.Teacher.(*VONPool); ok {
+		return p.Stats().Calls
+	}
+	return l.teacherCalls.Load()
+}
+
+// addPoint añade un punto de eficiencia con la ventana desde el anterior. Con l.mu tomado.
+func (l *Learner) addPoint(gen int, asr, acc float64, trainN int) {
+	dec, esc, calls := l.decisions.Load(), l.escalated.Load(), l.vonCalls()
+	pt := contracts.EfficiencyPoint{TS: time.Now().UTC(), Generation: gen, SwarmASR: asr, CleanAcc: acc, TrainExamples: trainN}
+	if d := dec - l.lastDec; d > 0 {
+		pt.EscalationRate = float64(esc-l.lastEsc) / float64(d)
+		pt.VONPer1K = float64(calls-l.lastCalls) * 1000 / float64(d)
+	}
+	l.lastDec, l.lastEsc, l.lastCalls = dec, esc, calls
+	l.eff = append(l.eff, pt)
+}
+
+// Flow es el estado del bucle Chispa → VON → reentreno. Sharing lo rellena el llamador.
+func (l *Learner) Flow() contracts.Flow {
+	f := contracts.Flow{Escalated: l.escalated.Load()}
+	if p, ok := l.cfg.Teacher.(*VONPool); ok {
+		f.VON = p.Stats()
+	}
+	l.mu.Lock()
+	f.Efficiency = append([]contracts.EfficiencyPoint(nil), l.eff...)
+	l.mu.Unlock()
+	return f
 }

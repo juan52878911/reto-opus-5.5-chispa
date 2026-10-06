@@ -149,6 +149,29 @@ func (f *fleet) remove(dim, kind string) bool {
 	return true
 }
 
+// removeID retira una réplica concreta (reemplazo tras hornear un dorado).
+func (f *fleet) removeID(id string) {
+	f.mu.Lock()
+	r := f.reps[id]
+	if r == nil {
+		f.mu.Unlock()
+		return
+	}
+	rs := f.byDK[r.dim][r.kind]
+	for i, x := range rs {
+		if x == r {
+			f.byDK[r.dim][r.kind] = append(rs[:i:i], rs[i+1:]...)
+			break
+		}
+	}
+	delete(f.reps, id)
+	f.mu.Unlock()
+	r.up.Store(false)
+	f.l.Stop(r)
+	f.led.Unregister(r.id)
+	f.hub.Publish(contracts.EvVMStatus, contracts.VMStatus{DetectorID: r.id, Dimension: r.dim, Kind: r.kind, State: "removed"})
+}
+
 func (f *fleet) kill(id string) error {
 	f.mu.Lock()
 	r := f.reps[id]

@@ -205,6 +205,12 @@ func (s *scaler) ramp(ctx context.Context) {
 		cpu := s.cpuPct
 		s.mu.Unlock()
 		s.hub.Publish(contracts.EvScaleStep, p)
+		if runtime.GOOS == "linux" {
+			if t, avail := meminfo(); t > 0 && float64(avail)/float64(t) < 0.12 {
+				note = fmt.Sprintf("tope de memoria real: queda %.0f%% libre", 100*float64(avail)/float64(t))
+				break
+			}
+		}
 		if cpu >= s.cpuStop {
 			note = fmt.Sprintf("tope de CPU: %.0f%% del host (límite %.0f%%)", cpu, s.cpuStop)
 			break

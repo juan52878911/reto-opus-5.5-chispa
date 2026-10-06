@@ -27,14 +27,54 @@ import (
 // ?id=&dim=&kind= y el .chispa en el cuerpo; /configure también sirve para
 // promocionar un modelo nuevo sin reiniciar.
 func Serve(addr, id, dim string, load func() (detectors.Detector, error)) error {
+	return serve(addr, id, dim, load, nil, 0)
+}
+
+// ServeBank sirve en modo banco: carga todos los modelos de dir, los deja
+// residentes y arranca vacío. POST /configure sin cuerpo elige del banco
+// (páginas compartidas entre réplicas restauradas); con cuerpo hace una copia
+// privada. GET /bank describe el banco.
+func ServeBank(addr, dir string, generation int) error {
+	b, err := detectors.LoadBank(dir)
+	if err != nil {
+		return err
+	}
+	return serve(addr, "", "", nil, b, generation)
+}
+
+// BankInfo es la respuesta de GET /bank.
+type BankInfo struct {
+	Generation int         `json:"generation"`
+	Models     []BankModel `json:"models"`
+	Active     string      `json:"active"`
+	Shared     bool        `json:"shared"`
+}
+
+type BankModel struct {
+	ID     string `json:"id"`
+	Bytes  int    `json:"bytes"`
+	SHA256 string `json:"sha256"`
+}
+
+func serve(addr, id, dim string, load func() (detectors.Detector, error), bank *detectors.Bank, generation int) error {
+	mux, err := buildMux(id, dim, load, bank, generation)
+	if err != nil {
+		return err
+	}
+	return http.ListenAndServe(addr, mux)
+}
+
+func buildMux(id, dim string, load func() (detectors.Detector, error), bank *detectors.Bank, generation int) (*http.ServeMux, error) {
+	var shared atomic.Bool
 	var decisions atomic.Int64
+	var activeID atomic.Value
 	var cur atomic.Pointer[detectors.Detector]
 	var ident atomic.Pointer[[2]string]
 	ident.Store(&[2]string{id, dim})
 	if load != nil {
 		first, err := load()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		cur.Store(&first)
 	}
@@ -46,13 +86,23 @@ func Serve(addr, id, dim string, load func() (detectors.Detector, error)) error 
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		d, err := detectors.FromBytes(q.Get("dim"), q.Get("kind"), b)
-		if err != nil {
+		var d detectors.Detector
+		fromBank := false
+		if len(b) == 0 && bank != nil {
+			var ok bool
+			if d, ok = bank.Get(q.Get("dim"), q.Get("kind")); !ok {
+				http.Error(w, "modelo fuera del banco: "+detectors.ID(q.Get("dim"), q.Get("kind")), 404)
+				return
+			}
+			fromBank = true
+		} else if d, err = detectors.FromBytes(q.Get("dim"), q.Get("kind"), b); err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
 		ident.Store(&[2]string{q.Get("id"), q.Get("dim")})
 		cur.Store(&d)
+		shared.Store(fromBank)
+		activeID.Store(detectors.ID(q.Get("dim"), q.Get("kind")))
 		w.Write([]byte(d.Version()))
 	})
 	mux.HandleFunc("POST /reload", func(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +143,18 @@ func Serve(addr, id, dim string, load func() (detectors.Detector, error)) error 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	})
+	mux.HandleFunc("GET /bank", func(w http.ResponseWriter, r *http.Request) {
+		info := BankInfo{Generation: generation, Models: []BankModel{}, Shared: shared.Load()}
+		if a, ok := activeID.Load().(string); ok {
+			info.Active = a
+		}
+		if bank != nil {
+			for _, e := range bank.Entries() {
+				info.Models = append(info.Models, BankModel{ID: e.ID, Bytes: e.Bytes, SHA256: e.SHA256})
+			}
+		}
+		_ = json.NewEncoder(w).Encode(info)
+	})
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		cpu, rss := Usage()
 		ver, loaded := "", false
@@ -102,7 +164,7 @@ func Serve(addr, id, dim string, load func() (detectors.Detector, error)) error 
 		_ = json.NewEncoder(w).Encode(contracts.Health{Status: "ok", ModelVersion: ver, Loaded: loaded,
 			PID: os.Getpid(), CPUSeconds: cpu, RSSBytes: rss, Decisions: decisions.Load()})
 	})
-	return http.ListenAndServe(addr, mux)
+	return mux, nil
 }
 
 // Usage devuelve CPU (usuario+sistema, s) y RSS máximo (bytes) del proceso.
@@ -164,6 +226,21 @@ func (c *Client) Health(ctx context.Context) (*contracts.Health, error) {
 	defer res.Body.Close()
 	var h contracts.Health
 	return &h, json.NewDecoder(res.Body).Decode(&h)
+}
+
+// Bank consulta GET /bank.
+func (c *Client) Bank(ctx context.Context) (*BankInfo, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.Base+"/bank", nil)
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("bank: %s", res.Status)
+	}
+	var b BankInfo
+	return &b, json.NewDecoder(res.Body).Decode(&b)
 }
 
 // Reload pide al detector que recargue su modelo del disco.

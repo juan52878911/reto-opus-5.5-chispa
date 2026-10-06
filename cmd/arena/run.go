@@ -96,9 +96,13 @@ func run(args []string) error {
 	batch := fs.Int("batch", 64, "learning: fooled attacks per batch")
 	backend := fs.String("backend", "process", "process | microvm (needs kling and the golden snapshot)")
 	snapshot := fs.String("snapshot", "arena-det", "microvm: golden snapshot of the detector")
+	bankMode := fs.Bool("bank", true, "microvm: weights baked in the golden snapshot, shared copy-on-write")
+	goldenImage := fs.String("golden-image", "arena-base", "microvm: image used to rebuild the golden after a promotion")
 	budgetFrac := fs.Float64("budget-frac", 0.5, "fraction of host RAM/CPU the arena may use")
 	cpuStop := fs.Float64("cpu-stop", 50, "ramp stops when the host CPU %% passes this")
 	vonSnap := fs.String("von-snapshot", "", "microvm: restore this VON snapshot as teacher (e.g. von-qwen15-q4)")
+	vonReplicas := fs.Int("von-replicas", 1, "VON replicas restored from the same snapshot (shared weights)")
+	vonSlots := fs.Int("von-slots", 1, "concurrent requests per VON replica")
 	vonURL := fs.String("von-url", "", "VON teacher: OpenAI-compatible base URL (empty = seed oracle)")
 	vonModel := fs.String("von-model", "von-qwen15", "VON teacher model name")
 	vonToken := fs.String("von-token", "", "VON bearer token")
@@ -142,7 +146,7 @@ func run(args []string) error {
 		p.port.Store(int32(*basePort - 1))
 		pl = p
 	case "microvm":
-		pl = &vmLauncher{snapshot: *snapshot, models: *models, mem: *vmMem}
+		pl = &vmLauncher{snapshot: *snapshot, models: *models, mem: *vmMem, bank: *bankMode}
 	default:
 		return fmt.Errorf("backend desconocido %q", *backend)
 	}
@@ -152,27 +156,52 @@ func run(args []string) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	var pool *learn.VONPool
 	if *vonSnap != "" {
-		u, stopVON, err := startVON(ctx, *vonSnap)
+		urls, stopVON, err := startVONPool(ctx, *vonSnap, *vonReplicas)
 		if err != nil {
 			return fmt.Errorf("VON: %w", err)
 		}
 		defer stopVON()
-		*vonURL = u
-		*vonModel = *vonSnap
-		log.Printf("VON maestro: %s en %s", *vonSnap, u)
+		pool = learn.NewVONPool(urls, *vonSnap)
+		pool.Snapshot = *vonSnap
+		pool.SetSlots(*vonSlots)
+		go func() {
+			if err := pool.Prime(ctx); err != nil {
+				log.Printf("VON prime: %v", err)
+			}
+		}()
+	} else if *vonURL != "" {
+		pool = learn.NewVONPool(strings.Split(*vonURL, ","), *vonModel)
+		pool.Token = *vonToken
+		pool.SetSlots(*vonSlots)
 	}
 	if _, err := sc.setTarget(ctx, *vms); err != nil {
 		return err
 	}
 	go fl.poll(ctx)
+	shs := &sharingState{}
+	if *backend == "microvm" {
+		go shs.loop(ctx)
+	}
 
 	var teacher learn.Teacher
-	if *vonURL != "" {
-		teacher = learn.NewVON(*vonURL, *vonModel, *vonToken)
+	if pool != nil {
+		teacher = pool
+	}
+	promote := fl.reload
+	if vl, ok := pl.(*vmLauncher); ok && vl.bank {
+		promote = func(dim string) error {
+			// 1) efecto inmediato: empuja los bytes (copia privada por VM);
+			// 2) en segundo plano: hornea la generación nueva en el dorado y
+			//    reemplaza las réplicas para recuperar los pesos compartidos.
+			err := fl.reload(dim)
+			go rebake(ctx, fl, vl, *models, *goldenImage, *vmMem)
+			return err
+		}
 	}
 	ln := learn.New(learn.Config{DataDir: *dataDir, ModelsDir: *models, BatchSize: *batch, Teacher: teacher,
-		Promote: fl.reload, Publish: func(b contracts.LearnBatch) { hub.Publish(contracts.EvLearnBatch, b) }})
+		Promote: promote, Publish: func(b contracts.LearnBatch) { hub.Publish(contracts.EvLearnBatch, b) }})
 	go ln.Watch(ctx)
 
 	var desiredWorkers atomic.Int64
@@ -181,6 +210,15 @@ func run(args []string) error {
 		m := led.Metrics(int(desiredWorkers.Load()), *vcpuUSD)
 		m.Scale = sc.snapshot()
 		m.Learning = ln.Snapshot()
+		m.Flow = ln.Flow()
+		if pool != nil {
+			m.Flow.VON.Replicas = len(pool.URLs())
+		}
+		if vl, ok := pl.(*vmLauncher); ok {
+			shs.fill(&m, vl.snap(), *models)
+		} else {
+			fillSharing(&m, sc)
+		}
 		return m
 	}
 	extra := func(mux *http.ServeMux) {

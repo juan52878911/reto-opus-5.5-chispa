@@ -50,12 +50,16 @@ func main() {
 		models := fs.String("models", "models", "models dir")
 		addr := fs.String("addr", "127.0.0.1:0", "listen addr")
 		fs.String("id", "", "replica id (default <dim>-<kind>)")
+		bank := fs.String("bank", "", "load every model of this dir (shared weights); wait for /configure")
+		generation := fs.Int("generation", 0, "bank generation")
 		fs.Parse(args)
 		id := fs.Lookup("id").Value.String()
 		if id == "" {
 			id = detectors.ID(*dim, *kind)
 		}
-		if *dim == "" {
+		if *bank != "" {
+			err = detsrv.ServeBank(*addr, *bank, *generation)
+		} else if *dim == "" {
 			err = detsrv.Serve(*addr, "", "", nil) // vacío: espera /configure (microVM)
 		} else {
 			err = detsrv.Serve(*addr, id, *dim, func() (detectors.Detector, error) { return detectors.Load(*models, *dim, *kind) })

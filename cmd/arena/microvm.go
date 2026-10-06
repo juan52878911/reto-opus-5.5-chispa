@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juan52878911/chispa/internal/detectors"
@@ -41,10 +43,28 @@ func klingIP(ctx context.Context, name string) (string, error) {
 }
 
 // vmLauncher: cada réplica es una microVM restaurada del snapshot dorado
-// (`kling run -from`). El detector arranca vacío y recibe su modelo por HTTP.
+// (`kling run -from`). El detector arranca vacío y recibe su modelo por HTTP;
+// con bank=true el snapshot ya trae todos los pesos y /configure va sin cuerpo
+// (páginas compartidas entre réplicas).
 type vmLauncher struct {
 	snapshot, models string
 	mem              int
+	bank             bool
+
+	mu sync.Mutex // protege snapshot
+}
+
+// SetSnapshot cambia el snapshot desde el que se restauran las réplicas nuevas.
+func (v *vmLauncher) SetSnapshot(name string) {
+	v.mu.Lock()
+	v.snapshot = name
+	v.mu.Unlock()
+}
+
+func (v *vmLauncher) snap() string {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.snapshot
 }
 
 func (v *vmLauncher) Name() string { return "microvm" }
@@ -56,7 +76,7 @@ func vmName(id string) string { return "arena-" + id }
 func (v *vmLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	name := vmName(r.id)
 	kling(ctx, "rm", name) // restos de una vida anterior
-	if _, err := kling(ctx, "run", "-from", v.snapshot, "-name", name, "-label", "app=chispa-arena"); err != nil {
+	if _, err := kling(ctx, "run", "-from", v.snap(), "-name", name, "-label", "app=chispa-arena"); err != nil {
 		return "", err
 	}
 	ip, err := klingIP(ctx, name)
@@ -71,8 +91,12 @@ func (v *vmLauncher) Start(ctx context.Context, r *replica) (string, error) {
 }
 
 func (v *vmLauncher) configure(ctx context.Context, r *replica, base string) error {
+	return v.configureWith(ctx, r, base, v.bank)
+}
+
+func (v *vmLauncher) configureWith(ctx context.Context, r *replica, base string, fromBank bool) error {
 	var model []byte
-	if r.kind != detectors.KindRules {
+	if r.kind != detectors.KindRules && !fromBank {
 		b, err := os.ReadFile(detectors.ModelPath(v.models, r.dim, r.kind))
 		if err != nil {
 			return err
@@ -97,44 +121,87 @@ func (v *vmLauncher) Stop(r *replica) error {
 	return err
 }
 
-// Reload empuja el modelo promocionado a la microVM, sin reiniciarla.
+// Reload empuja el modelo promocionado a la microVM, sin reiniciarla. Va
+// siempre con los bytes (copia privada): en modo banco el modelo nuevo no está
+// en el snapshot viejo; el integrador reemplaza las réplicas desde el golden
+// nuevo (SetSnapshot + Start) para recuperar el compartido.
 func (v *vmLauncher) Reload(ctx context.Context, r *replica) error {
-	return v.configure(ctx, r, r.client.Base)
+	return v.configureWith(ctx, r, r.client.Base, false)
 }
 
-// golden construye el snapshot dorado del detector: una microVM con el binario
-// `arena` ya sirviendo en :9000, congelada con `kling commit`.
-func golden(args []string) error {
-	fs := flag.NewFlagSet("golden", flag.ExitOnError)
-	image := fs.String("image", "min", "rootfs image")
-	name := fs.String("name", "arena-det", "snapshot name")
-	mem := fs.Int("mem", 128, "MiB per microVM")
-	bin := fs.String("bin", "", "linux arena binary to copy (default: this one)")
-	fs.Parse(args)
-	ctx := context.Background()
-	if *bin == "" {
+// GoldenOpts configura la construcción del snapshot dorado.
+type GoldenOpts struct {
+	Image      string // rootfs (default "min")
+	Name       string // nombre base (default "arena-det")
+	Mem        int    // MiB por microVM (default 128)
+	Bin        string // binario linux de arena (default: este)
+	Models     string // directorio del banco; vacío = detector vacío sin banco
+	Generation int    // generación del banco; >0 añade el snapshot <Name>-g<N>
+}
+
+// klingSave congela una microVM: `kling save` (v0.17+) y, si no existe,
+// `kling commit`.
+func klingSave(ctx context.Context, vm, snap string) error {
+	if _, err := kling(ctx, "save", "-replace", vm, snap); err == nil {
+		return nil
+	}
+	_, err := kling(ctx, "commit", "-replace", vm, snap)
+	return err
+}
+
+// BuildGolden construye el snapshot dorado: una microVM con `arena detector`
+// ya sirviendo en :9000 (con el banco de modelos cargado si opts.Models != "")
+// congelada. Con Generation>0 deja <Name>-g<N> y también <Name> apuntando al
+// último. Devuelve el nombre del snapshot específico (g<N> si lo hay).
+func BuildGolden(ctx context.Context, opts GoldenOpts) (string, error) {
+	if opts.Image == "" {
+		opts.Image = "min"
+	}
+	if opts.Name == "" {
+		opts.Name = "arena-det"
+	}
+	if opts.Mem == 0 {
+		opts.Mem = 128
+	}
+	if opts.Bin == "" {
 		exe, err := os.Executable()
 		if err != nil {
-			return err
+			return "", err
 		}
-		*bin = exe
+		opts.Bin = exe
 	}
 	tmp := "arena-golden"
 	kling(ctx, "rm", tmp)
-	if _, err := kling(ctx, "run", "-image", *image, "-name", tmp, "-mem", fmt.Sprint(*mem), "-allow-exec"); err != nil {
-		return err
+	if _, err := kling(ctx, "run", "-image", opts.Image, "-name", tmp, "-mem", fmt.Sprint(opts.Mem), "-allow-exec"); err != nil {
+		return "", err
 	}
-	defer kling(ctx, "rm", tmp)
-	if _, err := kling(ctx, "cp", *bin, tmp+":/arena"); err != nil {
-		return err
+	defer kling(context.Background(), "rm", tmp)
+	if _, err := kling(ctx, "cp", opts.Bin, tmp+":/arena"); err != nil {
+		return "", err
 	}
 	start := fmt.Sprintf("chmod +x /arena; nohup /arena detector -addr 0.0.0.0:%d >/tmp/arena.log 2>&1 &", DetPort)
+	if opts.Models != "" {
+		files, err := filepath.Glob(filepath.Join(opts.Models, "*.chispa"))
+		if err != nil || len(files) == 0 {
+			return "", fmt.Errorf("sin modelos .chispa en %s", opts.Models)
+		}
+		if _, err := kling(ctx, "exec", tmp, "--", "sh", "-c", "mkdir -p /models"); err != nil {
+			return "", err
+		}
+		for _, f := range files {
+			if _, err := kling(ctx, "cp", f, tmp+":/models/"+filepath.Base(f)); err != nil {
+				return "", err
+			}
+		}
+		start = fmt.Sprintf("chmod +x /arena; nohup /arena detector -bank /models -generation %d -addr 0.0.0.0:%d >/tmp/arena.log 2>&1 &",
+			opts.Generation, DetPort)
+	}
 	if _, err := kling(ctx, "exec", tmp, "--", "sh", "-c", start); err != nil {
-		return err
+		return "", err
 	}
 	ip, err := klingIP(ctx, tmp)
 	if err != nil {
-		return err
+		return "", err
 	}
 	url := fmt.Sprintf("http://%s:%d/health", ip, DetPort)
 	ok := false
@@ -147,12 +214,39 @@ func golden(args []string) error {
 	}
 	if !ok {
 		out, _ := kling(ctx, "exec", tmp, "--", "cat", "/tmp/arena.log")
-		return fmt.Errorf("el detector no contestó en %s: %s", url, out)
+		return "", fmt.Errorf("el detector no contestó en %s: %s", url, out)
 	}
-	if _, err := kling(ctx, "commit", "-replace", tmp, *name); err != nil {
+	snap := opts.Name
+	if opts.Generation > 0 {
+		snap = fmt.Sprintf("%s-g%d", opts.Name, opts.Generation)
+	}
+	if err := klingSave(ctx, tmp, snap); err != nil {
+		return "", err
+	}
+	if snap != opts.Name {
+		if err := klingSave(ctx, tmp, opts.Name); err != nil {
+			return "", err
+		}
+	}
+	return snap, nil
+}
+
+// golden es el subcomando `arena golden`.
+func golden(args []string) error {
+	fs := flag.NewFlagSet("golden", flag.ExitOnError)
+	o := GoldenOpts{}
+	fs.StringVar(&o.Image, "image", "min", "rootfs image")
+	fs.StringVar(&o.Name, "name", "arena-det", "snapshot name")
+	fs.IntVar(&o.Mem, "mem", 128, "MiB per microVM")
+	fs.StringVar(&o.Bin, "bin", "", "linux arena binary to copy (default: this one)")
+	fs.StringVar(&o.Models, "models", "", "model bank dir to bake into the snapshot (shared weights)")
+	fs.IntVar(&o.Generation, "generation", 0, "bank generation (>0 also saves <name>-g<N>)")
+	fs.Parse(args)
+	snap, err := BuildGolden(context.Background(), o)
+	if err != nil {
 		return err
 	}
-	fmt.Printf("snapshot %s listo (detector vivo en :%d dentro)\n", *name, DetPort)
+	fmt.Printf("snapshot %s listo (detector vivo en :%d dentro)\n", snap, DetPort)
 	return nil
 }
 
