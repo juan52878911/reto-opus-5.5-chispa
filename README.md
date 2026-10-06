@@ -1,4 +1,26 @@
-# Chispa Arena
+# Reto Opus 5.5 · Chispa Arena
+
+Arena adversarial automática sobre [kindling](https://kindling.asccilabs.com):
+- Un motor ataca sin parar a un **enjambre de clasificadores diminutos**: Chispa (regresión logística, µs por decisión) más uno de reglas.
+- El enjambre tiene una dimensión por clasificación: spam, injection y urgencia.
+- Lo que el enjambre no resuelve, o en lo que se deja engañar, pasa a **VON**, un LLM pequeño, que lo etiqueta por lotes.
+- Chispa se reentrena en sombra y **solo se promociona si gana**: se deja engañar menos, o escala menos sin perder exactitud.
+- El objetivo es servirlo todo desde **golden snapshots** con los pesos compartidos entre réplicas.
+
+**Trazabilidad:** abre `http://127.0.0.1:8088/trazabilidad`. Ahí se marca qué funciona en vivo, qué se ha medido en microVMs y qué está pendiente, con las cifras y supuestos de cada cosa.
+
+```sh
+make train && ./arena run -ramp -max-vms 36 -cpu-stop 90 -workers-per-vm 4   # panel en http://127.0.0.1:8088
+```
+
+Estado:
+- **En vivo:** procesos locales con enjambre, ataques, aprendizaje (con oráculo de la semilla), rampa y micro-lotes.
+- **Medido en Lima (kindling 0.17, Firecracker):** golden de 53 MB, restore en 171–265 ms, réplicas VON con ~10 MiB privados que comparten 896 MiB de pesos, y 6.400 decisiones/s por microVM.
+- **Pendiente:** el enjambre completo en microVMs bajo carga. Está implementado el modo nodo (`-per-node`), pero sin validar.
+
+---
+
+## Detalle del MVP
 
 Arena adversarial automática: un motor ataca sin parar a un **enjambre de detectores
 diminutos** (Chispa, de kindling, más uno de reglas) y mide en vivo si el enjambre es
