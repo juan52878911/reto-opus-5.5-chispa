@@ -14,6 +14,9 @@ import (
 //go:embed index.html
 var indexHTML []byte
 
+//go:embed trazabilidad.html
+var trazaHTML []byte
+
 // Hub reparte eventos a los clientes SSE. Si un cliente va lento se le
 // descartan eventos: el panel muestrea, no necesita todos.
 type Hub struct {
@@ -53,6 +56,10 @@ func Handler(h *Hub, metrics func() contracts.Metrics, kill, revive func(id stri
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(indexHTML)
+	})
+	mux.HandleFunc("GET /trazabilidad", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(trazaHTML)
 	})
 	mux.HandleFunc("GET /metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

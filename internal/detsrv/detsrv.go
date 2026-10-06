@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -118,19 +119,46 @@ func buildMux(id, dim string, load func() (detectors.Detector, error), bank *det
 		cur.Store(&d)
 		w.Write([]byte(d.Version()))
 	})
+	mux.HandleFunc("POST /bank/put", func(w http.ResponseWriter, r *http.Request) {
+		if bank == nil {
+			http.Error(w, "sin banco", 400)
+			return
+		}
+		b, err := io.ReadAll(io.LimitReader(r.Body, 64<<20))
+		if err == nil {
+			err = bank.Put(r.URL.Query().Get("dim"), r.URL.Query().Get("kind"), b)
+		}
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		w.WriteHeader(200)
+	})
 	mux.HandleFunc("POST /decide_batch", func(w http.ResponseWriter, r *http.Request) {
 		var req contracts.DecideRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		dp := cur.Load()
-		if dp == nil {
-			http.Error(w, "sin modelo: falta /configure", 503)
-			return
-		}
-		det := *dp
+		// Nodo del enjambre: ?dim=&kind= elige del banco por petición, así una
+		// sola microVM sirve los 12 detectores con los pesos compartidos.
+		var det detectors.Detector
 		idd := *ident.Load()
+		if q := r.URL.Query(); bank != nil && q.Get("dim") != "" {
+			d, ok := bank.Get(q.Get("dim"), q.Get("kind"))
+			if !ok {
+				http.Error(w, "modelo no está en el banco", 404)
+				return
+			}
+			det, idd = d, [2]string{q.Get("dim") + "-" + q.Get("kind"), q.Get("dim")}
+		} else {
+			dp := cur.Load()
+			if dp == nil {
+				http.Error(w, "sin modelo: falta /configure", 503)
+				return
+			}
+			det = *dp
+		}
 		resp := contracts.DecideResponse{DetectorID: idd[0], Dimension: idd[1], ModelVersion: det.Version(),
 			Results: make([]contracts.DecideResult, len(req.Items))}
 		for i, it := range req.Items {
@@ -183,18 +211,25 @@ func Usage() (float64, int64) {
 
 // Client habla con un detector.
 type Client struct {
-	Base string
-	HTTP *http.Client
+	Base  string
+	Query string
+	HTTP  *http.Client
 }
 
+// NewClient admite base con consulta ("http://ip:9000?dim=spam&kind=rules"):
+// la consulta se añade a /decide_batch (nodo del enjambre).
 func NewClient(base string) *Client {
+	q := ""
+	if i := strings.IndexByte(base, '?'); i >= 0 {
+		base, q = base[:i], base[i:]
+	}
 	tr := &http.Transport{MaxIdleConnsPerHost: 256, MaxConnsPerHost: 256, IdleConnTimeout: 30 * time.Second}
-	return &Client{Base: base, HTTP: &http.Client{Transport: tr, Timeout: 2 * time.Second}}
+	return &Client{Base: base, Query: q, HTTP: &http.Client{Transport: tr, Timeout: 2 * time.Second}}
 }
 
 func (c *Client) DecideBatch(ctx context.Context, items []contracts.DecideItem) (*contracts.DecideResponse, error) {
 	b, _ := json.Marshal(contracts.DecideRequest{Items: items})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Base+"/decide_batch", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Base+"/decide_batch"+c.Query, bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +307,25 @@ func (c *Client) Configure(ctx context.Context, id, dim, kind string, model []by
 	if res.StatusCode != 200 {
 		b, _ := io.ReadAll(res.Body)
 		return fmt.Errorf("configure: %s %s", res.Status, b)
+	}
+	return nil
+}
+
+// BankPut sustituye un modelo en el banco de un nodo.
+func (c *Client) BankPut(ctx context.Context, dim, kind string, model []byte) error {
+	u := fmt.Sprintf("%s/bank/put?dim=%s&kind=%s", c.Base, url.QueryEscape(dim), url.QueryEscape(kind))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(model))
+	if err != nil {
+		return err
+	}
+	res, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("bank/put: %s %s", res.Status, b)
 	}
 	return nil
 }

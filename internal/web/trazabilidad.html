@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Chispa Arena · Trazabilidad</title>
+<style>
+:root{--bg:#0a0e14;--p:#111823;--b:#1f2a3a;--t:#d7e1ee;--m:#7d8da3;--ok:#3ddc97;--lab:#ffb547;--todo:#ff5d73;--ac:#5cc8ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px/1.45 system-ui,-apple-system,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;border-bottom:1px solid var(--b)}
+h1{margin:0;font-size:20px}h1 span{color:var(--ac)}a{color:var(--ac)}
+main{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;padding:14px 22px}
+section{background:var(--p);border:1px solid var(--b);border-radius:10px;padding:12px 16px}
+h2{margin:0 0 8px;font-size:15px;color:var(--ac);text-transform:uppercase;letter-spacing:.06em}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:5px 6px;border-bottom:1px solid var(--b);text-align:left;vertical-align:top}
+th{color:var(--m);font-weight:500}.n{font-family:ui-monospace,monospace;white-space:nowrap}
+.tag{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;font-weight:600}
+.ok{background:#3ddc9722;color:var(--ok)}.lab{background:#ffb54722;color:var(--lab)}.todo{background:#ff5d7322;color:var(--todo)}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}.flow b{background:#1a2433;border:1px solid var(--b);padding:6px 9px;border-radius:7px;font-weight:500}
+.flow i{color:var(--m);font-style:normal}.wide{grid-column:1/-1}p{margin:6px 0;color:#c3cfdd}small{color:var(--m)}
+</style></head><body>
+<header><h1>Chispa Arena · <span>trazabilidad</span></h1><a href="/">← panel en vivo</a></header>
+<main>
+<section class="wide"><h2>Qué intentamos demostrar</h2>
+<p><b>Tesis:</b> varios clasificadores diminutos (Chispa: regresión logística, ~1 MB, µs por decisión), diversos y aislados, son más difíciles de engañar que uno solo; y lo que no resuelven se corrige con un LLM pequeño (VON) por lotes, de forma que con cada generación <b>escalan menos y cuestan menos</b>. Todo servido desde <b>golden snapshots</b> de kindling que comparten los pesos entre réplicas.</p>
+<div class="flow"><b>Ataques (mutaciones + búsqueda guiada que solo inserta)</b><i>→</i><b>Enjambre por clasificación: spam · injection · urgencia × 4 detectores</b><i>→</i><b>Resuelve</b><i>/</i><b>Escala o es engañado</b><i>→</i><b>VON etiqueta por lotes</b><i>→</i><b>Reentreno en sombra</b><i>→</i><b>Promoción solo si gana</b><i>↺</i></div>
+<p><span class="tag ok">EN VIVO</span> corre ahora en el panel · <span class="tag lab">MEDIDO EN LIMA</span> probado con kindling 0.17 en microVMs Firecracker, no en el panel · <span class="tag todo">PENDIENTE</span> diseñado y escrito, sin rendir en vivo todavía</p></section>
+
+<section><h2>Estado por pieza</h2><table>
+<tr><th>Pieza</th><th>Estado</th><th>Evidencia</th></tr>
+<tr><td>Enjambre de 12 detectores (3 clasificaciones × chispa-words, chispa-char, chispa-sub, reglas)</td><td><span class="tag ok">EN VIVO</span></td><td>procesos locales, un puerto cada uno</td></tr>
+<tr><td>Motor de ataques + veredicto del enjambre (log-odds, escala si discrepan &gt; 0,5)</td><td><span class="tag ok">EN VIVO</span></td><td>feed, ASR detector vs enjambre</td></tr>
+<tr><td>Bucle de aprendizaje: lotes → reentreno en sombra → promoción si engaña o escala menos sin bajar exactitud limpia</td><td><span class="tag ok">EN VIVO</span></td><td>maestro = <b>oráculo de la semilla</b> (no VON)</td></tr>
+<tr><td>Rampa de escala hasta el tope de CPU/RAM</td><td><span class="tag ok">EN VIVO</span></td><td>curva réplicas → decisiones/s</td></tr>
+<tr><td>Micro-lotes por réplica (decide_batch)</td><td><span class="tag ok">EN VIVO</span></td><td>reparte el coste de cada viaje</td></tr>
+<tr><td>Golden snapshot del detector con el banco de 12 modelos</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">53 MB · 4 s</span> en construir</td></tr>
+<tr><td>Restore de microVM desde snapshot</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">171–265 ms</span></td></tr>
+<tr><td>Pesos de VON compartidos (10 réplicas, mismo snapshot)</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">~10 MiB</span> privados c/u; <span class="n">896 MiB</span> de pesos compartidos</td></tr>
+<tr><td>Una microVM detector, lotes de 128</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">6.400</span> decisiones/s</td></tr>
+<tr><td>VON como maestro (qwen 0.5B/1.5B)</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td>etiqueta bien (<i>spam</i>); 1ª respuesta tras restore <span class="n">35 s</span></td></tr>
+<tr><td>Enjambre completo en microVMs bajo carga</td><td><span class="tag todo">PENDIENTE</span></td><td>12 VMs × 1 vCPU sobre 5 vCPU anidadas se bloquean (0 dec/s, 50% CPU de sistema). Arreglo escrito: <b>nodos</b> (cada microVM sirve los 12 detectores desde el banco; VMs ≤ núcleos), sin validar</td></tr>
+<tr><td>Horneado periódico del golden tras promociones</td><td><span class="tag todo">PENDIENTE</span></td><td>coalescido a 1 cada 60 s, sin validar</td></tr>
+</table></section>
+
+<section><h2>Cómo se comportaría con lo que funciona</h2>
+<p><small>Proyecciones a partir de las cifras medidas, no medidas en conjunto. Se indican los supuestos.</small></p>
+<table>
+<tr><th>Escenario</th><th>Proyección</th><th>Supuesto</th></tr>
+<tr><td>Enjambre en nodos microVM (4 nodos en Lima)</td><td>orden de <span class="n">10⁴</span> decisiones/s</td><td>6.400/s por VM con lotes grandes; sin sobresuscribir núcleos; el motor comparte la CPU, así que menos que 4 × 6.400</td></tr>
+<tr><td>Memoria del enjambre con banco compartido</td><td>≈ 1 copia de los pesos + memoria privada por VM</td><td>igual que VON: pesos en el snapshot se comparten copy-on-write</td></tr>
+<tr><td>Coste de VON en el bucle</td><td>1 lote de 32 ≈ minutos con 1 réplica fría; segundos en caliente</td><td>35 s la 1ª respuesta; la caché de prompt reduce las siguientes</td></tr>
+<tr><td>Eficiencia con generaciones</td><td>menos escalado → menos llamadas a VON por 1.000 decisiones</td><td>regla de promoción premia escalar menos; se ve en vivo con el oráculo</td></tr>
+<tr><td>Escalar más allá de los núcleos</td><td>el rendimiento cae, no sube</td><td>medido: en el Mac el pico fue con 24 réplicas (8.706 dec/s); con 36 bajó a 6.386</td></tr>
+</table></section>
+
+<section class="wide"><h2>Cifras en vivo vs medidas</h2>
+<p>Lo que ves en <a href="/">el panel</a> es real de esta ejecución en el Mac (procesos, no microVMs). El panel <b>no</b> muestra ahorro por pesos compartidos en este modo: ahí no hay snapshot ni copy-on-write, y lo dejamos vacío en vez de inventarlo. Las cifras de microVMs y VON de esta página salen de pruebas sueltas en Lima (kindling 0.17, Firecracker, 5 vCPU / 8 GiB = la mitad del Mac).</p>
+</section>
+</main></body></html>

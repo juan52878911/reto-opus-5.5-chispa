@@ -13,10 +13,32 @@ import (
 )
 
 var (
-	bakeMu  sync.Mutex
-	bakeGen atomic.Int64
-	bankSz  atomic.Int64
+	bakeMu    sync.Mutex
+	bakeGen   atomic.Int64
+	bankSz    atomic.Int64
+	bakeDirty atomic.Bool
 )
+
+// rebaker junta promociones: como mucho un horneado cada `every`. Antes cada
+// promoción lanzaba el suyo (arrancar VM, copiar, guardar, reemplazar las 12
+// réplicas) y con promociones cada pocos segundos la CPU de Lima se iba ahí.
+func rebaker(ctx context.Context, every time.Duration, fl *fleet, vl *vmLauncher, models, image string, mem int) {
+	if every <= 0 {
+		return
+	}
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if bakeDirty.Swap(false) {
+				rebake(ctx, fl, vl, models, image, mem)
+			}
+		}
+	}
+}
 
 // rebake construye el dorado de la generación siguiente con todo el banco de
 // modelos ya cargado y sustituye las réplicas una a una (primero arranca la

@@ -41,10 +41,31 @@ func newScaler(f *fleet, led *ledger.Ledger, hub *web.Hub, maxVMs int, hold time
 		BudgetMemBytes: int64(float64(mem) * frac), BudgetCPUs: max(1, int(float64(cpus)*frac)), VMMemMiB: f.l.MemMiB(), VMVCPUs: f.l.VCPUs()}
 	byMem := int(s.st.BudgetMemBytes / int64(f.l.MemMiB()<<20))
 	s.st.MaxVMs = byMem
+	if vl, ok := f.l.(*vmLauncher); ok && vl.perNode > 0 {
+		// Sin sobresuscribir: una vCPU por nodo y un núcleo libre para el motor.
+		s.st.MaxVMs = min(byMem, max(1, cpus-1))
+		s.st.VMVCPUs = vl.VCPUs()
+	}
 	if maxVMs > 0 && maxVMs < byMem {
 		s.st.MaxVMs = maxVMs
 	}
 	return s
+}
+
+// nodeInfo: en modo nodo, cuántas réplicas lógicas lleva cada microVM.
+func (s *scaler) perNode() int {
+	if vl, ok := s.f.l.(*vmLauncher); ok && vl.perNode > 0 {
+		return vl.perNode
+	}
+	return 1
+}
+
+// liveVMs: microVMs (o procesos) reales, no detectores lógicos.
+func (s *scaler) liveVMs() int {
+	if vl, ok := s.f.l.(*vmLauncher); ok && vl.perNode > 0 {
+		return vl.NodeCount()
+	}
+	return s.f.live()
 }
 
 // sample mide el CPU como % del host: en Linux el del host entero (/proc/stat,
@@ -81,7 +102,7 @@ func (s *scaler) snapshot() contracts.Scale {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := s.st
-	st.LiveVMs = s.f.live()
+	st.LiveVMs = s.liveVMs()
 	st.History = append([]contracts.ScalePoint(nil), s.st.History...)
 	return st
 }
@@ -116,7 +137,7 @@ func (s *scaler) setTarget(ctx context.Context, n int) (float64, error) {
 	}
 	n = max(n, len(logical))
 	s.mu.Lock()
-	n = min(n, max(s.st.MaxVMs, len(logical)))
+	n = min(n, max(s.st.MaxVMs*s.perNode(), len(logical)))
 	s.st.TargetVMs = n
 	s.mu.Unlock()
 	var wg sync.WaitGroup
@@ -181,8 +202,8 @@ func (s *scaler) ramp(ctx context.Context) {
 		s.mu.Lock()
 		maxVMs := s.st.MaxVMs
 		s.mu.Unlock()
-		if n > maxVMs {
-			note = fmt.Sprintf("tope de memoria: %d VMs × %d MiB = mitad de la RAM", maxVMs, s.f.l.MemMiB())
+		if n > maxVMs*s.perNode() {
+			note = fmt.Sprintf("tope: %d microVMs (memoria y núcleos del presupuesto)", maxVMs)
 			break
 		}
 		boot, err := s.setTarget(ctx, n)
@@ -199,7 +220,7 @@ func (s *scaler) ramp(ctx context.Context) {
 		dt := time.Since(t0).Seconds()
 		s.sample()
 		s.mu.Lock()
-		p := contracts.ScalePoint{TS: time.Now().UTC(), VMs: s.f.live(), AttacksPerSec: float64(a1-a0) / dt,
+		p := contracts.ScalePoint{TS: time.Now().UTC(), VMs: s.liveVMs(), AttacksPerSec: float64(a1-a0) / dt,
 			DecisionsPerS: float64(d1-d0) / dt, P95MS: s.led.P95(), HostCPUPct: s.cpuPct, VMMemBytes: s.vmMem(), BootMS: boot}
 		s.st.History = append(s.st.History, p)
 		cpu := s.cpuPct

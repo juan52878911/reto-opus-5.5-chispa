@@ -97,12 +97,14 @@ func run(args []string) error {
 	backend := fs.String("backend", "process", "process | microvm (needs kling and the golden snapshot)")
 	snapshot := fs.String("snapshot", "arena-det", "microvm: golden snapshot of the detector")
 	bankMode := fs.Bool("bank", true, "microvm: weights baked in the golden snapshot, shared copy-on-write")
+	rebakeEvery := fs.Duration("rebake-every", 60*time.Second, "microvm: at most one golden rebake per interval (0 = never)")
 	goldenImage := fs.String("golden-image", "arena-base", "microvm: image used to rebuild the golden after a promotion")
 	budgetFrac := fs.Float64("budget-frac", 0.5, "fraction of host RAM/CPU the arena may use")
 	cpuStop := fs.Float64("cpu-stop", 50, "ramp stops when the host CPU %% passes this")
 	vonSnap := fs.String("von-snapshot", "", "microvm: restore this VON snapshot as teacher (e.g. von-qwen15-q4)")
 	vonReplicas := fs.Int("von-replicas", 1, "VON replicas restored from the same snapshot (shared weights)")
 	vonSlots := fs.Int("von-slots", 1, "concurrent requests per VON replica")
+	perNode := fs.Int("per-node", 12, "microvm+bank: logical detectors served by each microVM node (0 = one VM per detector)")
 	vmCPU := fs.Int("vm-cpu-pct", 100, "microvm: CPU ceiling per detector VM, % of one core (kindling default is 50)")
 	perVM := fs.Int("workers-per-vm", 16, "attack workers per live replica (fills the micro-batches)")
 	vonCPU := fs.Int("von-cpu-pct", 0, "CPU ceiling per VON replica, % of one core (0 = none)")
@@ -152,7 +154,11 @@ func run(args []string) error {
 		p.port.Store(int32(*basePort - 1))
 		pl = p
 	case "microvm":
-		pl = &vmLauncher{snapshot: *snapshot, models: *models, mem: *vmMem, bank: *bankMode, cpuPct: *vmCPU}
+		vl := &vmLauncher{snapshot: *snapshot, models: *models, mem: *vmMem, bank: *bankMode, cpuPct: *vmCPU}
+		if *bankMode && *perNode > 0 {
+			vl.perNode = *perNode
+		}
+		pl = vl
 	default:
 		return fmt.Errorf("backend desconocido %q", *backend)
 	}
@@ -202,9 +208,12 @@ func run(args []string) error {
 			// 2) en segundo plano: hornea la generación nueva en el dorado y
 			//    reemplaza las réplicas para recuperar los pesos compartidos.
 			err := fl.reload(dim)
-			go rebake(ctx, fl, vl, *models, *goldenImage, *vmMem)
+			bakeDirty.Store(true)
 			return err
 		}
+	}
+	if vl, ok := pl.(*vmLauncher); ok && vl.bank {
+		go rebaker(ctx, *rebakeEvery, fl, vl, *models, *goldenImage, *vmMem)
 	}
 	ln := learn.New(learn.Config{DataDir: *dataDir, ModelsDir: *models, BatchSize: *batch, Teacher: teacher,
 		Promote: promote, Publish: func(b contracts.LearnBatch) { hub.Publish(contracts.EvLearnBatch, b) }})

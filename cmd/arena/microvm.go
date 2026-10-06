@@ -51,6 +51,17 @@ type vmLauncher struct {
 	mem              int
 	bank             bool
 	cpuPct           int // tope de CPU por VM (% de un núcleo); kindling pone 50 si no
+	// perNode > 0: modo nodo. Cada microVM sirve perNode detectores lógicos
+	// eligiendo del banco por petición. DECISIÓN — con una VM por detector
+	// (12 vCPU sobre 5 núcleos virtuales de Lima) la virtualización anidada
+	// sobresuscrita se bloquea (medido: 0 decisiones/s, 50% CPU de sistema);
+	// con nodos, VMs ≤ núcleos y cada viaje lleva votos de varios detectores.
+	perNode  int
+	vcpus    int
+	nodeMu   sync.Mutex
+	createMu sync.Mutex
+	nodes    []*vmNode
+	nodeSeq  int
 
 	mu sync.Mutex // protege snapshot
 }
@@ -70,11 +81,101 @@ func (v *vmLauncher) snap() string {
 
 func (v *vmLauncher) Name() string { return "microvm" }
 func (v *vmLauncher) MemMiB() int  { return v.mem }
-func (v *vmLauncher) VCPUs() int   { return 1 }
+func (v *vmLauncher) VCPUs() int   { return max(1, v.vcpus) }
+
+type vmNode struct {
+	name, base string
+	refs       int
+}
+
+// startNode asigna la réplica a un nodo con hueco o restaura uno nuevo.
+func (v *vmLauncher) startNode(ctx context.Context, r *replica) (string, error) {
+	v.createMu.Lock()
+	defer v.createMu.Unlock()
+	v.nodeMu.Lock()
+	var n *vmNode
+	for _, x := range v.nodes {
+		if x.refs < v.perNode && (n == nil || x.refs < n.refs) {
+			n = x
+		}
+	}
+	if n == nil {
+		v.nodeSeq++
+		n = &vmNode{name: fmt.Sprintf("arena-node-%d", v.nodeSeq)}
+		v.nodeMu.Unlock()
+		kling(ctx, "rm", n.name)
+		args := []string{"run", "-from", v.snap(), "-name", n.name, "-label", "app=chispa-arena"}
+		if v.cpuPct > 0 {
+			args = append(args, "-cpu-pct", fmt.Sprint(v.cpuPct))
+		}
+		if _, err := kling(ctx, args...); err != nil {
+			return "", err
+		}
+		ip, err := klingIP(ctx, n.name)
+		if err != nil {
+			return "", err
+		}
+		n.base = fmt.Sprintf("http://%s:%d", ip, DetPort)
+		c := detsrv.NewClient(n.base)
+		for i := 0; i < 100; i++ {
+			if _, err = c.Health(ctx); err == nil {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		if err != nil {
+			kling(ctx, "rm", n.name)
+			return "", err
+		}
+		v.nodeMu.Lock()
+		v.nodes = append(v.nodes, n)
+	}
+	n.refs++
+	r.handle = n
+	v.nodeMu.Unlock()
+	return fmt.Sprintf("%s?dim=%s&kind=%s", n.base, r.dim, r.kind), nil
+}
+
+func (v *vmLauncher) stopNode(r *replica) error {
+	n, ok := r.handle.(*vmNode)
+	if !ok {
+		return nil
+	}
+	v.nodeMu.Lock()
+	n.refs--
+	empty := n.refs <= 0
+	if empty {
+		for i, x := range v.nodes {
+			if x == n {
+				v.nodes = append(v.nodes[:i], v.nodes[i+1:]...)
+				break
+			}
+		}
+	}
+	v.nodeMu.Unlock()
+	r.handle = nil
+	if !empty {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	_, err := kling(ctx, "rm", n.name)
+	return err
+}
+
+// NodeCount: microVMs vivas en modo nodo.
+func (v *vmLauncher) NodeCount() int {
+	v.nodeMu.Lock()
+	defer v.nodeMu.Unlock()
+	return len(v.nodes)
+}
 
 func vmName(id string) string { return "arena-" + id }
 
 func (v *vmLauncher) Start(ctx context.Context, r *replica) (string, error) {
+	if v.perNode > 0 {
+		return v.startNode(ctx, r)
+	}
 	name := vmName(r.id)
 	kling(ctx, "rm", name) // restos de una vida anterior
 	args := []string{"run", "-from", v.snap(), "-name", name, "-label", "app=chispa-arena"}
@@ -120,6 +221,9 @@ func (v *vmLauncher) configureWith(ctx context.Context, r *replica, base string,
 }
 
 func (v *vmLauncher) Stop(r *replica) error {
+	if v.perNode > 0 {
+		return v.stopNode(r)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	_, err := kling(ctx, "rm", vmName(r.id))
@@ -131,6 +235,16 @@ func (v *vmLauncher) Stop(r *replica) error {
 // en el snapshot viejo; el integrador reemplaza las réplicas desde el golden
 // nuevo (SetSnapshot + Start) para recuperar el compartido.
 func (v *vmLauncher) Reload(ctx context.Context, r *replica) error {
+	if n, ok := r.handle.(*vmNode); ok {
+		if r.kind == detectors.KindRules {
+			return nil
+		}
+		b, err := os.ReadFile(detectors.ModelPath(v.models, r.dim, r.kind))
+		if err != nil {
+			return err
+		}
+		return detsrv.NewClient(n.base).BankPut(ctx, r.dim, r.kind, b)
+	}
 	return v.configureWith(ctx, r, r.client.Base, false)
 }
 

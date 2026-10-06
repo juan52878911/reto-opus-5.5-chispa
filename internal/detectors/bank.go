@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/juan52878911/chispa/contracts"
 )
@@ -29,7 +30,22 @@ type BankEntry struct {
 // Bank guarda todos los modelos de un directorio, residentes en memoria.
 type Bank struct {
 	Dir     string
+	mu      sync.RWMutex
 	entries map[string]*BankEntry
+}
+
+// Put sustituye (o añade) un modelo del banco: la promoción de un modelo nuevo
+// en un nodo vivo. Ese modelo deja de compartirse hasta el próximo horneado.
+func (b *Bank) Put(dim, kind string, raw []byte) error {
+	d, err := FromBytes(dim, kind, raw)
+	if err != nil {
+		return err
+	}
+	e := &BankEntry{ID: ID(dim, kind), Dim: dim, Kind: kind, Bytes: len(raw), Det: d, raw: raw}
+	b.mu.Lock()
+	b.entries[e.ID] = e
+	b.mu.Unlock()
+	return nil
 }
 
 // LoadBank carga cada <dim>-<kind>.chispa de dir, más las reglas de cada
@@ -107,7 +123,9 @@ func (b *Bank) Touch() {
 
 // Get devuelve el detector de (dim, kind) si está en el banco.
 func (b *Bank) Get(dim, kind string) (Detector, bool) {
+	b.mu.RLock()
 	e, ok := b.entries[ID(dim, kind)]
+	b.mu.RUnlock()
 	if !ok {
 		return nil, false
 	}
@@ -116,6 +134,8 @@ func (b *Bank) Get(dim, kind string) (Detector, bool) {
 
 // Entries devuelve los modelos del banco ordenados por id.
 func (b *Bank) Entries() []*BankEntry {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	out := make([]*BankEntry, 0, len(b.entries))
 	for _, e := range b.entries {
 		out = append(out, e)
@@ -126,6 +146,8 @@ func (b *Bank) Entries() []*BankEntry {
 
 // Bytes es el tamaño total de los pesos del banco.
 func (b *Bank) Bytes() int64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	var n int64
 	for _, e := range b.entries {
 		n += int64(e.Bytes)
