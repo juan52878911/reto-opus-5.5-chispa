@@ -142,6 +142,19 @@ func newRules(dim string, labels []string) *rules {
 			"alta":  {`urgente`, `asap`, `ya mismo`, `emergencia`, `ayuda`, `auxilio`, `ahora`, `inmediat`, `r[aá]pido`, `se cay[oó]`, `hospital`, `accidente`, `!!+`},
 			"media": {`hoy`, `esta tarde`, `antes de`, `cuando puedas`, `pronto`, `mañana`},
 		},
+		"emocion": {
+			"alegria":  {`feliz`, `contento`, `contenta`, `bacan`, `genial`, `jaja`, `que chimba`, `me encanta`, `gracias`, `😂|😊|🎉|❤`},
+			"enojo":    {`rabia`, `harto`, `harta`, `odio`, `furios`, `me tiene mamad`, `que fastidio`, `😡|🤬`},
+			"tristeza": {`triste`, `llorar`, `llor`, `me siento mal`, `solo|sola`, `extraño`, `deprim`, `😢|😭|💔`},
+		},
+		"toxicidad": {
+			"toxico": {`idiota`, `inutil|inútil`, `estupid|estúpid`, `imbecil|imbécil`, `callate|cállate`, `gonorrea`, `huevon|huevón`, `basura`, `nadie te quiere`, `das asco`},
+		},
+		"intencion": {
+			"compra":  {`comprar`, `precio`, `cuanto vale|cuánto vale|cuanto cuesta|cuánto cuesta`, `pedido`, `envio|envío`, `disponible`, `talla`},
+			"soporte": {`no funciona`, `ayuda con`, `como hago|cómo hago`, `contraseña`, `error`, `no me deja`, `configurar`},
+			"queja":   {`pesimo|pésimo`, `reclamo`, `devolucion|devolución`, `nunca llego|nunca llegó`, `mal servicio`, `estafa`, `inaceptable`},
+		},
 	}[dim]
 	r := &rules{labels: labels, pats: map[string][]*regexp.Regexp{}}
 	for l, ps := range src {

@@ -24,32 +24,41 @@ th{color:var(--m);font-weight:500}.n{font-family:ui-monospace,monospace;white-sp
 
 <section><h2>Estado por pieza</h2><table>
 <tr><th>Pieza</th><th>Estado</th><th>Evidencia</th></tr>
-<tr><td>Enjambre de 12 detectores (3 clasificaciones × chispa-words, chispa-char, chispa-sub, reglas)</td><td><span class="tag ok">EN VIVO</span></td><td>procesos locales, un puerto cada uno</td></tr>
+<tr><td>Enjambre por clasificación: 6 (spam, injection, urgencia, emoción, toxicidad, intención) clasificaciones × 4 detectores (chispa-words, chispa-char, chispa-sub, reglas) = 24 detectores</td><td><span class="tag ok">EN VIVO</span></td><td>en microVMs Firecracker (Lima, kindling 0.17)</td></tr>
+<tr><td>Modo nodo: cada microVM sirve todos los detectores desde el banco de modelos del golden snapshot</td><td><span class="tag ok">EN VIVO</span></td><td>4 nodos = núcleos − 1 (sin sobresuscribir)</td></tr>
+<tr><td>Micro-lotes por nodo (<span class="n">/decide_multi</span>: un viaje por lote con votos de todos los detectores)</td><td><span class="tag ok">EN VIVO</span></td><td>1 nodo: 2.468 → 3.213 dec/s al pasar de lote por detector a lote por nodo</td></tr>
 <tr><td>Motor de ataques + veredicto del enjambre (log-odds, escala si discrepan &gt; 0,5)</td><td><span class="tag ok">EN VIVO</span></td><td>feed, ASR detector vs enjambre</td></tr>
-<tr><td>Bucle de aprendizaje: lotes → reentreno en sombra → promoción si engaña o escala menos sin bajar exactitud limpia</td><td><span class="tag ok">EN VIVO</span></td><td>maestro = <b>oráculo de la semilla</b> (no VON)</td></tr>
-<tr><td>Rampa de escala hasta el tope de CPU/RAM</td><td><span class="tag ok">EN VIVO</span></td><td>curva réplicas → decisiones/s</td></tr>
-<tr><td>Micro-lotes por réplica (decide_batch)</td><td><span class="tag ok">EN VIVO</span></td><td>reparte el coste de cada viaje</td></tr>
-<tr><td>Golden snapshot del detector con el banco de 12 modelos</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">53 MB · 4 s</span> en construir</td></tr>
-<tr><td>Restore de microVM desde snapshot</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">171–265 ms</span></td></tr>
+<tr><td>Bucle de aprendizaje: lote → reentreno en sombra → promoción si engaña o escala menos sin bajar la exactitud limpia → modelo nuevo al banco de cada nodo (<span class="n">/bank/put</span>)</td><td><span class="tag ok">EN VIVO</span></td><td>maestro = <b>oráculo de la semilla</b> (no VON)</td></tr>
+<tr><td>Pesos compartidos de Chispa entre nodos (copy-on-write del snapshot)</td><td><span class="tag ok">EN VIVO</span></td><td>medido con PSS/RSS de cada proceso firecracker</td></tr>
+<tr><td>VON como maestro (qwen 0.5B, pool con caché y prompt fijo)</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td>funciona, pero 14–19 s por etiqueta con el enjambre cargando: no cierra lotes a tiempo</td></tr>
 <tr><td>Pesos de VON compartidos (10 réplicas, mismo snapshot)</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">~10 MiB</span> privados c/u; <span class="n">896 MiB</span> de pesos compartidos</td></tr>
-<tr><td>Una microVM detector, lotes de 128</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td><span class="n">6.400</span> decisiones/s</td></tr>
-<tr><td>VON como maestro (qwen 0.5B/1.5B)</td><td><span class="tag lab">MEDIDO EN LIMA</span></td><td>etiqueta bien (<i>spam</i>); 1ª respuesta tras restore <span class="n">35 s</span></td></tr>
-<tr><td>Enjambre completo en microVMs bajo carga</td><td><span class="tag todo">PENDIENTE</span></td><td>12 VMs × 1 vCPU sobre 5 vCPU anidadas se bloquean (0 dec/s, 50% CPU de sistema). Arreglo escrito: <b>nodos</b> (cada microVM sirve los 12 detectores desde el banco; VMs ≤ núcleos), sin validar</td></tr>
-<tr><td>Horneado periódico del golden tras promociones</td><td><span class="tag todo">PENDIENTE</span></td><td>coalescido a 1 cada 60 s, sin validar</td></tr>
+<tr><td>Re-horneado periódico del golden tras promociones</td><td><span class="tag todo">PENDIENTE</span></td><td>generó <span class="n">arena-det-g2</span>, pero falla de forma intermitente (agente de invitado aún no escucha al copiar). Apagado en la demo</td></tr>
 </table></section>
 
-<section><h2>Cómo se comportaría con lo que funciona</h2>
-<p><small>Proyecciones a partir de las cifras medidas, no medidas en conjunto. Se indican los supuestos.</small></p>
+<section><h2>Mediciones (kindling 0.17 · Lima 5 vCPU / 8 GiB = ½ Mac)</h2>
 <table>
-<tr><th>Escenario</th><th>Proyección</th><th>Supuesto</th></tr>
-<tr><td>Enjambre en nodos microVM (4 nodos en Lima)</td><td>orden de <span class="n">10⁴</span> decisiones/s</td><td>6.400/s por VM con lotes grandes; sin sobresuscribir núcleos; el motor comparte la CPU, así que menos que 4 × 6.400</td></tr>
-<tr><td>Memoria del enjambre con banco compartido</td><td>≈ 1 copia de los pesos + memoria privada por VM</td><td>igual que VON: pesos en el snapshot se comparten copy-on-write</td></tr>
-<tr><td>Coste de VON en el bucle</td><td>1 lote de 32 ≈ minutos con 1 réplica fría; segundos en caliente</td><td>35 s la 1ª respuesta; la caché de prompt reduce las siguientes</td></tr>
-<tr><td>Eficiencia con generaciones</td><td>menos escalado → menos llamadas a VON por 1.000 decisiones</td><td>regla de promoción premia escalar menos; se ve en vivo con el oráculo</td></tr>
-<tr><td>Escalar más allá de los núcleos</td><td>el rendimiento cae, no sube</td><td>medido: en el Mac el pico fue con 24 réplicas (8.706 dec/s); con 36 bajó a 6.386</td></tr>
+<tr><th>Qué</th><th>Medido</th></tr>
+<tr><td>Pesos de un detector Chispa / banco completo (18 modelos + 6 de reglas)</td><td class="n">~25 KB / 455 KB</td></tr>
+<tr><td>Golden snapshot del detector con el banco</td><td class="n">56 MB · construido en 4 s</td></tr>
+<tr><td>Restore microVM desde snapshot</td><td class="n">171–265 ms</td></tr>
+<tr><td>1 microVM, lotes de 128 (secuencial)</td><td class="n">6.400 dec/s</td></tr>
+<tr><td>Enjambre en 1 nodo</td><td class="n">3.213 dec/s · 0 errores</td></tr>
+<tr><td>Enjambre en 4 nodos</td><td class="n">4.826 dec/s · 0 errores nuevos en 33.000 ataques</td></tr>
+<tr><td>Memoria 4 nodos: Σ RSS vs Σ PSS</td><td class="n">210 vs 117 MiB → 44 % compartido · ~29 MiB/nodo</td></tr>
+<tr><td>Aprendizaje (oráculo), 100 s</td><td class="n">26 generaciones · 20 lotes · 5 promociones</td></tr>
+<tr><td>Ejemplo de promoción (urgencia)</td><td class="n">escala a VON 100 % → 88 %, exactitud limpia 1,00 → 1,00</td></tr>
+<tr><td>Ejemplo de rechazo (injection)</td><td class="n">exactitud limpia 0,92 → 0,83 → no se promociona</td></tr>
+<tr><td>12 VMs de 1 vCPU sobre 5 vCPU anidadas</td><td class="n">0 dec/s (bloqueo por sobresuscripción) → resuelto con nodos</td></tr>
+<tr><td colspan="2" style="color:#5cc8ff;padding-top:10px">Ampliación a 6 clasificaciones (24 detectores por nodo)</td></tr>
+<tr><td>Exactitud en test (plantillas nunca vistas), nuevas</td><td class="n">emoción 0,40–0,55 · toxicidad 0,58–0,82 · intención 0,65–0,75</td></tr>
+<tr><td>Exactitud en test, originales</td><td class="n">spam 0,72–0,99 · injection 0,67–0,82 · urgencia 0,57–0,73</td></tr>
+<tr><td>Enjambre 6 clasificaciones, 4 nodos, sin aprendizaje</td><td class="n">1.028 dec/s (vs 4.826 con 3 clasificaciones)</td></tr>
+<tr><td>Ídem con aprendizaje (oráculo)</td><td class="n">418 dec/s · 20 lotes, 5 promociones</td></tr>
+<tr><td>Cuello de botella localizado</td><td class="n">Chispa de emoción: 21–28 ms p95 por decisión dentro de la VM (resto ~1 ms). Sin resolver</td></tr>
+<tr><td>Memoria 4 nodos con 24 detectores: Σ RSS vs Σ PSS</td><td class="n">374 vs 280 MiB → 25 % compartido · ~70 MiB/nodo</td></tr>
 </table></section>
 
 <section class="wide"><h2>Cifras en vivo vs medidas</h2>
-<p>Lo que ves en <a href="/">el panel</a> es real de esta ejecución en el Mac (procesos, no microVMs). El panel <b>no</b> muestra ahorro por pesos compartidos en este modo: ahí no hay snapshot ni copy-on-write, y lo dejamos vacío en vez de inventarlo. Las cifras de microVMs y VON de esta página salen de pruebas sueltas en Lima (kindling 0.17, Firecracker, 5 vCPU / 8 GiB = la mitad del Mac).</p>
+<p>Lo que ves en <a href="/">el panel</a> es real: la arena corre en Lima con microVMs Firecracker en modo nodo y el panel llega al Mac por el reenvío de puertos de Lima. El ahorro por pesos compartidos que muestra se mide en vivo (PSS frente a RSS). El maestro del aprendizaje en vivo es el oráculo de la semilla; las cifras de VON salen de pruebas sueltas en Lima.</p>
 </section>
 </main></body></html>

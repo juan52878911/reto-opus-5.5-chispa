@@ -104,7 +104,7 @@ func run(args []string) error {
 	vonSnap := fs.String("von-snapshot", "", "microvm: restore this VON snapshot as teacher (e.g. von-qwen15-q4)")
 	vonReplicas := fs.Int("von-replicas", 1, "VON replicas restored from the same snapshot (shared weights)")
 	vonSlots := fs.Int("von-slots", 1, "concurrent requests per VON replica")
-	perNode := fs.Int("per-node", 12, "microvm+bank: logical detectors served by each microVM node (0 = one VM per detector)")
+	perNode := fs.Int("per-node", len(contracts.DimensionOrder)*len(detectors.Kinds), "microvm+bank: logical detectors served by each microVM node (0 = one VM per detector)")
 	vmCPU := fs.Int("vm-cpu-pct", 100, "microvm: CPU ceiling per detector VM, % of one core (kindling default is 50)")
 	perVM := fs.Int("workers-per-vm", 16, "attack workers per live replica (fills the micro-batches)")
 	vonCPU := fs.Int("von-cpu-pct", 0, "CPU ceiling per VON replica, % of one core (0 = none)")

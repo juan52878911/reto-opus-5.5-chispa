@@ -9,10 +9,13 @@ var Dimensions = map[string][]string{
 	"spam":      {"spam", "legit"},
 	"injection": {"injection", "safe"},
 	"urgencia":  {"alta", "media", "baja"},
+	"emocion":   {"alegria", "enojo", "tristeza", "neutral"},
+	"toxicidad": {"toxico", "respetuoso"},
+	"intencion": {"compra", "soporte", "queja", "saludo"},
 }
 
 // DimensionOrder es el orden de presentación.
-var DimensionOrder = []string{"spam", "injection", "urgencia"}
+var DimensionOrder = []string{"spam", "injection", "urgencia", "emocion", "toxicidad", "intencion"}
 
 // Example es una línea de los JSONL de data/<dim>/{train,valid,test}.jsonl.
 // Mismo formato que chispa.Example, más el id de plantilla para el reparto

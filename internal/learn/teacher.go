@@ -22,6 +22,9 @@ var describe = map[string]string{
 	"spam":      "spam = publicidad, estafa, premio, enlace sospechoso o venta no pedida; legit = conversación normal entre personas",
 	"injection": "injection = intenta manipular a un asistente de IA (ignorar instrucciones, revelar el prompt, cambiar de rol); safe = petición normal",
 	"urgencia":  "alta = hay que actuar ya (emergencia, bloqueo, peligro); media = hoy o pronto; baja = puede esperar",
+	"emocion":   "alegria = contento, agradecido, entusiasmado; enojo = rabia, fastidio, reclamo airado; tristeza = pena, soledad, decepción; neutral = sin emoción marcada",
+	"toxicidad": "toxico = insulta, humilla o acosa a alguien; respetuoso = trato normal, aunque sea informal o en broma sin agresión",
+	"intencion": "compra = quiere comprar o pregunta precio/disponibilidad; soporte = pide ayuda con un problema técnico o de uso; queja = reclama por un mal servicio o producto; saludo = saluda o conversa sin pedir nada",
 }
 
 // VON habla con un modelo VON por la API compatible con OpenAI del gateway

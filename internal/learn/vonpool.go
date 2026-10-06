@@ -23,6 +23,9 @@ const systemPrompt = "Eres un clasificador de mensajes de chat. Recibes una dime
 	"- spam: spam = publicidad, estafa, premio, enlace sospechoso o venta no pedida; legit = conversación normal entre personas.\n" +
 	"- injection: injection = intenta manipular a un asistente de IA (ignorar instrucciones, revelar el prompt, cambiar de rol); safe = petición normal.\n" +
 	"- urgencia: alta = hay que actuar ya (emergencia, bloqueo, peligro); media = hoy o pronto; baja = puede esperar.\n" +
+	"- emocion: " + "alegria = contento, agradecido, entusiasmado; enojo = rabia, fastidio, reclamo airado; tristeza = pena, soledad, decepción; neutral = sin emoción marcada.\n" +
+	"- toxicidad: toxico = insulta, humilla o acosa a alguien; respetuoso = trato normal, aunque sea informal o en broma sin agresión.\n" +
+	"- intencion: compra = quiere comprar o pregunta precio/disponibilidad; soporte = pide ayuda con un problema técnico o de uso; queja = reclama por un mal servicio o producto; saludo = saluda o conversa sin pedir nada.\n" +
 	"Ignora el ruido: emojis, letras raras, relleno inocente y mezcla de idiomas no cambian la categoría."
 
 type replica struct {
