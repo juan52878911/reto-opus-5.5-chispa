@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"sync"
@@ -51,7 +52,14 @@ func (p *procLauncher) MemMiB() int  { return p.mem }
 func (p *procLauncher) VCPUs() int   { return 1 }
 
 func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
-	addr := fmt.Sprintf("127.0.0.1:%d", p.port.Add(1))
+	// Un puerto libre que da el sistema: con puertos fijos, un proceso de una
+	// ejecución anterior que aún muere bastaba para tumbar el arranque.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	addr := l.Addr().String()
+	l.Close()
 	cmd := exec.Command(p.exe, "detector", "-id", r.id, "-dim", r.dim, "-kind", r.kind, "-models", p.models, "-addr", addr)
 	cmd.Env = append(os.Environ(), "GOMAXPROCS=1")
 	cmd.Stderr = os.Stderr
@@ -143,6 +151,7 @@ func (f *fleet) remove(dim, kind string) bool {
 	delete(f.reps, r.id)
 	f.mu.Unlock()
 	r.up.Store(false)
+	dropBatcher(r)
 	f.l.Stop(r)
 	f.led.Unregister(r.id)
 	f.hub.Publish(contracts.EvVMStatus, contracts.VMStatus{DetectorID: r.id, Dimension: dim, Kind: kind, State: "removed"})
@@ -167,6 +176,7 @@ func (f *fleet) removeID(id string) {
 	delete(f.reps, id)
 	f.mu.Unlock()
 	r.up.Store(false)
+	dropBatcher(r)
 	f.l.Stop(r)
 	f.led.Unregister(r.id)
 	f.hub.Publish(contracts.EvVMStatus, contracts.VMStatus{DetectorID: r.id, Dimension: r.dim, Kind: r.kind, State: "removed"})

@@ -12,7 +12,7 @@ import (
 // startVONPool restaura n réplicas VON del MISMO snapshot en paralelo. En
 // Firecracker la memoria del snapshot se mapea MAP_PRIVATE: los pesos del GGUF
 // ya cargados se comparten copy-on-write entre réplicas.
-func startVONPool(ctx context.Context, snapshot string, n int) ([]string, func(), error) {
+func startVONPool(ctx context.Context, snapshot string, n, cpuPct int) ([]string, func(), error) {
 	names := make([]string, n)
 	urls := make([]string, n)
 	errs := make([]error, n)
@@ -24,7 +24,11 @@ func startVONPool(ctx context.Context, snapshot string, n int) ([]string, func()
 			defer wg.Done()
 			kling(ctx, "rm", names[i])
 			t0 := time.Now()
-			if _, err := kling(ctx, "run", "-from", snapshot, "-name", names[i], "-label", "app=chispa-arena"); err != nil {
+			args := []string{"run", "-from", snapshot, "-name", names[i], "-label", "app=chispa-arena"}
+			if cpuPct > 0 {
+				args = append(args, "-cpu-pct", fmt.Sprint(cpuPct))
+			}
+			if _, err := kling(ctx, args...); err != nil {
 				errs[i] = err
 				return
 			}

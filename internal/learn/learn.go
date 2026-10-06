@@ -182,6 +182,13 @@ func loadPool(dir, dim string) (pool, error) {
 
 // swarmEval: ASR del enjambre sobre ataques y exactitud del enjambre en limpio.
 func (p pool) swarmEval(dim string, atk []contracts.Attack, clean []contracts.Example) (asr, acc float64) {
+	asr, acc, _ = p.swarmEval3(dim, atk, clean)
+	return
+}
+
+// swarmEval3 añade la tasa de escalado en el reto: lo que el enjambre tendría
+// que mandar a VON. Bajarla es lo que ahorra VON con cada generación.
+func (p pool) swarmEval3(dim string, atk []contracts.Attack, clean []contracts.Example) (asr, acc, esc float64) {
 	verdict := func(text, truth string) contracts.SwarmResult {
 		votes := make([]contracts.DetectorResult, 0, len(p))
 		for _, k := range detectors.Kinds {
@@ -190,10 +197,14 @@ func (p pool) swarmEval(dim string, atk []contracts.Attack, clean []contracts.Ex
 		}
 		return swarm.Verdict("", dim, truth, votes)
 	}
-	fooled := 0
+	fooled, escalated := 0, 0
 	for _, a := range atk {
-		if verdict(a.AttackedText, a.TrueLabel).Fooled {
+		v := verdict(a.AttackedText, a.TrueLabel)
+		if v.Fooled {
 			fooled++
+		}
+		if v.Escalated {
+			escalated++
 		}
 	}
 	ok := 0
@@ -204,6 +215,7 @@ func (p pool) swarmEval(dim string, atk []contracts.Attack, clean []contracts.Ex
 	}
 	if len(atk) > 0 {
 		asr = float64(fooled) / float64(len(atk))
+		esc = float64(escalated) / float64(len(atk))
 	}
 	if len(clean) > 0 {
 		acc = float64(ok) / float64(len(clean))
@@ -301,7 +313,8 @@ func (l *Learner) run(dim string) {
 		fail(err.Error())
 		return
 	}
-	lb.ASRBefore, lb.CleanBefore = cur.swarmEval(dim, challenge, clean)
+	var escBefore, escAfter float64
+	lb.ASRBefore, lb.CleanBefore, escBefore = cur.swarmEval3(dim, challenge, clean)
 	l.mu.Lock()
 	if len(l.eff) == 0 {
 		l.addPoint(0, lb.ASRBefore, lb.CleanBefore, len(tr))
@@ -352,10 +365,15 @@ func (l *Learner) run(dim string) {
 		fail(err.Error())
 		return
 	}
-	lb.ASRAfter, lb.CleanAfter = sh.swarmEval(dim, challenge, clean)
+	lb.ASRAfter, lb.CleanAfter, escAfter = sh.swarmEval3(dim, challenge, clean)
 
-	// 4. Promoción solo si gana en el reto sin estropear lo limpio.
-	lb.Promoted = lb.ASRAfter < lb.ASRBefore && lb.CleanAfter >= lb.CleanBefore-l.cfg.MaxCleanDrop
+	// 4. Promoción solo si gana en el reto sin estropear lo limpio. Ganar es
+	// engañarse menos, o engañarse igual y escalar menos a VON (más barato).
+	cleanOK := lb.CleanAfter >= lb.CleanBefore-l.cfg.MaxCleanDrop
+	lessFooled := lb.ASRAfter < lb.ASRBefore
+	lessVON := lb.ASRAfter <= lb.ASRBefore && escAfter < escBefore-0.02
+	lb.Promoted = cleanOK && (lessFooled || lessVON)
+	escNote := fmt.Sprintf("escala a VON %.0f%%→%.0f%%", 100*escBefore, 100*escAfter)
 	if lb.Promoted {
 		for _, k := range detectors.Kinds {
 			if k == detectors.KindRules {
@@ -385,8 +403,13 @@ func (l *Learner) run(dim string) {
 				lb.Note = "promocionado, pero la recarga falló: " + err.Error()
 			}
 		}
+		if lb.Note == "" {
+			lb.Note = escNote
+		}
+	} else if !cleanOK {
+		lb.Note = "no gana: baja la exactitud limpia · " + escNote
 	} else {
-		lb.Note = "no gana: se descarta el modelo en sombra"
+		lb.Note = "no gana: " + escNote
 	}
 	l.mu.Lock()
 	lb.Generation = l.gen

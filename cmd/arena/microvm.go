@@ -50,6 +50,7 @@ type vmLauncher struct {
 	snapshot, models string
 	mem              int
 	bank             bool
+	cpuPct           int // tope de CPU por VM (% de un núcleo); kindling pone 50 si no
 
 	mu sync.Mutex // protege snapshot
 }
@@ -76,7 +77,11 @@ func vmName(id string) string { return "arena-" + id }
 func (v *vmLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	name := vmName(r.id)
 	kling(ctx, "rm", name) // restos de una vida anterior
-	if _, err := kling(ctx, "run", "-from", v.snap(), "-name", name, "-label", "app=chispa-arena"); err != nil {
+	args := []string{"run", "-from", v.snap(), "-name", name, "-label", "app=chispa-arena"}
+	if v.cpuPct > 0 {
+		args = append(args, "-cpu-pct", fmt.Sprint(v.cpuPct))
+	}
+	if _, err := kling(ctx, args...); err != nil {
 		return "", err
 	}
 	ip, err := klingIP(ctx, name)

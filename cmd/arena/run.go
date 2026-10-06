@@ -51,14 +51,14 @@ func swarmScore(procs []*replica, trueLabel string) attacks.Scorer {
 			wg.Add(1)
 			go func(p *replica) {
 				defer wg.Done()
-				res, err := p.client.DecideBatch(ctx, items)
+				res, err := batcherFor(p).decide(ctx, items)
 				if err != nil {
 					return
 				}
 				mu.Lock()
 				defer mu.Unlock()
 				n++
-				for i, r := range res.Results {
+				for i, r := range res {
 					q := clampP(r.Probs[trueLabel])
 					sum[i] += math.Log(q / (1 - q))
 				}
@@ -103,6 +103,12 @@ func run(args []string) error {
 	vonSnap := fs.String("von-snapshot", "", "microvm: restore this VON snapshot as teacher (e.g. von-qwen15-q4)")
 	vonReplicas := fs.Int("von-replicas", 1, "VON replicas restored from the same snapshot (shared weights)")
 	vonSlots := fs.Int("von-slots", 1, "concurrent requests per VON replica")
+	vmCPU := fs.Int("vm-cpu-pct", 100, "microvm: CPU ceiling per detector VM, % of one core (kindling default is 50)")
+	perVM := fs.Int("workers-per-vm", 16, "attack workers per live replica (fills the micro-batches)")
+	vonCPU := fs.Int("von-cpu-pct", 0, "CPU ceiling per VON replica, % of one core (0 = none)")
+	fs.IntVar(&batchMax, "batch-max", 64, "micro-batch: max items per /decide_batch")
+	fs.IntVar(&batchInflight, "batch-inflight", 2, "micro-batch: batches in flight per replica")
+	fs.DurationVar(&batchWait, "batch-wait", 2*time.Millisecond, "micro-batch: max wait to fill a batch")
 	vonURL := fs.String("von-url", "", "VON teacher: OpenAI-compatible base URL (empty = seed oracle)")
 	vonModel := fs.String("von-model", "von-qwen15", "VON teacher model name")
 	vonToken := fs.String("von-token", "", "VON bearer token")
@@ -146,7 +152,7 @@ func run(args []string) error {
 		p.port.Store(int32(*basePort - 1))
 		pl = p
 	case "microvm":
-		pl = &vmLauncher{snapshot: *snapshot, models: *models, mem: *vmMem, bank: *bankMode}
+		pl = &vmLauncher{snapshot: *snapshot, models: *models, mem: *vmMem, bank: *bankMode, cpuPct: *vmCPU}
 	default:
 		return fmt.Errorf("backend desconocido %q", *backend)
 	}
@@ -158,7 +164,7 @@ func run(args []string) error {
 	defer stop()
 	var pool *learn.VONPool
 	if *vonSnap != "" {
-		urls, stopVON, err := startVONPool(ctx, *vonSnap, *vonReplicas)
+		urls, stopVON, err := startVONPool(ctx, *vonSnap, *vonReplicas, *vonCPU)
 		if err != nil {
 			return fmt.Errorf("VON: %w", err)
 		}
@@ -205,7 +211,7 @@ func run(args []string) error {
 	go ln.Watch(ctx)
 
 	var desiredWorkers atomic.Int64
-	workersFor := func() int { return min(max(2*fl.live(), 2*runtime.NumCPU()), 512) }
+	workersFor := func() int { return min(max(*perVM*fl.live(), 2*runtime.NumCPU()), 2048) }
 	metrics := func() contracts.Metrics {
 		m := led.Metrics(int(desiredWorkers.Load()), *vcpuUSD)
 		m.Scale = sc.snapshot()
@@ -408,13 +414,13 @@ func attackOnce(ctx context.Context, r *rand.Rand, fl *fleet, seeds map[string][
 				votes[i] = v
 				return
 			}
-			res, err := p.client.DecideBatch(ctx, item)
+			res, err := batcherFor(p).decide(ctx, item)
 			if err != nil {
 				v.Error = err.Error()
 				votes[i] = v
 				return
 			}
-			d := res.Results[0]
+			d := res[0]
 			v.PredictedLabel, v.Probs, v.Escalate, v.LatencyMS = d.Label, d.Probs, d.Escalate, d.LatencyMS
 			// Misma regla que el enjambre: engaña si contesta mal sin escalar.
 			v.Fooled = !d.Escalate && d.Label != seed.Label
