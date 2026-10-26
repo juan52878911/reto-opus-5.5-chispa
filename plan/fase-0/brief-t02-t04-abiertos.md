@@ -34,7 +34,7 @@ Encargo: `plan/fase-0/encargo.md` (criterio de aceptación congelado; no lo camb
 
 ## Entorno
 - `source ~/.profile`. Python en `~/venv`, modelos y datos en `~/hf` (sin red salvo la API de Claude).
-- Línea base: `25d934f`.
+- Línea base: la rama `claude/chispa-plan-83616c` en el sha con el que te lanzan (está en tu contexto de delega).
 
 ## Tope
 - ≤ 220 min de reloj · cómputo de pago: 0. Sin subagentes.

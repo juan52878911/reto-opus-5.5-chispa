@@ -23,7 +23,7 @@ Más el monorepo montado con la Arena dentro y sus pruebas en verde.
   el hash va en el informe.
 
 ## Línea base
-`25d934f` en la rama `claude/chispa-plan-83616c`.
+la rama `claude/chispa-plan-83616c`.
 
 ## Presupuesto
 - Reloj: ≤ 8 h de workers. Cuenta: ≤ 25 $ (`delega spend`). Cómputo externo de pago: 0 USD.
