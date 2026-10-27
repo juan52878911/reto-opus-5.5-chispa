@@ -18,7 +18,7 @@ python3 -m venv "$HOME/venv"
 # Una sola llamada: si torch se instala aparte, las dependencias lo reemplazan por el de CUDA (6 GB).
 "$HOME/venv/bin/pip" install -q --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
   --extra-index-url https://pypi.org/simple torch transformers sentence-transformers onnx onnxruntime \
-  datasets scikit-learn pandas huggingface_hub model2vec
+  datasets scikit-learn pandas huggingface_hub model2vec pytest
 "$HOME/venv/bin/python" -c "import torch; assert not torch.version.cuda, torch.version.cuda; print('torch', torch.__version__)"
 
 export HF_HOME="$HOME/hf"
@@ -39,6 +39,14 @@ for d in mteb/amazon_massive_intent Paul/hatecheck-spanish; do
 s(sys.argv[1], repo_type='dataset', allow_patterns=['*es*','*.json','*.md','*.csv'])" "$d" \
     || echo "aviso: no se pudo bajar $d"
 done
+
+# Datos de la fase 1 (conversor T1.1): pequeños, enteros; de XNLI solo el español.
+for d in PolyAI/banking77 clinc/clinc_oos deepset/prompt-injections; do
+  "$HOME/venv/bin/python" -c "import sys; from huggingface_hub import snapshot_download as s; \
+s(sys.argv[1], repo_type='dataset')" "$d" || echo "aviso: no se pudo bajar $d"
+done
+"$HOME/venv/bin/python" -c "from huggingface_hub import snapshot_download as s; \
+s('facebook/xnli', repo_type='dataset', allow_patterns=['es/*','*.md'])" || echo "aviso: no se pudo bajar facebook/xnli"
 
 cat >> "$HOME/.profile" <<'X'
 export PATH="$HOME/go-sdk/bin:$HOME/venv/bin:$PATH"
