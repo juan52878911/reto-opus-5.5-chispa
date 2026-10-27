@@ -6,6 +6,12 @@ set -uo pipefail
 GO=1.27.1
 curl -fsSL "https://go.dev/dl/go${GO}.linux-amd64.tar.gz" | tar -C "$HOME" -xz && mv "$HOME/go" "$HOME/go-sdk" \
   || echo "aviso: no se pudo instalar Go ${GO}"
+# Módulos de Go del repo (kindling v0.17.0 entre ellos) en la caché: en las VM no hay red.
+for m in go.mod arena/go.mod; do
+  [ -f "$m" ] && (cd "$(dirname "$m")" && GOTOOLCHAIN=local "$HOME/go-sdk/bin/go" mod download) \
+    || true
+done
+"$HOME/go-sdk/bin/go" env GOMODCACHE
 
 python3 -m venv "$HOME/venv"
 # Una sola llamada: si torch se instala aparte, las dependencias lo reemplazan por el de CUDA (6 GB).
