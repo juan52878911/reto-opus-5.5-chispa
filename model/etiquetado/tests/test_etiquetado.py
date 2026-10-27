@@ -86,6 +86,23 @@ class TestPreparar(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node no está instalado: el HTML no se prueba")
+class TestIdsComoElArnes(unittest.TestCase):
+    def test_ids_coinciden_con_chispa_eval(self):
+        from model.evaluacion import chispa_eval
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        ruta = os.path.join(d, "sondeo_x.jsonl")
+        with open(ruta, "w", encoding="utf-8") as f:
+            for i in range(5):
+                f.write(json.dumps({"tarea": "T", "etiqueta": "a", "split": "test", "texto": str(i)}) + "\n")
+        esperados = [r["id"] for r in chispa_eval.asignar_ids(preparar.leer([ruta]), ruta)]
+        with open(ruta, encoding="utf-8") as f:
+            crudas = [json.loads(l) for l in f]
+        self.assertEqual([r["id"] for r in preparar.leer([ruta])], esperados)
+        self.assertEqual([r["id"] for r in chispa_eval.asignar_ids(crudas, ruta)],
+                         ["sondeo_x:test:%d" % n for n in range(5)])
+
+
 class TestHTML(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
