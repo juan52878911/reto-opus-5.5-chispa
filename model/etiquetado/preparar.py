@@ -8,14 +8,15 @@ import random
 import sys
 from collections import defaultdict
 
+from model.evaluacion.chispa_eval import asignar_ids
+
 
 def leer(rutas):
     filas = []
     for ruta in rutas:
         with open(ruta, encoding="utf-8") as f:
-            for linea in f:
-                if linea.strip():
-                    filas.append(json.loads(linea))
+            propias = [json.loads(linea) for linea in f if linea.strip()]
+        filas.extend(asignar_ids(propias, ruta))  # mismos ids que el arnés de evaluación
     return filas
 
 
