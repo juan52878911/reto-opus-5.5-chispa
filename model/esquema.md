@@ -21,7 +21,10 @@ Lo cambia solo la sesión principal, como `arena/contracts/`. Lo consumen el con
 | `licencia` | str | sí | SPDX o texto corto de la licencia de la fila |
 | `uso_comercial` | bool | sí | `false` si la licencia es NC, ND o no está clara |
 | `plantilla` | str | no | Id de plantilla o semilla, para repartir sin fugas |
-| `blanda` | dict[str,float] | no | Distribución del maestro (T1.6) |
+| `blanda` | dict[str,float] | no | Distribución del maestro (T1.6) o de los anotadores humanos (listón, T1.5c) |
+| `anotadores` | int | no | Cuántas personas etiquetaron la fila (listón humano); con él, `blanda` es la proporción de votos |
+| `variedad` | str | no | Variedad del español del **texto** (co, mx, ar, es…), si la fuente la da |
+| `paises_anotadores` | list[str] | no | País de residencia de cada anotador, si la fuente lo da |
 
 Reglas:
 - Una fila con `uso_comercial: false` **nunca** entra en `split: train` ni `dev`. Va solo a `test`,
