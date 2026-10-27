@@ -1,0 +1,185 @@
+{
+ "ausentes": {},
+ "descartadas": {
+  "pawsx": {
+   "invalidas": 272
+  },
+  "tsjev": {
+   "invalidas": 36316,
+   "licencia_non-commercial": 118992,
+   "licencia_unspecified": 292896,
+   "prohibida": 419
+  }
+ },
+ "descartadas_por_licencia": {
+  "pawsx": {},
+  "tsjev": {
+   "licencia_non-commercial": 118992,
+   "licencia_unspecified": 292896
+  }
+ },
+ "ficheros": [
+  "pawsx/dev-00000.jsonl.gz",
+  "pawsx/test-00000.jsonl.gz",
+  "pawsx/train-00000.jsonl.gz",
+  "sib200/dev-00000.jsonl.gz",
+  "sib200/test-00000.jsonl.gz",
+  "sib200/train-00000.jsonl.gz",
+  "synzs/dev-00000.jsonl.gz",
+  "synzs/test-00000.jsonl.gz",
+  "synzs/train-00000.jsonl.gz",
+  "synzs/train-00001.jsonl.gz",
+  "synzs/train-00002.jsonl.gz",
+  "synzs/train-00003.jsonl.gz",
+  "synzs/train-00004.jsonl.gz",
+  "synzs/train-00005.jsonl.gz",
+  "synzs/train-00006.jsonl.gz",
+  "synzs/train-00007.jsonl.gz",
+  "synzs/train-00008.jsonl.gz",
+  "synzs/train-00009.jsonl.gz",
+  "synzs/train-00010.jsonl.gz",
+  "synzs/train-00011.jsonl.gz",
+  "synzs/train-00012.jsonl.gz",
+  "synzs/train-00013.jsonl.gz",
+  "synzs/train-00014.jsonl.gz",
+  "synzs/train-00015.jsonl.gz",
+  "synzs/train-00016.jsonl.gz",
+  "synzs/train-00017.jsonl.gz",
+  "synzs/train-00018.jsonl.gz",
+  "synzs/train-00019.jsonl.gz",
+  "synzs/train-00020.jsonl.gz",
+  "synzs/train-00021.jsonl.gz",
+  "synzs/train-00022.jsonl.gz",
+  "synzs/train-00023.jsonl.gz",
+  "synzs/train-00024.jsonl.gz",
+  "synzs/train-00025.jsonl.gz",
+  "synzs/train-00026.jsonl.gz",
+  "synzs/train-00027.jsonl.gz",
+  "synzs/train-00028.jsonl.gz",
+  "synzs/train-00029.jsonl.gz",
+  "synzs/train-00030.jsonl.gz",
+  "synzs/train-00031.jsonl.gz",
+  "synzs/train-00032.jsonl.gz",
+  "tsjev/dev-00000.jsonl.gz",
+  "tsjev/test-00000.jsonl.gz",
+  "tsjev/train-00000.jsonl.gz",
+  "tsjev/train-00001.jsonl.gz",
+  "tsjev/train-00002.jsonl.gz",
+  "tsjev/train-00003.jsonl.gz",
+  "tsjev/train-00004.jsonl.gz",
+  "tsjev/train-00005.jsonl.gz",
+  "tsjev/train-00006.jsonl.gz",
+  "tsjev/train-00007.jsonl.gz",
+  "tsjev/train-00008.jsonl.gz",
+  "tsjev/train-00009.jsonl.gz",
+  "tsjev/train-00010.jsonl.gz",
+  "tsjev/train-00011.jsonl.gz"
+ ],
+ "filas_por_fuente": {
+  "pawsx": 53129,
+  "sib200": 1004,
+  "synzs": 2627036,
+  "tsjev": 581209
+ },
+ "filas_por_fuente_tipo_split": {
+  "pawsx": {
+   "noul": {
+    "dev": 2000,
+    "test": 2000,
+    "train": 49129
+   }
+  },
+  "sib200": {
+   "choice": {
+    "dev": 99,
+    "test": 204,
+    "train": 701
+   }
+  },
+  "synzs": {
+   "noul": {
+    "dev": 26180,
+    "test": 26335,
+    "train": 2574521
+   }
+  },
+  "tsjev": {
+   "choice": {
+    "dev": 6495,
+    "test": 6456,
+    "train": 469112
+   },
+   "noul": {
+    "dev": 998,
+    "test": 1010,
+    "train": 45409
+   },
+   "score": {
+    "dev": 699,
+    "test": 721,
+    "train": 50309
+   }
+  }
+ },
+ "filas_por_split": {
+  "dev": 36471,
+  "test": 36726,
+  "train": 3189181
+ },
+ "filas_por_tipo": {
+  "choice": 483067,
+  "noul": 2727582,
+  "score": 51729
+ },
+ "filas_total": 3262378,
+ "fuentes_vacias": [],
+ "info": {
+  "pawsx": {
+   "descartadas_invalidas": 272,
+   "descartadas_licencia_nc_fuera_de_test": 0,
+   "licencia": "libre uso (Google PAWS-X: «freely used for any purpose»)"
+  },
+  "sib200": {
+   "descartadas_licencia_nc_fuera_de_test": 0,
+   "licencia": "cc-by-sa-4.0"
+  },
+  "synzs": {
+   "descartadas_licencia_nc_fuera_de_test": 0,
+   "licencia": "apache-2.0"
+  },
+  "tsjev": {
+   "censo_sources_yaml": {
+    "commercial": {
+     "filas": 1434140,
+     "tareas": 440
+    },
+    "non-commercial": {
+     "filas": 274308,
+     "tareas": 55
+    },
+    "unspecified": {
+     "filas": 871564,
+     "tareas": 259
+    }
+   },
+   "descartadas_invalidas": 36316,
+   "descartadas_licencia_non-commercial": 118992,
+   "descartadas_licencia_unspecified": 292896,
+   "descartadas_prohibida": 419,
+   "filas_leidas": 1029832,
+   "sin_datos": false,
+   "tareas_vetadas": {
+    "multilingual/americas_nli/all_languages": "prohibida"
+   }
+  }
+ },
+ "segundos": 187.1,
+ "tareas_distintas": 430,
+ "tareas_distintas_por_fuente": {
+  "pawsx": 1,
+  "sib200": 1,
+  "synzs": 7,
+  "tsjev": 421
+ },
+ "tope_filas_por_fuente": null
+}
