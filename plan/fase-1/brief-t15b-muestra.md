@@ -33,3 +33,10 @@ Encargo: `plan/fase-1/encargo.md`. La herramienta ya está en `model/etiquetado/
 
 ## Informe
 Termina con un informe de ≤ 10 líneas: rama y sha, el recuento por tarea y lo que no se pudo hacer.
+
+## Decisión del orquestador (segunda vuelta)
+- `preparar.py` asigna `id = <fichero>:<split>:<n>` (n desde 0 en el orden del fichero) a las filas
+  que no lo traen, igual que `model/evaluacion/chispa_eval.py`. Usa la misma función o una idéntica,
+  con un test que compruebe que los ids coinciden con los del arnés. La zona se amplía a `model/etiquetado/**`.
+- Con menos de 300 filas en una tarea, toma todas y dilo en el LEEME. Es el caso de `whatsapp_comercio`, con 213.
+- `pqrs` queda fuera de este lote.
