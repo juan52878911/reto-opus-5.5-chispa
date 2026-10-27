@@ -1,0 +1,16 @@
+{
+ "knn8": {
+  "n": 368,
+  "macro_f1": 0.4901861079970372,
+  "exactitud": 0.453804347826087,
+  "auroc_escalate": 0.7657119021134595,
+  "auroc_escalate_1_menos_max_herramienta": 0.7236373748609566
+ },
+ "knn32": {
+  "n": 368,
+  "macro_f1": 0.6115091956722938,
+  "exactitud": 0.5842391304347826,
+  "auroc_escalate": 0.8387931034482758,
+  "auroc_escalate_1_menos_max_herramienta": 0.7793659621802003
+ }
+}

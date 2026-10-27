@@ -1,0 +1,162 @@
+[
+ {
+  "id": "kindling_lanzar",
+  "tipo": "mcp",
+  "descripcion": "Crear y arrancar una microVM efímera de kindling para ejecutar un trabajo aislado, con su propia copia del código."
+ },
+ {
+  "id": "kindling_gestionar",
+  "tipo": "mcp",
+  "descripcion": "Listar, inspeccionar, detener o borrar las microVMs de kindling que ya existen; ver cuáles están encendidas."
+ },
+ {
+  "id": "chrono_logs",
+  "tipo": "mcp",
+  "descripcion": "Buscar en los registros (logs) de las sesiones de los agentes y de las ejecuciones: errores, mensajes y qué hizo cada sesión."
+ },
+ {
+  "id": "chrono_git",
+  "tipo": "mcp",
+  "descripcion": "Consultar la historia de git de un repositorio: commits, quién cambió una línea, cuándo entró un cambio y diferencias entre versiones."
+ },
+ {
+  "id": "obsidian_buscar",
+  "tipo": "mcp",
+  "descripcion": "Buscar y leer notas existentes de la bóveda de Obsidian: decisiones pasadas, apuntes, registros de sesiones previas."
+ },
+ {
+  "id": "obsidian_escribir",
+  "tipo": "mcp",
+  "descripcion": "Crear o actualizar una nota en la bóveda de Obsidian: guardar una decisión, un apunte o el registro de la sesión actual."
+ },
+ {
+  "id": "navegador",
+  "tipo": "herramienta",
+  "descripcion": "Controlar un navegador web: abrir una página concreta, hacer clic, rellenar formularios, tomar capturas y leer lo que se ve en pantalla."
+ },
+ {
+  "id": "busqueda_web",
+  "tipo": "herramienta",
+  "descripcion": "Buscar información actual en internet con un buscador y traer resultados, sin entrar a una página en concreto."
+ },
+ {
+  "id": "agente_explorar",
+  "tipo": "agente",
+  "descripcion": "Subagente de solo lectura que explora un código grande y devuelve una conclusión: dónde se hace algo, cómo funciona un módulo."
+ },
+ {
+  "id": "agente_planear",
+  "tipo": "agente",
+  "descripcion": "Subagente arquitecto que diseña un plan de implementación paso a paso, con archivos críticos y compromisos, sin escribir código."
+ },
+ {
+  "id": "agente_revisar",
+  "tipo": "agente",
+  "descripcion": "Subagente revisor que lee un cambio o una rama ya hecha y señala errores, riesgos y desviaciones de las convenciones."
+ },
+ {
+  "id": "correo_leer",
+  "tipo": "mcp",
+  "descripcion": "Leer y buscar correos recibidos en la bandeja de entrada: ver los nuevos, abrir uno, buscar por remitente o asunto."
+ },
+ {
+  "id": "correo_enviar",
+  "tipo": "mcp",
+  "descripcion": "Redactar y enviar un correo electrónico nuevo o una respuesta a alguien, con asunto, cuerpo y adjuntos."
+ },
+ {
+  "id": "agenda",
+  "tipo": "mcp",
+  "descripcion": "Consultar y gestionar el calendario: ver el día, crear, mover o cancelar citas y reuniones, y buscar huecos libres."
+ },
+ {
+  "id": "drive_leer",
+  "tipo": "mcp",
+  "descripcion": "Buscar y abrir archivos que ya existen en Google Drive: documentos, hojas de cálculo y presentaciones, para leer su contenido."
+ },
+ {
+  "id": "drive_escribir",
+  "tipo": "mcp",
+  "descripcion": "Crear, subir o compartir archivos en Google Drive: generar un documento nuevo, subir un fichero o dar acceso a otras personas."
+ },
+ {
+  "id": "slack_leer",
+  "tipo": "mcp",
+  "descripcion": "Leer y buscar mensajes en Slack: canales, hilos y mensajes directos; ver qué se dijo y quién lo dijo."
+ },
+ {
+  "id": "slack_enviar",
+  "tipo": "mcp",
+  "descripcion": "Enviar un mensaje por Slack a un canal, a un hilo o a una persona, o reaccionar a un mensaje."
+ },
+ {
+  "id": "github_pr",
+  "tipo": "mcp",
+  "descripcion": "Gestionar pull requests de GitHub: crearlos, listarlos, leer sus comentarios y diferencias, comentar, aprobar o fusionarlos."
+ },
+ {
+  "id": "github_issues",
+  "tipo": "mcp",
+  "descripcion": "Gestionar issues de GitHub: abrir uno nuevo, buscarlos, leerlos, asignarlos, etiquetarlos y cerrarlos."
+ },
+ {
+  "id": "github_ci",
+  "tipo": "mcp",
+  "descripcion": "Consultar la integración continua de GitHub Actions: estado de las ejecuciones, workflows fallidos y sus logs de CI."
+ },
+ {
+  "id": "terminal",
+  "tipo": "herramienta",
+  "descripcion": "Ejecutar comandos de shell en la máquina: correr scripts, instalar paquetes, compilar, lanzar pruebas y ver su salida."
+ },
+ {
+  "id": "delega_lanzar",
+  "tipo": "mcp",
+  "descripcion": "Lanzar un trabajo nuevo con delega: entregar una tarea a un nodo de trabajo con su rama, perfil y topes de tiempo y dinero."
+ },
+ {
+  "id": "delega_estado",
+  "tipo": "mcp",
+  "descripcion": "Consultar los trabajos de delega ya lanzados: su estado, el gasto acumulado, el registro de auditoría y los resultados."
+ },
+ {
+  "id": "aws_costos",
+  "tipo": "mcp",
+  "descripcion": "Consultar en AWS la facturación y el gasto: cuánto cuesta cada servicio, tendencias mensuales, presupuestos y alertas de costo."
+ },
+ {
+  "id": "aws_recursos",
+  "tipo": "mcp",
+  "descripcion": "Consultar y operar recursos de infraestructura en AWS: instancias EC2, buckets S3, funciones lambda y sus estados; encender o apagar."
+ },
+ {
+  "id": "editar_archivos",
+  "tipo": "herramienta",
+  "descripcion": "Leer, crear y modificar archivos de código y de texto del proyecto: abrir un fichero, cambiar unas líneas o escribir uno nuevo."
+ },
+ {
+  "id": "base_datos",
+  "tipo": "mcp",
+  "descripcion": "Consultar la base de datos conectada con SQL: ejecutar un select, contar filas, ver tablas y su esquema; solo sobre la base clonada."
+ },
+ {
+  "id": "programar_tarea",
+  "tipo": "herramienta",
+  "descripcion": "Programar tareas para más adelante o que se repitan solas: ejecuciones con cron, temporizadores y avisos a una hora fija."
+ },
+ {
+  "id": "docs_librerias",
+  "tipo": "mcp",
+  "descripcion": "Consultar la documentación oficial y actualizada de una librería o framework de programación: funciones, parámetros y ejemplos de uso."
+ },
+ {
+  "id": "leer_documento",
+  "tipo": "herramienta",
+  "descripcion": "Leer el contenido de un PDF, una imagen o una captura que la persona adjunta: extraer texto, tablas o describir lo que se ve."
+ },
+ {
+  "id": "escalate",
+  "tipo": "herramienta",
+  "descripcion": "Ninguna sirve o la petición es ambigua: preguntar a la persona qué quiere."
+ }
+]
