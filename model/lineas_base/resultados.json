@@ -1,0 +1,348 @@
+{
+ "massive": {
+  "l0_tfidf_lr": {
+   "n": 2974,
+   "exactitud": 0.6977135171486214,
+   "macro_f1": 0.6779690509367982,
+   "ece": 0.2234590225026752,
+   "brier": 0.48786468061054084,
+   "cobertura_p95": {
+    "cobertura": 0.26630800268997984,
+    "umbral": 0.725836372386553
+   },
+   "cobertura_p99": {
+    "cobertura": 0.014794889038332213,
+    "umbral": 0.98166128190429
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 2.5345,
+    "p99_ms": 7.586539999999992
+   },
+   "temperatura": null
+  },
+  "e5_knn8": {
+   "n": 2974,
+   "exactitud": 0.5383322125084062,
+   "macro_f1": 0.5177473080593252,
+   "ece": 0.05480579766712853,
+   "brier": 0.609275326033475,
+   "cobertura_p95": {
+    "cobertura": 0.04505716207128446,
+    "umbral": 0.939765096634888
+   },
+   "cobertura_p99": {
+    "cobertura": 0.009751176866173503,
+    "umbral": 0.9837581937288222
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 101.5375,
+    "p99_ms": 259.89978
+   },
+   "temperatura": 0.02
+  },
+  "e5_knn32": {
+   "n": 2974,
+   "exactitud": 0.6620712844653666,
+   "macro_f1": 0.6345560856929059,
+   "ece": 0.05681519638331288,
+   "brier": 0.4813171551577817,
+   "cobertura_p95": {
+    "cobertura": 0.19166106254203094,
+    "umbral": 0.9054698728242938
+   },
+   "cobertura_p99": {
+    "cobertura": 0.0,
+    "umbral": null
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 108.2225,
+    "p99_ms": 265.65402
+   },
+   "temperatura": 0.02
+  }
+ },
+ "hatecheck": {
+  "l0_tfidf_lr": {
+   "n": 361,
+   "exactitud": 0.5789473684210527,
+   "macro_f1": 0.5295287742643529,
+   "ece": 0.08515918597380193,
+   "brier": 0.5022352061662009,
+   "cobertura_p95": {
+    "cobertura": 0.00554016620498615,
+    "umbral": 0.9175660372054555
+   },
+   "cobertura_p99": {
+    "cobertura": 0.00554016620498615,
+    "umbral": 0.9175660372054555
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 1.898,
+    "p99_ms": 9.258999999999968
+   },
+   "temperatura": null
+  },
+  "e5_knn8": {
+   "n": 361,
+   "exactitud": 0.7091412742382271,
+   "macro_f1": 0.594412403565276,
+   "ece": 0.10404971322679085,
+   "brier": 0.41249586818024386,
+   "cobertura_p95": {
+    "cobertura": 0.0332409972299169,
+    "umbral": 0.7442717316635489
+   },
+   "cobertura_p99": {
+    "cobertura": 0.0332409972299169,
+    "umbral": 0.7442717316635489
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 107.615,
+    "p99_ms": 239.8325999999999
+   },
+   "temperatura": 0.05
+  },
+  "e5_knn32": {
+   "n": 361,
+   "exactitud": 0.6897506925207756,
+   "macro_f1": 0.5792540792540792,
+   "ece": 0.03740704331637779,
+   "brier": 0.4017676365684054,
+   "cobertura_p95": {
+    "cobertura": 0.027700831024930747,
+    "umbral": 0.9089065778104213
+   },
+   "cobertura_p99": {
+    "cobertura": 0.027700831024930747,
+    "umbral": 0.9089065778104213
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 107.595,
+    "p99_ms": 239.8213999999999
+   },
+   "temperatura": 0.1
+  }
+ },
+ "clinc150": {
+  "l0_tfidf_lr": {
+   "n": 5500,
+   "exactitud": 0.754,
+   "macro_f1": 0.8114440328540632,
+   "ece": 0.20254082798124384,
+   "brier": 0.39057463655226404,
+   "cobertura_p95": {
+    "cobertura": 0.6083636363636363,
+    "umbral": 0.44807666121517603
+   },
+   "cobertura_p99": {
+    "cobertura": 0.27854545454545454,
+    "umbral": 0.8469154163660542
+   },
+   "auroc_escalate": 0.9124368888888889,
+   "latencia": {
+    "p50_ms": 2.2424999999999997,
+    "p99_ms": 10.795780000000017
+   },
+   "temperatura": null
+  },
+  "e5_knn8": {
+   "n": 5500,
+   "exactitud": 0.654,
+   "macro_f1": 0.7106722608869661,
+   "ece": 0.10575136087017545,
+   "brier": 0.4805251210348759,
+   "cobertura_p95": {
+    "cobertura": 0.4081818181818182,
+    "umbral": 0.9253423108195701
+   },
+   "cobertura_p99": {
+    "cobertura": 0.1678181818181818,
+    "umbral": 0.9945323513311043
+   },
+   "auroc_escalate": 0.5437723333333333,
+   "latencia": {
+    "p50_ms": 128.041,
+    "p99_ms": 275.35645
+   },
+   "temperatura": 0.01
+  },
+  "e5_knn32": {
+   "n": 5500,
+   "exactitud": 0.7261818181818182,
+   "macro_f1": 0.7943424851674014,
+   "ece": 0.05337087370981187,
+   "brier": 0.38783220842086147,
+   "cobertura_p95": {
+    "cobertura": 0.5803636363636364,
+    "umbral": 0.7892699292268334
+   },
+   "cobertura_p99": {
+    "cobertura": 0.0,
+    "umbral": null
+   },
+   "auroc_escalate": 0.5628088888888889,
+   "latencia": {
+    "p50_ms": 131.526,
+    "p99_ms": 282.2682800000001
+   },
+   "temperatura": 0.02
+  }
+ },
+ "inyecciones": {
+  "l0_tfidf_lr": {
+   "n": 116,
+   "exactitud": 0.8362068965517241,
+   "macro_f1": 0.8347206599175103,
+   "ece": 0.1724304974604555,
+   "brier": 0.305377449850297,
+   "cobertura_p95": {
+    "cobertura": 0.27586206896551724,
+    "umbral": 0.7439049958030759
+   },
+   "cobertura_p99": {
+    "cobertura": 0.1896551724137931,
+    "umbral": 0.798106309830045
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 2.0805,
+    "p99_ms": 4.2829999999999995
+   },
+   "temperatura": null
+  },
+  "e5_knn8": {
+   "n": 116,
+   "exactitud": 0.6810344827586207,
+   "macro_f1": 0.6403854210305823,
+   "ece": 0.1192325766027998,
+   "brier": 0.3438298951367006,
+   "cobertura_p95": {
+    "cobertura": 0.43103448275862066,
+    "umbral": 0.7898240489144553
+   },
+   "cobertura_p99": {
+    "cobertura": 0.35344827586206895,
+    "umbral": 0.8173254236395888
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 245.096,
+    "p99_ms": 1757.4064999999996
+   },
+   "temperatura": 0.03
+  },
+  "e5_knn32": {
+   "n": 116,
+   "exactitud": 0.8103448275862069,
+   "macro_f1": 0.8003129890453834,
+   "ece": 0.07284432708238006,
+   "brier": 0.26252001786496804,
+   "cobertura_p95": {
+    "cobertura": 0.5431034482758621,
+    "umbral": 0.7970454755430455
+   },
+   "cobertura_p99": {
+    "cobertura": 0.39655172413793105,
+    "umbral": 0.8948772499132217
+   },
+   "auroc_escalate": null,
+   "latencia": {
+    "p50_ms": 245.097,
+    "p99_ms": 1757.3929999999996
+   },
+   "temperatura": 0.03
+  }
+ },
+ "herramientas": {
+  "l0_tfidf_lr": {
+   "n": 368,
+   "exactitud": 0.6929347826086957,
+   "macro_f1": 0.6957240515486705,
+   "ece": 0.3514160165446206,
+   "brier": 0.5833896891544137,
+   "cobertura_p95": {
+    "cobertura": 0.24456521739130435,
+    "umbral": 0.46808137734471966
+   },
+   "cobertura_p99": {
+    "cobertura": 0.16304347826086957,
+    "umbral": 0.5474532163137948
+   },
+   "auroc_escalate": 0.9223025583982203,
+   "latencia": {
+    "p50_ms": 1.596,
+    "p99_ms": 3.7686499999999934
+   },
+   "temperatura": null
+  },
+  "e5_knn8": {
+   "n": 368,
+   "exactitud": 0.5190217391304348,
+   "macro_f1": 0.5432454674698647,
+   "ece": 0.06970320526189816,
+   "brier": 0.638638202754634,
+   "cobertura_p95": {
+    "cobertura": 0.15217391304347827,
+    "umbral": 0.8892226355286145
+   },
+   "cobertura_p99": {
+    "cobertura": 0.059782608695652176,
+    "umbral": 0.9686638206827884
+   },
+   "auroc_escalate": 0.789043381535039,
+   "latencia": {
+    "p50_ms": 142.5495,
+    "p99_ms": 299.10854
+   },
+   "temperatura": 0.01
+  },
+  "e5_knn32": {
+   "n": 368,
+   "exactitud": 0.6222826086956522,
+   "macro_f1": 0.6320224072377565,
+   "ece": 0.06554555747621632,
+   "brier": 0.5301504608026688,
+   "cobertura_p95": {
+    "cobertura": 0.24456521739130435,
+    "umbral": 0.9216679478456339
+   },
+   "cobertura_p99": {
+    "cobertura": 0.0,
+    "umbral": null
+   },
+   "auroc_escalate": 0.8379032258064516,
+   "latencia": {
+    "p50_ms": 142.57150000000001,
+    "p99_ms": 299.14355
+   },
+   "temperatura": 0.01
+  },
+  "thx01": {
+   "n": 40,
+   "exactitud": 0.825,
+   "macro_f1": 0.6958333333333334,
+   "ece": 0.14005737686164876,
+   "brier": 0.3022771164653004,
+   "cobertura_p95": {
+    "cobertura": 0.275,
+    "umbral": 0.9776977697769778
+   },
+   "cobertura_p99": {
+    "cobertura": 0.275,
+    "umbral": 0.9776977697769778
+   },
+   "auroc_escalate": 0.8542857142857143,
+   "latencia": {
+    "p50_ms": 13405.508,
+    "p99_ms": 28775.05831
+   },
+   "temperatura": null
+  }
+ }
+}
