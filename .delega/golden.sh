@@ -8,9 +8,11 @@ curl -fsSL "https://go.dev/dl/go${GO}.linux-amd64.tar.gz" | tar -C "$HOME" -xz &
   || echo "aviso: no se pudo instalar Go ${GO}"
 
 python3 -m venv "$HOME/venv"
-"$HOME/venv/bin/pip" install -q --index-url https://download.pytorch.org/whl/cpu torch
-"$HOME/venv/bin/pip" install -q transformers sentence-transformers onnx onnxruntime "optimum[onnxruntime]" \
-  datasets scikit-learn pandas huggingface_hub model2vec
+# Una sola llamada: si torch se instala aparte, las dependencias lo reemplazan por el de CUDA (6 GB).
+"$HOME/venv/bin/pip" install -q --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+  --extra-index-url https://pypi.org/simple torch transformers sentence-transformers onnx onnxruntime \
+  "optimum[onnxruntime]" datasets scikit-learn pandas huggingface_hub model2vec
+"$HOME/venv/bin/python" -c "import torch; assert not torch.version.cuda, torch.version.cuda; print('torch', torch.__version__)"
 
 export HF_HOME="$HOME/hf"
 for m in intfloat/multilingual-e5-small jhu-clsp/mmBERT-small minishlab/potion-multilingual-128M \
