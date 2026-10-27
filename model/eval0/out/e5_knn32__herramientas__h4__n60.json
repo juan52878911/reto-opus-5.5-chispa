@@ -1,0 +1,15 @@
+{
+ "modelo": "e5_knn32",
+ "tarea": "herramientas",
+ "licencia": "MIT (intfloat/multilingual-e5-small)",
+ "hilos": 4,
+ "carga_s": 27.4,
+ "n": 60,
+ "macro_f1": 0.7679292929292929,
+ "exactitud": 0.7666666666666667,
+ "ece": 0.20242815216382348,
+ "p50_ms": 76.71651300006488,
+ "p99_ms": 127.92009644017968,
+ "rss_pico_mb": 999.0,
+ "estado": "medido"
+}

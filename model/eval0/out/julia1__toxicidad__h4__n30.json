@@ -1,0 +1,15 @@
+{
+ "modelo": "julia1",
+ "tarea": "toxicidad",
+ "licencia": "ver provenance.json del checkpoint (sin README ni LICENSE en el snapshot)",
+ "hilos": 4,
+ "carga_s": 12.7,
+ "n": 30,
+ "macro_f1": 0.375,
+ "exactitud": 0.4,
+ "ece": 0.40967237379591714,
+ "p50_ms": 584.2884449998564,
+ "p99_ms": 847.3505268002373,
+ "rss_pico_mb": 853.5,
+ "estado": "medido"
+}

@@ -1,0 +1,15 @@
+{
+ "modelo": "laya",
+ "tarea": "intencion",
+ "licencia": "no consta (el snapshot no trae README ni LICENSE)",
+ "hilos": 1,
+ "carga_s": 19.91,
+ "n": 120,
+ "macro_f1": 0.7388922267345701,
+ "exactitud": 0.7583333333333333,
+ "ece": 0.15325333333333324,
+ "p50_ms": 2206.4987790004125,
+ "p99_ms": 4214.116090110601,
+ "rss_pico_mb": 2236.4,
+ "estado": "medido"
+}

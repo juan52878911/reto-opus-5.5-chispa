@@ -1,0 +1,15 @@
+{
+ "modelo": "laya",
+ "tarea": "whatsapp_comercio",
+ "licencia": "no consta (el snapshot no trae README ni LICENSE)",
+ "hilos": 1,
+ "carga_s": 9.55,
+ "n": 120,
+ "macro_f1": 0.508531746031746,
+ "exactitud": 0.5583333333333333,
+ "ece": 0.19759416666666668,
+ "p50_ms": 1098.3112149997396,
+ "p99_ms": 1446.4947920903253,
+ "rss_pico_mb": 2320.5,
+ "estado": "medido"
+}

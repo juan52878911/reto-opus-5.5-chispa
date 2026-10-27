@@ -1,0 +1,15 @@
+{
+ "modelo": "e5_knn8",
+ "tarea": "toxicidad",
+ "licencia": "MIT (intfloat/multilingual-e5-small)",
+ "hilos": 1,
+ "carga_s": 22.85,
+ "n": 120,
+ "macro_f1": 0.47859534154854333,
+ "exactitud": 0.49166666666666664,
+ "ece": 0.11637984613577523,
+ "p50_ms": 139.8673185003645,
+ "p99_ms": 369.84820712939853,
+ "rss_pico_mb": 978.1,
+ "estado": "medido"
+}

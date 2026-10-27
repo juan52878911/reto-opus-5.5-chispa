@@ -1,0 +1,15 @@
+{
+ "modelo": "gliclass",
+ "tarea": "whatsapp_comercio",
+ "licencia": "no consta (el snapshot no trae README ni LICENSE)",
+ "hilos": 4,
+ "carga_s": 7.91,
+ "n": 30,
+ "macro_f1": 0.18382352941176472,
+ "exactitud": 0.3,
+ "ece": 0.4245769113302231,
+ "p50_ms": 1522.4559014995975,
+ "p99_ms": 1735.5504295600804,
+ "rss_pico_mb": 1548.9,
+ "estado": "medido"
+}

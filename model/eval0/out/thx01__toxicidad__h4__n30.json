@@ -1,0 +1,15 @@
+{
+ "modelo": "thx01",
+ "tarea": "toxicidad",
+ "licencia": "ver config del repo (sin README ni LICENSE en el snapshot)",
+ "hilos": 4,
+ "carga_s": 14.94,
+ "n": 30,
+ "macro_f1": 0.4712103407755582,
+ "exactitud": 0.5,
+ "ece": 0.4832566666666666,
+ "p50_ms": 1445.6352995002817,
+ "p99_ms": 1894.7889861499336,
+ "rss_pico_mb": 2319.3,
+ "estado": "medido"
+}

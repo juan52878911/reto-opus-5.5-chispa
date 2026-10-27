@@ -1,0 +1,15 @@
+{
+ "modelo": "gliclass",
+ "tarea": "herramientas",
+ "licencia": "no consta (el snapshot no trae README ni LICENSE)",
+ "hilos": 1,
+ "carga_s": 7.58,
+ "n": 120,
+ "macro_f1": 0.12210527647637226,
+ "exactitud": 0.14166666666666666,
+ "ece": 0.15379838173588117,
+ "p50_ms": 5201.739122000163,
+ "p99_ms": 5722.345016379895,
+ "rss_pico_mb": 1557.1,
+ "estado": "medido"
+}

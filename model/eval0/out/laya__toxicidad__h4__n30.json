@@ -1,0 +1,15 @@
+{
+ "modelo": "laya",
+ "tarea": "toxicidad",
+ "licencia": "no consta (el snapshot no trae README ni LICENSE)",
+ "hilos": 4,
+ "carga_s": 9.24,
+ "n": 30,
+ "macro_f1": 0.5982142857142857,
+ "exactitud": 0.6,
+ "ece": 0.2810533333333334,
+ "p50_ms": 777.8069020000657,
+ "p99_ms": 908.4896317899165,
+ "rss_pico_mb": 2316.8,
+ "estado": "medido"
+}
