@@ -14,10 +14,11 @@ done
 "$HOME/go-sdk/bin/go" env GOMODCACHE
 
 python3 -m venv "$HOME/venv"
+# Sin optimum: su 1.17 no importa con transformers 5 (se exporta con torch.onnx).
 # Una sola llamada: si torch se instala aparte, las dependencias lo reemplazan por el de CUDA (6 GB).
 "$HOME/venv/bin/pip" install -q --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
   --extra-index-url https://pypi.org/simple torch transformers sentence-transformers onnx onnxruntime \
-  "optimum[onnxruntime]" datasets scikit-learn pandas huggingface_hub model2vec
+  datasets scikit-learn pandas huggingface_hub model2vec
 "$HOME/venv/bin/python" -c "import torch; assert not torch.version.cuda, torch.version.cuda; print('torch', torch.__version__)"
 
 export HF_HOME="$HOME/hf"
@@ -26,6 +27,9 @@ for m in intfloat/multilingual-e5-small jhu-clsp/mmBERT-small minishlab/potion-m
          convaiinnovations/laya-multilingual; do
   "$HOME/venv/bin/python" -c "import sys; from huggingface_hub import snapshot_download as s; \
 s(sys.argv[1], allow_patterns=['*.json','*.safetensors','*.txt','*.model','*.py','tokenizer*'])" "$m" \
+    && { ls "$HF_HOME"/hub/models--${m//\//--}/snapshots/*/*.safetensors >/dev/null 2>&1 \
+         || "$HOME/venv/bin/python" -c "import sys; from huggingface_hub import hf_hub_download as h; \
+h(sys.argv[1], 'pytorch_model.bin')" "$m"; } \
     || echo "aviso: no se pudo bajar $m"
 done
 
