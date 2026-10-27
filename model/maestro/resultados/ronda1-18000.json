@@ -1,0 +1,78 @@
+{
+  "acuerdo_global": 0.8200099994444753,
+  "acuerdo_top1": {
+    "herramientas|test|chispa T1.4": {
+      "acuerdo": 0.9230769230769231,
+      "n": 130
+    },
+    "herramientas|train|chispa T1.4": {
+      "acuerdo": 0.9418282548476454,
+      "n": 361
+    },
+    "intencion|dev|clinc/clinc_oos validation": {
+      "acuerdo": 0.8755718206770357,
+      "n": 1093
+    },
+    "intencion|dev|mteb/amazon_massive_intent validation": {
+      "acuerdo": 0.7405857740585774,
+      "n": 717
+    },
+    "intencion|test|clinc/clinc_oos test": {
+      "acuerdo": 0.8332472896231286,
+      "n": 1937
+    },
+    "intencion|test|mteb/amazon_massive_intent test": {
+      "acuerdo": 0.7392550143266475,
+      "n": 1047
+    },
+    "intencion|train|clinc/clinc_oos train": {
+      "acuerdo": 0.8792108691606179,
+      "n": 5373
+    },
+    "intencion|train|mteb/amazon_massive_intent train": {
+      "acuerdo": 0.7431599704214937,
+      "n": 4057
+    },
+    "inyeccion|dev|deepset/prompt-injections train": {
+      "acuerdo": 0.9,
+      "n": 40
+    },
+    "inyeccion|test|deepset/prompt-injections test": {
+      "acuerdo": 0.8,
+      "n": 40
+    },
+    "inyeccion|train|deepset/prompt-injections train": {
+      "acuerdo": 0.8888888888888888,
+      "n": 153
+    },
+    "nli|test|facebook/xnli es test|solo-medir": {
+      "acuerdo": 0.7875354107648725,
+      "n": 1765
+    },
+    "toxicidad|dev|Paul/hatecheck-spanish test": {
+      "acuerdo": 0.8144329896907216,
+      "n": 97
+    },
+    "toxicidad|test|Paul/hatecheck-spanish test": {
+      "acuerdo": 0.8604651162790697,
+      "n": 129
+    },
+    "toxicidad|train|Paul/hatecheck-spanish test": {
+      "acuerdo": 0.8493408662900188,
+      "n": 1062
+    }
+  },
+  "dispositivo": "cuda",
+  "ece_maestro": 0.03367835554515557,
+  "filas_nuevas": 18001,
+  "filas_por_s": 2.174,
+  "filas_total": 18001,
+  "horas_gpu": 2.3004,
+  "horas_reloj": 2.3264,
+  "lote": 16,
+  "max_filas": 18000,
+  "modelo": "Qwen/Qwen3.5-4B",
+  "modelo_pedido": "Qwen/Qwen3.5-4B-Instruct",
+  "motivo_modelo": "respaldo de Qwen/Qwen3.5-4B-Instruct (Qwen/Qwen3.5-4B-Instruct: RepositoryNotFoundError)",
+  "segundos_puntuando": 8281.57
+}
