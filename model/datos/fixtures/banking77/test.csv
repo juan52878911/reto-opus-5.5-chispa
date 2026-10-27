@@ -1,0 +1,5 @@
+text,category
+My card has not arrived yet,card_arrival
+Tell me the current rate,exchange_rate
+"PIN blocked, help",pin_blocked
+top up declined,top_up_failed

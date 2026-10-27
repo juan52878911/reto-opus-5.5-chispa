@@ -1,0 +1,13 @@
+text,category
+¿Dónde está mi tarjeta? Llevo dos semanas esperando,card_arrival
+Quiero saber cuándo llega mi tarjeta,card_arrival
+What is the exchange rate for euros today,exchange_rate
+Which rate do you use for dollars,exchange_rate
+I lost my card on the bus,lost_or_stolen_card
+Someone stole my card,lost_or_stolen_card
+My PIN is blocked after three tries,pin_blocked
+"I cannot use my PIN, it is locked",pin_blocked
+My top up did not go through,top_up_failed
+The top up failed again,top_up_failed
+How long does a transfer take,transfer_timing
+When will my transfer arrive,transfer_timing
