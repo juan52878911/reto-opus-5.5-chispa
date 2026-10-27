@@ -81,9 +81,7 @@ p99 en ms, vocabulario podado, sin contar la tokenización:
 
 ## Pendiente antes de G1
 
-1. ~~Medir en el i7-8700T~~: cubierto en AWS (ver arriba); el i7 queda como confirmación opcional. Necesita que pve, o una VM suya,
-   sea nodo de delega con la cuenta personal. Decide si el p99 < 50 ms a 64 tokens es alcanzable o hay que
-   cambiar el umbral o el hardware objetivo.
-2. Dorado nuevo de kindling (commit `45903ef`: módulos de Go, pesos `.bin` de mmBERT, sin optimum). No cabe
-   mientras sigan vivas `golden-90389` y `golden-66731`, que el clasificador no me deja borrar.
-3. Ampliar el corpus de poda de vocabulario.
+1. ~~Medir en el i7-8700T~~: la medida en AWS lo cubre (ver arriba). El i7 queda como confirmación
+   opcional, cuando pve sea nodo de delega.
+2. ~~Dorado nuevo de kindling~~: hecho el 2026-10-27, con los datasets de la fase 1.
+3. Ampliar el corpus de poda de vocabulario: las dos frases que pierden una pieza siguen en coseno 0,958.
