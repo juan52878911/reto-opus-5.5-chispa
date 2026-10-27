@@ -13,15 +13,21 @@ import numpy as np
 
 SEMILLA = 20261027
 AQUI = Path(__file__).resolve().parent
-WORK = AQUI / "work"
+WORK = Path(os.environ.get("CHISPA_WORK", AQUI / "work"))  # CHISPA_WORK: otra carpeta de trabajo (AWS)
 HF = Path(os.environ.get("HF_HOME", Path.home() / "hf")) / "hub"
-CALENTAMIENTO, REPS = 20, 200
+CALENTAMIENTO, REPS = 20, int(os.environ.get("CHISPA_REPS", "200"))  # CHISPA_REPS: solo para pruebas en seco
 TOKENS, HILOS = (16, 64, 256), (1, 4)
 OBJETIVO_PODA = 55_000
 
+def hay_pesos(d):
+    """True si el snapshot trae pesos (safetensors o pytorch_model.bin)."""
+    p = next(iter((HF / d / "snapshots").glob("*")), None)
+    return p is not None and (any(p.glob("*.safetensors")) or (p / "pytorch_model.bin").exists())
+
+
 MODELOS = {
     "e5-small": dict(dir="models--intfloat--multilingual-e5-small", prefijo="query: ", pesos=True),
-    "mmBERT-small": dict(dir="models--jhu-clsp--mmBERT-small", prefijo="", pesos=False),
+    "mmBERT-small": dict(dir="models--jhu-clsp--mmBERT-small", prefijo="", pesos=hay_pesos("models--jhu-clsp--mmBERT-small")),
 }
 
 
@@ -76,7 +82,7 @@ def cargar_torch(nombre):
     torch.manual_seed(SEMILLA)
     if m["pesos"]:
         mod = AutoModel.from_pretrained(d, attn_implementation="eager")
-    else:  # el caché no trae pesos de mmBERT-small: arquitectura real, pesos aleatorios (latencia sí, calidad no)
+    else:  # sin pesos en el caché: arquitectura real, pesos aleatorios (latencia sí, calidad no)
         cfg = AutoConfig.from_pretrained(d)
         cfg._attn_implementation = "eager"
         mod = AutoModel.from_config(cfg, attn_implementation="eager")
@@ -314,14 +320,16 @@ def informe():
     cpu = subprocess.run("lscpu", capture_output=True, text=True).stdout
     g = lambda k: next((l.split(":", 1)[1].strip() for l in cpu.splitlines() if l.startswith(k)), "?")
     carga = open("/proc/loadavg").read().split()[:3]
-    o = ["# T0.3 Resultados x86 (microVM kindling)", "",
+    flags = next((l.split(":", 1)[1] for l in open("/proc/cpuinfo") if l.startswith("flags")), "")
+    o = ["# T0.3 Resultados x86 (" + ("medido fuera de kindling: ver CPU abajo" if os.environ.get("CHISPA_SALIDA") else "microVM kindling") + ")", "",
          f"- CPU: {g('Model name')}, {g('CPU(s):')} vCPU, modelo {g('Model:')} paso {g('Stepping')}; "
-         "flags relevantes: " + ", ".join(x for x in ("avx", "avx2", "avx512f", "avx_vnni", "avx512_vnni", "fma") if f" {x} " in cpu + " ") + " (sin avx2/VNNI)",
+         "flags relevantes: " + ", ".join(x for x in ("avx", "avx2", "avx512f", "avx512_vnni", "avx_vnni", "fma") if f" {x} " in flags + " "),
          f"- Carga del host al informar (loadavg 1/5/15 min): {' / '.join(carga)}. Máquina virtual compartida: cifras = cota pesimista; el i7-8700T se mide aparte.",
          f"- Python {platform.python_version()}; onnxruntime/torch/transformers de ~/venv; {CALENTAMIENTO} calentamientos + {REPS} repeticiones por celda; batch 1; semilla {SEMILLA}.",
          "- Latencia = `session.run` + pooling medio + normalización sobre ids ya tokenizados (no incluye tokenizar). RSS pico = `ru_maxrss` del proceso de (variante, hilos), incluye la carga y todas las longitudes. Disco = fichero ONNX (potion: safetensors). Arranque en frío = crear sesión/cargar + primera inferencia, en proceso nuevo.",
          "- Exportación: `torch.onnx.export` (opset 17) y no optimum: optimum 1.17.1 no importa con transformers 5.21 (`is_tf_available`). Int8 = `onnxruntime.quantization.quantize_dynamic` (QInt8, pesos de MatMul y de la tabla de embeddings vía Gather).",
-         "- **mmBERT-small: el caché `~/hf` solo trae config y tokenizador, sin pesos.** Se instancia la arquitectura real con pesos aleatorios (semilla fija): la latencia, RSS y tamaño son válidos; calidad/coseno no se pueden juzgar (el coseno de poda sí es válido como prueba de la mecánica, no del contenido).",
+         ("- mmBERT-small: pesos preentrenados (`pytorch_model.bin`/safetensors del caché)." if MODELOS["mmBERT-small"]["pesos"] else
+          "- **mmBERT-small: el caché `~/hf` solo trae config y tokenizador, sin pesos.** Se instancia la arquitectura real con pesos aleatorios (semilla fija): la latencia, RSS y tamaño son válidos; calidad/coseno no se pueden juzgar (el coseno de poda sí es válido como prueba de la mecánica, no del contenido)."),
          "- La poda conserva ids vistos en MASSIVE (es train+val, en y pt test) y hatecheck-es, más especiales, y rellena hasta ~55 k con piezas de alfabeto latino por orden de id; ids fuera se mapean a `<unk>`. Vocabularios en `vocab-podado-*.json`.",
          "", "## Coseno de la poda (200 frases en español de MASSIVE test, no usadas para podar)", "",
          "| modelo | pesos | vocab original→podado | podado vs original fp32 (mín / media; frases ≥0,999) | podado vs original int8 (mín / media; frases ≥0,999) | int8 vs fp32 (mín / media) |", "|---|---|---|---|---|---|"]
@@ -351,7 +359,10 @@ def informe():
           "- La poda no cambia el cómputo (p50 igual dentro del ruido) pero reduce RSS pico (e5 fp32: 877→305 MB) y disco (470→171 MB; int8 118→43 MB).",
           "- Potion (static) es 100-1000× más rápido (p50 ≈ 0,1 ms), pero su RSS pico es ≈ 1,9 GB y arranca en 12-18 s (carga de model2vec + 512 MB fp32); habría que podar/cuantizar su tabla para móvil.",
           "- Coseno de la poda de e5: media 0,99959 (cumple ≥ 0,999) pero 2/200 frases bajan a ≥ 0,958 porque una pieza léxica (`▁medioambiental`, `▁faculta`) cayó fuera del vocabulario y se mapea a `<unk>`; la regla «cada frase ≥ 0,999» no se cumple del todo. Arreglo: más corpus en es/pt/en en el recorte, o reconvertir las piezas ausentes en subpiezas conservadas."]
-    (AQUI / "resultados-x86.md").write_text("\n".join(o) + "\n")
+    salida = os.environ.get("CHISPA_SALIDA")  # fuera de kindling la lectura de arriba no aplica: solo datos
+    if salida:
+        o = o[:o.index("## Lectura (escrita a mano tras la medición; ver cifras arriba)")]
+    (Path(salida) if salida else AQUI / "resultados-x86.md").write_text("\n".join(o) + "\n")
 
 
 if __name__ == "__main__":
