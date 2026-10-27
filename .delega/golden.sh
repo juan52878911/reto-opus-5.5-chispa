@@ -45,6 +45,9 @@ for d in PolyAI/banking77 clinc/clinc_oos deepset/prompt-injections; do
   "$HOME/venv/bin/python" -c "import sys; from huggingface_hub import snapshot_download as s; \
 s(sys.argv[1], repo_type='dataset')" "$d" || echo "aviso: no se pudo bajar $d"
 done
+# banking77 en main es un script que baja de GitHub: se toma la conversión a parquet del Hub.
+"$HOME/venv/bin/python" -c "from huggingface_hub import snapshot_download as s; \
+s('PolyAI/banking77', repo_type='dataset', revision='refs/convert/parquet')" || echo "aviso: no se pudo bajar banking77 (parquet)"
 "$HOME/venv/bin/python" -c "from huggingface_hub import snapshot_download as s; \
 s('facebook/xnli', repo_type='dataset', allow_patterns=['es/*','*.md'])" || echo "aviso: no se pudo bajar facebook/xnli"
 
