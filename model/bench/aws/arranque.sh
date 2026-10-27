@@ -1,9 +1,12 @@
 #!/bin/bash
+CHISPA_S3=__CHISPA_S3__
 # user-data de una Amazon Linux 2023 x86_64 recién creada (root): mide la latencia de los codificadores de la
 # fase 0 (model/bench/codificadores.py) y deja /opt/chispa/resultados.tgz y /opt/chispa/LISTO.
-# El orquestador sube /opt/chispa/codigo.tgz (bash model/bench/aws/empaquetar.sh) por scp; conviene subirlo con otro
-# nombre y hacer mv al final para que no se lea a medias (aun así se espera a que sea un tar.gz válido).
-# CHISPA_LOCAL=1: prueba en seco en kindling (sin dnf, pip, descargas, shutdown ni sleep; ~/venv, ~/hf, /tmp/chispa).
+# El orquestador sustituye __CHISPA_S3__ por un prefijo s3://bucket/ruta y sube ahí codigo.tgz
+# (bash model/bench/aws/empaquetar.sh); la instancia (rol con s3:GetObject y s3:PutObject, sin SSH) lo baja, y al
+# terminar sube log.txt y resultados.tgz al mismo prefijo y se apaga.
+# CHISPA_LOCAL=1: prueba en seco en kindling (sin dnf, pip, descargas ni shutdown; ~/venv, ~/hf, /tmp/chispa);
+# el "s3" es el directorio /tmp/chispa/s3/<prefijo sin s3://> y se copia con cp en vez de aws s3 cp.
 [ "${CHISPA_LOCAL:-}" = 1 ] || shutdown -h +170   # apagado forzoso: la instancia se termina al apagarse
 set -uo pipefail
 export HOME="${HOME:-/root}"
@@ -21,6 +24,30 @@ REPO=$BASE/repo RES=$BASE/resultados
 export CHISPA_WORK=$BASE/work CHISPA_SALIDA=$RES/resultados-x86.md
 PY=$VENV/bin/python
 FALLO=""
+S3LOCAL=/tmp/chispa/s3/${CHISPA_S3#s3://}
+
+# s3cp ORIGEN DESTINO: aws s3 cp, o cp contra el directorio simulado en modo local.
+s3cp() {
+  if [ "${CHISPA_LOCAL:-}" = 1 ]; then
+    local o=$1 d=$2
+    case $o in s3://*) o=/tmp/chispa/s3/${o#s3://};; esac
+    case $d in s3://*) d=/tmp/chispa/s3/${d#s3://}; mkdir -p "$(dirname "$d")";; esac
+    cp "$o" "$d"
+  else
+    aws s3 cp --only-show-errors "$1" "$2"
+  fi
+}
+
+# Al salir, bien o mal: sube el log y, si existe, resultados.tgz; después apaga (salvo en local).
+subir_y_apagar() {
+  trap - EXIT
+  sleep 1   # deja que tee vacíe el log
+  s3cp "$BASE/log.txt" "$CHISPA_S3/log.txt" || echo "no se pudo subir log.txt"
+  [ -f "$BASE/resultados.tgz" ] && { s3cp "$BASE/resultados.tgz" "$CHISPA_S3/resultados.tgz" || echo "no se pudo subir resultados.tgz"; }
+  [ "${CHISPA_LOCAL:-}" = 1 ] || shutdown -h now
+}
+trap subir_y_apagar EXIT
+trap 'exit 143' TERM INT HUP
 
 fallo() { echo "FALLO: $*"; FALLO="${FALLO:+$FALLO; }$*"; }
 
@@ -32,7 +59,6 @@ cierre() {
   tar -C "$BASE" -czf "$BASE/resultados.tgz" resultados
   touch "$BASE/LISTO"
   echo "== listo $(date -u +%FT%TZ) fallo=${FALLO:-no}"
-  if [ "${CHISPA_LOCAL:-}" != 1 ]; then sleep 1200; shutdown -h now; fi
   exit 0
 }
 
@@ -69,11 +95,12 @@ fi
 "$PY" -c "import torch; assert not torch.version.cuda, 'torch con CUDA: ' + str(torch.version.cuda); print('torch', torch.__version__, 'sin CUDA')" \
   || { fallo "torch trae CUDA o no importa"; cierre; }
 
-# --- código subido por el orquestador (hasta 45 min) -----------------------------------------------------------
-echo "esperando $BASE/codigo.tgz"
-for _ in $(seq 1 270); do   # 270 × 10 s = 45 min
-  [ -f "$BASE/codigo.tgz" ] && tar -tzf "$BASE/codigo.tgz" >/dev/null 2>&1 && break
-  sleep 10
+# --- código en S3, subido por el orquestador (reintenta cada 30 s hasta 45 min) -------------------------------
+echo "bajando $CHISPA_S3/codigo.tgz"
+for _ in $(seq 1 90); do   # 90 × 30 s = 45 min
+  s3cp "$CHISPA_S3/codigo.tgz" "$BASE/codigo.tgz" 2>/dev/null && tar -tzf "$BASE/codigo.tgz" >/dev/null 2>&1 && break
+  rm -f "$BASE/codigo.tgz"
+  sleep 30
 done
 rm -rf "$REPO"; mkdir -p "$REPO"
 tar -xzf "$BASE/codigo.tgz" -C "$REPO" || { fallo "no llegó un codigo.tgz válido en 45 min"; cierre; }
