@@ -50,9 +50,38 @@ p99 en ms, 1 hilo (con 4 hilos va peor en esta VM), sin contar la tokenización.
 - Sin AVX2, int8 no acelera. **El objetivo de p99 < 50 ms a 64 tokens no se cumple en esta máquina.**
   Es el riesgo principal para el criterio (b) de G1.
 
+## Cierre de D3 y de la latencia (2026-10-27, en AWS en lugar del i7)
+
+pve aún no es nodo de delega, así que Juan aprobó medir en AWS spot dos máquinas que acotan al
+i7-8700T: c6a.xlarge (AMD EPYC 7R13, solo AVX2, como el i7) y c6i.xlarge (Ice Lake, AVX-512 + VNNI,
+el mejor caso). Corrieron la misma matriz de la fase 0, ahora con los pesos reales de mmBERT.
+Resultados en `model/bench/aws/resultados/`. Coste: 23 min de instancia en total, ≈ 0,03 USD.
+
+p99 en ms, vocabulario podado, sin contar la tokenización:
+
+| Variante | Hilos | i3 kindling (sin AVX2) | c6a (AVX2) | c6i (VNNI) |
+|---|---|---|---|---|
+| e5-small int8, 16 tokens | 1 | 49 | 5,2 | 3,2 |
+| **e5-small int8, 64 tokens** | 1 | 200 | **19,3** | **10,7** |
+| e5-small int8, 64 tokens | 4 | — | 12,1 | 6,9 |
+| e5-small int8, 256 tokens | 1 | 800 | 90,4 | 48,9 |
+| mmBERT-small int8, 64 tokens | 1 | 301* | 37,9 | 20,3 |
+
+\* Medido con pesos aleatorios.
+
+- **Criterio (b) de G1: se cumple.** e5 int8 a 64 tokens con 1 hilo da un p99 de 19 ms con AVX2,
+  2,6× por debajo de 50 ms. El i7-8700T tiene AVX2 y menos reloj sostenido que el EPYC, así que
+  puede quedar algo por encima, pero con margen. La medida en el i7 queda como confirmación, no
+  como bloqueo.
+- **D3: e5-small, firme.** En calidad, mmBERT-small con pesos reales (media de tokens + kNN-32)
+  saca 64,0 de macro-F1 en el test completo del sondeo, frente a 75,0 de e5-small (`model/bench/calidad.md`),
+  y además va el doble de lento. Su int8 pierde fidelidad: coseno medio 0,98 frente a fp32.
+- A 256 tokens, e5 int8 se pasa de 50 ms con AVX2 (90 ms). Para los mensajes largos hará falta
+  truncar o usar la capa static (potion: < 0,1 ms).
+
 ## Pendiente antes de G1
 
-1. **Medir e5-small y mmBERT-small (con pesos) en el i7-8700T** (AVX2). Necesita que pve, o una VM suya,
+1. ~~Medir en el i7-8700T~~: cubierto en AWS (ver arriba); el i7 queda como confirmación opcional. Necesita que pve, o una VM suya,
    sea nodo de delega con la cuenta personal. Decide si el p99 < 50 ms a 64 tokens es alcanzable o hay que
    cambiar el umbral o el hardware objetivo.
 2. Dorado nuevo de kindling (commit `45903ef`: módulos de Go, pesos `.bin` de mmBERT, sin optimum). No cabe
