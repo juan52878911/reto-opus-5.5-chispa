@@ -1,0 +1,18 @@
+mhc_case_id,functionality,test_case,label_gold,target_ident,ref_case_id,ref_templ_id,templ_id,case_templ,gender_male,gender_female,label_annotated,label_annotated_maj,disagreement_in_case,disagreement_in_template
+spanish-1,derog_neg_emote_h,Detesto a los vecinos zurdos (plantilla 1).,hateful,vecinos zurdos,,,1,,,,[],,False,False
+spanish-2,derog_neg_emote_h,Detesto a los gente pelirroja (plantilla 1).,hateful,gente pelirroja,,,1,,,,[],,False,False
+spanish-3,ident_pos_nh,Respeto a los vecinos zurdos (plantilla 2).,non-hateful,vecinos zurdos,,,2,,,,[],,False,False
+spanish-4,ident_pos_nh,Respeto a los gente pelirroja (plantilla 2).,non-hateful,gente pelirroja,,,2,,,,[],,False,False
+spanish-5,derog_neg_emote_h,Detesto a los vecinos zurdos (plantilla 3).,hateful,vecinos zurdos,,,3,,,,[],,False,False
+spanish-6,derog_neg_emote_h,Detesto a los gente pelirroja (plantilla 3).,hateful,gente pelirroja,,,3,,,,[],,False,False
+spanish-7,ident_pos_nh,Respeto a los vecinos zurdos (plantilla 4).,non-hateful,vecinos zurdos,,,4,,,,[],,False,False
+spanish-8,ident_pos_nh,Respeto a los gente pelirroja (plantilla 4).,non-hateful,gente pelirroja,,,4,,,,[],,False,False
+spanish-9,derog_neg_emote_h,Detesto a los vecinos zurdos (plantilla 13).,hateful,vecinos zurdos,,,13,,,,[],,False,False
+spanish-10,derog_neg_emote_h,Detesto a los gente pelirroja (plantilla 13).,hateful,gente pelirroja,,,13,,,,[],,False,False
+spanish-11,derog_neg_emote_h,Detesto a los vecinos zurdos (plantilla 17).,hateful,vecinos zurdos,,,17,,,,[],,False,False
+spanish-12,derog_neg_emote_h,Detesto a los gente pelirroja (plantilla 17).,hateful,gente pelirroja,,,17,,,,[],,False,False
+spanish-13,derog_neg_emote_h,Detesto a los vecinos zurdos (plantilla 21).,hateful,vecinos zurdos,,,21,,,,[],,False,False
+spanish-14,derog_neg_emote_h,Detesto a los gente pelirroja (plantilla 21).,hateful,gente pelirroja,,,21,,,,[],,False,False
+spanish-15,derog_neg_emote_h,Detesto a los vecinos zurdos (plantilla 45).,hateful,vecinos zurdos,,,45,,,,[],,False,False
+spanish-16,derog_neg_emote_h,Detesto a los gente pelirroja (plantilla 45).,hateful,gente pelirroja,,,45,,,,[],,False,False
+spanish-99,slur_h,Caso dudoso inventado.,hateful,x,,,9,,,,[],,True,False
