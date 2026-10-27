@@ -1,0 +1,15 @@
+{
+ "modelo": "e5_knn32",
+ "tarea": "whatsapp_comercio",
+ "licencia": "MIT (intfloat/multilingual-e5-small)",
+ "hilos": 1,
+ "carga_s": 23.14,
+ "n": 213,
+ "macro_f1": 0.7706751872896564,
+ "exactitud": 0.7699530516431925,
+ "ece": 0.0737424484440978,
+ "p50_ms": 102.90324600009626,
+ "p99_ms": 159.7060590000728,
+ "rss_pico_mb": 990.0,
+ "estado": "medido"
+}

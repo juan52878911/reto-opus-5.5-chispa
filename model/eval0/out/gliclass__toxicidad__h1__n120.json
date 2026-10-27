@@ -1,0 +1,15 @@
+{
+ "modelo": "gliclass",
+ "tarea": "toxicidad",
+ "licencia": "no consta (el snapshot no trae README ni LICENSE)",
+ "hilos": 1,
+ "carga_s": 5.11,
+ "n": 120,
+ "macro_f1": 0.5373636289065704,
+ "exactitud": 0.6083333333333333,
+ "ece": 0.20757958690325418,
+ "p50_ms": 674.7784770004728,
+ "p99_ms": 967.500348639924,
+ "rss_pico_mb": 1554.2,
+ "estado": "medido"
+}

@@ -1,0 +1,15 @@
+{
+ "modelo": "thx01",
+ "tarea": "whatsapp_comercio",
+ "licencia": "ver config del repo (sin README ni LICENSE en el snapshot)",
+ "hilos": 1,
+ "carga_s": 14.85,
+ "n": 120,
+ "macro_f1": 0.6460152216971569,
+ "exactitud": 0.65,
+ "ece": 0.3285975,
+ "p50_ms": 1759.866956499991,
+ "p99_ms": 2166.6991387097914,
+ "rss_pico_mb": 2322.5,
+ "estado": "medido"
+}

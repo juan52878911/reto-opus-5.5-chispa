@@ -1,0 +1,15 @@
+{
+ "modelo": "thx01",
+ "tarea": "herramientas",
+ "licencia": "ver config del repo (sin README ni LICENSE en el snapshot)",
+ "hilos": 1,
+ "carga_s": 9.87,
+ "n": 120,
+ "macro_f1": 0.8222240178122531,
+ "exactitud": 0.8166666666666667,
+ "ece": 0.09211416666666664,
+ "p50_ms": 5059.199063500273,
+ "p99_ms": 5652.33596206037,
+ "rss_pico_mb": 2320.8,
+ "estado": "medido"
+}

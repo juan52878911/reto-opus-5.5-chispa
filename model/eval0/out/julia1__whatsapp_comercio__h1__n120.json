@@ -1,0 +1,15 @@
+{
+ "modelo": "julia1",
+ "tarea": "whatsapp_comercio",
+ "licencia": "ver provenance.json del checkpoint (sin README ni LICENSE en el snapshot)",
+ "hilos": 1,
+ "carga_s": 12.34,
+ "n": 120,
+ "macro_f1": 0.3122873580320389,
+ "exactitud": 0.4166666666666667,
+ "ece": 0.4950045739824146,
+ "p50_ms": 491.16104749964506,
+ "p99_ms": 1491.4400036198003,
+ "rss_pico_mb": 852.0,
+ "estado": "medido"
+}

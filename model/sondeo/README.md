@@ -9,5 +9,6 @@ Regenerar: `python construir.py . <dir>` con `<dir>` = salida de `dataset.Genera
 - `train_<tarea>.jsonl`: 32 por clase, sin texto repetido con el test; `idx_clase < 8` = subconjunto de k=8.
   Excepciones: `toxicidad` solo tiene 2 clases (32 por clase = 64); en `herramientas` las primeras 14 por
   clase (20 en `escalate`) son semillas a mano y el resto son esas semillas con envoltura de registro.
-- «noul» del brief no está definido en el dataset; se usó `test.csv` entero sin los casos con desacuerdo de anotadores.
+- «noul» del brief es el tipo de pregunta booleana de Julia-1/THX-01/Laya (false/true), no un filtro del dataset: se usa así
+  en esos modelos para `toxicidad`. Del CSV se usó `test.csv` entero sin los casos con desacuerdo de anotadores.
 - Campos extra: `descripciones` (id → frase en español, para zero-shot), `split`, `idx_clase`.

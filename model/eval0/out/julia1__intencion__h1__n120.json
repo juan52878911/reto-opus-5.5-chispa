@@ -1,0 +1,15 @@
+{
+ "modelo": "julia1",
+ "tarea": "intencion",
+ "licencia": "ver provenance.json del checkpoint (sin README ni LICENSE en el snapshot)",
+ "hilos": 1,
+ "carga_s": 11.67,
+ "n": 120,
+ "macro_f1": 0.5414934596520274,
+ "exactitud": 0.5416666666666666,
+ "ece": 0.31442613124931645,
+ "p50_ms": 1072.360441000228,
+ "p99_ms": 2067.405391219795,
+ "rss_pico_mb": 870.0,
+ "estado": "medido"
+}
