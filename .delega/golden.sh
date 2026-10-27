@@ -51,6 +51,38 @@ s('PolyAI/banking77', repo_type='dataset', revision='refs/convert/parquet')" || 
 "$HOME/venv/bin/python" -c "from huggingface_hub import snapshot_download as s; \
 s('facebook/xnli', repo_type='dataset', allow_patterns=['es/*','*.md'])" || echo "aviso: no se pudo bajar facebook/xnli"
 
+# Datos de libre uso (bóveda 17-chispa/01-investigacion/07-datos-de-libre-uso.md). Pequeños y enteros, o solo español.
+for d in SINAI/ALIA-es-discriminative-hate-speech Multilingual-Perspectivist-NLU/MultiPICo \
+         bgonzalezbustamante/toxicity-protests-ES bgonzalezbustamante/toxicity-Constitution-ES \
+         mrm8488/go_emotions-es-mt tanaos/synthetic-spam-detection-dataset-spanish tasksource/it-support-tickets \
+         FelipeGuerra/Colombian_Spanish_Cyberbullying_Dataset_1 FelipeGuerra/Colombian_Spanish_Cyberbullying_Dataset_2 \
+         somosnlp/suicide-comments-es somosnlp/spa_climate_detection MoritzLaurer/synthetic_zeroshot_mixtral_v0.1; do
+  "$HOME/venv/bin/python" -c "import sys; from huggingface_hub import snapshot_download as s; \
+s(sys.argv[1], repo_type='dataset')" "$d" || echo "aviso: no se pudo bajar $d"
+done
+for d in "Davlan/sib200 *spa_Latn*" "google-research-datasets/paws-x es/*" "google-research-datasets/go_emotions raw/*"; do
+  set -- $d
+  "$HOME/venv/bin/python" -c "import sys; from huggingface_hub import snapshot_download as s; \
+s(sys.argv[1], repo_type='dataset', allow_patterns=[sys.argv[2], '*.md', '*.yaml', '*.json'])" "$1" "$2" \
+    || echo "aviso: no se pudo bajar $1"
+done
+# tasksource-jev-typed-decisions: solo la tarjeta, sources.yaml y un fragmento de 'default' (la conversión entera va en AWS).
+"$HOME/venv/bin/python" - <<'PY' || echo "aviso: no se pudo bajar tasksource-jev-typed-decisions"
+from huggingface_hub import HfApi, snapshot_download
+r = "tasksource/tasksource-jev-typed-decisions"
+fs = sorted(f for f in HfApi().list_repo_files(r, repo_type="dataset") if f.endswith(".parquet") and "default" in f)
+snapshot_download(r, repo_type="dataset", allow_patterns=["*.md", "*.yaml", "*.json"] + fs[:1])
+print("tasksource-jev: fragmento", fs[:1], "de", len(fs))
+PY
+
+# PQRS reales de datos.gov.co (CC BY-SA 4.0). Traen datos personales: nunca a git ni a informes.
+mkdir -p "$HOME/datos/datosgov"
+for id in gb9w-jt96 m3mt-c275 e86p-frfd xtj2-ipwy; do
+  curl -fsSL --max-time 300 -o "$HOME/datos/datosgov/$id.csv" "https://www.datos.gov.co/api/views/$id/rows.csv?accessType=DOWNLOAD" \
+    && curl -fsSL --max-time 60 -o "$HOME/datos/datosgov/$id.meta.json" "https://www.datos.gov.co/api/views/$id.json" \
+    || echo "aviso: no se pudo bajar datos.gov.co $id"
+done
+
 cat >> "$HOME/.profile" <<'X'
 export PATH="$HOME/go-sdk/bin:$HOME/venv/bin:$PATH"
 export HF_HOME="$HOME/hf"
