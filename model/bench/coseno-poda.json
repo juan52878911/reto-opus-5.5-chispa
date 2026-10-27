@@ -1,0 +1,44 @@
+{
+ "e5-small": {
+  "podado_vs_original_fp32": {
+   "min": 0.9580613374710083,
+   "media": 0.99958854585886,
+   "n": 200,
+   "n_ge_0999": 198
+  },
+  "podado_vs_original_int8": {
+   "min": 0.9587638974189758,
+   "media": 0.9995886772871018,
+   "n": 200,
+   "n_ge_0999": 198
+  },
+  "int8_vs_fp32": {
+   "min": 0.9718897342681885,
+   "media": 0.989378165602684,
+   "n": 200,
+   "n_ge_0999": 0
+  },
+  "pesos": "preentrenados"
+ },
+ "mmBERT-small": {
+  "podado_vs_original_fp32": {
+   "min": 0.6409383416175842,
+   "media": 0.9920186170935631,
+   "n": 200,
+   "n_ge_0999": 187
+  },
+  "podado_vs_original_int8": {
+   "min": 0.640885591506958,
+   "media": 0.9920194348692895,
+   "n": 200,
+   "n_ge_0999": 187
+  },
+  "int8_vs_fp32": {
+   "min": 0.9999826550483704,
+   "media": 0.9999864026904106,
+   "n": 200,
+   "n_ge_0999": 200
+  },
+  "pesos": "ALEATORIOS (sin pesos en el cach\u00e9)"
+ }
+}
