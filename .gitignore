@@ -2,3 +2,4 @@ data/
 models/
 /arena/arena
 *.chispa
+__pycache__/
