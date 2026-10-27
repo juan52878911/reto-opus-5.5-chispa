@@ -46,3 +46,4 @@ Gasto extra, datos de clientes reales, incluir datasets con licencia dudosa en t
 ## Cambios
 | Fecha | Qué cambió | Por qué | OK de Juan |
 |---|---|---|---|
+| 2026-10-27 | T1.5: el etiquetado humano se sustituye por datasets de libre uso con varios anotadores (listón humano); el lote T1.5b queda aparcado. Se añaden datos de libre uso en español, PQRS de datos.gov.co y metaentrenamiento con tasksource-jev filtrado a `commercial`. Profesor adicional: bge-m3-zeroshot-v2.0-c (MIT) | Juan no etiqueta; la nota de la bóveda `01-investigacion/07-datos-de-libre-uso.md` lo justifica | «Perfecto entonces usemos esto, continua sin mi supervision…» (vía la sesión principal) |
