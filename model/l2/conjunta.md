@@ -96,3 +96,19 @@ Prueba en seco: `CHISPA_LOCAL=1 bash model/l2/aws/conjunta.sh` (con `__CHISPA_S3
 .pt: valida el cableado, no los números.
 
 Coste de cómputo previsto: L0 fuera de pliegue (6 ajustes de LR por tarea, CPU) domina; L2 en GPU es minutos. g5.xlarge ≈ 1,0 USD/h.
+
+## T2.2d: cabeza en test, calibración y cascada con el mismo L0
+
+- `--modo-cabeza cvtest`: la cabeza se entrena y evalúa por 2 pliegues de test con la partición de `model.cascada.cascada.pliegue`
+  (importada; hash del `id`, semilla 0). Cada fila se predice con la cabeza ajustada en el otro pliegue; tipo y λ se eligen por CV
+  dentro del pliegue de ajuste (pliegues por hash con otra sal). Por defecto `train`, sin cambios.
+- `--calibrar`: T (choice) o Platt (noul) con `calibrar.ajustar`, ajustado en el otro pliegue de test. Escribe `calibracion.{json,md}`
+  (ECE, NLL, cobertura a precisión 0,95 con `calibrar.tau_escalate`, AUROC; en CLINC, AUROC de `escalate`) y `pred_cal/`.
+  Límite conocido: el τ de la cobertura se toma sobre el mismo test (como en T2.4); y en `cvtest` la calibración de un pliegue usa
+  probabilidades de una cabeza que vio ese pliegue (un parámetro, dependencia débil, no nula).
+- `--desde-cache DIR`: solo cabezas, desde `DIR/<tarea>.npz` (o `DIR/caracteristicas/`), sin codificador ni GPU. Aún necesita `--datos`
+  (ids, opciones y tipo de cada fila). `--comparar-con DIR_TRAIN` escribe `h1.md` (hatecheck ≥ L2 − 1 punto, resto ≥ train − 1 punto).
+- Cascada: `python -m model.cascada.informe --completo DIR --l2b DIR_L2` añade L0c → L2b-sop, L0c → conjunta y conjunta sola
+  (L0c = `pred_l0/`, conjunta = `pred/` de `DIR`) y el veredicto de H3. `--pred` es opcional.
+- AWS: `aws/conjunta_cpu.sh` (m6a.xlarge spot, sin GPU, 45 min); empaquetar con `aws/empaquetar_conjunta.sh`. Prueba en seco:
+  `CHISPA_LOCAL=1 bash model/l2/aws/conjunta_cpu.sh` (fabrica la fuente con un checkpoint sin entrenar si no está en el "s3" local).

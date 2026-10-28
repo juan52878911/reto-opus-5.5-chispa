@@ -15,6 +15,9 @@ Características sin fuga (fase `caracteristicas`, la única que usa el checkpoi
   · en test: L0 entrenado con todo train y L2 con el soporte completo, como en la evaluación de T2.1b.
 Se guardan en `--cache/<tarea>.npz`; la fase `cabezas` no necesita GPU, ni checkpoint, ni e5.
 
+T2.2d: `--modo-cabeza cvtest` entrena la cabeza por pliegues de test (partición de `model.cascada.cascada.pliegue`),
+`--calibrar` calibra fuera de pliegue (T o Platt, `calibrar.py`) y `--desde-cache DIR` salta el codificador y la GPU.
+
 Salida en DIR: `pred/<tarea>.jsonl` (conjunta; `{id, probs, ms}`), `pred_l0/`, `pred_l2/`, `resultados.json` (+ `_l0`, `_l2`),
 `cabezas.json` (CV y elección), `delta.md` (L0, L2, conjunta y el listón) y, con `--renombrar`, `pred_renombrado/`,
 `resultados_renombrado.json` y `caida.md`. Los conjuntos sin train (listón) no entran: no hay con qué entrenar la cabeza.
@@ -30,9 +33,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from model.cascada.cascada import pliegue   # la partición de test de la cascada: se importa, no se copia
 from model.evaluacion import chispa_eval as CE
+from model.evaluacion import metricas as M
 from model.lineas_base import correr as LB0
 
+from . import calibrar as CAL
 from . import datos as D
 from . import evaluar as EV
 from .modelo import Codificador, prototipos, simproto
@@ -359,6 +365,131 @@ def ajustar_y_predecir(c, cabezas=CABEZAS, lambdas=LAMBDAS, k=PLIEGUES):
             "probs_tipo": {t: hs[t].probs(c["te_l0"], c["te_sp"], c["te_l2"]) for t in cabezas}, "ms_cabeza": ms_cabeza}
 
 
+def ajustar_y_predecir_cvtest(c, ids, cabezas=CABEZAS, lambdas=LAMBDAS, k=PLIEGUES):
+    """Como `ajustar_y_predecir`, pero la cabeza se entrena con test: 2 pliegues por hash del `id` (los de `model/cascada`),
+    cada fila se predice con la cabeza ajustada en el otro pliegue. Dentro del pliegue de ajuste, tipo y λ se eligen por CV
+    (pliegues por hash con otra sal), así que la fila evaluada no interviene en nada de lo que la predice."""
+    ids = list(ids)
+    pl = np.array([pliegue(i, SEMILLA) for i in ids])
+    inner = np.array([pliegue(i, SEMILLA + 1, k) for i in ids])
+    n, nc = c["te_l0"].shape
+    probs, probs_r = np.zeros((n, nc)), np.zeros((n, nc))
+    probs_tipo = {t: np.zeros((n, nc)) for t in cabezas}
+    trozos = []
+    for f in (0, 1):
+        ev, aj = pl == f, pl != f
+        if not ev.any() or not aj.any():
+            raise ValueError("el pliegue %d de test está vacío (%d filas)" % (f, n))
+        sub = {"tr_l0": c["te_l0"][aj], "tr_sp": c["te_sp"][aj], "tr_l2": c["te_l2"][aj], "tr_y": c["te_y"][aj], "tr_fold": inner[aj],
+               "te_l0": c["te_l0"][ev], "te_sp": c["te_sp"][ev], "te_l2": c["te_l2"][ev],
+               "r_sp": c["r_sp"][ev], "r_l2": c["r_l2"][ev]}
+        a = ajustar_y_predecir(sub, cabezas, lambdas, k)
+        probs[ev], probs_r[ev] = a["probs"], a["probs_r"]
+        for t in cabezas:
+            probs_tipo[t][ev] = a["probs_tipo"][t]
+        trozos.append(a)
+    elegidas = [a["elegida"] for a in trozos]
+    return {"elegida": elegidas[0] if len(set(elegidas)) == 1 else "/".join(elegidas), "lambda": trozos[0]["lambda"],
+            "por_tipo": [a["por_tipo"] for a in trozos], "cv_nll": [a["cv_nll"] for a in trozos], "probs": probs, "probs_r": probs_r,
+            "probs_tipo": probs_tipo, "ms_cabeza": float(np.mean([a["ms_cabeza"] for a in trozos])),
+            "pliegues_test": [int((pl == 0).sum()), int((pl == 1).sum())]}
+
+
+# --- calibración fuera de pliegue ----------------------------------------------------------------------------------
+def _ajustar_cal(p, y, noul):
+    """Parámetros de calibración sobre (probs, y) con las funciones de `calibrar.py`: T (choice) o Platt (noul)."""
+    if noul:
+        s = np.log(np.clip(p[:, 1], EPS, 1)) - np.log(np.clip(p[:, 0], EPS, 1))
+        prm, aj = CAL.ajustar("noul", [torch.tensor([float(v)]) for v in s], [int(v) for v in y], {"a": 1.0, "b": 0.0})
+    else:
+        prm, aj = CAL.ajustar("choice", [torch.tensor(np.log(np.clip(r, EPS, 1)), dtype=torch.float32) for r in p],
+                              [int(v) for v in y], {"T": 1.0})
+    return prm, aj
+
+
+def _aplicar_cal(p, prm, noul):
+    if noul:
+        s = torch.tensor(np.log(np.clip(p[:, 1], EPS, 1)) - np.log(np.clip(p[:, 0], EPS, 1)), dtype=torch.float32)
+        pt = torch.sigmoid(prm["a"] * s + prm["b"]).numpy().astype(float)
+        return np.stack([1 - pt, pt], 1)
+    z = torch.tensor(np.log(np.clip(p, EPS, 1)), dtype=torch.float32) / prm["T"]
+    return F.softmax(z, -1).numpy().astype(float)
+
+
+def calibrar_oof(p, y, ids, tipo):
+    """Calibra `p` (n,C) fuera de pliegue: los parámetros de cada fila salen del otro pliegue de test (partición de la cascada).
+    -> (probs calibradas, [parámetros por pliegue])."""
+    noul = tipo == "noul" and p.shape[1] == 2
+    pl = np.array([pliegue(i, SEMILLA) for i in ids])
+    out, prms = np.zeros_like(p, dtype=float), []
+    for f in (0, 1):
+        ev, aj = pl == f, pl != f
+        prm, aj_ok = _ajustar_cal(p[aj], y[aj], noul)
+        out[ev] = _aplicar_cal(p[ev], prm, noul)
+        prms.append({**prm, "ajustado": bool(aj_ok)})
+    return out, prms
+
+
+def metricas_calibracion(p_antes, p_despues, y, filas=None):
+    """ECE, NLL, cobertura a precisión 0,95 (`calibrar.tau_escalate`) y AUROC de la confianza; en CLINC, también el de `escalate`."""
+    r = {}
+    for nombre, p in (("antes", p_antes), ("despues", p_despues)):
+        conf, ok = p.max(1), p.argmax(1) == y
+        tau, cob, prec = CAL.tau_escalate(conf, ok)
+        r[nombre] = {"ece": M.ece(conf, ok), "nll": nll(p, y), "tau": tau, "cobertura_p95": cob, "precision_cubierta": prec,
+                     "auroc_acierto": CAL.auroc(conf, ok), "exactitud": float(ok.mean())}
+        if filas is not None and any(r_["etiqueta"] == "escalate" for r_ in filas):
+            esc = np.array([r_["etiqueta"] == "escalate" for r_ in filas])
+            r[nombre]["auroc_escalate"] = CAL.auroc(1 - conf, esc)   # menos confianza = más probable de ser escalate
+    return r
+
+
+def veredicto_h2(cal):
+    ece_ok = [t for t, r in cal.items() if r["despues"]["ece"] <= 0.05]
+    cob_ok = [t for t, r in cal.items() if r["despues"]["cobertura_p95"] >= 0.70]
+    n = len(cal)
+    return {"ece_ok": ece_ok, "cobertura_ok": cob_ok,
+            "cumple": len(ece_ok) == n and len(cob_ok) >= 3, "n": n}
+
+
+def calibracion_md(cal, v, modo):
+    f = lambda x: "-" if x is None or x != x else "%.3f" % x
+    L = ["# Calibración de la conjunta (cabeza %s, T o Platt fuera de pliegue sobre test)" % modo, "",
+         "| tarea | ECE antes | ECE después | NLL antes | NLL después | cobertura p≥0,95 antes | después | AUROC acierto | AUROC escalate |",
+         "|" + "---|" * 9]
+    for t, r in cal.items():
+        a, d = r["antes"], r["despues"]
+        L.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (t, f(a["ece"]), f(d["ece"]), f(a["nll"]), f(d["nll"]),
+                                                                  f(a["cobertura_p95"]), f(d["cobertura_p95"]), f(d["auroc_acierto"]),
+                                                                  f(d.get("auroc_escalate"))))
+    L += ["", "H2 (ECE ≤ 0,05 en las %d tareas y cobertura ≥ 70 %% en ≥ 3): ECE ok en %d/%d (%s); cobertura ok en %d/%d (%s) → %s." % (
+        v["n"], len(v["ece_ok"]), v["n"], ", ".join(v["ece_ok"]) or "ninguna", len(v["cobertura_ok"]), v["n"],
+        ", ".join(v["cobertura_ok"]) or "ninguna", "NO EVALUABLE (menos de 5 tareas)" if v["n"] < 5 else ("CUMPLE" if v["cumple"] else "REFUTADA")),
+        "Los parámetros de cada fila salen del otro pliegue de test; la cobertura usa el τ que da precisión ≥ 0,95 sobre el mismo test "
+        "(como en T2.4), no uno ajustado fuera de pliegue. En `cvtest` las probabilidades del pliegue de ajuste salen de una cabeza "
+        "que vio el pliegue evaluado: dependencia débil (1 parámetro), no eliminada."]
+    return "\n".join(L)
+
+
+def h1_md(res_train, res_cv):
+    """H1 con los resultados de las dos modalidades: hatecheck ≥ L2 − 1 punto y ≤ 1 punto de pérdida en las demás (frente a `train`)."""
+    f = lambda r: r["global"]["macro_f1"]
+    L = ["| tarea | L2 | conjunta (train) | conjunta (cvtest) | Δ cvtest − train | Δ cvtest − L2 |", "|---|---|---|---|---|---|"]
+    perd, hate = [], None
+    for t, r in res_cv.items():
+        tr, cv, l2 = f(res_train[t]["conj"]), f(r["conj"]), f(r["l2"])
+        L.append("| %s | %.3f | %.3f | %.3f | %+.3f | %+.3f |" % (t, l2, tr, cv, cv - tr, cv - l2))
+        if t == "hatecheck":
+            hate = cv >= l2 - 0.01
+        elif cv - tr < -0.01:
+            perd.append(t)
+    ok = hate is True and not perd
+    L += ["", "H1: hatecheck %s; tareas que pierden > 1 punto frente a `train`: %s → %s." % (
+        "n/d" if hate is None else ("≥ L2 − 1 punto" if hate else "< L2 − 1 punto"), ", ".join(perd) or "ninguna",
+        "NO EVALUABLE (sin hatecheck)" if hate is None else ("CUMPLE" if ok else "REFUTADA"))]
+    return "\n".join(L)
+
+
 # --- evaluación ------------------------------------------------------------------------------------------------------
 def predicciones(filas, probs, ms):
     ms = np.broadcast_to(np.asarray(ms, float), (len(filas),))
@@ -412,13 +543,16 @@ def tabla_delta(res, ref, elegidas):
     return "\n".join(lin)
 
 
-def evaluar_tareas(tareas, caches, sal, renombrar):
+def evaluar_tareas(tareas, caches, sal, renombrar, modo_cabeza="train", calibrar=False, comparar_con=None):
     """tareas {t: (train, test)}, caches {t: dict de características}. Escribe todo en `sal` y devuelve (res, res_r)."""
     sal = Path(sal)
-    res, res_r, res_l2r, elegidas, cab = {}, {}, {}, {}, {}
+    res, res_r, res_l2r, elegidas, cab, cal = {}, {}, {}, {}, {}, {}
     for t, (train, test) in tareas.items():
         c = caches[t]
-        a = ajustar_y_predecir(c)
+        if modo_cabeza == "cvtest":
+            a = ajustar_y_predecir_cvtest(c, [r["id"] for r in test])
+        else:
+            a = ajustar_y_predecir(c)
         ms = c["te_ms"] + a["ms_cabeza"]
         preds = {"conj": predicciones(test, a["probs"], ms), "l0": predicciones(test, c["te_l0"], c["te_ms"]),
                  "l2": predicciones(test, c["te_l2"], c["te_ms"]),
@@ -428,7 +562,13 @@ def evaluar_tareas(tareas, caches, sal, renombrar):
             escribir(sal / carp / (t + ".jsonl"), preds[k])
         elegidas[t] = a["elegida"]
         cab[t] = {k: a[k] for k in ("elegida", "lambda", "por_tipo", "cv_nll")}
-        print("== %s: cabeza %s (λ=%g)  L0 %.3f  L2 %.3f  conjunta %.3f" % (
+        if calibrar:
+            y = c["te_y"]
+            pc, prms = calibrar_oof(a["probs"], y, [r["id"] for r in test], test[0]["tipo"])
+            cal[t] = metricas_calibracion(a["probs"], pc, y, test)
+            cal[t]["parametros"] = prms
+            escribir(sal / "pred_cal" / (t + ".jsonl"), predicciones(test, pc, ms))
+        print("== %s: cabeza %s (λ=%s)  L0 %.3f  L2 %.3f  conjunta %.3f" % (
             t, a["elegida"], a["lambda"], res[t]["l0"]["global"]["macro_f1"], res[t]["l2"]["global"]["macro_f1"],
             res[t]["conj"]["global"]["macro_f1"]), flush=True)
         if renombrar:
@@ -444,6 +584,18 @@ def evaluar_tareas(tareas, caches, sal, renombrar):
     delta = tabla_delta(res, referencias(), elegidas)
     (sal / "delta.md").write_text(delta + "\n", encoding="utf-8")
     print(delta)
+    if calibrar:
+        v = veredicto_h2(cal)
+        (sal / "calibracion.json").write_text(json.dumps({"tareas": cal, "h2": v, "modo_cabeza": modo_cabeza}, indent=1, ensure_ascii=False))
+        md = calibracion_md({t: {k: r[k] for k in ("antes", "despues")} for t, r in cal.items()}, v, modo_cabeza)
+        (sal / "calibracion.md").write_text(md + "\n", encoding="utf-8")
+        print(md)
+    if comparar_con:
+        base = json.loads((Path(comparar_con) / "resultados.json").read_text())
+        ref = {t: {"conj": base[t]} for t in res if t in base}
+        md = h1_md(ref, res)
+        (sal / "h1.md").write_text(md + "\n", encoding="utf-8")
+        print(md)
     if renombrar:
         (sal / "resultados_renombrado.json").write_text(json.dumps(res_r, indent=1, ensure_ascii=False))
         orig = {"conjunta:" + t: r["conj"] for t, r in res.items()} | {"L2:" + t: r["l2"] for t, r in res.items()}
@@ -478,14 +630,17 @@ def fase_caracteristicas(a, tareas):
 
 def fase_cabezas(a, tareas):
     caches = {}
+    raiz = Path(a.desde_cache) if a.desde_cache else Path(a.cache)
+    if a.desde_cache and (raiz / "caracteristicas").is_dir():
+        raiz = raiz / "caracteristicas"
     for t, (train, test) in tareas.items():
-        c, meta = leer_cache(Path(a.cache) / (t + ".npz"))
+        c, meta = leer_cache(raiz / (t + ".npz"))
         esperado = meta_de(train, test, PLIEGUES, SOPORTE, SEMILLA)
         for k in ("ids_train", "ids_test", "k", "soporte", "semilla"):
             if meta[k] != esperado[k]:
                 raise SystemExit("la caché de %s no corresponde a estos datos (%s); bórrala y repite la fase de características" % (t, k))
         caches[t] = c
-    evaluar_tareas(tareas, caches, a.salida, a.renombrar)
+    evaluar_tareas(tareas, caches, a.salida, a.renombrar, a.modo_cabeza, a.calibrar, a.comparar_con)
 
 
 def main(argv=None):
@@ -497,6 +652,11 @@ def main(argv=None):
     ap.add_argument("--fase", choices=("todo", "caracteristicas", "cabezas"), default="todo")
     ap.add_argument("--tareas", default="", help="lista separada por comas (por defecto, todas las que tienen train)")
     ap.add_argument("--renombrar", action="store_true", help="evalúa también con las opciones renombradas a A/B/C…")
+    ap.add_argument("--modo-cabeza", choices=("train", "cvtest"), default="train",
+                    help="train: la cabeza se entrena con train (T2.2c); cvtest: 2 pliegues de test, partición de model/cascada")
+    ap.add_argument("--calibrar", action="store_true", help="T (choice) o Platt (noul) fuera de pliegue, ECE, cobertura a p ≥ 0,95 y AUROC")
+    ap.add_argument("--desde-cache", help="DIR con las <tarea>.npz (o DIR/caracteristicas/): solo la fase de cabezas, sin codificador ni GPU")
+    ap.add_argument("--comparar-con", help="DIR con el resultados.json de la modalidad train: escribe h1.md (solo con cvtest)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--max-filas", type=int, default=0, help="tope de filas de train y de test por tarea (0 = todas)")
     a = ap.parse_args(argv)
@@ -506,6 +666,8 @@ def main(argv=None):
     if not tareas:
         raise SystemExit("ninguna tarea con train en %s" % a.datos)
     Path(a.salida).mkdir(parents=True, exist_ok=True)
+    if a.desde_cache:
+        a.fase = "cabezas"
     if a.fase in ("todo", "caracteristicas"):
         if not a.ckpt:
             raise SystemExit("--ckpt es obligatorio en la fase de características")
