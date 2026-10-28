@@ -21,6 +21,7 @@ ENV GOPROXY=file:///gomod-proxy,https://proxy.golang.org \
     CGO_ENABLED=1
 COPY format/chispa3 format/chispa3
 COPY runtime/l1 runtime/l1
+COPY runtime/tok runtime/tok
 COPY server server
 RUN curl -fsSL -o /tmp/ort.tgz \
       https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz \

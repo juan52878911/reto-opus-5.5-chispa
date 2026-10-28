@@ -14,7 +14,7 @@ import (
 const (
 	MaxCuerpo     = 1 << 20
 	MaxPreguntas  = 256
-	MaxOpciones   = 64
+	MaxOpciones   = 256
 	MaxEstadoByte = 256 << 10
 )
 
