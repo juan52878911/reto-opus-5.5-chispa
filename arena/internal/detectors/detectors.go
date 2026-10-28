@@ -55,6 +55,9 @@ func Load(modelsDir, dim, kind string) (Detector, error) {
 	if kind == KindRules {
 		return newRules(dim, labels), nil
 	}
+	if kind == KindCascada {
+		return newCascada(dim, labels)
+	}
 	path := ModelPath(modelsDir, dim, kind)
 	m, err := chispa.LoadFile(path)
 	if err != nil {
@@ -77,6 +80,9 @@ func FromBytes(dim, kind string, model []byte) (Detector, error) {
 	}
 	if kind == KindRules {
 		return newRules(dim, labels), nil
+	}
+	if kind == KindCascada {
+		return newCascada(dim, labels)
 	}
 	m, err := chispa.Unmarshal(model)
 	if err != nil {

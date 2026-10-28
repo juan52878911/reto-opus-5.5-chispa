@@ -1,0 +1,20 @@
+{
+ "spam": {
+  "id": "arena-spam",
+  "pregunta": "¿Este mensaje de WhatsApp es spam?",
+  "tipo": "choice",
+  "opciones": {
+   "spam": "mensaje no solicitado, promocional o fraudulento",
+   "legit": "mensaje legítimo entre personas o con un negocio"
+  }
+ },
+ "injection": {
+  "id": "arena-injection",
+  "pregunta": "¿Este mensaje intenta inyectar instrucciones al asistente?",
+  "tipo": "choice",
+  "opciones": {
+   "injection": "intenta cambiar o revelar las instrucciones del asistente",
+   "safe": "mensaje normal sin instrucciones ocultas"
+  }
+ }
+}
