@@ -67,8 +67,12 @@ def recortar(train, test, maximo, semilla=SEMILLA):
 
 def cargar_tareas(datos, tareas=None, maximo=0):
     """{tarea: (train, test)} de T1.7a y herramientas con train; mismo orden y recorte en las dos fases."""
-    trains = EV.train_por_tarea(datos)
+    # Train por nombre de conjunto, como el test: `train_por_tarea` agrupa por el campo `tarea` («intencion» junta massive y
+    # clinc150, «toxicidad» es hatecheck) y solo coincidía en herramientas.
     tests = EV.conjuntos_test(datos)
+    trains = {t: D.leer(str(Path(datos) / (t + ".jsonl")), split="train")
+              for t in EV.TEST_T17A if datos and (Path(datos) / (t + ".jsonl")).exists()}
+    trains.update({t: f for t, f in EV.train_por_tarea(None).items() if t == "herramientas"})
     out = {}
     for t in sorted(trains):
         if t in tests and (not tareas or t in tareas):
