@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "id": "n1",
+      "kind": "noul",
+      "answer": "false",
+      "probs": {
+        "false": 0.9,
+        "true": 0.1
+      },
+      "layer": "L0",
+      "escalate": false,
+      "ms": 0
+    },
+    {
+      "id": "s1",
+      "kind": "score",
+      "answer": "1",
+      "probs": {
+        "1": 0.4,
+        "2": 0.6
+      },
+      "layer": "L3",
+      "escalate": true,
+      "ms": 0
+    }
+  ]
+}
