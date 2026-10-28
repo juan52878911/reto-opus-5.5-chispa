@@ -5,6 +5,7 @@ import os
 import random
 import re
 import threading
+import time
 import unicodedata
 
 import numpy as np
@@ -216,6 +217,7 @@ class Gasto:
         self.por_tarea = {}
         self.max_llamada = 0.0
         self.parado = False
+        self.vence = None  # time.time() en que acaba el tope de minutos de GPU; None = sin tope
         if ruta and os.path.exists(ruta):
             with open(ruta, encoding="utf-8") as f:
                 for linea in f:
@@ -241,6 +243,9 @@ class Gasto:
     def permitir(self, margen=0.0):
         """Antes de cada llamada: lanza TopeAlcanzado si el gasto, más el margen, ya llega al tope."""
         with self.lock:
+            if self.vence is not None and time.time() >= self.vence:
+                self.parado = True
+                raise TopeAlcanzado("tope de minutos de GPU")
             if self.usd + max(margen, 1.5 * self.max_llamada) >= self.tope:  # la siguiente puede costar más que la mayor vista
                 self.parado = True
                 raise TopeAlcanzado("gasto %.4f USD de tope %.2f" % (self.usd, self.tope))

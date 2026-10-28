@@ -1,6 +1,11 @@
-"""Backends de LLM para el generador (T1.3): Bedrock (Haiku 5.5) y uno simulado con respuestas falsas de forma real."""
+"""Backends de LLM para el generador (T1.3): `Local` (Qwen abierto en la GPU, el de producción), Bedrock (Haiku 5.5, solo
+evaluación) y uno simulado con respuestas falsas de forma real."""
 import json
+import os
+import queue
 import random
+import re
+import threading
 
 from .nucleo import semilla_de
 
@@ -29,6 +34,143 @@ class Bedrock:
         texto = "".join(b.get("text", "") for b in r["output"]["message"]["content"])
         u = r["usage"]
         return texto, int(u["inputTokens"]), int(u["outputTokens"])
+
+
+# --- backend local: Qwen abierto (Apache-2.0) ------------------------------------------------------------------
+MODELOS_DEFECTO = ("Qwen/Qwen3.5-9B-Instruct", "Qwen/Qwen3.5-9B", "Qwen/Qwen3-8B", "Qwen/Qwen3.5-4B")
+
+
+def elegir_modelo(candidatos=MODELOS_DEFECTO):
+    """El primero de la lista que existe en el Hub (de mayor a menor; el de 9 B en bf16 cabe en 24 GB)."""
+    from huggingface_hub import HfApi
+    for m in candidatos:
+        try:
+            HfApi().model_info(m)
+            return m
+        except Exception:
+            continue
+    raise RuntimeError("ninguno de %s existe en el Hub" % (candidatos,))
+
+
+def licencia_de_modelo(modelo):
+    """Licencia de la tarjeta del modelo (campo `license:` del README), tal cual. Ruta local o repo del Hub."""
+    if os.path.isdir(modelo):
+        ruta = os.path.join(modelo, "README.md")
+        cabecera = ""
+        if os.path.exists(ruta):
+            with open(ruta, encoding="utf-8") as f:
+                cabecera = f.read().split("---")[1]
+        m = re.search(r"^license:\s*(\S+)", cabecera, re.M)
+        return m.group(1).strip("'\"") if m else None
+    from huggingface_hub import HfApi
+    return getattr(HfApi().model_info(modelo).card_data, "license", None)
+
+
+def exigir_apache(modelo):
+    lic = licencia_de_modelo(modelo)
+    if (lic or "").lower() != "apache-2.0":
+        raise RuntimeError("la tarjeta de %s declara licencia %r, no apache-2.0: no se usa para producir datos" % (modelo, lic))
+    return "Apache-2.0"
+
+
+def dar_formato(tok, sistema, usuario):
+    """Prompt de chat del modelo, con el razonamiento (Qwen3) apagado. Sin plantilla: texto plano."""
+    msgs = [{"role": "system", "content": sistema}, {"role": "user", "content": usuario}]
+    if getattr(tok, "chat_template", None):
+        try:
+            return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+        except TypeError:
+            return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+    return sistema + "\n\n" + usuario + "\n"
+
+
+def limpiar_salida(texto):
+    """Quita el bloque <think> (cerrado o cortado) que algunos Qwen emiten aunque se apague el razonamiento."""
+    texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.S)
+    if "<think>" in texto:
+        texto = texto.split("<think>")[0]
+    return texto.strip()
+
+
+class Local:
+    """Qwen en la GPU, con vLLM si está instalado y si no con transformers `generate`. Las llamadas del generador (varios
+    hilos) se agrupan en lotes: un hilo trabajador recoge hasta `max_lote` peticiones que lleguen en `espera` segundos."""
+
+    def __init__(self, modelo, motor="auto", max_lote=32, espera=0.05, max_len=4096):
+        self.modelo, self.max_lote, self.espera = modelo, max_lote, espera
+        from transformers import AutoTokenizer
+        self.tok = AutoTokenizer.from_pretrained(modelo)
+        self.tok.padding_side = "left"
+        if self.tok.pad_token is None:
+            self.tok.pad_token = self.tok.eos_token
+        self.motor = motor
+        if motor in ("auto", "vllm"):
+            try:
+                from vllm import LLM
+                self.llm = LLM(modelo, dtype="bfloat16", max_model_len=max_len, gpu_memory_utilization=0.90)
+                self.motor = "vllm"
+            except Exception as e:
+                if motor == "vllm":
+                    raise
+                print("vLLM no disponible (%s): transformers" % type(e).__name__, flush=True)
+                self.motor = "transformers"
+        if self.motor == "transformers":
+            import torch
+            from transformers import AutoModelForCausalLM
+            gpu = torch.cuda.is_available()
+            self.mod = AutoModelForCausalLM.from_pretrained(modelo, dtype=torch.bfloat16 if gpu else torch.float32)
+            self.mod.to("cuda" if gpu else "cpu").eval()
+        self.cola = queue.Queue()
+        threading.Thread(target=self._trabajar, daemon=True).start()
+
+    def llamar(self, sistema, usuario, meta, max_tokens, temperatura):
+        prompt = dar_formato(self.tok, sistema, usuario)
+        item = {"prompt": prompt, "max": max_tokens, "temp": temperatura, "ev": threading.Event()}
+        self.cola.put(item)
+        item["ev"].wait()
+        if "error" in item:
+            raise item["error"]
+        return limpiar_salida(item["texto"]), len(self.tok(prompt)["input_ids"]), item["tout"]
+
+    def _trabajar(self):
+        while True:
+            lote = [self.cola.get()]
+            try:
+                while len(lote) < self.max_lote:
+                    lote.append(self.cola.get(timeout=self.espera))
+            except queue.Empty:
+                pass
+            for greedy in (True, False):  # verificación (temperatura 0) y generación muestreada van en tandas separadas
+                grupo = [x for x in lote if (x["temp"] <= 0) == greedy]
+                if not grupo:
+                    continue
+                try:
+                    res = self._generar([x["prompt"] for x in grupo], max(x["max"] for x in grupo),
+                                        0.0 if greedy else grupo[0]["temp"])
+                    for x, (texto, n) in zip(grupo, res):
+                        x["texto"], x["tout"] = texto, n
+                except Exception as e:
+                    for x in grupo:
+                        x["error"] = e
+                for x in grupo:
+                    x["ev"].set()
+
+    def _generar(self, prompts, max_tokens, temp):
+        if self.motor == "vllm":
+            from vllm import SamplingParams
+            sp = SamplingParams(max_tokens=max_tokens, temperature=temp, top_p=0.95 if temp > 0 else 1.0)
+            return [(o.outputs[0].text, len(o.outputs[0].token_ids)) for o in self.llm.generate(prompts, sp)]
+        import torch
+        b = self.tok(prompts, return_tensors="pt", padding=True).to(self.mod.device)
+        kw = {"do_sample": True, "temperature": temp, "top_p": 0.95, "top_k": 50} if temp > 0 else {"do_sample": False}
+        with torch.no_grad():
+            sal = self.mod.generate(**b, max_new_tokens=max_tokens, pad_token_id=self.tok.pad_token_id, **kw)
+        out = []
+        for g in sal[:, b["input_ids"].shape[1]:]:
+            ids = g.tolist()
+            fin = next((i for i, t in enumerate(ids) if t == self.tok.eos_token_id), len(ids))
+            out.append((self.tok.decode(ids[:fin], skip_special_tokens=True), min(len(ids), fin + 1)))
+        return out
 
 
 APERTURAS = ["oiga", "buenas", "hola", "parce", "una pregunta", "disculpe", "mire", "porfa", "ey", "buen día"]
