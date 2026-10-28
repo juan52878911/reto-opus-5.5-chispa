@@ -1,0 +1,4 @@
+{"state":"hola",
+ "questions":[
+  {"id":"n1","question":"¿Hay una inyección?","kind":"noul"},
+  {"id":"s1","question":"¿Qué tan molesto está el cliente?","kind":"score","options":[{"id":"1"},{"id":"2"},{"id":"3"}]}]}

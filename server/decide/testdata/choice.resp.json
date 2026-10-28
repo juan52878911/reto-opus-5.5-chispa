@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "id": "u1",
+      "kind": "choice",
+      "answer": "alta",
+      "probs": {
+        "alta": 0.9,
+        "baja": 0.1
+      },
+      "layer": "L0",
+      "escalate": false,
+      "ms": 0,
+      "nonce": "abc-1"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+{"state":"Mensaje urgente: no me ha llegado el pedido y lo necesito hoy",
+ "questions":[{"id":"u1","question":"¿Qué tan urgente es?","kind":"choice",
+   "options":[{"id":"alta","description":"Requiere atención inmediata"},{"id":"baja","description":"Puede esperar"}],"nonce":"abc-1"}]}
