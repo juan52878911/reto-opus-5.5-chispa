@@ -1,0 +1,22 @@
+# T2.7 en AWS (m6a.xlarge spot, 2026-10-28): la cascada cumple el listón en las 5 tareas
+
+- **Mejor punto: L0 → L2b-sop «calidad».** L2b-sop es T2.1b con soporte.
+  - Pasa el listón de T2.2 (0,95 × la mejor referencia) en las 5 tareas.
+  - Supera a la mejor capa sola en 3 de 5 y pierde más de 1 punto en 1 (herramientas, −1,6).
+  - **La hipótesis de T2.7 se cumple.**
+- **Con L1-proto en medio:**
+  - **Calidad.** Pasa en las 5 tareas:
+    - massive 0,699 frente a 0,678 de L0;
+    - CLINC 0,812;
+    - herramientas 0,699;
+    - inyecciones 0,905;
+    - hatecheck 0,594, que pierde 3,6 puntos frente a L2 solo. Con eso la hipótesis queda refutada por 2 tareas.
+  - **Latencia media esperada en el i7.** Baja a entre 1,6 y 15 ms, frente a los 30,6 ms de L2 solo. El p99 sigue en 30,8 ms porque hay filas que llegan a L2.
+- **Punto «rápida»** (precisión ≥ 0,95 en lo que acepta cada capa): demasiado conservador y pierde calidad. No sirve como operación por defecto.
+- **El oráculo** (la mejor capa por fila) queda muy por encima: 0,82 a 0,98. Elegir la capa por confianza deja mucho fuera. Ese hueco es el que debe cubrir la cabeza conjunta (b, T2.2c).
+- **Avisos:**
+  - El listón de las tareas de muchas clases es 0,95 × L0, así que L0 solo ya lo pasa.
+  - Las cifras del maestro Qwen por tarea no están en el repo.
+  - τ sale de validación cruzada a 2 pliegues sobre test.
+  - L1-proto no es la L1 del servidor, que es L1-zs, y L1-zs no aporta. Usar L1-proto exige prototipos en el `.chispa`: es T3.1c.
+- **Coste:** dos instancias spot de unos 3 min cada una. El primer intento falló por HF_HOME, arreglado en el commit siguiente. Menos de 0,05 USD.
