@@ -81,7 +81,8 @@ p99 en ms, vocabulario podado, sin contar la tokenización:
 
 ## Pendiente antes de G1
 
-1. ~~Medir en el i7-8700T~~: la medida en AWS lo cubre (ver arriba). El i7 queda como confirmación
-   opcional, cuando pve sea nodo de delega.
+1. ~~Medir en el i7-8700T~~: **medido el 2026-10-28** (`model/bench/i7/resultados.md`). e5 int8 podado a 64 tokens da un p99
+   de 30,6 ms con 1 hilo (26,8-32,4 en tres tandas) y 13,9 ms con 4 hilos. L1 da 166 µs. **El objetivo de p99 < 50 ms se cumple
+   en el hardware objetivo.** El host comparte máquina con otras VM: loadavg de 0,9 a 2,7 y variación del p99 entre tandas de ×1,06 a ×1,25.
 2. ~~Dorado nuevo de kindling~~: hecho el 2026-10-27, con los datasets de la fase 1.
 3. Ampliar el corpus de poda de vocabulario: las dos frases que pierden una pieza siguen en coseno 0,958.
