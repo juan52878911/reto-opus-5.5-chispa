@@ -67,6 +67,85 @@ def aplicar_blandas(filas, blandas, solo_train=True):
     return n
 
 
+def cargar_simples(rutas):
+    """{id: blanda} de ficheros JSONL(.gz) con solo `{id, blanda}` (segundo maestro); no exige el resto del esquema."""
+    if isinstance(rutas, (str, os.PathLike)):
+        rutas = [rutas]
+    out = {}
+    for r in rutas:
+        for f in ficheros(str(r)):
+            with abrir(f) as fh:
+                for l in fh:
+                    if l.strip():
+                        fila = json.loads(l)
+                        if fila.get("blanda"):
+                            out[fila["id"]] = fila["blanda"]
+    return out
+
+
+def _norm(bl):
+    v = {k: max(float(x), 0.0) for k, x in bl.items()}
+    s = sum(v.values())
+    return {k: x / s for k, x in v.items()} if s > 0 else None
+
+
+def mezclar_blanda(base, extra, peso):
+    """(1 − peso)·base + peso·extra sobre la unión de opciones, cada una normalizada antes. Si falta una (o no suma > 0),
+    queda la otra."""
+    a, b = (_norm(base) if base else None), (_norm(extra) if extra else None)
+    if a is None or b is None:
+        return a or b
+    return {k: (1 - peso) * a.get(k, 0.0) + peso * b.get(k, 0.0) for k in a.keys() | b.keys()}
+
+
+def mezclar_extra(filas, extra, peso, solo_train=True):
+    """Promedia con peso `peso` la blanda de `extra` ({id: blanda}) con la que ya tiene cada fila. Devuelve cuántas filas cambian."""
+    n = 0
+    for r in filas:
+        if r["id"] in extra and (not solo_train or r["split"] == "train"):
+            m = mezclar_blanda(r.get("blanda"), extra[r["id"]], peso)
+            if m:
+                r["blanda"] = m
+                n += 1
+    return n
+
+
+def letra(i):
+    """A, B, …, Z, AA, AB, … (clinc150 tiene 151 opciones)."""
+    s = ""
+    i += 1
+    while i:
+        i, r = divmod(i - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
+def renombrar_fila(fila):
+    """Copia de una fila `choice` con los ids de las opciones sustituidos por letras (descripciones, etiqueta y blanda remapeadas).
+    Idempotente: una fila ya renombrada se devuelve tal cual. Las filas `noul` y `score` no se tocan (su «opción» es el
+    valor de la escala, no un nombre)."""
+    if fila["tipo"] != "choice":
+        return fila
+    nuevas = [letra(i) for i in range(len(fila["opciones"]))]
+    if list(fila["opciones"]) == nuevas:
+        return fila
+    m = dict(zip(fila["opciones"], nuevas))
+    r = dict(fila)
+    r["opciones"] = nuevas
+    r["descripciones"] = {m[o]: fila["descripciones"].get(o, "") for o in fila["opciones"]}
+    r["etiqueta"] = m[fila["etiqueta"]]
+    if fila.get("blanda"):
+        r["blanda"] = {m[o]: v for o, v in fila["blanda"].items() if o in m}
+    return r
+
+
+def renombrar_lote(filas, p, semilla, paso):
+    """Renombra cada fila con probabilidad p, decidido por (semilla, paso, id): reanudar reproduce el mismo lote."""
+    if p <= 0:
+        return filas
+    return [renombrar_fila(r) if _u("%d|%s" % (paso, r["id"]), semilla + 7919) < p else r for r in filas]
+
+
 def _u(clave, semilla):
     """Número estable en [0,1) a partir de (semilla, clave): el submuestreo no depende del orden ni de la ejecución."""
     h = hashlib.blake2b(("%d|%s" % (semilla, clave)).encode(), digest_size=8).digest()

@@ -1,12 +1,16 @@
 #!/bin/bash
 CHISPA_S3=__CHISPA_S3__
+L2_ARGS='__L2_ARGS__'   # opciones extra de model.l2.entrenar, p. ej. «--descongelar 4 --renombrar 0.3» (sin comillas dentro)
+CKPT_INICIAL='__CKPT_INICIAL__'   # s3://… de un checkpoint de T2.1 (un fichero .pt) de donde arrancar; vacío = desde cero
 HORAS=__HORAS__   # horas de vida de la instancia (entrenamiento + preparación + evaluación); apagado forzoso a HORAS×60+20 min
 # user-data de una g5.xlarge on-demand (A10G, 24 GB) con la AMI «Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.10
 # (Amazon Linux 2023)», root: entrena L2 (model/l2: ranuras, torres y cabezas sobre e5 congelado), lo evalúa en test frente
-# a model/lineas_base/resultados.json y sube todo. El orquestador sustituye __CHISPA_S3__ y __HORAS__ y sube
+# a model/lineas_base/resultados.json y sube todo. El orquestador sustituye __CHISPA_S3__, __HORAS__, __L2_ARGS__ y
+# __CKPT_INICIAL__ (sin sustituir: sin opciones y desde cero) y sube
 # $CHISPA_S3/codigo.tgz (bash model/l2/aws/empaquetar.sh). Misma convención que model/maestro/aws/arranque.sh.
 # En la instancia (rol con s3:GetObject y s3:PutObject, sin SSH, con internet):
-#   1. baja de S3 el metaentrenamiento ($META_S3) y las blandas del maestro ($BLANDAS_S3);
+#   1. baja de S3 el metaentrenamiento ($META_S3) y las blandas del maestro ($BLANDAS_S3), FICHERO A FICHERO: el rol no puede
+#      listar el bucket, así que ni `--recursive` ni `sync`; la lista sale de model/meta/resultados/conversion-20261027.json;
 #   2. baja e5 y los datasets públicos y corre model.datos.convertir (y model.liston.acuerdo_humano para el listón);
 #   3. entrena (model.l2.entrenar) con checkpoint cada 10 min a $CHISPA_S3/ckpt/ y reanuda si ya hay uno;
 #   4. evalúa en test (T1.7a, T1.4, listón) con model.l2.evaluar;
@@ -15,6 +19,8 @@ HORAS=__HORAS__   # horas de vida de la instancia (entrenamiento + preparación 
 # los checkpoints a $CHISPA_S3 y apaga.
 # CHISPA_LOCAL=1: prueba en seco en kindling (sin pip, descargas ni shutdown; ~/venv, ~/hf, /tmp/chispa; fixtures en vez de
 # datos descargados; CHISPA_PASOS pasos, 50 por defecto); el "s3" es /tmp/chispa/s3/<prefijo sin s3://> y se copia con cp.
+if [ "${L2_ARGS#__}" != "$L2_ARGS" ]; then L2_ARGS=""; fi
+if [ "${CKPT_INICIAL#__}" != "$CKPT_INICIAL" ]; then CKPT_INICIAL=""; fi
 META_S3=${CHISPA_META_S3:-s3://chispa-pruebas-879381269751/meta-20261027/meta}
 BLANDAS_S3=${CHISPA_BLANDAS_S3:-s3://chispa-pruebas-879381269751/maestro-20261027/ronda1}
 if [ "${CHISPA_LOCAL:-}" = 1 ]; then
@@ -36,14 +42,12 @@ echo "== arranque $(date -u +%FT%TZ) local=${CHISPA_LOCAL:-0} base=$BASE horas=$
 REPO=$BASE/repo DATOS=$BASE/datos OUT=$BASE/salida META=$BASE/meta BLANDAS=$BASE/blandas LISTON=$BASE/liston CKPT=$OUT/ckpt
 FALLO=""
 
-s3cp() {   # s3cp [-r] ORIGEN DESTINO
-  local r=""; [ "$1" = -r ] && { r=1; shift; }
+s3cp() {   # s3cp ORIGEN DESTINO: un fichero (el rol no lista el bucket: nada de --recursive ni sync)
   if [ "${CHISPA_LOCAL:-}" = 1 ]; then
     local o=$1 d=$2
     case $o in s3://*) o=/tmp/chispa/s3/${o#s3://};; esac
     case $d in s3://*) d=/tmp/chispa/s3/${d#s3://}; mkdir -p "$(dirname "$d")";; esac
-    if [ -n "$r" ]; then mkdir -p "$d"; cp -r "$o"/. "$d"/; else cp "$o" "$d"; fi
-  elif [ -n "$r" ]; then aws s3 cp --recursive --only-show-errors "$1" "$2"
+    cp "$o" "$d"
   else aws s3 cp --only-show-errors "$1" "$2"
   fi
 }
@@ -54,7 +58,7 @@ subir_y_apagar() {
   mkdir -p "$OUT"
   [ -d "$OUT/pred" ] && tar -C "$OUT" -czf "$OUT/pred.tgz" pred
   [ -n "$FALLO" ] && echo "$FALLO" > "$OUT/FALLO"
-  for f in resultados.json delta.md entrenamiento.json pred.tgz FALLO; do
+  for f in resultados.json resultados_renombrado.json caida.md delta.md entrenamiento.json pred.tgz FALLO; do
     [ -f "$OUT/$f" ] && { s3cp "$OUT/$f" "$CHISPA_S3/$f" || echo "no se pudo subir $f"; }
   done
   for f in ultimo.pt mejor.pt; do
@@ -156,17 +160,47 @@ fi
 rm -rf "$META" "$BLANDAS"; mkdir -p "$META" "$BLANDAS"
 HAY_META=0
 echo "== meta $META_S3"
-if s3cp -r "$META_S3" "$META"; then HAY_META=1; else echo "aviso: sin metaentrenamiento"; fi
+LISTA_META=$REPO/model/meta/resultados/conversion-20261027.json
+if [ -f "$LISTA_META" ]; then
+  # `ficheros`: rutas relativas a $META_S3 (<fuente>/<split>-NNNNN.jsonl.gz). Un fichero que falla se cuenta; con alguno bajado se sigue.
+  "$PY" -I -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["ficheros"]))' "$LISTA_META" > "$BASE/meta.lista" \
+    || fallo "no se pudo leer la lista de ficheros de meta"
+  NMETA=0; NFALLA=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    mkdir -p "$META/$(dirname "$f")"
+    if s3cp "$META_S3/$f" "$META/$f" 2>/dev/null; then NMETA=$((NMETA+1)); else NFALLA=$((NFALLA+1)); echo "aviso: no se pudo bajar $f"; fi
+  done < "$BASE/meta.lista"
+  echo "meta: $NMETA ficheros bajados, $NFALLA con fallo"
+  [ "$NFALLA" -gt 0 ] && [ "${CHISPA_LOCAL:-}" != 1 ] && fallo "meta: $NFALLA ficheros sin bajar"
+  [ "$NMETA" -gt 0 ] && HAY_META=1
+else
+  echo "aviso: sin $LISTA_META, sin metaentrenamiento"
+fi
 if s3cp "$BLANDAS_S3/blandas.tgz" "$BASE/blandas.tgz" 2>/dev/null; then
   tar -xzf "$BASE/blandas.tgz" -C "$BLANDAS" || fallo "blandas.tgz no se pudo extraer"
 else
-  s3cp -r "$BLANDAS_S3" "$BLANDAS" || echo "aviso: sin blandas del maestro"
+  echo "aviso: sin $BLANDAS_S3/blandas.tgz (sin blandas del maestro)"
+fi
+# Segundo maestro (--maestro-extra): un tgz con JSONL {id, blanda}; en L2_ARGS, «--maestro-extra $BASE/extra» (/opt/chispa/extra).
+if [ -n "${CHISPA_EXTRA_S3:-}" ]; then
+  mkdir -p "$BASE/extra"
+  if s3cp "$CHISPA_EXTRA_S3/extra.tgz" "$BASE/extra.tgz"; then tar -xzf "$BASE/extra.tgz" -C "$BASE/extra" || fallo "extra.tgz no se pudo extraer"
+  else fallo "sin $CHISPA_EXTRA_S3/extra.tgz"; fi
+fi
+INICIAL=""
+if [ -n "$CKPT_INICIAL" ]; then
+  if s3cp "$CKPT_INICIAL" "$BASE/inicial.pt"; then INICIAL=$BASE/inicial.pt; else fallo "no se pudo bajar CKPT_INICIAL $CKPT_INICIAL"; cierre; fi
 fi
 find "$META" "$BLANDAS" -type f | head -40; du -sh "$META" "$BLANDAS" "$DATOS"
 
 # --- entrenamiento ---------------------------------------------------------------------------------------------------
 ARGS=(--salida "$CKPT" --datos "$DATOS" --herramientas --blandas "$BLANDAS" --s3 "$CHISPA_S3/ckpt" --max-filas 600000 --epocas 1)
 [ $HAY_META = 1 ] && ARGS+=(--meta "$META")
+[ -n "$INICIAL" ] && ARGS+=(--inicial "$INICIAL")
+read -ra L2A <<< "$L2_ARGS"   # sin comillas ni espacios dentro de cada opción
+ARGS+=(${L2A[@]+"${L2A[@]}"})
+echo "opciones extra: ${L2_ARGS:-ninguna}; inicial: ${INICIAL:-ninguno}"
 if [ "${CHISPA_LOCAL:-}" = 1 ]; then
   ARGS+=(--pasos "${CHISPA_PASOS:-50}" --device cpu --max-filas "${CHISPA_MAX_FILAS:-2000}" --ckpt-cada 60 --eval-cada 25 --dev-max 200)
 else
@@ -187,7 +221,7 @@ cp "$CKPT/entrenamiento.json" "$OUT/" 2>/dev/null
 
 # --- evaluación y Δ -------------------------------------------------------------------------------------------------
 echo "== evaluar $(date -u +%T)"
-EV=(--ckpt "$CKPT/mejor.pt" --salida "$OUT" --datos "$DATOS")
+EV=(--ckpt "$CKPT/mejor.pt" --salida "$OUT" --datos "$DATOS" --renombrar)
 [ -d "$LISTON" ] && EV+=(--liston "$LISTON")
 [ "${CHISPA_LOCAL:-}" = 1 ] && EV+=(--device cpu --max-filas 200)
 "$PY" -u -m model.l2.evaluar "${EV[@]}" || fallo "evaluar"

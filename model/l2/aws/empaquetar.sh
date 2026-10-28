@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Imprime en stdout el tar.gz con lo que necesita la instancia de AWS (ver arranque.sh): model/l2/ (sin tests), el conversor
 # model/datos/ (sin tests ni fixtures, salvo con --fixtures para la prueba en seco), el arnés model/evaluacion/, el listón
-# (model/liston/ y model/etiquetado/acuerdo.py), las filas de T1.4 y las cifras de model/lineas_base/resultados.json.
+# (model/liston/ y model/etiquetado/acuerdo.py), las filas de T1.4 las cifras de model/lineas_base/resultados.json y la lista de ficheros de meta (conversion-20261027.json).
 # Uso: bash model/l2/aws/empaquetar.sh [--fixtures] > codigo.tgz
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
@@ -17,4 +17,5 @@ FIX=(-not -path '*/fixtures/*'); [ "${1:-}" = --fixtures ] && FIX=()
   echo model/herramientas/train.jsonl
   echo model/herramientas/test.jsonl
   echo model/lineas_base/resultados.json
+  echo model/meta/resultados/conversion-20261027.json
 } | LC_ALL=C sort -u | tar -czf - -T -

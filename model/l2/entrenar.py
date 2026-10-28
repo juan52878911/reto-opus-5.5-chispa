@@ -2,11 +2,18 @@
 
     python -m model.l2.entrenar --salida DIR --datos DIR_CONVERTIDOS [--herramientas] [--meta DIR] [--blandas DIR ...]
         [--max-filas 600000] [--epocas 1] [--minutos M] [--s3 s3://bucket/prefijo] [--dev-max 4000]
+        [--descongelar N] [--renombrar P] [--maestro-extra DIR --peso-extra W] [--inicial CKPT]
 
 AdamW (3e-4 ranuras y cabezas, 1e-4 torre), warmup 5 % y coseno, lotes de 64 mensajes con muestreo por tarea (n^0,5).
 Checkpoint cada 10 min en `DIR/ultimo.pt` (atómico) y, con `--s3`, subido; `mejor.pt` por macro-F1 medio en dev.
 Reanuda solo: si `DIR/ultimo.pt` existe (o está en `--s3`), sigue desde su paso. `--minutos` acota el tiempo de
 entrenamiento: tras 30 pasos recalcula el total de pasos con la velocidad medida (una vez, queda en el checkpoint).
+
+T2.2: `--descongelar N` entrena las últimas N capas de e5 (lr `--lr-enc`, 2e-5; recorte de gradiente 1,0 sobre todo). Las dos
+torres comparten el codificador, así que los vectores de opción se recalculan con gradiente en cada paso y la caché se invalida
+tras cada `opt.step()` (ver `Codificador`). `--renombrar P`: con probabilidad P por fila `choice`, los ids de las opciones pasan a
+A, B, C… (se decide por (semilla, paso, id)). `--maestro-extra`: blandas `{id, blanda}` de un segundo maestro, promediadas con
+las existentes con peso `--peso-extra`. `--inicial`: pesos de un checkpoint de T2.1 (sin optimizador) si no hay `ultimo.pt`.
 """
 import argparse
 import json
@@ -78,6 +85,10 @@ def preparar_filas(a):
         bl = D.cargar_blandas(a.blandas)
         info["blandas"] = D.aplicar_blandas(filas, bl)
         del bl
+    if a.maestro_extra:
+        ex = D.cargar_simples(a.maestro_extra)
+        info["extra"] = {"ids": len(ex), "mezcladas": D.mezclar_extra(filas, ex, a.peso_extra)}
+        del ex
     if len(filas) > a.max_filas:  # los datos locales no se recortan a ciegas: submuestreo estable por id
         filas = [r for r in filas if D._u(r["id"], a.semilla) < a.max_filas / len(filas)]
     info["filas"] = len(filas)
@@ -111,6 +122,12 @@ def main(argv=None):
     ap.add_argument("--ckpt-cada", type=int, default=CKPT_CADA_S, help="segundos entre checkpoints")
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--lr-torre", type=float, default=1e-4)
+    ap.add_argument("--descongelar", type=int, default=0, help="entrena las últimas N capas de e5 (0 = congelado)")
+    ap.add_argument("--lr-enc", type=float, default=2e-5, help="lr de las capas descongeladas")
+    ap.add_argument("--renombrar", type=float, default=0.0, help="prob. por fila choice de renombrar las opciones a A/B/C…")
+    ap.add_argument("--maestro-extra", nargs="*", default=[], help="blandas {id, blanda} de un segundo maestro (JSONL)")
+    ap.add_argument("--peso-extra", type=float, default=0.5, help="peso del segundo maestro en el promedio de blandas")
+    ap.add_argument("--inicial", help="checkpoint (T2.1) de donde tomar los pesos si no hay ultimo.pt")
     ap.add_argument("--cache-mensajes", action="store_true", help="guarda los estados e5 de cada mensaje (pruebas en seco)")
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -130,30 +147,46 @@ def main(argv=None):
     total = a.pasos or int(mues.pasos_por_epoca() * a.epocas)
     claves = sorted({"score%d" % len(r["opciones"]) for r in filas if r["tipo"] == "score"})
 
-    enc = Codificador(device=a.device, cache_mensajes=a.cache_mensajes)
+    enc = Codificador(device=a.device, cache_mensajes=a.cache_mensajes, descongelar=a.descongelar)
     modelo = ModeloL2().to(a.device)
     for k in claves:
         modelo.asegurar_cabeza(k, a.device)
-    opt = torch.optim.AdamW(modelo.grupos_optimizador(a.lr, a.lr_torre))
+
+    def nuevo_opt():
+        g = modelo.grupos_optimizador(a.lr, a.lr_torre)
+        if a.descongelar:
+            g.append({"params": enc.parametros_entrenables(), "lr": a.lr_enc, "weight_decay": 0.0})
+        return torch.optim.AdamW(g)
+    opt = nuevo_opt()
     bases = [g["lr"] for g in opt.param_groups]
     paso, mejor, calibrado = 0, {"f1": -1, "paso": -1}, bool(a.pasos or not a.minutos)
 
     ultimo = sal / "ultimo.pt"
     if not ultimo.exists() and a.s3:
         copiar(a.s3.rstrip("/") + "/ultimo.pt", ultimo)
+    if not ultimo.exists() and a.inicial:
+        ck = torch.load(a.inicial, map_location=a.device, weights_only=False)
+        for k in ck.get("cabezas", []):
+            modelo.asegurar_cabeza(k, a.device)
+        modelo.load_state_dict(ck["modelo"])
+        enc.cargar_enc(ck.get("enc"))
+        opt = nuevo_opt()
+        print("pesos iniciales de %s (paso %s de ese entrenamiento)" % (a.inicial, ck.get("paso")), flush=True)
     if ultimo.exists():
         ck = torch.load(ultimo, map_location=a.device, weights_only=False)
         for k in ck.get("cabezas", []):
             modelo.asegurar_cabeza(k, a.device)
-        opt = torch.optim.AdamW(modelo.grupos_optimizador(a.lr, a.lr_torre))
+        opt = nuevo_opt()
         modelo.load_state_dict(ck["modelo"])
+        enc.cargar_enc(ck.get("enc"))
         opt.load_state_dict(ck["opt"])
         paso, total, mejor, calibrado = ck["paso"], ck["total"], ck["mejor"], ck["calibrado"]
         print("reanudado en el paso %d de %d" % (paso, total), flush=True)
 
     def estado():
         return {"modelo": modelo.state_dict(), "opt": opt.state_dict(), "paso": paso, "total": total, "mejor": mejor,
-                "calibrado": calibrado, "cabezas": sorted(modelo.coral.keys()), "args": vars(a)}
+                "calibrado": calibrado, "cabezas": sorted(modelo.coral.keys()), "args": vars(a),
+                "enc": enc.estado_enc()}
 
     def checkpoint(sube=True):
         guardar(ultimo, estado())
@@ -173,7 +206,8 @@ def main(argv=None):
         print("dev paso %d: macro-F1 medio %.4f (mejor %.4f)" % (paso, f1, mejor["f1"]), flush=True)
         if f1 > mejor["f1"]:
             mejor.update(f1=f1, paso=paso)
-            guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": f1})
+            guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": f1,
+                                       "enc": enc.estado_enc()})
         modelo.train()
 
     eval_cada = a.eval_cada or max(total // 4, 1)
@@ -183,11 +217,13 @@ def main(argv=None):
     while paso < total and not parar:
         for g, b in zip(opt.param_groups, bases):
             g["lr"] = lr_en(paso, total, b)
-        _, ps = modelo(mues.lote_paso(paso), enc)
+        _, ps = modelo(D.renombrar_lote(mues.lote_paso(paso), a.renombrar, a.semilla, paso), enc)
         opt.zero_grad(set_to_none=True)
         ps["total"].backward()
-        torch.nn.utils.clip_grad_norm_(modelo.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_([*modelo.parameters(), *enc.parametros_entrenables()], 1.0)
         opt.step()
+        if a.descongelar:
+            enc.invalidar()
         paso += 1
         for k, v in ps.items():
             acc[k] = acc.get(k, 0.0) + float(v.detach())
@@ -213,7 +249,8 @@ def main(argv=None):
             print("checkpoint en el paso %d" % paso, flush=True)
     evaluar_dev()
     if not (sal / "mejor.pt").exists():
-        guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": None})
+        guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": None,
+                                   "enc": enc.estado_enc()})
     checkpoint()
     with open(sal / "entrenamiento.json", "w") as f:
         json.dump({"pasos": paso, "total": total, "mejor": mejor, "filas": mues.n, "info": info,

@@ -36,73 +36,117 @@ def clave_cabeza(fila):
 
 
 class Codificador:
-    """e5 congelado: estados de token del mensaje y vector de pasaje (media normalizada) con caché por hash del texto."""
+    """e5: estados de token del mensaje y vector de pasaje (media normalizada) con caché por hash del texto.
 
-    def __init__(self, ruta=None, device="cpu", max_tok=MAX_TOK, cache_max=400_000, cache_mensajes=False):
+    Congelado por defecto. Con `descongelar=N` se entrenan las últimas N capas (el resto sigue sin gradiente, así que
+    autograd no guarda nada de ellas). Coste: las dos torres comparten el codificador, de modo que (1) los vectores de opción
+    ya no se pueden reutilizar entre pasos y en entrenamiento se recalculan, con gradiente, para todos los textos únicos del
+    lote (antes: solo los que no estaban en la caché, y tras el calentamiento casi ninguno); (2) la caché de opciones (y la
+    de mensajes) se invalida con `invalidar()` después de cada paso de optimización, y solo sirve para evaluar entre pasos.
+    """
+
+    def __init__(self, ruta=None, device="cpu", max_tok=MAX_TOK, cache_max=400_000, cache_mensajes=False, descongelar=0):
         from transformers import AutoModel, AutoTokenizer
         ruta = ruta or os.environ.get("CHISPA_E5") or E5
         kw = {"local_files_only": os.environ.get("HF_HUB_OFFLINE") == "1" or os.path.exists(os.path.expanduser("~/hf/hub"))}
         self.tok = AutoTokenizer.from_pretrained(ruta, **kw)
-        self.enc = AutoModel.from_pretrained(ruta, **kw).to(device).eval()
+        self.enc = AutoModel.from_pretrained(ruta, **kw).to(device).eval()  # eval también al descongelar: sin dropout
         for p in self.enc.parameters():
             p.requires_grad_(False)
+        self.n_desc = descongelar
+        if descongelar:
+            capas = self.enc.encoder.layer
+            for capa in capas[len(capas) - descongelar:]:
+                for p in capa.parameters():
+                    p.requires_grad_(True)
         self.device, self.max_tok = device, max_tok
         self.cache = OrderedDict()
         self.cache_max = cache_max
-        self.msgs = {} if cache_mensajes else None  # estados de token por mensaje: solo para pruebas en seco o varias épocas
+        self.msgs = {} if (cache_mensajes and not descongelar) else None  # estados de token por mensaje: solo pruebas en seco
         self.aciertos = self.fallos = 0
+
+    def parametros_entrenables(self):
+        return [p for p in self.enc.parameters() if p.requires_grad]
+
+    def estado_enc(self):
+        """Pesos de las capas descongeladas (vacío si está congelado), para el checkpoint."""
+        return {k: v.detach().cpu() for k, v in self.enc.named_parameters() if v.requires_grad}
+
+    def cargar_enc(self, estado):
+        if estado:
+            r = self.enc.load_state_dict(estado, strict=False)
+            if r.unexpected_keys:
+                raise ValueError("claves de e5 inesperadas en el checkpoint: %s" % r.unexpected_keys[:3])
+
+    def invalidar(self):
+        """Tira las cachés de vectores: los pesos del codificador acaban de cambiar."""
+        self.cache.clear()
+        if self.msgs:
+            self.msgs.clear()
+
+    def _con_grad(self):
+        return self.n_desc > 0 and torch.is_grad_enabled()
 
     def _pase(self, textos):
         b = self.tok(textos, padding=True, truncation=True, max_length=self.max_tok, return_tensors="pt").to(self.device)
-        with torch.no_grad(), torch.autocast(self.device.split(":")[0], dtype=torch.bfloat16, enabled=self.device != "cpu"):
+        with torch.autocast(self.device.split(":")[0], dtype=torch.bfloat16, enabled=self.device != "cpu"):
             h = self.enc(**b).last_hidden_state
         return h.float(), b["attention_mask"].bool()
 
-    @torch.no_grad()
     def tokens(self, textos):
         """Estados de la última capa H (B,T,384) y máscara (B,T) de «query: » + texto."""
-        if self.msgs is None:
-            return self._pase(["query: " + t for t in textos])
-        falta = [t for t in dict.fromkeys(textos) if t not in self.msgs]
-        if falta:
-            H, m = self._pase(["query: " + t for t in falta])
-            for t, h, k in zip(falta, H, m):
-                self.msgs[t] = h[k].cpu()
-        T = max(self.msgs[t].shape[0] for t in textos)
-        H = torch.zeros(len(textos), T, DIM_E5)
-        m = torch.zeros(len(textos), T, dtype=torch.bool)
-        for i, t in enumerate(textos):
-            n = self.msgs[t].shape[0]
-            H[i, :n], m[i, :n] = self.msgs[t], True
-        return H.to(self.device), m.to(self.device)
+        with torch.set_grad_enabled(self._con_grad()):
+            if self.msgs is None:
+                return self._pase(["query: " + t for t in textos])
+            falta = [t for t in dict.fromkeys(textos) if t not in self.msgs]
+            if falta:
+                H, m = self._pase(["query: " + t for t in falta])
+                for t, h, k in zip(falta, H, m):
+                    self.msgs[t] = h[k].cpu()
+            T = max(self.msgs[t].shape[0] for t in textos)
+            H = torch.zeros(len(textos), T, DIM_E5)
+            m = torch.zeros(len(textos), T, dtype=torch.bool)
+            for i, t in enumerate(textos):
+                n = self.msgs[t].shape[0]
+                H[i, :n], m[i, :n] = self.msgs[t], True
+            return H.to(self.device), m.to(self.device)
 
     @staticmethod
     def hash(texto):
         return hashlib.sha1(texto.encode("utf-8")).hexdigest()
 
-    @torch.no_grad()
+    def _vectores(self, textos):
+        """(n,384) normalizados de e5 sobre cada texto, en lotes de 256 y con el gradiente del modo actual."""
+        out = []
+        for i in range(0, len(textos), 256):
+            h, m = self._pase(textos[i:i + 256])
+            mf = m.unsqueeze(-1).float()
+            out.append(F.normalize((h * mf).sum(1) / mf.sum(1).clamp(min=1), dim=-1))
+        return torch.cat(out)
+
     def pasaje(self, textos):
-        """(n,384): media normalizada de e5 sobre cada texto (ya con su prefijo «passage: »), cacheada por hash."""
-        claves = [self.hash(t) for t in textos]
-        nuevos = {}
-        for c, t in zip(claves, textos):
-            if c in self.cache:
-                self.aciertos += 1
-                self.cache.move_to_end(c)
-            elif c not in nuevos:
-                nuevos[c] = t
-        if nuevos:
-            self.fallos += len(nuevos)
-            ks, ts = list(nuevos), list(nuevos.values())
-            for i in range(0, len(ts), 256):
-                h, m = self._pase(ts[i:i + 256])
-                mf = m.unsqueeze(-1).float()
-                v = F.normalize((h * mf).sum(1) / mf.sum(1).clamp(min=1), dim=-1).cpu()
-                for k, x in zip(ks[i:i + 256], v):
+        """(n,384): media normalizada de e5 sobre cada texto (ya con su prefijo «passage: »). Congelado, o sin gradiente,
+        con caché por hash; descongelado y entrenando, recalculado cada vez y con gradiente."""
+        if self._con_grad():
+            self.fallos += len(textos)
+            return self._vectores(textos)
+        with torch.no_grad():
+            claves = [self.hash(t) for t in textos]
+            nuevos = {}
+            for c, t in zip(claves, textos):
+                if c in self.cache:
+                    self.aciertos += 1
+                    self.cache.move_to_end(c)
+                elif c not in nuevos:
+                    nuevos[c] = t
+            if nuevos:
+                self.fallos += len(nuevos)
+                v = self._vectores(list(nuevos.values())).cpu()
+                for k, x in zip(nuevos, v):
                     self.cache[k] = x
-            while len(self.cache) > self.cache_max:
-                self.cache.popitem(last=False)
-        return torch.stack([self.cache[c] for c in claves]).to(self.device)
+                while len(self.cache) > self.cache_max:
+                    self.cache.popitem(last=False)
+            return torch.stack([self.cache[c] for c in claves]).to(self.device)
 
 
 class Ranuras(nn.Module):
