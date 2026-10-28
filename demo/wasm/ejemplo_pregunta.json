@@ -1,0 +1,22 @@
+{
+ "question": "¿Qué quiere el cliente en este mensaje de WhatsApp?",
+ "kind": "choice",
+ "options": [
+  {
+   "id": "compra",
+   "description": "quiere comprar o preguntar por un producto"
+  },
+  {
+   "id": "soporte",
+   "description": "pide ayuda o soporte con algo que ya tiene"
+  },
+  {
+   "id": "queja",
+   "description": "presenta una queja o reclamo"
+  },
+  {
+   "id": "saludo",
+   "description": "solo saluda o conversa"
+  }
+ ]
+}

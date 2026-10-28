@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Exporta un Model2Vec (potion) al formato binario `.chispa-l1`. Ver README.md.
 
-Uso: exportar.py <directorio-del-modelo> <salida.chispa-l1>
+Uso: exportar.py <directorio-del-modelo> <salida.chispa-l1> [--vocab <json>]
+
+--vocab recorta el modelo a las piezas de `ids_originales` (json como model/bench/vocab-podado-*.json o el que
+genera vocab_recortado.py). Los ids se renumeran en orden; `[PAD]`/`[UNK]` se conservan siempre. La tabla hash y el
+filtro de prefijos se dimensionan para el vocabulario recortado. Los parámetros del tokenizador (mediana, min_score)
+se mantienen los del modelo completo.
 Sin dependencias fuera de numpy y safetensors. Determinista: mismo modelo, mismo fichero.
 """
 import hashlib
@@ -47,7 +52,14 @@ def validar_normalizador(n: dict) -> bytes:
     return cm
 
 
-def main(dir_modelo: str, salida: str) -> None:
+def recortar_ids(pedidos: list, n: int, obligatorios: set) -> np.ndarray:
+    """Ids a conservar: los pedidos más los obligatorios (añadidos y unk), sin repetir, en orden ascendente."""
+    ids = {int(i) for i in pedidos} | {int(i) for i in obligatorios}
+    assert all(0 <= i < n for i in ids), "id fuera del vocabulario del modelo"
+    return np.array(sorted(ids), dtype=np.int64)
+
+
+def main(dir_modelo: str, salida: str, vocab_json: str | None = None) -> None:
     d = Path(dir_modelo)
     tok = json.loads((d / "tokenizer.json").read_text())
     cfg = json.loads((d / "config.json").read_text())
@@ -73,6 +85,19 @@ def main(dir_modelo: str, salida: str) -> None:
     dim = emb.shape[1]
     assert dim == cfg["hidden_dim"] and cfg.get("normalize", True)
 
+    tabla_bits, prefijo_bits = TABLA_BITS, PREFIJO_BITS
+    mediana = int(np.median([len(p) for p, _ in vocab]))      # como model2vec; siempre la del modelo completo
+    min_score = float(scores.min())
+    if vocab_json:
+        ids = recortar_ids(json.loads(Path(vocab_json).read_text())["ids_originales"], n, set(anadidos.values()) | {unk})
+        remap = {int(o): i for i, o in enumerate(ids)}
+        vocab = [vocab[i] for i in ids]
+        piezas, scores, emb = [piezas[i] for i in ids], scores[ids], emb[ids]
+        unk, anadidos = remap[unk], {k: remap[v] for k, v in anadidos.items()}
+        n = len(ids)
+        tabla_bits = max(10, (2 * n - 1).bit_length())           # carga de la tabla entre 0,25 y 0,5
+        prefijo_bits = tabla_bits + 6
+
     # int8 por fila: escala = max|fila|/127 (float32), q = rint(x/escala)
     maxabs = np.abs(emb).max(axis=1)
     escalas = (maxabs / np.float32(127)).astype("<f4")
@@ -81,14 +106,13 @@ def main(dir_modelo: str, salida: str) -> None:
     pesos[escalas == 0] = 0
 
     # mediana de longitud de pieza (en caracteres), como model2vec: recorte de texto = 512 * mediana
-    mediana = int(np.median([len(p) for p, _ in vocab]))
     max_piezas_car = max(len(p) for p, _ in vocab)
     params = {
         "tokenizador": "unigram+metaspace+precompiled",
         "modelo_origen": d.parent.parent.name if d.parent.name == "snapshots" else d.name,
         "max_tokens": 512, "mediana_pieza": mediana, "recorte_texto": 512 * mediana,
         "max_pieza_car": max_piezas_car, "unk_id": unk, "unk_penalizacion": 10.0,
-        "min_score": float(scores.min()), "metaspace": "▁", "prepend": "always",
+        "min_score": min_score, "metaspace": "▁", "prepend": "always",
         "anadidos": anadidos, "puntuacion": "".join(PUNTUACION), "normalize": True,
         "escala_bits": ESCALA_BITS, "dim": dim,
     }
@@ -97,7 +121,7 @@ def main(dir_modelo: str, salida: str) -> None:
     offs = np.zeros(n + 1, dtype="<u4")
     offs[1:] = np.cumsum([len(p) for p in piezas])
     blob = b"".join(piezas)
-    tam = 1 << TABLA_BITS
+    tam = 1 << tabla_bits
     tabla = np.zeros(tam, dtype="<u4")
     for i, p in enumerate(piezas):
         s = fnv1a(p) & (tam - 1)
@@ -107,13 +131,13 @@ def main(dir_modelo: str, salida: str) -> None:
 
     # filtro de prefijos: bit puesto para cada prefijo (en caracteres) de cada pieza; deja cortar la búsqueda
     # en Viterbi en cuanto el texto ya no es prefijo de ninguna pieza (puede tener falsos positivos, no negativos)
-    filtro = np.zeros(1 << (PREFIJO_BITS - 3), dtype=np.uint8)
+    filtro = np.zeros(1 << (prefijo_bits - 3), dtype=np.uint8)
     for p in piezas:
         h = 0xCBF29CE484222325
         for k, c in enumerate(p):
             h = ((h ^ c) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
             if k + 1 == len(p) or (p[k + 1] & 0xC0) != 0x80:
-                b = h >> (64 - PREFIJO_BITS)
+                b = h >> (64 - prefijo_bits)
                 filtro[b >> 3] |= 1 << (b & 7)
 
     cuerpo = {"params": params_b, "charsmap": charsmap, "piezas": blob, "offsets": offs.tobytes(),
@@ -131,7 +155,7 @@ def main(dir_modelo: str, salida: str) -> None:
     h = hashlib.sha256()
     h.update(resto)
     # cabecera: magic, version, dim, vocab, flags, max_pieza_car, tabla_bits, prefijo_bits, secciones, sha256
-    cab = MAGIC + struct.pack("<7I", VERSION, dim, n, 0, max_piezas_car, TABLA_BITS, PREFIJO_BITS)
+    cab = MAGIC + struct.pack("<7I", VERSION, dim, n, 0, max_piezas_car, tabla_bits, prefijo_bits)
     for o, l in tabla_sec:
         cab += struct.pack("<QQ", o, l)
     cab += h.digest()
@@ -141,6 +165,10 @@ def main(dir_modelo: str, salida: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    a = sys.argv[1:]
+    if len(a) == 4 and a[2] == "--vocab":
+        main(a[0], a[1], a[3])
+    elif len(a) == 2:
+        main(*a)
+    else:
         sys.exit(__doc__)
-    main(*sys.argv[1:])
