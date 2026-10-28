@@ -1,0 +1,588 @@
+== arranque 2026-10-28T07:20:34Z local=0 base=/opt/chispa arch=x86_64
+== 1. instalar 07:20:34
+Amazon Linux 2023 repository                     84 MB/s |  86 MB     00:01    
+Amazon Linux 2023 Kernel Livepatch repository   695 kB/s |  89 kB     00:00    
+Package unzip-6.0-68.amzn2023.0.2.x86_64 is already installed.
+Package tar-2:1.34-1.amzn2023.0.4.x86_64 is already installed.
+Package gzip-1.12-1.amzn2023.0.1.x86_64 is already installed.
+Package which-2.21-26.amzn2023.0.2.x86_64 is already installed.
+Dependencies resolved.
+==========================================================================================
+ Package                            Arch    Version                     Repository    Size
+==========================================================================================
+Installing:
+ java-17-amazon-corretto-devel      x86_64  1:17.0.21.0.10-1.amzn2023.1 amazonlinux  142 k
+Installing dependencies:
+ cairo                              x86_64  1.18.0-4.amzn2023.0.3       amazonlinux  717 k
+ fonts-filesystem                   noarch  1:2.0.5-12.amzn2023.0.2     amazonlinux  9.5 k
+ google-noto-fonts-common           noarch  20240401-1.amzn2023.0.2     amazonlinux   17 k
+ google-noto-sans-vf-fonts          noarch  20240401-1.amzn2023.0.2     amazonlinux  593 k
+ graphite2                          x86_64  1.3.14-7.amzn2023.0.3       amazonlinux   97 k
+ harfbuzz                           x86_64  7.0.0-2.amzn2023.0.2        amazonlinux  873 k
+ java-17-amazon-corretto-headless   x86_64  1:17.0.21.0.10-1.amzn2023.1 amazonlinux   91 M
+ javapackages-filesystem            noarch  6.0.0-7.amzn2023.0.6        amazonlinux   12 k
+ langpacks-core-font-en             noarch  3.0-21.amzn2023.0.4         amazonlinux   10 k
+ libX11                             x86_64  1.8.10-2.amzn2023.0.2       amazonlinux  655 k
+ libX11-common                      noarch  1.8.10-2.amzn2023.0.2       amazonlinux  144 k
+ libXau                             x86_64  1.0.11-6.amzn2023.0.1       amazonlinux   33 k
+ libXext                            x86_64  1.3.6-1.amzn2023.0.1        amazonlinux   42 k
+ libXrender                         x86_64  0.9.11-6.amzn2023.0.2       amazonlinux   28 k
+ libbrotli                          x86_64  1.1.0-1.amzn2023.0.2        amazonlinux  333 k
+ libjpeg-turbo                      x86_64  2.1.4-2.amzn2023.0.5        amazonlinux  190 k
+ libpng                             x86_64  2:1.6.37-10.amzn2023.0.13   amazonlinux  128 k
+ libxcb                             x86_64  1.17.0-1.amzn2023.0.1       amazonlinux  235 k
+ pixman                             x86_64  0.43.4-1.amzn2023.0.4       amazonlinux  296 k
+ xml-common                         noarch  0.6.3-56.amzn2023.0.2       amazonlinux   32 k
+Installing weak dependencies:
+ alsa-lib                           x86_64  1.2.7.2-1.amzn2023.0.4      amazonlinux  503 k
+ dejavu-sans-fonts                  noarch  2.37-16.amzn2023.0.2        amazonlinux  1.3 M
+ dejavu-sans-mono-fonts             noarch  2.37-16.amzn2023.0.2        amazonlinux  467 k
+ dejavu-serif-fonts                 noarch  2.37-16.amzn2023.0.2        amazonlinux  1.0 M
+ fontconfig                         x86_64  2.13.94-2.amzn2023.0.2      amazonlinux  273 k
+ freetype                           x86_64  2.13.2-5.amzn2023.0.2       amazonlinux  422 k
+
+Transaction Summary
+==========================================================================================
+Install  27 Packages
+
+Total download size: 100 M
+Installed size: 262 M
+Downloading Packages:
+(1/27): cairo-1.18.0-4.amzn2023.0.3.x86_64.rpm   19 MB/s | 717 kB     00:00    
+(2/27): alsa-lib-1.2.7.2-1.amzn2023.0.4.x86_64.  11 MB/s | 503 kB     00:00    
+(3/27): dejavu-sans-fonts-2.37-16.amzn2023.0.2.  26 MB/s | 1.3 MB     00:00    
+(4/27): dejavu-sans-mono-fonts-2.37-16.amzn2023  15 MB/s | 467 kB     00:00    
+(5/27): fontconfig-2.13.94-2.amzn2023.0.2.x86_6 7.0 MB/s | 273 kB     00:00    
+(6/27): dejavu-serif-fonts-2.37-16.amzn2023.0.2  20 MB/s | 1.0 MB     00:00    
+(7/27): fonts-filesystem-2.0.5-12.amzn2023.0.2. 311 kB/s | 9.5 kB     00:00    
+(8/27): freetype-2.13.2-5.amzn2023.0.2.x86_64.r  13 MB/s | 422 kB     00:00    
+(9/27): google-noto-fonts-common-20240401-1.amz 551 kB/s |  17 kB     00:00    
+(10/27): google-noto-sans-vf-fonts-20240401-1.a  16 MB/s | 593 kB     00:00    
+(11/27): graphite2-1.3.14-7.amzn2023.0.3.x86_64 3.8 MB/s |  97 kB     00:00    
+(12/27): harfbuzz-7.0.0-2.amzn2023.0.2.x86_64.r  21 MB/s | 873 kB     00:00    
+(13/27): java-17-amazon-corretto-devel-17.0.21. 3.9 MB/s | 142 kB     00:00    
+(14/27): javapackages-filesystem-6.0.0-7.amzn20 368 kB/s |  12 kB     00:00    
+(15/27): langpacks-core-font-en-3.0-21.amzn2023 343 kB/s |  10 kB     00:00    
+(16/27): libX11-common-1.8.10-2.amzn2023.0.2.no 5.0 MB/s | 144 kB     00:00    
+(17/27): libX11-1.8.10-2.amzn2023.0.2.x86_64.rp 9.7 MB/s | 655 kB     00:00    
+(18/27): libXau-1.0.11-6.amzn2023.0.1.x86_64.rp 882 kB/s |  33 kB     00:00    
+(19/27): libXext-1.3.6-1.amzn2023.0.1.x86_64.rp 1.3 MB/s |  42 kB     00:00    
+(20/27): libXrender-0.9.11-6.amzn2023.0.2.x86_6 800 kB/s |  28 kB     00:00    
+(21/27): libbrotli-1.1.0-1.amzn2023.0.2.x86_64. 7.5 MB/s | 333 kB     00:00    
+(22/27): libjpeg-turbo-2.1.4-2.amzn2023.0.5.x86 4.6 MB/s | 190 kB     00:00    
+(23/27): libxcb-1.17.0-1.amzn2023.0.1.x86_64.rp 7.9 MB/s | 235 kB     00:00    
+(24/27): libpng-1.6.37-10.amzn2023.0.13.x86_64. 3.0 MB/s | 128 kB     00:00    
+(25/27): pixman-0.43.4-1.amzn2023.0.4.x86_64.rp  11 MB/s | 296 kB     00:00    
+(26/27): xml-common-0.6.3-56.amzn2023.0.2.noarc 981 kB/s |  32 kB     00:00    
+(27/27): java-17-amazon-corretto-headless-17.0.  81 MB/s |  91 MB     00:01    
+--------------------------------------------------------------------------------
+Total                                            74 MB/s | 100 MB     00:01     
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                        1/1 
+  Installing       : fonts-filesystem-1:2.0.5-12.amzn2023.0.2.noarch       1/27 
+  Installing       : dejavu-sans-mono-fonts-2.37-16.amzn2023.0.2.noarch    2/27 
+  Installing       : dejavu-sans-fonts-2.37-16.amzn2023.0.2.noarch         3/27 
+  Installing       : libpng-2:1.6.37-10.amzn2023.0.13.x86_64               4/27 
+  Installing       : dejavu-serif-fonts-2.37-16.amzn2023.0.2.noarch        5/27 
+  Running scriptlet: xml-common-0.6.3-56.amzn2023.0.2.noarch               6/27 
+  Installing       : xml-common-0.6.3-56.amzn2023.0.2.noarch               6/27 
+  Installing       : pixman-0.43.4-1.amzn2023.0.4.x86_64                   7/27 
+  Installing       : libjpeg-turbo-2.1.4-2.amzn2023.0.5.x86_64             8/27 
+  Installing       : libbrotli-1.1.0-1.amzn2023.0.2.x86_64                 9/27 
+  Installing       : libXau-1.0.11-6.amzn2023.0.1.x86_64                  10/27 
+  Installing       : libxcb-1.17.0-1.amzn2023.0.1.x86_64                  11/27 
+  Installing       : libX11-common-1.8.10-2.amzn2023.0.2.noarch           12/27 
+  Installing       : libX11-1.8.10-2.amzn2023.0.2.x86_64                  13/27 
+  Installing       : libXext-1.3.6-1.amzn2023.0.1.x86_64                  14/27 
+  Installing       : libXrender-0.9.11-6.amzn2023.0.2.x86_64              15/27 
+  Installing       : javapackages-filesystem-6.0.0-7.amzn2023.0.6.noarc   16/27 
+  Installing       : graphite2-1.3.14-7.amzn2023.0.3.x86_64               17/27 
+  Installing       : google-noto-fonts-common-20240401-1.amzn2023.0.2.n   18/27 
+  Installing       : google-noto-sans-vf-fonts-20240401-1.amzn2023.0.2.   19/27 
+  Installing       : langpacks-core-font-en-3.0-21.amzn2023.0.4.noarch    20/27 
+  Installing       : cairo-1.18.0-4.amzn2023.0.3.x86_64                   21/27 
+  Installing       : harfbuzz-7.0.0-2.amzn2023.0.2.x86_64                 22/27 
+  Installing       : freetype-2.13.2-5.amzn2023.0.2.x86_64                23/27 
+  Installing       : fontconfig-2.13.94-2.amzn2023.0.2.x86_64             24/27 
+  Running scriptlet: fontconfig-2.13.94-2.amzn2023.0.2.x86_64             24/27 
+  Installing       : alsa-lib-1.2.7.2-1.amzn2023.0.4.x86_64               25/27 
+  Installing       : java-17-amazon-corretto-headless-1:17.0.21.0.10-1.   26/27 
+  Running scriptlet: java-17-amazon-corretto-headless-1:17.0.21.0.10-1.   26/27 
+  Installing       : java-17-amazon-corretto-devel-1:17.0.21.0.10-1.amz   27/27 
+  Running scriptlet: java-17-amazon-corretto-devel-1:17.0.21.0.10-1.amz   27/27 
+  Running scriptlet: fontconfig-2.13.94-2.amzn2023.0.2.x86_64             27/27 
+  Running scriptlet: java-17-amazon-corretto-devel-1:17.0.21.0.10-1.amz   27/27 
+  Verifying        : alsa-lib-1.2.7.2-1.amzn2023.0.4.x86_64                1/27 
+  Verifying        : cairo-1.18.0-4.amzn2023.0.3.x86_64                    2/27 
+  Verifying        : dejavu-sans-fonts-2.37-16.amzn2023.0.2.noarch         3/27 
+  Verifying        : dejavu-sans-mono-fonts-2.37-16.amzn2023.0.2.noarch    4/27 
+  Verifying        : dejavu-serif-fonts-2.37-16.amzn2023.0.2.noarch        5/27 
+  Verifying        : fontconfig-2.13.94-2.amzn2023.0.2.x86_64              6/27 
+  Verifying        : fonts-filesystem-1:2.0.5-12.amzn2023.0.2.noarch       7/27 
+  Verifying        : freetype-2.13.2-5.amzn2023.0.2.x86_64                 8/27 
+  Verifying        : google-noto-fonts-common-20240401-1.amzn2023.0.2.n    9/27 
+  Verifying        : google-noto-sans-vf-fonts-20240401-1.amzn2023.0.2.   10/27 
+  Verifying        : graphite2-1.3.14-7.amzn2023.0.3.x86_64               11/27 
+  Verifying        : harfbuzz-7.0.0-2.amzn2023.0.2.x86_64                 12/27 
+  Verifying        : java-17-amazon-corretto-devel-1:17.0.21.0.10-1.amz   13/27 
+  Verifying        : java-17-amazon-corretto-headless-1:17.0.21.0.10-1.   14/27 
+  Verifying        : javapackages-filesystem-6.0.0-7.amzn2023.0.6.noarc   15/27 
+  Verifying        : langpacks-core-font-en-3.0-21.amzn2023.0.4.noarch    16/27 
+  Verifying        : libX11-1.8.10-2.amzn2023.0.2.x86_64                  17/27 
+  Verifying        : libX11-common-1.8.10-2.amzn2023.0.2.noarch           18/27 
+  Verifying        : libXau-1.0.11-6.amzn2023.0.1.x86_64                  19/27 
+  Verifying        : libXext-1.3.6-1.amzn2023.0.1.x86_64                  20/27 
+  Verifying        : libXrender-0.9.11-6.amzn2023.0.2.x86_64              21/27 
+  Verifying        : libbrotli-1.1.0-1.amzn2023.0.2.x86_64                22/27 
+  Verifying        : libjpeg-turbo-2.1.4-2.amzn2023.0.5.x86_64            23/27 
+  Verifying        : libpng-2:1.6.37-10.amzn2023.0.13.x86_64              24/27 
+  Verifying        : libxcb-1.17.0-1.amzn2023.0.1.x86_64                  25/27 
+  Verifying        : pixman-0.43.4-1.amzn2023.0.4.x86_64                  26/27 
+  Verifying        : xml-common-0.6.3-56.amzn2023.0.2.noarch              27/27 
+
+Installed:
+  alsa-lib-1.2.7.2-1.amzn2023.0.4.x86_64                                        
+  cairo-1.18.0-4.amzn2023.0.3.x86_64                                            
+  dejavu-sans-fonts-2.37-16.amzn2023.0.2.noarch                                 
+  dejavu-sans-mono-fonts-2.37-16.amzn2023.0.2.noarch                            
+  dejavu-serif-fonts-2.37-16.amzn2023.0.2.noarch                                
+  fontconfig-2.13.94-2.amzn2023.0.2.x86_64                                      
+  fonts-filesystem-1:2.0.5-12.amzn2023.0.2.noarch                               
+  freetype-2.13.2-5.amzn2023.0.2.x86_64                                         
+  google-noto-fonts-common-20240401-1.amzn2023.0.2.noarch                       
+  google-noto-sans-vf-fonts-20240401-1.amzn2023.0.2.noarch                      
+  graphite2-1.3.14-7.amzn2023.0.3.x86_64                                        
+  harfbuzz-7.0.0-2.amzn2023.0.2.x86_64                                          
+  java-17-amazon-corretto-devel-1:17.0.21.0.10-1.amzn2023.1.x86_64              
+  java-17-amazon-corretto-headless-1:17.0.21.0.10-1.amzn2023.1.x86_64           
+  javapackages-filesystem-6.0.0-7.amzn2023.0.6.noarch                           
+  langpacks-core-font-en-3.0-21.amzn2023.0.4.noarch                             
+  libX11-1.8.10-2.amzn2023.0.2.x86_64                                           
+  libX11-common-1.8.10-2.amzn2023.0.2.noarch                                    
+  libXau-1.0.11-6.amzn2023.0.1.x86_64                                           
+  libXext-1.3.6-1.amzn2023.0.1.x86_64                                           
+  libXrender-0.9.11-6.amzn2023.0.2.x86_64                                       
+  libbrotli-1.1.0-1.amzn2023.0.2.x86_64                                         
+  libjpeg-turbo-2.1.4-2.amzn2023.0.5.x86_64                                     
+  libpng-2:1.6.37-10.amzn2023.0.13.x86_64                                       
+  libxcb-1.17.0-1.amzn2023.0.1.x86_64                                           
+  pixman-0.43.4-1.amzn2023.0.4.x86_64                                           
+  xml-common-0.6.3-56.amzn2023.0.2.noarch                                       
+
+Complete!
+Loading package information...                                                  Loading local repository...                                                     [                                       ] 3% Loading local repository...        [                                       ] 3% Fetch remote repository...         [=                                      ] 3% Fetch remote repository...         [=                                      ] 4% Fetch remote repository...         [=                                      ] 5% Fetch remote repository...         [==                                     ] 5% Fetch remote repository...         [==                                     ] 6% Fetch remote repository...         [==                                     ] 7% Fetch remote repository...         [==                                     ] 7% Computing updates...               [===                                    ] 8% Computing updates...               [===                                    ] 10% Computing updates...              [===                                    ] 10% Installing NDK (Side by side) 26.1[===                                    ] 10% Downloading android-ndk-r26b-linux[====                                   ] 10% Downloading android-ndk-r26b-linux[====                                   ] 11% Downloading android-ndk-r26b-linux[====                                   ] 12% Downloading android-ndk-r26b-linux[=====                                  ] 13% Downloading android-ndk-r26b-linux[=====                                  ] 14% Downloading android-ndk-r26b-linux[=====                                  ] 15% Downloading android-ndk-r26b-linux[======                                 ] 15% Downloading android-ndk-r26b-linux[======                                 ] 16% Downloading android-ndk-r26b-linux[======                                 ] 16% Unzipping...                      [======                                 ] 16% Unzipping... android-ndk-r26b/    [======                                 ] 16% Unzipping... android-ndk-r26b/CHAN[======                                 ] 16% Unzipping... android-ndk-r26b/wrap[======                                 ] 16% Unzipping... android-ndk-r26b/preb[======                                 ] 16% Unzipping... android-ndk-r26b/buil[======                                 ] 16% Unzipping... android-ndk-r26b/NOTI[======                                 ] 16% Unzipping... android-ndk-r26b/ndk-[======                                 ] 16% Unzipping... android-ndk-r26b/NOTI[======                                 ] 16% Unzipping... android-ndk-r26b/meta[======                                 ] 16% Unzipping... android-ndk-r26b/ndk-[======                                 ] 16% Unzipping... android-ndk-r26b/pyth[======                                 ] 16% Unzipping... android-ndk-r26b/sour[======                                 ] 16% Unzipping... android-ndk-r26b/simp[======                                 ] 16% Unzipping... android-ndk-r26b/ndk-[======                                 ] 16% Unzipping... android-ndk-r26b/READ[======                                 ] 16% Unzipping... android-ndk-r26b/tool[======                                 ] 17% Unzipping... android-ndk-r26b/tool[=======                                ] 18% Unzipping... android-ndk-r26b/tool[=======                                ] 19% Unzipping... android-ndk-r26b/tool[=======                                ] 20% Unzipping... android-ndk-r26b/tool[========                               ] 20% Unzipping... android-ndk-r26b/tool[========                               ] 21% Unzipping... android-ndk-r26b/tool[========                               ] 21% Unzipping... android-ndk-r26b/ndk-[========                               ] 21% Unzipping... android-ndk-r26b/shad[============                           ] 33% Unzipping... android-ndk-r26b/shad[============                           ] 33% Installing Android SDK Build-Tools[============                           ] 33% Downloading build-tools_r34-linux.[=============                          ] 33% Downloading build-tools_r34-linux.[=============                          ] 34% Downloading build-tools_r34-linux.[=============                          ] 35% Downloading build-tools_r34-linux.[==============                         ] 35% Downloading build-tools_r34-linux.[==============                         ] 36% Downloading build-tools_r34-linux.[==============                         ] 37% Downloading build-tools_r34-linux.[===============                        ] 38% Downloading build-tools_r34-linux.[===============                        ] 38% Unzipping... android-ndk-r26b/shad[===============                        ] 38% Unzipping... android-14/NOTICE.txt[===============                        ] 38% Unzipping... android-14/aapt      [===============                        ] 38% Unzipping... android-14/aapt2     [===============                        ] 38% Unzipping... android-14/aarch64-li[===============                        ] 38% Unzipping... android-14/aidl      [===============                        ] 39% Unzipping... android-14/aidl      [===============                        ] 39% Unzipping... android-14/apksigner [===============                        ] 39% Unzipping... android-14/arm-linux-[===============                        ] 39% Unzipping... android-14/bcc_compat[===============                        ] 39% Unzipping... android-14/core-lambd[===============                        ] 39% Unzipping... android-14/d8        [===============                        ] 39% Unzipping... android-14/dexdump   [===============                        ] 39% Unzipping... android-14/i686-linux[===============                        ] 39% Unzipping... android-14/lld       [===============                        ] 39% Unzipping... android-14/llvm-rs-cc[===============                        ] 39% Unzipping... android-14/mipsel-lin[===============                        ] 39% Unzipping... android-14/runtime.pr[===============                        ] 39% Unzipping... android-14/source.pro[===============                        ] 39% Unzipping... android-14/split-sele[===============                        ] 39% Unzipping... android-14/x86_64-lin[===============                        ] 39% Unzipping... android-14/zipalign  [===============                        ] 39% Unzipping... android-14/lib/apksig[===============                        ] 39% Unzipping... android-14/lib/d8.jar[===============                        ] 40% Unzipping... android-14/lib/d8.jar[===============                        ] 40% Unzipping... android-14/lib64/libL[================                       ] 40% Unzipping... android-14/lib64/libL[================                       ] 41% Unzipping... android-14/lib64/libL[================                       ] 41% Unzipping... android-14/lib64/libb[================                       ] 41% Unzipping... android-14/lib64/libc[================                       ] 42% Unzipping... android-14/lib64/libc[================                       ] 42% Unzipping... android-14/lld-bin/ll[=================                      ] 43% Unzipping... android-14/lld-bin/ll[=================                      ] 43% Unzipping... android-14/renderscri[=================                      ] 44% Unzipping... android-14/renderscri[=====================                  ] 55% Unzipping... android-14/renderscri[=====================                  ] 55% Installing Android SDK Platform 34[=====================                  ] 55% Downloading platform-34-ext7_r03.z[======================                 ] 55% Downloading platform-34-ext7_r03.z[======================                 ] 56% Downloading platform-34-ext7_r03.z[======================                 ] 57% Downloading platform-34-ext7_r03.z[=======================                ] 58% Downloading platform-34-ext7_r03.z[=======================                ] 59% Downloading platform-34-ext7_r03.z[=======================                ] 60% Downloading platform-34-ext7_r03.z[========================               ] 60% Downloading platform-34-ext7_r03.z[========================               ] 61% Downloading platform-34-ext7_r03.z[========================               ] 61% Unzipping... android-14/renderscri[========================               ] 61% Unzipping... android-34/          [========================               ] 61% Unzipping... android-34/android.ja[========================               ] 62% Unzipping... android-34/android.ja[=========================              ] 63% Unzipping... android-34/android.ja[=========================              ] 63% Unzipping... android-34/optional/ [=========================              ] 63% Unzipping... android-34/optional/a[=========================              ] 63% Unzipping... android-34/optional/l[=========================              ] 63% Unzipping... android-34/optional/o[=========================              ] 63% Unzipping... android-34/optional/a[=========================              ] 63% Unzipping... android-34/optional/o[=========================              ] 63% Unzipping... android-34/templates/[=========================              ] 63% Unzipping... android-34/core-for-s[=========================              ] 63% Unzipping... android-34/build.prop[=========================              ] 63% Unzipping... android-34/android-st[=========================              ] 64% Unzipping... android-34/android-st[=========================              ] 64% Unzipping... android-34/uiautomato[=========================              ] 64% Unzipping... android-34/source.pro[=========================              ] 64% Unzipping... android-34/data/     [=========================              ] 64% Unzipping... android-34/data/servi[=========================              ] 64% Unzipping... android-34/data/NOTIC[=========================              ] 64% Unzipping... android-34/data/widge[=========================              ] 64% Unzipping... android-34/data/broad[=========================              ] 64% Unzipping... android-34/data/api-v[=========================              ] 64% Unzipping... android-34/data/featu[=========================              ] 64% Unzipping... android-34/data/annot[=========================              ] 64% Unzipping... android-34/data/res/ [=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/l[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/m[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/a[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/d[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/x[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/l[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/l[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/x[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/a[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/c[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/d[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/t[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/x[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/l[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/d[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/d[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/m[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/c[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 64% Unzipping... android-34/data/res/r[=========================              ] 64% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/d[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/r[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/c[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/m[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/r[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/r[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/i[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/d[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/m[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/d[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/d[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/d[=========================              ] 65% Unzipping... android-34/data/res/v[=========================              ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/x[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/a[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/r[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/m[==========================             ] 65% Unzipping... android-34/data/res/x[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/a[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/i[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/r[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/r[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/r[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/l[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/l[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/d[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/l[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 65% Unzipping... android-34/data/res/m[==========================             ] 65% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/r[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/l[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/l[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/l[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/c[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/r[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/m[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/m[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/r[==========================             ] 66% Unzipping... android-34/data/res/l[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/r[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/r[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/res/d[==========================             ] 66% Unzipping... android-34/data/res/v[==========================             ] 66% Unzipping... android-34/data/categ[==========================             ] 66% Unzipping... android-34/data/activ[==========================             ] 66% Unzipping... android-34/sdk.proper[==========================             ] 66% Unzipping... android-34/skins/    [==========================             ] 66% Unzipping... android-34/skins/WXGA[==========================             ] 66% Unzipping... android-34/skins/WQVG[==========================             ] 66% Unzipping... android-34/skins/NOTI[==========================             ] 66% Unzipping... android-34/skins/HVGA[==========================             ] 66% Unzipping... android-34/skins/WVGA[==========================             ] 66% Unzipping... android-34/skins/WQVG[==========================             ] 66% Unzipping... android-34/skins/WVGA[==========================             ] 66% Unzipping... android-34/skins/QVGA[==========================             ] 66% Unzipping... android-34/skins/WXGA[==========================             ] 66% Unzipping... android-34/skins/WSVG[==========================             ] 66% Unzipping... android-34/skins/WXGA[==========================             ] 66% Unzipping... android-34/framework.[==============================         ] 78% Unzipping... android-34/framework.[==============================         ] 78% Installing Android SDK Platform-To[==============================         ] 78% Downloading platform-tools_r37.0.1[===============================        ] 78% Downloading platform-tools_r37.0.1[===============================        ] 79% Downloading platform-tools_r37.0.1[===============================        ] 80% Downloading platform-tools_r37.0.1[================================       ] 80% Downloading platform-tools_r37.0.1[================================       ] 81% Downloading platform-tools_r37.0.1[================================       ] 82% Downloading platform-tools_r37.0.1[=================================      ] 83% Downloading platform-tools_r37.0.1[=================================      ] 83% Unzipping... android-34/framework.[=================================      ] 83% Unzipping... platform-tools/NOTICE[=================================      ] 83% Unzipping... platform-tools/adb   [=================================      ] 84% Unzipping... platform-tools/adb   [=================================      ] 85% Unzipping... platform-tools/adb   [==================================     ] 85% Unzipping... platform-tools/adb   [==================================     ] 86% Unzipping... platform-tools/adb   [==================================     ] 86% Unzipping... platform-tools/etc1to[==================================     ] 86% Unzipping... platform-tools/fastbo[==================================     ] 87% Unzipping... platform-tools/fastbo[==================================     ] 87% Unzipping... platform-tools/hprof-[==================================     ] 87% Unzipping... platform-tools/lib64/[==================================     ] 87% Unzipping... platform-tools/make_f[==================================     ] 87% Unzipping... platform-tools/mke2fs[===================================    ] 88% Unzipping... platform-tools/mke2fs[===================================    ] 88% Unzipping... platform-tools/source[===================================    ] 88% Unzipping... platform-tools/sqlite[===================================    ] 89% Unzipping... platform-tools/sqlite[=======================================] 100% Unzipping... platform-tools/sqlit
+
+go version go1.27.1 linux/amd64
+bajando s3://chispa-pruebas-879381269751/android-20261028b/codigo.tgz
+/dev/nvme0n1p1   60G  5.9G   55G  10% /
+== 2a. go test ./... 07:21:27
+go: downloading github.com/juan52878911/kindling v0.17.0
+=== RUN   TestDecidirChoice
+--- PASS: TestDecidirChoice (0.00s)
+=== RUN   TestDecidirTemperaturaDeCalib
+--- PASS: TestDecidirTemperaturaDeCalib (0.00s)
+=== RUN   TestDecidirSinOpinionYErrores
+--- PASS: TestDecidirSinOpinionYErrores (0.00s)
+=== RUN   TestDecidirNoul
+--- PASS: TestDecidirNoul (0.00s)
+=== RUN   TestPuntuarL2Choice
+--- PASS: TestPuntuarL2Choice (0.00s)
+=== RUN   TestPuntuarL2SinTorresYForma
+--- PASS: TestPuntuarL2SinTorresYForma (0.00s)
+=== RUN   TestPuntuarL2NoulYScore
+--- PASS: TestPuntuarL2NoulYScore (0.00s)
+=== RUN   TestScoreCoral
+--- PASS: TestScoreCoral (0.00s)
+=== RUN   TestAbrirSoloCalibYL2
+--- PASS: TestAbrirSoloCalibYL2 (0.00s)
+=== RUN   TestAbrirErrores
+--- PASS: TestAbrirErrores (0.00s)
+=== RUN   TestAbrirL0
+--- PASS: TestAbrirL0 (0.00s)
+=== RUN   TestMismaHuellaQueDemoWasm
+    huella_test.go:64: sin L1 recortado: CHISPA_L1_RECORTADO=… o demo/wasm/potion-es.chispa-l1 (ver demo/wasm/README.md)
+--- SKIP: TestMismaHuellaQueDemoWasm (0.00s)
+PASS
+ok  	chispa/sdk/movil/chispamovil	0.010s
+--- PASS: TestDecidirChoice (0.00s)
+--- PASS: TestDecidirTemperaturaDeCalib (0.00s)
+--- PASS: TestDecidirSinOpinionYErrores (0.00s)
+--- PASS: TestDecidirNoul (0.00s)
+--- PASS: TestPuntuarL2Choice (0.00s)
+--- PASS: TestPuntuarL2SinTorresYForma (0.00s)
+--- PASS: TestPuntuarL2NoulYScore (0.00s)
+--- PASS: TestScoreCoral (0.00s)
+--- PASS: TestAbrirSoloCalibYL2 (0.00s)
+--- PASS: TestAbrirErrores (0.00s)
+--- PASS: TestAbrirL0 (0.00s)
+--- SKIP: TestMismaHuellaQueDemoWasm (0.00s)
+PASS
+ok  	chispa/sdk/movil/chispamovil	0.010s
+AVISO: hay tests de Go saltados: --- SKIP: TestMismaHuellaQueDemoWasm (0.00s) 
+== 2b. go vet GOOS=android GOARCH=arm64 07:21:33
+== 2c. gomobile 07:21:38
+go: downloading golang.org/x/mobile v0.0.0-20261011034528-197770444867
+go: added golang.org/x/mobile v0.0.0-20261011034528-197770444867
+go: downloading golang.org/x/tools v0.52.0
+go: downloading golang.org/x/mod v0.42.0
+go: downloading golang.org/x/sync v0.24.0
+write /tmp/gomobile-work-3348286010/src-android-arm64/go.mod
+write /tmp/gomobile-work-3348286010/src-android-amd64/go.mod
+go: found chispa/sdk/movil/chispamovil in chispa/sdk/movil/chispamovil v0.0.0-00010101000000-000000000000
+go: found chispa/sdk/movil/chispamovil in chispa/sdk/movil/chispamovil v0.0.0-00010101000000-000000000000
+unused golang.org/x/exp/shiny
+unused golang.org/x/image
+unused golang.org/x/mod
+unused golang.org/x/sync
+unused golang.org/x/sys
+unused golang.org/x/tools
+unused golang.org/x/tools/go/expect
+unused golang.org/x/tools/go/packages/packagestest
+unused golang.org/x/exp/shiny
+unused golang.org/x/image
+unused golang.org/x/mod
+unused golang.org/x/sync
+unused golang.org/x/sys
+unused golang.org/x/tools
+unused golang.org/x/tools/go/expect
+unused golang.org/x/tools/go/packages/packagestest
+internal/goarch
+internal/unsafeheader
+internal/byteorder
+internal/coverage/rtcov
+internal/godebugs
+internal/goos
+internal/goexperiment
+internal/cpu
+internal/profilerecord
+internal/runtime/atomic
+internal/abi
+math/bits
+internal/runtime/syscall/linux
+internal/runtime/gc
+internal/runtime/sys
+log/internal
+internal/asan
+internal/msan
+os/signal
+internal/strconv
+chispa/sdk/movil/chispamovil
+internal/runtime/math
+log
+internal/runtime/pprof/label
+internal/trace/tracev2
+sync/atomic
+unicode
+unicode/utf8
+internal/runtime/exithook
+internal/bytealg
+internal/chacha8rand
+internal/runtime/gc/scan
+crypto/internal/fips140/alias
+crypto/internal/fips140deps/byteorder
+crypto/internal/fips140deps/cpu
+crypto/internal/constanttime
+crypto/internal/fips140deps/time
+cmp
+math
+crypto/internal/fips140/subtle
+internal/runtime/cgroup
+internal/stringslite
+crypto/internal/boring/sig
+internal/race
+internal/synctest
+encoding
+unicode/utf16
+crypto/subtle
+log/internal
+internal/runtime/maps
+internal/sync
+runtime/cgo
+runtime
+golang.org/x/mobile/internal/mobileinit
+golang.org/x/mobile/bind/seq
+golang.org/x/mobile/bind/java
+gobind/gobind
+iter
+internal/reflectlite
+sync
+slices
+internal/bisect
+internal/testlog
+errors
+sort
+crypto/internal/entropy/v1.0.0
+io
+internal/oserror
+path
+strconv
+encoding/json/internal
+internal/godebug
+encoding/json/internal/jsonflags
+syscall
+encoding/json/internal/jsonopts
+reflect
+bytes
+hash
+strings
+encoding/base32
+encoding/base64
+crypto/internal/fips140deps/godebug
+crypto
+hash/crc32
+crypto/internal/fips140
+crypto/internal/impl
+encoding/json/internal/jsonwire
+bufio
+crypto/internal/fips140/sha3
+crypto/internal/fips140/sha256
+crypto/internal/fips140/sha512
+encoding/json/jsontext
+time
+internal/syscall/unix
+internal/syscall/execenv
+runtime/cgo
+crypto/internal/fips140/hmac
+crypto/internal/fips140/check
+crypto/fips140
+crypto/internal/fips140/aes
+context
+io/fs
+internal/poll
+encoding/binary
+internal/fmtsort
+internal/filepathlite
+os
+crypto/internal/sysrand
+os/signal
+fmt
+crypto/internal/fips140/drbg
+crypto/internal/fips140only
+crypto/internal/fips140/aes/gcm
+crypto/cipher
+encoding/hex
+log
+text/tabwriter
+crypto/internal/boring
+crypto/sha256
+encoding/json/v2
+golang.org/x/mobile/internal/mobileinit
+golang.org/x/mobile/bind/seq
+golang.org/x/mobile/bind/java
+encoding/json
+chispa/runtime/l1
+github.com/juan52878911/kindling/pkg/chispa
+chispa/format/chispa3
+chispa/sdk/movil/chispamovil
+gobind/gobind
+aar: AndroidManifest.xml
+aar: proguard.txt
+aar: classes.jar
+jar: META-INF/MANIFEST.MF
+jar: chispamovil/Chispa.class
+jar: chispamovil/Chispamovil.class
+jar: go/Seq$GoObject.class
+jar: go/Seq$GoRef.class
+jar: go/Seq$GoRefQueue$1.class
+jar: go/Seq$GoRefQueue.class
+jar: go/Seq$Proxy.class
+jar: go/Seq$Ref.class
+jar: go/Seq$RefMap.class
+jar: go/Seq$RefTracker.class
+jar: go/Seq.class
+jar: go/Universe$proxyerror.class
+jar: go/Universe.class
+jar: go/error.class
+aar: jni/arm64-v8a/libgojni.so
+aar: jni/x86_64/libgojni.so
+aar: R.txt
+aar: res/
+jar: META-INF/MANIFEST.MF
+jar: chispamovil/Chispa.java
+jar: chispamovil/Chispamovil.java
+jar: go/Seq.java
+jar: go/Universe.java
+jar: go/error.java
+-rw-r--r--. 1 root root 5284418 Oct 28 07:21 /opt/chispa/repo/sdk/android/chispa/libs/chispamovil.aar
+== 3. gradle 07:21:51
+
+Welcome to Gradle 8.9!
+
+Here are the highlights of this release:
+ - Enhanced Error and Warning Messages
+ - IDE Integration Improvements
+ - Daemon JVM Information
+
+For more details see https://docs.gradle.org/8.9/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :wrapper
+
+BUILD SUCCESSFUL in 59s
+1 actionable task: 1 executed
+Downloading https://services.gradle.org/distributions/gradle-8.9-bin.zip
+............10%.............20%.............30%.............40%.............50%.............60%.............70%.............80%.............90%.............100%
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :chispa:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :chispa:preBuild UP-TO-DATE
+> Task :chispa:preDebugBuild UP-TO-DATE
+> Task :chispa:generateDebugResValues
+> Task :chispa:generateDebugResources
+> Task :chispa:packageDebugResources
+> Task :chispa:preDebugUnitTestBuild UP-TO-DATE
+> Task :chispa:preReleaseBuild UP-TO-DATE
+> Task :chispa:javaPreCompileDebug
+> Task :chispa:javaPreCompileDebugUnitTest
+> Task :chispa:generateReleaseResValues
+> Task :chispa:generateReleaseResources
+> Task :chispa:packageReleaseResources
+> Task :chispa:parseDebugLocalResources
+> Task :chispa:parseReleaseLocalResources
+> Task :chispa:preReleaseUnitTestBuild UP-TO-DATE
+> Task :chispa:javaPreCompileRelease
+> Task :demo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :chispa:javaPreCompileReleaseUnitTest
+> Task :chispa:generateReleaseRFile
+> Task :chispa:generateDebugRFile
+> Task :chispa:compileDebugLibraryResources
+> Task :chispa:generateDebugUnitTestStubRFile
+> Task :chispa:generateReleaseUnitTestStubRFile
+> Task :demo:preBuild UP-TO-DATE
+> Task :demo:preDebugBuild UP-TO-DATE
+> Task :demo:generateDebugResValues
+> Task :chispa:writeDebugAarMetadata
+> Task :demo:mapDebugSourceSetPaths
+> Task :demo:checkDebugAarMetadata
+> Task :demo:generateDebugResources
+> Task :demo:mergeDebugResources
+> Task :demo:packageDebugResources
+> Task :demo:parseDebugLocalResources
+> Task :demo:createDebugCompatibleScreenManifests
+> Task :chispa:extractDeepLinksDebug
+> Task :demo:extractDeepLinksDebug
+> Task :demo:preDebugUnitTestBuild UP-TO-DATE
+> Task :demo:javaPreCompileDebugUnitTest
+> Task :demo:javaPreCompileDebug
+> Task :demo:buildKotlinToolingMetadata
+> Task :chispa:processDebugManifest
+> Task :chispa:compileReleaseLibraryResources
+> Task :demo:processDebugMainManifest
+> Task :demo:processDebugManifest
+> Task :demo:processDebugManifestForPackage
+> Task :demo:preReleaseBuild UP-TO-DATE
+> Task :demo:generateReleaseResValues
+> Task :chispa:writeReleaseAarMetadata
+> Task :demo:mapReleaseSourceSetPaths
+> Task :demo:checkReleaseAarMetadata
+> Task :demo:generateReleaseResources
+> Task :demo:mergeReleaseResources
+> Task :demo:packageReleaseResources
+> Task :demo:createReleaseCompatibleScreenManifests
+> Task :chispa:extractDeepLinksRelease
+> Task :demo:parseReleaseLocalResources
+> Task :demo:extractDeepLinksRelease
+> Task :demo:preReleaseUnitTestBuild UP-TO-DATE
+> Task :chispa:processReleaseManifest
+> Task :demo:javaPreCompileRelease
+> Task :demo:processDebugResources
+> Task :demo:javaPreCompileReleaseUnitTest
+> Task :demo:processReleaseMainManifest
+> Task :demo:processReleaseManifest
+> Task :chispa:mergeDebugJniLibFolders
+> Task :demo:processReleaseManifestForPackage
+> Task :chispa:mergeDebugNativeLibs NO-SOURCE
+> Task :chispa:stripDebugDebugSymbols NO-SOURCE
+> Task :chispa:extractDeepLinksForAarDebug
+> Task :chispa:copyDebugJniLibsProjectAndLocalJars
+> Task :chispa:mergeDebugShaders
+> Task :chispa:compileDebugShaders NO-SOURCE
+> Task :chispa:generateDebugAssets UP-TO-DATE
+> Task :chispa:packageDebugAssets
+> Task :chispa:prepareDebugArtProfile
+> Task :demo:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :chispa:prepareLintJarForPublish
+> Task :demo:mergeDebugShaders
+> Task :demo:compileDebugShaders NO-SOURCE
+> Task :demo:generateDebugAssets UP-TO-DATE
+> Task :demo:processReleaseResources
+> Task :demo:mergeDebugAssets
+> Task :demo:compressDebugAssets
+> Task :demo:desugarDebugFileDependencies
+> Task :demo:mergeDebugStartupProfile
+> Task :demo:checkDebugDuplicateClasses
+> Task :chispa:copyDebugJniLibsProjectOnly
+> Task :chispa:compileReleaseKotlin
+> Task :chispa:compileDebugKotlin
+> Task :chispa:compileDebugJavaWithJavac NO-SOURCE
+> Task :chispa:bundleLibRuntimeToJarDebug
+> Task :chispa:bundleLibCompileToJarDebug
+> Task :chispa:processDebugJavaRes
+> Task :chispa:compileReleaseJavaWithJavac NO-SOURCE
+> Task :chispa:bundleLibRuntimeToJarRelease
+> Task :chispa:bundleLibCompileToJarRelease
+> Task :chispa:processReleaseJavaRes
+> Task :demo:mergeExtDexDebug
+> Task :demo:compileDebugKotlin
+> Task :demo:compileReleaseKotlin
+> Task :chispa:compileDebugUnitTestKotlin
+> Task :chispa:compileReleaseUnitTestKotlin
+> Task :chispa:extractDebugAnnotations
+> Task :chispa:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :chispa:processDebugUnitTestJavaRes
+> Task :chispa:testDebugUnitTest
+> Task :chispa:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :chispa:processReleaseUnitTestJavaRes
+> Task :chispa:testReleaseUnitTest
+> Task :chispa:test
+> Task :demo:compileDebugJavaWithJavac NO-SOURCE
+> Task :demo:bundleDebugClassesToCompileJar
+> Task :demo:bundleDebugClassesToRuntimeJar
+> Task :demo:processDebugJavaRes
+> Task :demo:compileDebugUnitTestKotlin NO-SOURCE
+> Task :demo:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :demo:processDebugUnitTestJavaRes NO-SOURCE
+> Task :demo:testDebugUnitTest NO-SOURCE
+> Task :demo:compileReleaseJavaWithJavac NO-SOURCE
+> Task :demo:bundleReleaseClassesToRuntimeJar
+> Task :demo:bundleReleaseClassesToCompileJar
+> Task :demo:processReleaseJavaRes
+> Task :demo:compileReleaseUnitTestKotlin NO-SOURCE
+> Task :demo:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :demo:processReleaseUnitTestJavaRes NO-SOURCE
+> Task :demo:testReleaseUnitTest NO-SOURCE
+> Task :demo:test UP-TO-DATE
+> Task :chispa:mergeDebugGeneratedProguardFiles
+> Task :chispa:mergeDebugConsumerProguardFiles
+> Task :demo:dexBuilderDebug
+> Task :chispa:mergeDebugJavaResource
+> Task :demo:mergeDebugGlobalSynthetics
+> Task :chispa:syncDebugLibJars
+> Task :chispa:bundleDebugAar
+> Task :chispa:assembleDebug
+> Task :demo:mergeDebugJniLibFolders
+> Task :demo:mergeProjectDexDebug
+> Task :chispa:bundleLibRuntimeToDirDebug
+> Task :demo:mergeDebugJavaResource
+> Task :demo:mergeDebugNativeLibs
+> Task :demo:validateSigningDebug
+> Task :demo:writeDebugAppMetadata
+> Task :demo:writeDebugSigningConfigVersions
+> Task :demo:mergeLibDexDebug
+> Task :demo:stripDebugDebugSymbols
+> Task :demo:packageDebug
+> Task :demo:createDebugApkListingFileRedirect
+> Task :demo:assembleDebug
+
+BUILD SUCCESSFUL in 44s
+112 actionable tasks: 112 executed
+== 4. recoger 07:23:36
+-rw-r--r--. 1 root root 45578479 Oct 28 07:23 /opt/chispa/resultados/chispa-demo-debug.apk
+tests JVM ejecutados: 40
+/dev/nvme0n1p1   60G  7.4G   53G  13% /
+== listo 2026-10-28T07:23:38Z fallo=no
