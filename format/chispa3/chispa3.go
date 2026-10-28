@@ -1,5 +1,5 @@
 // Paquete chispa3 es el contenedor .chispa v3: una cabecera con versión, una tabla de secciones
-// (tipo, offset, longitud, sha256) y las secciones (META, L0, L1, L2, ESQUEMAS, CALIB). El cargador
+// (tipo, offset, longitud, sha256) y las secciones (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ). El cargador
 // valida toda la estructura al abrir y el sha256 de cada sección antes de entregar sus bytes.
 package chispa3
 
@@ -27,6 +27,7 @@ const (
 	L2
 	ESQUEMAS
 	CALIB
+	CONJ
 	numTipos = iota + 1
 )
 
@@ -44,6 +45,8 @@ func (t Tipo) String() string {
 		return "ESQUEMAS"
 	case CALIB:
 		return "CALIB"
+	case CONJ:
+		return "CONJ"
 	}
 	return fmt.Sprintf("tipo(%d)", uint32(t))
 }

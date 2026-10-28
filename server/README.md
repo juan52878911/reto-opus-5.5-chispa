@@ -139,6 +139,27 @@ arma la cascada con las secciones presentes (`decide.ArmarDesde`); las que falta
   La puntuación (`l2.go`) no depende de ORT y está probada con una sesión falsa; solo `l2_ort.go` toca ONNX Runtime.
   Sin `-tags ort`, `l2_stub.go` devuelve `ErrSinORT` y L2 queda como stub (el servidor avisa en el log).
 
+### T2.6b: L2c, «L2 conjunta» (sección `CONJ`)
+Si el `.chispa` trae `CONJ`, `ArmarDesde` monta `L2c` (`decide/l2c.go`) en lugar de L2. Sigue llamándose `L2` en la cascada, la
+config y `layer`: mismo contrato `/v1/decide` y misma τ (la de CALIB sin `--config`). La cascada le pasa lo que dijeron las capas
+anteriores (`DecisorConPrevias`), y L2c usa las probabilidades de L0 con:
+- `a = log P_L0`, `b = simproto` (media sobre las ranuras del mensaje de la similitud máxima con las ranuras del prototipo de la
+  clase; prototipos int8 de `CONJ`), `c = log P_L2` con `P_L2 = softmax((MaxSim + β·simproto)/T)` (β y T del modelo, en `CONJ`);
+  cada una centrada por fila y dividida por su desviación de train, más las marcas «es la primera de L0 / de L2 / de ambas».
+- `softmax(w · [a, b, c, top0, top2, top0·top2])` con los 6 pesos de la cabeza `lr` de `model/l2/conjunta.py`.
+- La clave de `CONJ` es `HashEsquema(pregunta, ids ordenados)`: la pregunta debe ser la misma que al entrenar.
+- Cae a L2 de siempre (sin tocar la cabeza) si: la pregunta no es `choice`, `CONJ` no tiene ese esquema, L0 no dio
+  probabilidades (L0 no tiene modelo para el esquema), o las ranuras no tienen la `d` de los prototipos. Una opción sin clase
+  en `CONJ` vale simproto 0, como en Python.
+- El codificador va detrás de `Similitudes` (el ONNX y las torres): `l2c_test.go` prueba con similitudes falsas sin ORT.
+- **Paridad con Python**: `TestL2cParidadConPython` lee `model/l2/tests/fixtures_conjunta/paridad.json` (lo genera
+  `sdk/python/tests/fixture_conjunta.py` con `conjunta.Cabeza`): |Δp| máx 8e-8 en 8 casos (tolerancia 1e-4).
+- **Latencia**: la cabeza no añade llamadas al ONNX (L2c usa las mismas ranuras S que L2); el coste extra es el simproto, que va
+  lineal con las clases: C·K·K·d multiplicaciones (150 clases, K=16, d=256: ≈ 10 ms en esta microVM de 4 vCPU, Go escalar,
+  `go test -bench L2c ./decide`; con 2–10 clases, < 1 ms). El resto de la cabeza (logits y softmax) son µs. Frente a los ~30 ms de
+  L2 no son despreciables con muchas clases; si hace falta, el bucle por clases se puede paralelizar o vectorizar.
+- Sin L0 en la cascada, L2c no puede usar la cabeza y se comporta como L2.
+
 ### Compilar con ORT
 La VM no trae la biblioteca. En una máquina con red y `libonnxruntime.so` (1.17+):
 ```

@@ -51,13 +51,21 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	t0 := time.Now()
 	res := Resultado{ID: p.ID, Kind: p.Kind, Nonce: p.Nonce, Probs: map[string]float64{}}
 	var mejor Respuesta
+	previas := Previas{}
 	for i, l := range c.capas {
 		t := time.Now()
-		r, err := l.d.Decidir(ctx, p)
+		var r Respuesta
+		var err error
+		if cp, ok := l.d.(DecisorConPrevias); ok {
+			r, err = cp.DecidirCon(ctx, p, previas)
+		} else {
+			r, err = l.d.Decidir(ctx, p)
+		}
 		c.met.ObservaCapa(l.d.Nombre(), time.Since(t), err)
 		if err != nil || ctx.Err() != nil {
 			r = Respuesta{}
 		}
+		previas[l.d.Nombre()] = r
 		if r.Conf > mejor.Conf {
 			mejor = r
 		}

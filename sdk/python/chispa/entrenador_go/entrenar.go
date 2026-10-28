@@ -143,6 +143,20 @@ func entrenar(p *Plan) (*Informe, error) {
 		}
 	}
 
+	if p.Conj != "" {
+		if p.L2Chispa == "" {
+			return nil, fmt.Errorf("conj: la cabeza conjunta necesita L2 y ESQUEMAS (--l2)")
+		}
+		b, err := os.ReadFile(p.Conj)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := chispa3.DecodificarConj(b); err != nil {
+			return nil, err
+		}
+		secs = append(secs, chispa3.Seccion{Tipo: chispa3.CONJ, Datos: b})
+	}
+
 	cb, err := calib.Codificar()
 	if err != nil {
 		return nil, err

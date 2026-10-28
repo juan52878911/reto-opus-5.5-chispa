@@ -2,6 +2,7 @@ package decide
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -28,6 +29,9 @@ type L2 struct {
 	esq   *chispa3.Esquemas
 	calib chispa3.Calib
 }
+
+// ErrSinTokenizador: L2 necesita el tokenizador de e5.
+var ErrSinTokenizador = errors.New("L2: hace falta un Tokenizador de e5 (no hay uno en Go todavía)")
 
 // NuevoL2Con monta L2 sobre cualquier SesionS (el ONNX real solo existe con la etiqueta ort).
 func NuevoL2Con(ses SesionS, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador) *L2 {
@@ -56,10 +60,15 @@ func maxsim(S [][]float32, vec []byte, escala float32) float64 {
 	return best
 }
 
-func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
-	if len(p.Opciones) == 0 {
-		return Respuesta{}, nil
-	}
+// Similitudes de L2 para una pregunta: las ranuras S del mensaje y el MaxSim contra la torre de cada
+// opción (choice) o contra la única torre (noul y score, un solo valor). Es la parte que necesita el
+// ONNX, detrás de una interfaz para que L2c se pruebe sin ORT con similitudes falsas.
+type Similitudes interface {
+	// Similitudes devuelve ok=false (sin error) si el esquema no tiene torres en ESQUEMAS.
+	Similitudes(p Pregunta) (S [][]float32, sims []float64, ok bool, err error)
+}
+
+func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
@@ -77,7 +86,7 @@ func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		for _, id := range ids {
 			v, e, ok := torre([]string{id})
 			if !ok {
-				return Respuesta{}, nil
+				return nil, nil, false, nil
 			}
 			ts = append(ts, vt{v, e})
 		}
@@ -87,23 +96,37 @@ func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		}
 		v, e, ok := torre(ids)
 		if !ok {
-			return Respuesta{}, nil
+			return nil, nil, false, nil
 		}
 		ts = []vt{{v, e}}
 	}
 	if l.tok == nil {
-		return Respuesta{}, fmt.Errorf("L2: falta el tokenizador")
+		return nil, nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}
 	S, err := l.ses.Ranuras(l.tok.IDs(p.Estado))
 	if err != nil {
-		return Respuesta{}, err
+		return nil, nil, false, err
 	}
-	if len(S) == 0 || len(S[0]) != len(ts[0].v) {
-		return Respuesta{}, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(ts[0].v))
+	if len(S) == 0 {
+		return nil, nil, false, fmt.Errorf("L2: el codificador no devolvió ranuras")
+	}
+	if len(S[0]) != len(ts[0].v) {
+		return nil, nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(ts[0].v))
 	}
 	sims := make([]float64, len(ts))
 	for i, t := range ts {
 		sims[i] = maxsim(S, t.v, t.e)
+	}
+	return S, sims, true, nil
+}
+
+func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
+	if len(p.Opciones) == 0 {
+		return Respuesta{}, nil
+	}
+	_, sims, ok, err := l.Similitudes(p)
+	if err != nil || !ok {
+		return Respuesta{}, err
 	}
 	switch p.Kind {
 	case KindChoice:

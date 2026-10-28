@@ -19,7 +19,7 @@ datos          secciones en el orden de la tabla; offsets relativos al fin de la
 ```
 Reglas: cada sección empieza en `alinear16(fin de la anterior)` (la primera en 0) y el relleno es cero; no hay
 bytes tras la última; sin tipos repetidos ni desconocidos. `Escribir` ordena por tipo, así que la salida es
-determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`.
+determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`, 7 `CONJ` (T2.6b; se añadió al final del enum sin renumerar: los ficheros sin `CONJ` cargan igual).
 
 | sección | contenido |
 |---|---|
@@ -29,6 +29,7 @@ determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`.
 | `L2` | ONNX int8, blob |
 | `ESQUEMAS` | `u32 dim · u32 n · n×[32]hash (estrictamente crecientes) · n×f32 escala · n×dim×int8`; hash = `HashEsquema(pregunta, opciones)` (sha256 con prefijos de longitud). Búsqueda binaria sin copiar |
 | `CALIB` | JSON `{tipos{tipo:{T,a,b,theta}}, tau_escalate}`; T>0, θ y τ en [0,1] |
+| `CONJ` | cabeza conjunta L0 + L2 por esquema (`conj.go`): `u32 versión(1) · u32 n ·` n entradas con hash creciente: `[32]hash · u32 cabeza(1=lr) · u32 K · u32 d · u32 C · u32 nw(6) · f32 T · f32 β · 3×f32 esc · nw×f32 pesos · C×(u16 len · nombre UTF-8) clases crecientes · C·K×f32 escala · C·K·d×int8 prototipos`. El hash es `HashEsquema(pregunta, ids ordenados)`. Con 150 clases, K=16, d=256: ≈ 625 KB |
 
 ## Validaciones
 `Desde`/`Abrir` (todas devuelven errores con `errors.Is`): magia (`ErrMagia`), versión (`ErrVersion`), truncado

@@ -17,7 +17,7 @@ Probado contra el JSON de `server/README.md` con un servidor falso (`tests/test_
 
 ## `chispa train`
 ```
-python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chispa [--l1 potion.chispa-l1] [--ckpt DIR | --l2 l2.chispa]
+python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chispa [--l1 potion.chispa-l1] [--ckpt DIR | --l2 l2.chispa] [--conjunta]
 ```
 - Ejemplos: CSV (con cabecera) o JSONL, columnas `texto|text` y `etiqueta|label`.
 - Esquema (YAML/JSON): `id`, `pregunta`, `tipo` (`choice|noul|score`), `opciones` (mapa id → descripción, lista de ids o de `{id, descripcion}`),
@@ -30,6 +30,15 @@ python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chisp
   - **L2 y ESQUEMAS**: solo con `--ckpt` (corre `model.l2.calibrar` y `model.l2.exportar` sobre los ejemplos) o `--l2` (un `.chispa`
     ya exportado, de donde se copian L2 y ESQUEMAS). **No probado con un checkpoint real: no hay ninguno en la microVM**; sin ellos se avisa
     por stderr y el informe lo lista en `omitidas`. Los prototipos de T2.1b son parte de L2 y no están en el formato: no se usan.
+- **`--conjunta`** (T2.6b): añade `CONJ`, la cabeza lineal L0 + L2 por tarea. Necesita `--ckpt` (el modelo de L2 y e5 dan las
+  características; el ONNX no basta) y L2, de `--l2` o de `--ckpt`; sólo `choice`. Importa `model/l2/conjunta.py` (no lo copia):
+  L0 fuera de pliegue (5 pliegues; es el `correr_l0` de sklearn de las líneas base), L2 con el soporte de 32 por clase y los
+  prototipos sin la propia fila; λ por validación cruzada en train; luego los prototipos con todo el soporte, en int8 con
+  escala. El informe trae `conjunta` (λ, NLL de CV, bytes, T, β). Sin `--conjunta` el fichero sale igual que antes.
+  Cuesta tiempo de entrenamiento (L0 ×5 + L2 sobre todos los ejemplos con e5; ver `informe["conjunta"]["s"]`) y, al servir,
+  ≈ 0,07 ms por clase de simproto más µs de cabeza (`server/README.md`), frente a los ~30 ms de L2.
+  **Ojo**: la cabeza se ajusta con las probabilidades de L0 de sklearn, y el servidor le da las del L0 de kindling (otro modelo,
+  mismas clases): están sin comparar. Tampoco se probó con un checkpoint real (en los tests, un `ModeloL2` aleatorio y e5 falso).
 - L0 y la calibración los hace `entrenador_go/` (copiado a un directorio temporal con `replace` hacia el repo; hace falta Go y el repo, o
   `CHISPA_REPO`; offline: `GOFLAGS=-mod=mod GOPROXY=off`). **Sin Go** `chispa train` escribe META + L1 + CALIB por defecto, sin L0, y lo dice
   (`formato.py` es un escritor mínimo; el cargador de Go lo acepta, probado en `tests/test_train.py`).

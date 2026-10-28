@@ -74,8 +74,11 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
-             frac_valid=0.2, usar_go=True, log=print) -> dict:
-    """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total)."""
+             frac_valid=0.2, usar_go=True, conjunta=False, modelo_l2=None, log=print) -> dict:
+    """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
+
+    `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
+    características. `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
     ex = cargar_ejemplos(ejemplos, q.id)
@@ -88,14 +91,25 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     repo, go = encontrar_repo(repo), encontrar_go()
     if ckpt and not repo:
         raise ChispaError("--ckpt necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
+    if conjunta:
+        if not (ckpt or modelo_l2):
+            raise ChispaError("--conjunta necesita --ckpt: las características salen del modelo de L2, no del ONNX")
+        if not (l2 or ckpt):
+            raise ChispaError("--conjunta necesita L2 y ESQUEMAS: pasa --l2 o --ckpt")
+        if not repo:
+            raise ChispaError("--conjunta necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
     with tempfile.TemporaryDirectory(prefix="chispa-train-") as tmp:
         tmp = Path(tmp)
         if not (usar_go and repo and go):
+            if conjunta:
+                raise ChispaError("--conjunta necesita el entrenador de Go y el repositorio (CHISPA_REPO)")
             motivo = "desactivado" if not usar_go else "no hay Go" if not go else "no se encuentra el repositorio (CHISPA_REPO)"
             return _sin_go(q, extra, l1, salida, t0, motivo, log)
         l2_ch = l2 or ""
         tiempo_l2 = None
-        if ckpt:
+        conj_inf = None
+        conj_ruta = ""
+        if ckpt and not (conjunta and l2):  # con --conjunta, el --l2 dado manda y el checkpoint solo da las características
             filas = tmp / "filas.jsonl"
             _filas_l2(q, ex, filas)
             t = time.time()
@@ -105,11 +119,20 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
                 if r.returncode:
                     raise ChispaError(f"{cmd[2]} falló:\n{r.stderr[-2000:]}")
             l2_ch, tiempo_l2 = str(tmp / "l2.chispa"), time.time() - t
+        if conjunta:
+            t = time.time()
+            from . import conjunta as cj
+            modelo, enc = modelo_l2 or cj.cargar_ckpt(ckpt, repo)
+            b, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log)
+            conj_inf["s"] = time.time() - t
+            conj_ruta = str(tmp / "conj.bin")
+            Path(conj_ruta).write_bytes(b)
         with open(tmp / "ej.jsonl", "w", encoding="utf-8") as f:
             for t_, e in ex:
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
                 "frac_valid": frac_valid, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
+                "conj": conj_ruta,
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
                 "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"]}}
@@ -128,6 +151,8 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     inf["tiempos_s"]["go_build"] = t_build
     if tiempo_l2 is not None:
         inf["tiempos_s"]["l2"] = tiempo_l2
+    if conj_inf:
+        inf["conjunta"] = conj_inf
     inf["reloj_s"] = time.time() - t0
     inf["omitidas"] = inf.get("omitidas") or {}
     for k, v in inf["omitidas"].items():

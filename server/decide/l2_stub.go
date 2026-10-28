@@ -15,3 +15,6 @@ var ErrSinORT = errors.New("L2: binario compilado sin la etiqueta ort (ver READM
 func NuevoL2ORT(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador) (Decisor, error) {
 	return nil, ErrSinORT
 }
+
+// NuevaSesionORT no existe sin ONNX Runtime.
+func NuevaSesionORT(onnx []byte) (SesionS, error) { return nil, ErrSinORT }

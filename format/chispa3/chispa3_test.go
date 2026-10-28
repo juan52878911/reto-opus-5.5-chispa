@@ -362,6 +362,7 @@ func FuzzAbrir(f *testing.F) {
 	f.Add(construir(f, s[:1]))
 	f.Add(construir(f, s[3:4]))
 	f.Add(construir(f, s[4:]))
+	f.Add(construir(f, append(append([]Seccion(nil), s...), Seccion{CONJ, conjDePrueba(f)})))
 	for _, n := range []string{"urgencia", "injection"} {
 		b, _ := os.ReadFile("testdata/" + n + ".chispa")
 		f.Add(b)
@@ -375,6 +376,7 @@ func FuzzAbrir(f *testing.F) {
 		// porque dentro de un fichero mutado casi siempre fallaría antes el sha256.
 		DecodificarMeta(data)
 		DecodificarCalib(data)
+		DecodificarConj(data)
 		ValidarL1(data)
 		if e, err := DecodificarEsquemas(data); err == nil {
 			for i := 0; i < e.Len(); i++ {
@@ -405,6 +407,8 @@ func FuzzAbrir(f *testing.F) {
 						}
 					}
 				}
+			case CONJ:
+				DecodificarConj(b)
 			case L1:
 				ValidarL1(b)
 			case L0:
