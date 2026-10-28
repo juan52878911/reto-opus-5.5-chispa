@@ -1,0 +1,3 @@
+{"id_sample": "sample_1", "id": "record_4", "text": "x", "foe_class": 1, "annotator_1": 0, "annotator_2": 0, "annotator_3": 1}
+{"id_sample": "sample_2", "id": "record_8", "text": "x", "foe_class": 1, "annotator_1": 1, "annotator_2": 1, "annotator_3": 0}
+{"id_sample": "sample_3", "id": "record_1", "text": "x", "foe_class": 0, "annotator_1": 0, "annotator_2": 0, "annotator_3": 0}

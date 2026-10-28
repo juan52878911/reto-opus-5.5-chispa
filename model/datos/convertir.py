@@ -17,7 +17,9 @@ from pathlib import Path
 from . import validar
 from .comun import FuenteAusente
 
-FUENTES = ("massive", "hatecheck", "banking77", "clinc150", "inyecciones", "xnli")
+FUENTES_LIBRES = ("odio_alia", "toxicidad_protestas", "toxicidad_constitucion", "goemociones", "spam_tanaos", "soporte_ti",
+                  "ciberacoso", "clima", "riesgo_suicida", "pqrs_gb9w", "pqrs_e86p", "pqrs_xtj2", "pqrs_enrutamiento")
+FUENTES = ("massive", "hatecheck", "banking77", "clinc150", "inyecciones", "xnli") + FUENTES_LIBRES
 NO_EN_PLAN = {"necos-tox": "no disponible: no está en ~/hf (NECOS-TOX solo si se encuentra)"}
 FIXTURES = Path(__file__).parent / "fixtures"
 

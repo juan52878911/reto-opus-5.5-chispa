@@ -124,7 +124,8 @@ class TestCLI(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(convertir.main(["--salida", d, "--fixtures"]), 0)
             resumen = json.load(open(Path(d) / "resumen.json"))
-            for nombre in convertir.FUENTES:
+            self.assertEqual(resumen["riesgo_suicida"]["estado"], "no disponible")  # sin fixture: la fuente no está
+            for nombre in [n for n in convertir.FUENTES if n != "riesgo_suicida"]:
                 self.assertEqual(resumen[nombre]["estado"], "convertida", nombre)
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(validar.main([str(Path(d) / (nombre + ".jsonl"))]), 0)
