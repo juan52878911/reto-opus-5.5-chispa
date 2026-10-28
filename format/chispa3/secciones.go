@@ -91,11 +91,16 @@ type ParamsTipo struct {
 type Calib struct {
 	Tipos       map[string]ParamsTipo `json:"tipos"`
 	TauEscalate float64               `json:"tau_escalate"` // en [0,1]
+	// TauL2c es el τ de la cabeza conjunta (L2c), fuera de pliegue; nil = el fichero no lo trae y L2c usa TauEscalate.
+	TauL2c *float64 `json:"tau_l2c,omitempty"`
 }
 
 func (c Calib) validar() error {
 	if !(c.TauEscalate >= 0 && c.TauEscalate <= 1) {
 		return fmt.Errorf("%w: CALIB.tau_escalate %v", ErrContenido, c.TauEscalate)
+	}
+	if c.TauL2c != nil && !(*c.TauL2c >= 0 && *c.TauL2c <= 1) {
+		return fmt.Errorf("%w: CALIB.tau_l2c %v", ErrContenido, *c.TauL2c)
 	}
 	for k, p := range c.Tipos {
 		if !(p.T > 0) || math.IsInf(p.T, 0) || math.IsNaN(p.A) || math.IsInf(p.A, 0) ||

@@ -74,7 +74,7 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
-             frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, log=print) -> dict:
+             frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95, log=print) -> dict:
     """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
     `l0_max_mb` topa la tabla de pesos de L0 (el lector de kindling rechaza más de 64 MiB): se reducen los buckets de hashing
@@ -126,7 +126,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
             t = time.time()
             from . import conjunta as cj
             modelo, enc = modelo_l2 or cj.cargar_ckpt(ckpt, repo)
-            b, b_l0, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log, l0tf_f16, l0tf_max_mb)
+            b, b_l0, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log, l0tf_f16, l0tf_max_mb, precision_objetivo)
             conj_inf["s"] = time.time() - t
             conj_ruta, l0tf_ruta = str(tmp / "conj.bin"), str(tmp / "l0tf.bin")
             Path(conj_ruta).write_bytes(b)
@@ -136,7 +136,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
                 "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
-                "conj": conj_ruta, "l0tf": l0tf_ruta,
+                "conj": conj_ruta, "l0tf": l0tf_ruta, "tau_l2c": (conj_inf or {}).get("tau_l2c"),
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
                 "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"]}}
@@ -158,6 +158,9 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     if conj_inf:
         inf["conjunta"] = conj_inf
     inf["reloj_s"] = time.time() - t0
+    if conj_inf and conj_inf.get("tau_l2c") is not None:
+        log(f"τ de L2c {conj_inf['tau_l2c']:.4f} en CALIB (precisión fuera de pliegue {conj_inf['precision_oof']:.3f}, "
+            f"cobertura esperada {conj_inf['cobertura_esperada']:.3f})")
     inf["omitidas"] = inf.get("omitidas") or {}
     for k, v in inf["omitidas"].items():
         log(f"AVISO: sin {k}: {v}")

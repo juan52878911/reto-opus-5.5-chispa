@@ -32,6 +32,7 @@ type Plan struct {
 	L2Chispa  string   `json:"l2_chispa"` // .chispa v3 de model/l2/exportar.py: de aquí salen L2 y ESQUEMAS; vacío = sin L2
 	Conj      string   `json:"conj"`      // sección CONJ ya codificada (train.py --conjunta); vacío = sin cabeza conjunta
 	L0TF      string   `json:"l0tf"`      // sección L0TF ya codificada (train.py --conjunta); vacío = sin L0 tfidf
+	TauL2c    *float64 `json:"tau_l2c"`   // τ de L2c fuera de pliegue (train.py --conjunta); nil = sin τ propio
 	Meta      Meta     `json:"meta"`
 	Salida    string   `json:"salida"`
 	Semilla   uint64   `json:"semilla"`
