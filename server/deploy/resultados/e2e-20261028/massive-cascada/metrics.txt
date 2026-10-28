@@ -1,0 +1,80 @@
+# HELP chispa_peticiones_total Peticiones a /v1/decide por código HTTP.
+# TYPE chispa_peticiones_total counter
+chispa_peticiones_total{codigo="200"} 2974
+# HELP chispa_preguntas_total Preguntas decididas.
+# TYPE chispa_preguntas_total counter
+chispa_preguntas_total 2974
+# HELP chispa_decididas_total Preguntas por capa que respondió (o escaló, última capa).
+# TYPE chispa_decididas_total counter
+chispa_decididas_total{capa="L0"} 1820
+chispa_decididas_total{capa="L3"} 1154
+# HELP chispa_escalados_total Preguntas escaladas fuera de la cascada.
+# TYPE chispa_escalados_total counter
+chispa_escalados_total 1154
+# HELP chispa_capa_errores_total Errores de cada capa.
+# TYPE chispa_capa_errores_total counter
+# HELP chispa_cache_esquemas_total Aciertos y fallos de la caché de esquemas.
+# TYPE chispa_cache_esquemas_total counter
+chispa_cache_esquemas_total{resultado="acierto"} 2973
+chispa_cache_esquemas_total{resultado="fallo"} 1
+# HELP chispa_cache_nonce_aciertos_total Respuestas servidas desde la caché de nonces.
+# TYPE chispa_cache_nonce_aciertos_total counter
+chispa_cache_nonce_aciertos_total 0
+# HELP chispa_capa_latencia_segundos Latencia por capa.
+# TYPE chispa_capa_latencia_segundos histogram
+chispa_capa_latencia_segundos_bucket{capa="L0",le="1e-05"} 0
+chispa_capa_latencia_segundos_bucket{capa="L0",le="5e-05"} 2930
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.0001"} 2972
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.0005"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.001"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.005"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.01"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.05"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.1"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="0.5"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="1"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L0",le="+Inf"} 2974
+chispa_capa_latencia_segundos_sum{capa="L0"} 0.113798657
+chispa_capa_latencia_segundos_count{capa="L0"} 2974
+chispa_capa_latencia_segundos_bucket{capa="L1",le="1e-05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="5e-05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.0001"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.0005"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.001"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.005"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.01"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="0.5"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L1",le="+Inf"} 1154
+chispa_capa_latencia_segundos_sum{capa="L1"} 0.000117497
+chispa_capa_latencia_segundos_count{capa="L1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L2",le="1e-05"} 0
+chispa_capa_latencia_segundos_bucket{capa="L2",le="5e-05"} 0
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.0001"} 0
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.0005"} 0
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.001"} 0
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.005"} 692
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.01"} 1152
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L2",le="0.5"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L2",le="1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L2",le="+Inf"} 1154
+chispa_capa_latencia_segundos_sum{capa="L2"} 5.643163734
+chispa_capa_latencia_segundos_count{capa="L2"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="1e-05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="5e-05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.0001"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.0005"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.001"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.005"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.01"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.05"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="0.5"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="1"} 1154
+chispa_capa_latencia_segundos_bucket{capa="L3",le="+Inf"} 1154
+chispa_capa_latencia_segundos_sum{capa="L3"} 0.000224053
+chispa_capa_latencia_segundos_count{capa="L3"} 1154
