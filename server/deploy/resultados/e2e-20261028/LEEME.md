@@ -19,3 +19,23 @@
   - L2c tiene p99 de 8,6 ms con el codificador incluido; los mensajes de massive son cortos.
 - **Arreglos en este intento.** El primero falló porque `exportar.py` fijaba `GOPROXY=off`; lo arregla el commit
   «exportar: respeta GOPROXY…». Coste: dos c6a, unos 30 min en total, ≈ 0,1 USD.
+
+## Intentos 3 y 4, tras T2.6c (cuantización por canal y tope de L0): la poda no es la causa
+Dos c6a en paralelo, ya con el int8 por canal del codificador y `--l0-max-mb 48`. Variaba solo la poda del vocabulario
+(`e2e-20261028-poda/` y `e2e-20261028-sinpoda/`):
+
+| tarea, modo forzado | con poda (48 MB) | sin poda (121 MB) | conjunta.py |
+|---|---|---|---|
+| massive | 0,771 | 0,771 | 0,817 |
+| clinc150 | 0,846 | 0,849 | 0,890 |
+
+- **El tope de L0 funciona.** clinc150 ya arranca y queda a −4,1 / −4,4 puntos de la referencia.
+- **La poda no explica el hueco.** En dev hay 0 % de tokens `<unk>` y los resultados son iguales con y sin poda.
+- **La paridad ONNX ↔ PyTorch sigue en 0,84 de top-1 en las dos variantes.** Hay una diferencia que no está en el
+  codificador ni en la poda. Candidatos, sin medir: las torres int8 de ESQUEMAS, los prototipos int8 de CONJ y la escala
+  de las log-probs del L0 de Chispa frente al de sklearn.
+- **H2 sigue sin cumplirse tras dos arreglos.** Se escala: lo siguiente es una ablación componente a componente, no
+  otro arreglo a ciegas.
+- **Latencia:** p99 de 9–12 ms por consulta en la c6a. L0 responde el 61–67 % en la cascada. En el informe de la cascada
+  la capa L2c aparece como «L3»: es una etiqueta mal puesta.
+- **Coste:** dos c6a, unos 21 min cada una, ≈ 0,1 USD.
