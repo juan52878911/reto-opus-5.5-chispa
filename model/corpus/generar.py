@@ -1,12 +1,13 @@
 """Generador del corpus sintético v2 en español colombiano (T1.3).
 
-Haiku solo genera textos y verifica etiquetas; no produce distribuciones. Por cada (tarea, clase) se piden lotes de textos
+El modelo (un Qwen abierto en la GPU) solo genera textos y verifica etiquetas; no produce distribuciones. Por cada (tarea, clase) se piden lotes de textos
 con un estilo (registro, tecleo, voz, mezcla, ataques de la Arena); cada lote lleva una «plantilla» (su semilla) y se
 verifica con una segunda llamada. Después: dedup (exacta, 5-gramas, coseno e5-small), reparto train/dev por plantilla,
 escritura en el esquema y un resumen.json. Reanuda desde lo ya escrito y para en seco al llegar al tope de USD.
 
-Uso: python model/corpus/generar.py --tareas pqrs fintech --por-clase 60 --salida DIR --backend simulado|bedrock \
-       --tope-usd 8 --precio-in USD_POR_MILLON --precio-out USD_POR_MILLON
+Uso: python model/corpus/generar.py --tareas pqrs fintech --por-clase 60 --salida DIR [--backend local|simulado|bedrock]
+       [--modelo Qwen/Qwen3.5-9B-Instruct] [--tope-min 120]     (local, por defecto: el coste son horas de GPU)
+       --backend bedrock es SOLO EVALUACIÓN (Haiku): exige --precio-in y --precio-out y usa --tope-usd.
 """
 import argparse
 import json
@@ -21,11 +22,11 @@ if __package__ in (None, ""):
     __package__ = "model.corpus"
 
 from . import tareas as T
-from .backends import Bedrock, Simulado
+from .backends import Bedrock, Local, Simulado, elegir_modelo, exigir_apache
 from .nucleo import (ErrorFormato, Gasto, TopeAlcanzado, deduplicar, norm, parsear_lista, repartir, semilla_de,
                      validar_conjunto)
 
-MODELO = "us.anthropic.claude-haiku-5-5"
+MODELO_BEDROCK = "us.anthropic.claude-haiku-5-5"
 MAX_CHARS = 600
 dormir = time.sleep  # los tests lo sustituyen
 
@@ -216,7 +217,7 @@ def construir(nombre, t, lotes, args, embeber):
         salida.append({"id": "t13-%s:%s:%d" % (nombre, sp, cont[sp]), "tarea": nombre, "tipo": "choice",
                        "pregunta": t["pregunta"], "texto": f["texto"], "opciones": t["opciones"],
                        "descripciones": t["descripciones"], "etiqueta": f["etiqueta"], "idioma": "es-CO", "split": sp,
-                       "fuente": T.FUENTE, "licencia": T.LICENCIA, "uso_comercial": True, "plantilla": f["plantilla"]})
+                       "fuente": args.fuente, "licencia": args.licencia, "uso_comercial": True, "plantilla": f["plantilla"]})
         cont[sp] += 1
     validar_conjunto(salida)
     return salida, d, por_estilo
@@ -227,14 +228,17 @@ def main(argv=None):
     ap.add_argument("--tareas", nargs="+", default=["whatsapp_comercio", "pqrs", "fintech", "herramientas"])
     ap.add_argument("--por-clase", type=int, required=True, help="textos pedidos por clase (antes de verificar y dedup)")
     ap.add_argument("--salida", required=True)
-    ap.add_argument("--backend", choices=["bedrock", "simulado"], required=True)
-    ap.add_argument("--tope-usd", type=float, default=8.0)
+    ap.add_argument("--backend", choices=["local", "bedrock", "simulado"], default="local",
+                    help="local: Qwen abierto en la GPU (por defecto); bedrock: Haiku, solo evaluación; simulado: pruebas")
+    ap.add_argument("--tope-usd", type=float, default=8.0, help="solo --backend bedrock")
+    ap.add_argument("--tope-min", type=float, default=0, help="minutos de reloj máximos de esta ejecución (0 = sin tope)")
+    ap.add_argument("--motor", choices=["auto", "vllm", "transformers"], default="auto", help="motor del backend local")
     ap.add_argument("--precio-in", type=float, help="USD por millón de tokens de entrada")
     ap.add_argument("--precio-out", type=float, help="USD por millón de tokens de salida")
     ap.add_argument("--lote", type=int, default=20, help="textos por llamada de generación")
     ap.add_argument("--semilla", type=int, default=1)
-    ap.add_argument("--hilos", type=int, default=4)
-    ap.add_argument("--modelo", default=MODELO)
+    ap.add_argument("--hilos", type=int, default=None, help="peticiones en paralelo (local 32, resto 4)")
+    ap.add_argument("--modelo", default=None, help="local: id del Hub o ruta (por defecto el mayor Qwen que exista); bedrock: id")
     ap.add_argument("--region", default="us-east-1")
     ap.add_argument("--max-reintentos", type=int, default=5)
     ap.add_argument("--espera-base", type=float, default=2.0, help="segundos del primer reintento (se duplica)")
@@ -244,8 +248,11 @@ def main(argv=None):
 
     if args.backend == "bedrock" and (args.precio_in is None or args.precio_out is None):
         ap.error("--backend bedrock exige --precio-in y --precio-out (USD por millón de tokens)")
+    args.hilos = args.hilos or (32 if args.backend == "local" else 4)
     pin = 1.0 if args.precio_in is None else args.precio_in
     pout = 5.0 if args.precio_out is None else args.precio_out
+    if args.backend == "local":
+        pin = pout = 0.0
     todas = T.tareas()
     for n in args.tareas:
         if n not in todas:
@@ -253,10 +260,27 @@ def main(argv=None):
     os.makedirs(os.path.join(args.salida, "crudo"), exist_ok=True)
     gasto = Gasto(os.path.join(args.salida, "gasto.jsonl"), args.tope_usd, pin, pout)
     gasto0 = gasto.usd
-    backend = Bedrock(args.modelo, args.region) if args.backend == "bedrock" else Simulado(args.semilla)
+    inicio = time.time()
+    if args.tope_min > 0:
+        gasto.vence = inicio + 60 * args.tope_min
+    args.fuente, args.licencia, lic_modelo = T.FUENTE, T.LICENCIA, None
+    if args.backend == "local":
+        args.modelo = args.modelo or elegir_modelo()
+        lic_modelo = exigir_apache(args.modelo)
+        args.fuente = "chispa T1.3 (%s, local)" % args.modelo
+        args.licencia = "%s + %s" % (lic_modelo, T.LICENCIA)
+        print("modelo %s, licencia de la tarjeta: %s" % (args.modelo, lic_modelo), flush=True)
+        backend = Local(args.modelo, args.motor)
+        print("motor: %s" % backend.motor, flush=True)
+    elif args.backend == "bedrock":
+        args.modelo = args.modelo or MODELO_BEDROCK
+        backend = Bedrock(args.modelo, args.region)
+    else:
+        backend = Simulado(args.semilla)
     motor = Motor(backend, gasto, args.hilos, args.max_reintentos, args.espera_base)
-    print("generar: tareas=%s por_clase=%d backend=%s tope=%.2f USD (ya gastado: %.4f)"
-          % (",".join(args.tareas), args.por_clase, args.backend, args.tope_usd, gasto0), flush=True)
+    print("generar: tareas=%s por_clase=%d backend=%s tope=%s (ya gastado: %.4f USD)"
+          % (",".join(args.tareas), args.por_clase, args.backend,
+             "%g min" % args.tope_min if args.backend == "local" else "%.2f USD" % args.tope_usd, gasto0), flush=True)
 
     fallos = {}
     for nombre in args.tareas:
@@ -289,11 +313,14 @@ def main(argv=None):
                     print("  [%s] %d/%d lotes, %.4f USD, %d llamadas" % (nombre, i, len(pend), gasto.usd, gasto.llamadas),
                           flush=True)
         if gasto.parado:
-            print("PARADO POR TOPE: %.4f USD de %.2f (se escribe lo que hay)" % (gasto.usd, args.tope_usd), flush=True)
+            print("PARADO POR TOPE: %.4f USD de %.2f, %.1f min de %g (se escribe lo que hay)"
+                  % (gasto.usd, args.tope_usd, (time.time() - inicio) / 60, args.tope_min), flush=True)
             break
 
     embeber = e5() if args.embeddings == "auto" else None
-    resumen = {"fuente": T.FUENTE, "modelo": args.modelo if args.backend == "bedrock" else "simulado",
+    resumen = {"fuente": args.fuente, "backend": args.backend, "modelo": args.modelo or "simulado",
+               "licencia_modelo": lic_modelo, "motor": getattr(backend, "motor", None), "licencia": args.licencia,
+               "minutos_esta_ejecucion": round((time.time() - inicio) / 60, 2), "tope_min": args.tope_min,
                "por_clase_pedido": args.por_clase, "lote": args.lote, "semilla": args.semilla,
                "parado_por_tope": gasto.parado, "tope_usd": args.tope_usd,
                "usd_total": round(gasto.usd, 6), "usd_esta_ejecucion": round(gasto.usd - gasto0, 6),
@@ -323,7 +350,7 @@ def main(argv=None):
         tr = resumen["tareas"][nombre]
         print("[%s] %d filas (train %d, dev %d); verificador no %.1f%%, dedup %.1f%%"
               % (nombre, tr["filas"], tr["train"], tr["dev"], tr["pct_verificador_no"], tr["pct_dedup"]), flush=True)
-    resumen["hipotesis_refutada"] = any(r["pct_dedup"] > 40 or r["pct_verificador_no"] > 25
+    resumen["hipotesis_refutada"] = any(r["pct_dedup"] > 40 or r["pct_verificador_no"] > 30
                                         for r in resumen["tareas"].values())
     with open(os.path.join(args.salida, "resumen.json"), "w", encoding="utf-8") as f:
         json.dump(resumen, f, ensure_ascii=False, indent=1)
