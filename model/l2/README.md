@@ -43,3 +43,19 @@ AWS: `bash model/l2/aws/empaquetar.sh > codigo.tgz`; prueba en seco: `empaquetar
   completa de opciones (vector de consulta). Un vector int8 con su escala (`q·escala ≈ h`).
 - El ONNX acepta los ids del tokenizador original de e5 (con la poda, la tabla id→id podado va dentro del grafo). La atención de las
   ranuras se reescribe en `RanurasExportable` (el trazado de `nn.MultiheadAttention` fija el lote); `exportar` comprueba que coincide.
+
+## T2.2: ajuste del codificador, renombrado y segundo maestro
+Con los valores por defecto el comportamiento es el de T2.1.
+- `entrenar --descongelar N`: las últimas N capas de e5 se entrenan (lr `--lr-enc` 2e-5, sin weight decay; recorte de gradiente 1,0 sobre
+  todos los parámetros). **Coste:** la torre de opción comparte el codificador, así que sus vectores cambian en cada paso: se recalculan
+  con gradiente para todos los textos únicos del lote (en CLINC, 150 opciones por fila → cientos de textos por paso) y la caché de
+  vectores/mensajes se invalida tras cada `opt.step()`. En T2.1 la caché dejaba casi todo el trabajo en el mensaje. Las capas
+  descongeladas van en `ck["enc"]` (`ultimo.pt` y `mejor.pt`); `evaluar.py` las carga solo.
+- `--renombrar P`: con probabilidad P por fila `choice` (decidido por semilla, paso e id), las opciones pasan a A, B, …, Z, AA… en el
+  texto de la torre; descripciones, etiqueta y blanda se remapean. `noul` y `score` no se tocan. `datos.renombrar_fila` es idempotente.
+- `--maestro-extra DIR… --peso-extra W`: blandas `{id, blanda}` (JSONL/.gz) de un segundo maestro; `(1−W)·existente + W·extra`, cada una
+  normalizada; si la fila no tenía, queda la extra.
+- `--inicial CKPT`: pesos de un checkpoint de T2.1 (sin optimizador); `ultimo.pt` tiene prioridad al reanudar.
+- `evaluar --renombrar`: evalúa también con las opciones renombradas y escribe `caida.md` (macro-F1 original − renombrado por tarea).
+- `aws/arranque.sh`: `__L2_ARGS__` y `__CKPT_INICIAL__`; las descargas de S3 son por fichero (sin `--recursive` ni `sync`) a partir de
+  `model/meta/resultados/conversion-20261027.json`; `CHISPA_EXTRA_S3/extra.tgz` opcional para el segundo maestro.

@@ -1,10 +1,13 @@
 """Predicción y evaluación de L2 con `chispa eval`.
 
-    python -m model.l2.evaluar --ckpt mejor.pt --salida DIR [--datos DIR_CONVERTIDOS] [--liston DIR] [--extra nombre=ruta.jsonl]
+    python -m model.l2.evaluar --ckpt mejor.pt --salida DIR [--datos DIR_CONVERTIDOS] [--liston DIR] [--extra nombre=ruta.jsonl] [--renombrar]
 
 Escribe `DIR/pred/<conjunto>.jsonl` (`{id, probs, ms}`), `DIR/resultados.json` y `DIR/delta.md` (Δ de macro-F1 por tarea frente
 al kNN-32 y L0 de `model/lineas_base/resultados.json`). `ms` es el tiempo del lote repartido entre sus filas (no latencia
 de una consulta suelta).
+
+`--renombrar`: además evalúa el mismo test con los ids de las opciones sustituidos por A, B, C… (solo filas `choice`), escribe
+`DIR/pred_renombrado/`, `DIR/resultados_renombrado.json` y `DIR/caida.md` con la caída de macro-F1 por tarea (original − renombrado).
 """
 import argparse
 import json
@@ -54,6 +57,24 @@ def cargar_modelo(ruta, device="cpu"):
     return m.eval(), ck
 
 
+def tabla_caida(res, res_r, tope=0.05):
+    """(markdown, peor caída por tarea, peor caída global) de macro-F1: original − renombrado."""
+    lin = ["| conjunto | tarea | n | macro-F1 | renombrado | caída |", "|" + "---|" * 6]
+    peor = peor_g = float("-inf")
+    for nombre in res:
+        filas = [(t, m, res_r[nombre]["por_tarea"][t]) for t, m in res[nombre]["por_tarea"].items()]
+        filas.append(("GLOBAL", res[nombre]["global"], res_r[nombre]["global"]))
+        for t, m, mr in filas:
+            c = m["macro_f1"] - mr["macro_f1"]
+            if t == "GLOBAL":
+                peor_g = max(peor_g, c)
+            else:
+                peor = max(peor, c)
+            lin.append("| %s | %s | %d | %.3f | %.3f | %+.3f |" % (nombre, t, m["n"], m["macro_f1"], mr["macro_f1"], c))
+    lin += ["", "Peor caída por tarea: %+.3f; peor caída global: %+.3f (criterio T2.2: ≤ %.2f)." % (peor, peor_g, tope)]
+    return "\n".join(lin), peor, peor_g
+
+
 def conjuntos_test(datos=None, liston=None, extra=()):
     """{nombre: filas test}: T1.7a (datos convertidos), T1.4 (herramientas) y el listón."""
     out = {}
@@ -99,6 +120,7 @@ def main(argv=None):
     ap.add_argument("--datos", help="directorio de model.datos.convertir")
     ap.add_argument("--liston")
     ap.add_argument("--extra", nargs="*", default=[])
+    ap.add_argument("--renombrar", action="store_true", help="evalúa también con las opciones renombradas a A/B/C…")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--max-filas", type=int, default=0, help="tope de filas por conjunto (0 = todas)")
     a = ap.parse_args(argv)
@@ -106,7 +128,8 @@ def main(argv=None):
     (sal / "pred").mkdir(parents=True, exist_ok=True)
     modelo, ck = cargar_modelo(a.ckpt, a.device)
     enc = Codificador(device=a.device)
-    res = {}
+    enc.cargar_enc(ck.get("enc"))  # capas de e5 ajustadas en T2.2, si las hay
+    res, res_r = {}, {}
     for nombre, filas in conjuntos_test(a.datos, a.liston, a.extra).items():
         if a.max_filas:
             filas = filas[:a.max_filas]
@@ -117,8 +140,22 @@ def main(argv=None):
                 f.write(json.dumps(p, ensure_ascii=False) + "\n")
         res[nombre] = CE.evaluar(filas, preds)
         print("== %s\n%s" % (nombre, CE.tabla(res[nombre])), flush=True)
+        if a.renombrar:
+            (sal / "pred_renombrado").mkdir(exist_ok=True)
+            filas_r = [D.renombrar_fila(r) for r in filas]
+            preds_r = predecir(modelo, enc, filas_r)
+            with open(sal / "pred_renombrado" / (nombre + ".jsonl"), "w", encoding="utf-8") as f:
+                for p in preds_r:
+                    f.write(json.dumps(p, ensure_ascii=False) + "\n")
+            res_r[nombre] = CE.evaluar(filas_r, preds_r)
     with open(sal / "resultados.json", "w") as f:
         json.dump(res, f, indent=1, ensure_ascii=False)
+    if a.renombrar:
+        with open(sal / "resultados_renombrado.json", "w") as f:
+            json.dump(res_r, f, indent=1, ensure_ascii=False)
+        c, _, _ = tabla_caida(res, res_r)
+        (sal / "caida.md").write_text(c + "\n", encoding="utf-8")
+        print("== caída al renombrar\n" + c)
     t = tabla_delta(res)
     (sal / "delta.md").write_text(t + "\n", encoding="utf-8")
     print(t)

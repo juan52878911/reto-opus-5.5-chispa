@@ -12,7 +12,9 @@ def _vec(texto, n, dim=DIM_E5):
 
 
 class CodificadorFalso(Codificador):
-    def __init__(self, caer_en=None):
+    def __init__(self, caer_en=None, descongelar=0):
+        self.n_desc = descongelar
+        self.w = torch.nn.Parameter(torch.zeros(DIM_E5), requires_grad=bool(descongelar))  # «capa» entrenable
         self.device, self.max_tok = "cpu", 128
         from collections import OrderedDict
         self.cache, self.cache_max, self.aciertos, self.fallos = OrderedDict(), 10000, 0, 0
@@ -24,8 +26,19 @@ class CodificadorFalso(Codificador):
         if self.caer_en is not None and self.pases > self.caer_en:
             raise RuntimeError("caída simulada")
         T = 6
-        H = torch.stack([_vec(t, T) for t in textos])
+        H = torch.stack([_vec(t, T) for t in textos]) + self.w
         return H, torch.ones(len(textos), T, dtype=torch.bool)
+
+
+    def parametros_entrenables(self):
+        return [self.w] if self.n_desc else []
+
+    def estado_enc(self):
+        return {"w": self.w.detach().clone()} if self.n_desc else {}
+
+    def cargar_enc(self, estado):
+        if estado:
+            self.w.data.copy_(estado["w"])
 
 
 def fila(i, tipo="choice", n=4, tarea="t", blanda=None, k=None):
@@ -36,3 +49,4 @@ def fila(i, tipo="choice", n=4, tarea="t", blanda=None, k=None):
     if blanda:
         r["blanda"] = blanda
     return r
+
