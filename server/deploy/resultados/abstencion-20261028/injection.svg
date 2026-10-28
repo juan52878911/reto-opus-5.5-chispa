@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" font-family="sans-serif" font-size="12">
+<rect width="640" height="400" fill="#fff"/>
+<text x="56" y="22" font-size="14" font-weight="bold">injection: precisión frente a abstención (n = 108)</text>
+<line x1="56.0" y1="36" x2="56.0" y2="352" stroke="#e5e5e5"/><text x="56.0" y="368" text-anchor="middle" fill="#555">0 %</text>
+<line x1="168.8" y1="36" x2="168.8" y2="352" stroke="#e5e5e5"/><text x="168.8" y="368" text-anchor="middle" fill="#555">20 %</text>
+<line x1="281.6" y1="36" x2="281.6" y2="352" stroke="#e5e5e5"/><text x="281.6" y="368" text-anchor="middle" fill="#555">40 %</text>
+<line x1="394.4" y1="36" x2="394.4" y2="352" stroke="#e5e5e5"/><text x="394.4" y="368" text-anchor="middle" fill="#555">60 %</text>
+<line x1="507.2" y1="36" x2="507.2" y2="352" stroke="#e5e5e5"/><text x="507.2" y="368" text-anchor="middle" fill="#555">80 %</text>
+<line x1="620.0" y1="36" x2="620.0" y2="352" stroke="#e5e5e5"/><text x="620.0" y="368" text-anchor="middle" fill="#555">100 %</text>
+<line x1="56" y1="352.0" x2="620" y2="352.0" stroke="#e5e5e5"/><text x="50" y="356.0" text-anchor="end" fill="#555">0.70</text>
+<line x1="56" y1="299.3" x2="620" y2="299.3" stroke="#e5e5e5"/><text x="50" y="303.3" text-anchor="end" fill="#555">0.75</text>
+<line x1="56" y1="246.7" x2="620" y2="246.7" stroke="#e5e5e5"/><text x="50" y="250.7" text-anchor="end" fill="#555">0.80</text>
+<line x1="56" y1="194.0" x2="620" y2="194.0" stroke="#e5e5e5"/><text x="50" y="198.0" text-anchor="end" fill="#555">0.85</text>
+<line x1="56" y1="141.3" x2="620" y2="141.3" stroke="#e5e5e5"/><text x="50" y="145.3" text-anchor="end" fill="#555">0.90</text>
+<line x1="56" y1="88.7" x2="620" y2="88.7" stroke="#e5e5e5"/><text x="50" y="92.7" text-anchor="end" fill="#555">0.95</text>
+<line x1="56" y1="36.0" x2="620" y2="36.0" stroke="#e5e5e5"/><text x="50" y="40.0" text-anchor="end" fill="#555">1.00</text>
+<line x1="56" y1="88.7" x2="620" y2="88.7" stroke="#b45309" stroke-dasharray="5 4"/><text x="616" y="83.7" text-anchor="end" fill="#b45309">precisión 0,95</text>
+<line x1="225.2" y1="36" x2="225.2" y2="352" stroke="#b45309" stroke-dasharray="5 4"/>
+<polyline points="56.0,143.3 61.2,134.4 71.7,116.3 76.9,106.9 82.1,97.4 87.3,87.6 97.8,88.7 108.2,68.2 113.4,57.7 118.7,47.0 123.9,36.0 129.1,36.0 134.3,36.0 139.6,36.0 144.8,36.0 150.0,36.0 155.2,36.0 160.4,36.0 165.7,36.0 170.9,36.0 181.3,36.0 186.6,36.0 191.8,36.0 197.0,36.0 202.2,36.0 207.4,36.0 212.7,36.0 217.9,36.0 223.1,36.0 228.3,36.0 233.6,36.0 238.8,36.0 244.0,36.0 249.2,36.0 254.4,36.0 259.7,36.0 264.9,36.0 270.1,36.0 275.3,36.0 280.6,36.0 285.8,36.0 291.0,36.0 296.2,36.0 301.4,36.0 306.7,36.0 311.9,36.0 322.3,36.0 327.6,36.0 332.8,36.0 338.0,36.0 348.4,36.0 353.7,36.0 358.9,36.0 369.3,36.0 374.6,36.0 379.8,36.0 385.0,36.0 390.2,36.0 395.4,36.0 405.9,36.0 416.3,36.0 426.8,36.0 432.0,36.0 437.2,36.0 442.4,36.0 447.7,36.0 452.9,36.0 458.1,36.0 463.3,36.0 468.6,36.0 473.8,36.0 479.0,36.0 484.2,36.0 489.4,36.0 494.7,36.0 499.9,36.0 505.1,36.0 510.3,36.0 515.6,36.0 520.8,36.0 526.0,36.0 531.2,36.0 536.4,36.0 541.7,36.0 546.9,36.0 552.1,36.0 557.3,36.0 562.6,36.0 567.8,36.0 573.0,36.0 578.2,36.0 583.4,36.0 588.7,36.0 593.9,36.0 599.1,36.0 604.3,36.0 609.6,36.0 614.8,36.0" fill="none" stroke="#2563eb" stroke-width="2"/>
+<circle cx="338.0" cy="36.0" r="5" fill="#dc2626"/><text x="346.0" y="40.0" fill="#dc2626">cascada con τ de CALIB</text>
+<text x="338.0" y="390" text-anchor="middle" fill="#333">abstención (fracción que escala)</text>
+<text transform="translate(14 194.0) rotate(-90)" text-anchor="middle" fill="#333">precisión de lo contestado</text>
+</svg>
