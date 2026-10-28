@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chispa"
+version = "0.1.0"
+description = "Cliente de /v1/decide y «chispa train» (few-shot en CPU) de Chispa"
+requires-python = ">=3.9"
+dependencies = []  # el cliente es solo biblioteca estándar
+
+[project.optional-dependencies]
+yaml = ["pyyaml"]  # esquemas .yaml; los .json no lo necesitan
+
+[project.scripts]
+chispa = "chispa.cli:main"
+
+[tool.setuptools]
+packages = ["chispa"]
+
+[tool.setuptools.package-data]
+chispa = ["entrenador_go/*.go", "entrenador_go/go.mod", "entrenador_go/go.sum"]
