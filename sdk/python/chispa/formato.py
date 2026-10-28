@@ -8,7 +8,7 @@ import json
 import struct
 from typing import Dict
 
-META, L0, L1, L2, ESQUEMAS, CALIB, CONJ = 1, 2, 3, 4, 5, 6, 7
+META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF = 1, 2, 3, 4, 5, 6, 7, 8
 MAGIA = b"\x89CHI\r\n\x1a\n"
 
 
@@ -126,4 +126,37 @@ def conj(entradas) -> bytes:
             out.append(struct.pack("<H", len(b)) + b)
         out.append(np.ascontiguousarray(e["escala"], dtype="<f4").tobytes())
         out.append(proto.tobytes())
+    return b"".join(out)
+
+
+# --- L0TF (ver format/chispa3/l0tf.go para la disposición) ---
+L0TF_VERSION = 1
+
+
+def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
+    """Sección L0TF. `vocab`: n-gramas (2 a 5 puntos de código) en cualquier orden; `idf` (V,), `coef` (V,C) en el mismo
+    orden que `vocab`; `inter` (C,); `etiquetas` estrictamente crecientes. Reordena el vocabulario por bytes UTF-8."""
+    import numpy as np
+    coef, idf, inter = np.asarray(coef), np.asarray(idf, dtype="<f4"), np.asarray(inter, dtype="<f4")
+    v, c = coef.shape
+    if len(vocab) != v or idf.shape != (v,) or inter.shape != (c,) or len(etiquetas) != c or c < 2:
+        raise ValueError("L0TF mal formada")
+    if any(a >= b for a, b in zip(etiquetas, etiquetas[1:])):
+        raise ValueError("L0TF: etiquetas no crecientes")
+    bs = [g.encode("utf-8") for g in vocab]
+    orden = sorted(range(v), key=bs.__getitem__)
+    bs = [bs[i] for i in orden]
+    if len(set(bs)) != v or any(not 2 <= len(g.decode("utf-8")) <= 5 for g in bs):
+        raise ValueError("L0TF: vocabulario repetido o con n-gramas fuera de 2 a 5 caracteres")
+    orden = np.array(orden)
+    coef = np.ascontiguousarray(coef[orden], dtype="<f2" if f16 else "<f4")
+    out = [struct.pack("<IIII", L0TF_VERSION, v, c, 2 if f16 else 1)]
+    for n in etiquetas:
+        b = n.encode("utf-8")
+        out.append(struct.pack("<H", len(b)) + b)
+    out.append(inter.tobytes())
+    out.append(np.ascontiguousarray(idf[orden]).tobytes())
+    out.append(np.concatenate([[0], np.cumsum([len(g) for g in bs])]).astype("<u4").tobytes())
+    out.append(b"".join(bs))
+    out.append(coef.tobytes())
     return b"".join(out)

@@ -37,7 +37,12 @@ python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chisp
   escala. El informe trae `conjunta` (λ, NLL de CV, bytes, T, β). Sin `--conjunta` el fichero sale igual que antes.
   Cuesta tiempo de entrenamiento (L0 ×5 + L2 sobre todos los ejemplos con e5; ver `informe["conjunta"]["s"]`) y, al servir,
   ≈ 0,07 ms por clase de simproto más µs de cabeza (`server/README.md`), frente a los ~30 ms de L2.
-  **Ojo**: la cabeza se ajusta con las probabilidades de L0 de sklearn, y el servidor le da las del L0 de kindling (otro modelo,
+  **L0TF** (T4.5c): `--conjunta` también escribe `L0TF`, el L0 TF-IDF de caracteres de `model/lineas_base/correr.py` (`chispa/l0tf.py`
+  ejecuta ese `correr_l0` y recoge el vectorizador y la regresión que ajusta: no hay copia de los hiperparámetros) entrenado con todo
+  el train; la cabeza se ajusta con sus probabilidades fuera de pliegue. Coeficientes en f32 (`--l0tf-f16` los pasa a f16: |Δp| ~3e-4);
+  si la tabla pasa de `--l0tf-max-mb` (48), se poda el vocabulario por frecuencia (`max_features`), también en los pliegues.
+  clinc150: 34 976 n-gramas × 151 clases = 21 MB en f32, sin podar. El servidor usa L0TF en vez del L0 de Chispa si el fichero lo trae.
+  **Ojo (anterior a T4.5c)**: la cabeza se ajusta con las probabilidades de L0 de sklearn, y el servidor le da las del L0 de kindling (otro modelo,
   mismas clases): están sin comparar. Tampoco se probó con un checkpoint real (en los tests, un `ModeloL2` aleatorio y e5 falso).
 - L0 y la calibración los hace `entrenador_go/` (copiado a un directorio temporal con `replace` hacia el repo; hace falta Go y el repo, o
   `CHISPA_REPO`; offline: `GOFLAGS=-mod=mod GOPROXY=off`). **Sin Go** `chispa train` escribe META + L1 + CALIB por defecto, sin L0, y lo dice

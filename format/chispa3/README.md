@@ -30,6 +30,7 @@ determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`, 
 | `ESQUEMAS` | `u32 dim · u32 n · n×[32]hash (estrictamente crecientes) · n×f32 escala · n×dim×int8`; hash = `HashEsquema(pregunta, opciones)` (sha256 con prefijos de longitud). Búsqueda binaria sin copiar |
 | `CALIB` | JSON `{tipos{tipo:{T,a,b,theta}}, tau_escalate}`; T>0, θ y τ en [0,1] |
 | `CONJ` | cabeza conjunta L0 + L2 por esquema (`conj.go`): `u32 versión(1) · u32 n ·` n entradas con hash creciente: `[32]hash · u32 cabeza(1=lr) · u32 K · u32 d · u32 C · u32 nw(6) · f32 T · f32 β · 3×f32 esc · nw×f32 pesos · C×(u16 len · nombre UTF-8) clases crecientes · C·K×f32 escala · C·K·d×int8 prototipos`. El hash es `HashEsquema(pregunta, ids ordenados)`. Con 150 clases, K=16, d=256: ≈ 625 KB |
+| `L0TF` | L0 TF-IDF de caracteres + regresión logística multinomial (`l0tf.go`), el de `model/lineas_base/correr.py`: `u32 versión(1) · u32 V · u32 C · u32 dtype(1=f32, 2=f16) ·` C×(u16 len · nombre) etiquetas crecientes (orden de `classes_`) `· C×f32 intercepciones · V×f32 idf · (V+1)×u32 desplazamientos · blob UTF-8 · V·C coeficientes` (por n-grama: `coef[f·C+c]`). El vocabulario son los n-gramas de 2 a 5 puntos de código en cadenas, estrictamente crecientes por bytes: la búsqueda es binaria, exacta y sin copiar, sin las colisiones de un hash (que mezclarían coeficientes de n-gramas distintos); cuesta ~10 bytes por n-grama frente a los C·4 de sus coeficientes. `DecodificarL0TF` valida el orden, los rangos y que todo sea finito; `Probs(texto)` hace el analizador `char_wb` de sklearn (minúsculas de Python incl. U+0130 y sigma final, espacios de `str.isspace`), sublinear tf, idf, norma l2 y softmax en doble precisión. Con 2 clases el escritor expande la fila única de sklearn a `[0, w]` |
 
 ## Validaciones
 `Desde`/`Abrir` (todas devuelven errores con `errors.Is`): magia (`ErrMagia`), versión (`ErrVersion`), truncado
@@ -59,6 +60,10 @@ cuyo sha256 cuadra, su decodificador.
 - `L1` se probó con una cabecera sintética; no se cargó un `.chispa-l1` real (155 MB, no va a git) ni se pasó por `l1.Desde`.
 - El sha256 de la cabecera del `.chispa-l1` (del cuerpo) no se recalcula: lo cubre el de la sección.
 - No hay lector de v1 (no existe en kindling v0.17.0). No se probó en Windows/macOS (`mmap_otros.go` es un respaldo con lectura).
+
+## L0TF (T4.5c)
+Fuzz de la sección: `FuzzL0TF` 3 min (1 315 985 ejecuciones) y `FuzzAbrir` 2 min (194 744, con L0TF en el corpus), 2026-10-28, sin fallos;
+lo aceptado recodifica byte a byte igual. Paridad con sklearn en `server/decide` (|Δp| 4e-8 en f32; ~3e-4 en f16).
 
 ## Log del fuzzing
 `go test -run '^$' -fuzz=FuzzAbrir -fuzztime=10m -parallel=2 .` (microVM de 4 vCPU, go1.27.1 linux/amd64, 2026-10-28):

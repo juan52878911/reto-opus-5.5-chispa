@@ -74,12 +74,13 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
-             frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, log=print) -> dict:
+             frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, log=print) -> dict:
     """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
     `l0_max_mb` topa la tabla de pesos de L0 (el lector de kindling rechaza más de 64 MiB): se reducen los buckets de hashing
     (potencias de dos) hasta que cabe; con muchas clases, más colisiones. `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
-    características. `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
+    características. `conjunta` también escribe L0TF (el L0 tfidf que alimenta a la cabeza; `l0tf_max_mb` topa su tabla de coeficientes podando el
+    vocabulario por frecuencia, `l0tf_f16` los guarda en media precisión). `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
     ex = cargar_ejemplos(ejemplos, q.id)
@@ -110,6 +111,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         tiempo_l2 = None
         conj_inf = None
         conj_ruta = ""
+        l0tf_ruta = ""
         if ckpt and not (conjunta and l2):  # con --conjunta, el --l2 dado manda y el checkpoint solo da las características
             filas = tmp / "filas.jsonl"
             _filas_l2(q, ex, filas)
@@ -124,16 +126,17 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
             t = time.time()
             from . import conjunta as cj
             modelo, enc = modelo_l2 or cj.cargar_ckpt(ckpt, repo)
-            b, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log)
+            b, b_l0, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log, l0tf_f16, l0tf_max_mb)
             conj_inf["s"] = time.time() - t
-            conj_ruta = str(tmp / "conj.bin")
+            conj_ruta, l0tf_ruta = str(tmp / "conj.bin"), str(tmp / "l0tf.bin")
             Path(conj_ruta).write_bytes(b)
+            Path(l0tf_ruta).write_bytes(b_l0)
         with open(tmp / "ej.jsonl", "w", encoding="utf-8") as f:
             for t_, e in ex:
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
                 "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
-                "conj": conj_ruta,
+                "conj": conj_ruta, "l0tf": l0tf_ruta,
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
                 "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"]}}

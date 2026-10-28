@@ -363,6 +363,8 @@ func FuzzAbrir(f *testing.F) {
 	f.Add(construir(f, s[3:4]))
 	f.Add(construir(f, s[4:]))
 	f.Add(construir(f, append(append([]Seccion(nil), s...), Seccion{CONJ, conjDePrueba(f)})))
+	b0, _ := CodificarL0TF(datosL0TF(true))
+	f.Add(construir(f, append(append([]Seccion(nil), s...), Seccion{L0TF, b0})))
 	for _, n := range []string{"urgencia", "injection"} {
 		b, _ := os.ReadFile("testdata/" + n + ".chispa")
 		f.Add(b)
@@ -377,6 +379,7 @@ func FuzzAbrir(f *testing.F) {
 		DecodificarMeta(data)
 		DecodificarCalib(data)
 		DecodificarConj(data)
+		DecodificarL0TF(data)
 		ValidarL1(data)
 		if e, err := DecodificarEsquemas(data); err == nil {
 			for i := 0; i < e.Len(); i++ {
@@ -409,6 +412,8 @@ func FuzzAbrir(f *testing.F) {
 				}
 			case CONJ:
 				DecodificarConj(b)
+			case L0TF:
+				DecodificarL0TF(b)
 			case L1:
 				ValidarL1(b)
 			case L0:

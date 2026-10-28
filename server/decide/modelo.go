@@ -13,13 +13,22 @@ type Montaje struct {
 	Avisos []string // capas que se quedan como stub y por qué
 }
 
-// ArmarDesde añade a l0 el modelo de la sección L0 y monta L1 y L2 con las secciones presentes;
+// ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y monta L1 y L2 con las secciones presentes;
 // las que faltan quedan como stub. Con tauDeCalib, el τ de L1 y L2 pasa a ser el tau_escalate
 // de CALIB (cfg se modifica). tok es el tokenizador de e5 que necesita L2 (puede ser nil).
 // f debe seguir abierto mientras se use la cascada.
 func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok Tokenizador) (Montaje, error) {
 	mt := Montaje{L1: NuevoL1(), L2: NuevoL2()}
-	if f.Tiene(chispa3.L0) {
+	if f.Tiene(chispa3.L0TF) {
+		// El L0 tfidf es el que entrenó la cabeza conjunta: manda sobre el Chispa de kindling del mismo fichero.
+		m, err := f.L0TF()
+		if err != nil {
+			return mt, fmt.Errorf("sección L0TF: %w", err)
+		}
+		if err := l0.AnadirTF("sección L0TF", m); err != nil {
+			return mt, err
+		}
+	} else if f.Tiene(chispa3.L0) {
 		m, err := f.L0Modelo()
 		if err != nil {
 			return mt, fmt.Errorf("sección L0: %w", err)
