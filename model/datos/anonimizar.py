@@ -40,7 +40,7 @@ johnny joel jonny josue ovidio orlando alexandra alicia amalia anyela araceli ar
 betty brigitte camila carlota celia clemencia concepcion damaris elsa emma erika erica evelyn fabiola
 fernanda francia genoveva gisela hilda ingrid ines irma jacqueline jazmin jenny jennifer jessica johanna
 jhoana katerine leticia lidia lina lisbeth lucila magaly maribel marina marlon matilde melissa miriam myriam
-nohora noemi norma pastora piedad rebeca regina rosalia sonia soledad tulia vanessa vilma wendy yadira
+nohora noemi pastora piedad rebeca regina rosalia sonia soledad tulia vanessa vilma wendy yadira
 yaritza yazmin yohana zoraida virginia jeronimo angelica geny jenifer yuri yury dolly gina erly nidya
 saray shirley stefany stephany lizeth lizbeth marleny nayibe yuly yineth yulieth andrey hermes gildardo ferney
 uriel ancizar anyi giovany geovanny yovany geovany
@@ -93,7 +93,7 @@ def sin_acentos(s):
 _NOM = {sin_acentos(x) for x in NOMBRES}
 # Nombres que también son palabras corrientes («luz», «socorro»): solo valen junto a un disparador o a otro nombre.
 _AMBIGUOS = {"luz", "socorro", "consuelo", "dolores", "amparo", "esperanza", "fatima", "angeles", "remedios", "mora",
-             "rosa", "paz", "victoria", "gracia", "pilar", "cielo", "aurora"}
+             "rosa", "paz", "norma", "victoria", "gracia", "pilar", "cielo", "aurora"}
 _APE = {sin_acentos(x) for x in APELLIDOS}
 _TODOS = _NOM | _APE
 
@@ -440,6 +440,17 @@ _RE_VECINA_DESPUES = re.compile(r"\[NOMBRE\](?:\s+(?:de|del|de la|de los))?\s+([
 _RE_VECINA_ANTES = re.compile(r"([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})\s+(?:(?:de|del|de la|de los)\s+)?\[NOMBRE\]")
 
 
+_PERSONA = r"(?:ni[ñn][oa]|hij[oa]|se[ñn]or[a]?|madre|padre|espos[oa]|herman[oa]|menor|paciente|usuari[oa]|ciudadan[oa])"
+_RE_PERSONA_ETQ = re.compile(r"\b" + _PERSONA + r"\s+([a-záéíóúñü]{3,})\s+\[NOMBRE\]", re.I)
+_RE_TITULO_ETQ = re.compile(r"([A-ZÁÉÍÓÚÑ][a-záéíóúñü'’]{2,})\s+\[NOMBRE\]")
+_RE_ETQ_TITULO = re.compile(r"\[NOMBRE\]\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñü'’]{2,})")
+
+
+def _inicio_de_frase(texto, pos):
+    previo = texto[:pos].rstrip()
+    return not previo or previo[-1] in ".!?:;\n"
+
+
 def _cola_es_nombre(w, ini, protegidas, vocabulario, con_cue):
     """Palabra tras [NOMBRE] y antes de «cel», «cc», un dato o el final: la firma sigue (apellido). Al final del texto
     solo si empieza con mayúscula (en minúsculas sería una palabra cualquiera)."""
@@ -448,7 +459,7 @@ def _cola_es_nombre(w, ini, protegidas, vocabulario, con_cue):
     return sin_acentos(w) in _TODOS or _desconocida(w, vocabulario)
 
 
-def _absorber_vecinas(texto, vocabulario):  # `vocabulario`: el estricto (min_df=2) si hay
+def _absorber_vecinas(texto, vocabulario, estricto=False):  # `vocabulario`: el estricto (min_df=2) si hay
     """Palabras pegadas a una etiqueta [NOMBRE] que siguen siendo nombre: de la lista (en cualquier caja), de nombres
     ambiguos («Socorro») o con inicial mayúscula y desconocidas («[NOMBRE] MELO»)."""
     def es_nombre(w, ini, entre=False):
@@ -462,9 +473,21 @@ def _absorber_vecinas(texto, vocabulario):  # `vocabulario`: el estricto (min_df
         toks = list(_PALABRA.finditer(texto))
         protegidas = {toks[k].start() for k in _protegidas(toks, texto)}
         nuevo = _RE_ENTRE.sub(lambda m: "[NOMBRE] [NOMBRE]" if es_nombre(m.group(1), m.start(1), True) else m.group(0), texto)
+        if nuevo == texto and estricto:
+            nuevo = _RE_PERSONA_ETQ.sub(lambda m: m.group(0)[:m.start(1) - m.start()] + "[NOMBRE]"
+                                        if _desconocida(m.group(1), vocabulario) and m.start(1) not in protegidas
+                                        else m.group(0), texto)
+        if nuevo == texto and estricto:
+            for rx in (_RE_TITULO_ETQ, _RE_ETQ_TITULO):
+                nuevo = rx.sub(lambda m: m.group(0).replace(m.group(1), "[NOMBRE]", 1)
+                               if _desconocida(m.group(1), vocabulario) and m.start(1) not in protegidas
+                               and not (rx is _RE_ETQ_TITULO and _inicio_de_frase(texto, m.start(1)))
+                               else m.group(0), texto)
+                if nuevo != texto:
+                    break
         if nuevo == texto:
             nuevo = _RE_COLA.sub(lambda m: "[NOMBRE]" if _cola_es_nombre(
-                m.group(1), m.start(1), protegidas, vocabulario, texto[m.end(1):].strip(" .,;:") != "") else m.group(0), texto)
+                m.group(1), m.start(1), protegidas, vocabulario, texto[m.end(1):].strip(" .,;:") != "" or estricto) else m.group(0), texto)
         if nuevo == texto:
             nuevo = _RE_VECINA_DESPUES.sub(lambda m: "[NOMBRE]" if es_nombre(m.group(1), m.start(1)) else m.group(0), texto)
         if nuevo == texto:  # las posiciones solo valen para el texto sin cambiar
@@ -485,6 +508,66 @@ def _enmascarar_firma_final(texto, vocabulario, cuentas):
         return texto
     cuentas["NOMBRE"] += 1
     return texto[:m.start()] + "[NOMBRE]" + texto[m.end(1):]
+
+
+_RE_FIN = (r"(?=\s*(?:[.,;:]?\s*$|[.,;:]?\s+" + _CUE + r"\b|\s*\[(?:TEL|DOC|CORREO|DIR)\]))")
+_RE_SERIE_MIN = re.compile(r"((?:[a-záéíóúñü]{3,}\s+){1,3}[a-záéíóúñü]{3,})" + _RE_FIN, re.I)
+
+
+def _enmascarar_serie_minuscula(texto, estricto, cuentas):
+    """Hasta 4 palabras en minúsculas al final del texto o ante «cel», «cc»…: si empiezan con un nombre de pila de la
+    lista y siguen con palabras de la lista o desconocidas, es una firma escrita sin mayúsculas («ana elvia chaparro»)."""
+    if not estricto:
+        return texto
+    out, i = [], 0
+    for m in _RE_SERIE_MIN.finditer(texto):
+        ws = list(_PALABRA.finditer(m.group(1)))
+        for k, w in enumerate(ws):
+            if not w.group().islower() or sin_acentos(w.group()) not in _NOM:
+                continue
+            if all(sin_acentos(x.group()) in _TODOS or _desconocida(x.group(), estricto) for x in ws[k + 1:]) and k + 1 < len(ws):
+                ini = m.start(1) + w.start()
+                if ini < i:
+                    break
+                out.append(texto[i:ini])
+                out.append("[NOMBRE]")
+                cuentas["NOMBRE"] += 1
+                i = m.end(1)
+                break
+    out.append(texto[i:])
+    return "".join(out)
+
+
+def _enmascarar_serie_con_huecos(texto, estricto, cuentas):
+    """Nombre completo escrito en minúsculas: un nombre de pila de la lista, 1-2 palabras desconocidas y un nombre o
+    apellido de la lista («ana elvia chauta martinez»). Exige 2 o más palabras de la lista."""
+    if not estricto:
+        return texto
+    toks = list(_PALABRA.finditer(texto))
+    out, i, k = [], 0, 0
+    while k < len(toks):
+        w = toks[k].group()
+        if not (w.islower() and sin_acentos(w) in _NOM):
+            k += 1
+            continue
+        fin, j = None, k + 1
+        while j < len(toks) and j - k < 5 and texto[toks[j - 1].end():toks[j].start()] == " " and toks[j].group().islower():
+            x = toks[j].group()
+            if sin_acentos(x) in _TODOS:
+                fin = j
+            elif not _desconocida(x, estricto):
+                break
+            j += 1
+        if fin is not None and fin > k:
+            out.append(texto[i:toks[k].start()])
+            out.append("[NOMBRE]")
+            cuentas["NOMBRE"] += 1
+            i = toks[fin].end()
+            k = fin + 1
+        else:
+            k += 1
+    out.append(texto[i:])
+    return "".join(out)
 
 
 def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
@@ -510,10 +593,12 @@ def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
     t = _enmascarar_lista(t, cuentas)
     if vocabulario:
         t = _enmascarar_rachas(t, vocabulario, cuentas)
+    t = _enmascarar_serie_con_huecos(t, estricto, cuentas)
+    t = _enmascarar_serie_minuscula(t, estricto, cuentas)
     if vocabulario:
         t = _enmascarar_firma_final(t, vocabulario, cuentas)
     t = _enmascarar_antes_de_documento(t, vocabulario, cuentas, estricto)  # otra vez: ahora las etiquetas ya están puestas
-    t = _absorber_vecinas(t, estricto or vocabulario)
+    t = _absorber_vecinas(t, estricto or vocabulario, bool(estricto))
     t = re.sub(r"\[NOMBRE\](?:\s+(?:(?:de|del|la|los|y)\s+)?\[NOMBRE\])+", "[NOMBRE]", t)
     if cuentas["NOMBRE"]:
         cuentas["NOMBRE"] = t.count("[NOMBRE]")

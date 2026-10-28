@@ -309,6 +309,20 @@ class TestAnonimizar(unittest.TestCase):
         t, _ = self.a("SOLICITO COPIA DEL RECIBO", vocabulario=v, estricto=v)  # todo en mayúsculas: no es una firma
         self.assertEqual(t, "SOLICITO COPIA DEL RECIBO")
 
+    def test_firmas_sin_mayusculas_y_nombres_pegados(self):
+        v = anonimizar.vocabulario_de(["la niña pide el recibo", "por favor gracias", "descuento del impuesto", "la norma general de usos del suelo", "nueva propietaria del predio"])
+        t, _ = self.a("pagar con descuento ana elvia chauta martinez nueva propietaria, cc 52123456", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "ana|elvia|chauta|martinez")
+        self.assertIn("nueva propietaria", t)
+        t, _ = self.a("pagar con descuento ana elvia chaparro", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "ana|elvia|chaparro")
+        t, _ = self.a("certificado de la niña danna [NOMBRE] delega", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "danna|delega")
+        t, _ = self.a("agradezco su colaboración Eufemia [NOMBRE]", vocabulario=v, estricto=v)
+        self.assertNotIn("Eufemia", t)
+        t, _ = self.a("conocer la Norma General de Usos del Suelo", vocabulario=v, estricto=v)
+        self.assertNotIn("[NOMBRE]", t)
+
     def test_vocabulario_con_min_df_ignora_palabras_de_una_sola_fila(self):
         v = anonimizar.vocabulario_de(["pidió osvaldo copia", "pidió copia"], min_df=2)
         self.assertEqual(v, {"pidio", "copia"})
