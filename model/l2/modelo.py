@@ -2,6 +2,9 @@
 
 Un solo pase del mensaje da S ∈ R^{K×d}; cada opción da un vector h ∈ R^d; la puntuación es
 sim(h) = max_k softplus(h · s_k) (MaxSim). Diseño del orquestador: plan/fase-2/encargo.md y el encargo de T2.1.
+
+T2.1b (few-shot): con `protos` (prototipos por clase a partir de ejemplos de soporte) la puntuación pasa a ser
+sim_opción(c) + β · simproto(c); sin `protos` (o con β = 0) es exactamente la de la ronda 1. Ver `prototipos`.
 """
 import hashlib
 import math
@@ -19,6 +22,7 @@ K_RANURAS = 16
 D = 256
 LAMBDA_KL, LAMBDA_NCE, LAMBDA_B = 1.0, 0.5, 0.5
 SEP = " · "
+TIPOS_BETA = ("choice", "noul", "score")
 
 
 def texto_opcion(fila, opcion):
@@ -44,6 +48,8 @@ class Codificador:
     lote (antes: solo los que no estaban en la caché, y tras el calentamiento casi ninguno); (2) la caché de opciones (y la
     de mensajes) se invalida con `invalidar()` después de cada paso de optimización, y solo sirve para evaluar entre pasos.
     """
+
+    n_desc = 0  # valor por defecto para subclases que no llaman a __init__
 
     def __init__(self, ruta=None, device="cpu", max_tok=MAX_TOK, cache_max=400_000, cache_mensajes=False, descongelar=0):
         from transformers import AutoModel, AutoTokenizer
@@ -181,6 +187,64 @@ def maxsim(S, h):
     return F.softplus(torch.einsum("bkd,ud->bku", S, h)).max(dim=1).values
 
 
+def prototipos(modelo, enc, filas_soporte, lote=256):
+    """Prototipos de clase: (idx {etiqueta: i}, P (C,K,d)). P_c es, ranura a ranura, la media normalizada de las ranuras de los
+    ejemplos de soporte de la clase. e5 va sin gradiente (aunque haya capas descongeladas); las ranuras, con el del modo actual."""
+    dev = modelo.ranuras.q.device
+    etqs = sorted({r["etiqueta"] for r in filas_soporte})
+    idx = {e: i for i, e in enumerate(etqs)}
+    suma = None
+    for i in range(0, len(filas_soporte), lote):
+        fs = filas_soporte[i:i + lote]
+        with torch.no_grad():
+            H, m = enc.tokens([r["texto"] for r in fs])
+        S = modelo.ranuras(H.to(dev), m.to(dev))  # (b,K,d)
+        ci = torch.tensor([idx[r["etiqueta"]] for r in fs], device=dev)
+        parte = torch.zeros(len(etqs), *S.shape[1:], device=dev).index_add(0, ci, S)
+        suma = parte if suma is None else suma + parte
+    return idx, F.normalize(suma, dim=-1)
+
+
+def simproto(S, P):
+    """S (B,K,d), P (C,K,d) → (B,C): mean_k max_k' (s_k · P_c,k')."""
+    return torch.einsum("bkd,cjd->bckj", S, P).max(dim=-1).values.mean(dim=-1)
+
+
+def hash_soporte(filas_soporte):
+    return hashlib.sha1("\n".join(sorted(r["id"] for r in filas_soporte)).encode("utf-8")).hexdigest()
+
+
+class CachePrototipos:
+    """Prototipos por (tarea, hash del soporte): se calculan una vez. Vale mientras no cambien los pesos: `limpiar()` tras entrenar."""
+
+    def __init__(self):
+        self.d, self.calculos = {}, 0
+
+    def obtener(self, modelo, enc, tarea, filas_soporte):
+        clave = (tarea, hash_soporte(filas_soporte))
+        if clave not in self.d:
+            self.calculos += 1
+            with torch.no_grad():
+                self.d[clave] = prototipos(modelo, enc, filas_soporte)
+        return self.d[clave]
+
+    def limpiar(self):
+        self.d.clear()
+
+
+class SoporteEval:
+    """Soporte de evaluación: k por clase de cada tarea, elegido como en T1.7a (`datos.soporte_t17a`, semilla 0)."""
+
+    def __init__(self, train_por_tarea, k=32, semilla=0):
+        from . import datos
+        self.k = k
+        self.filas = {t: [r for _, r in datos.soporte_t17a(rs, k, semilla)] for t, rs in train_por_tarea.items() if rs}
+        self.cache = CachePrototipos()
+
+    def protos(self, modelo, enc, tareas):
+        return {t: self.cache.obtener(modelo, enc, t, self.filas[t]) for t in tareas if t in self.filas}
+
+
 class Coral(nn.Module):
     """P(y > j) = σ(w·sim − θ_j), j=1..K-1, con θ_j = θ_1 + Σ_{m<j} softplus(δ_m): umbrales ordenados, P decreciente."""
 
@@ -215,20 +279,46 @@ class ModeloL2(nn.Module):
         self.log_t = nn.ParameterDict({"choice": nn.Parameter(torch.tensor(math.log(0.02)))})
         self.ab = nn.ParameterDict({"noul": nn.Parameter(torch.tensor([4.0, -4.0]))})  # a, b
         self.coral = nn.ModuleDict()
+        self.beta = nn.ParameterDict({t: nn.Parameter(torch.tensor(1.0)) for t in TIPOS_BETA})  # peso de simproto, por tipo
+
+    def load_state_dict(self, estado, strict=True):
+        """Admite checkpoints anteriores a T2.1b (sin β): conservan el β actual."""
+        estado = dict(estado)
+        for k, v in self.state_dict().items():
+            if k.startswith("beta.") and k not in estado:
+                estado[k] = v
+        return super().load_state_dict(estado, strict)
 
     def asegurar_cabeza(self, clave, device=None):
         if clave.startswith("score") and clave not in self.coral:
             self.coral[clave] = Coral(int(clave[5:])).to(device or self.ranuras.q.device)
 
     def parametros_cabezas(self):
-        return [*self.log_t.parameters(), *self.ab.parameters(), *self.coral.parameters()]
+        return [*self.log_t.parameters(), *self.ab.parameters(), *self.coral.parameters(), *self.beta.parameters()]
 
     def grupos_optimizador(self, lr=3e-4, lr_torre=1e-4, wd=0.01):
         return [{"params": list(self.ranuras.parameters()) + self.parametros_cabezas(), "lr": lr, "weight_decay": wd},
                 {"params": list(self.torre.parameters()), "lr": lr_torre, "weight_decay": wd}]
 
-    def forward(self, filas, enc, entrenar=True):
-        """Devuelve (probs: lista de tensores por fila en el orden de `opciones`, perdidas: dict o None)."""
+    def _simproto(self, S, filas, protos):
+        """Lista (una por fila) de tensores (len(opciones),) con simproto por opción, o None si la fila no tiene prototipos.
+        La clase de una opción es su nombre original (`origen`, si la fila está renombrada); una opción sin prototipo vale 0."""
+        out = [None] * len(filas)
+        for t in {r["tarea"] for r in filas} if protos else ():
+            if t not in protos:
+                continue
+            idx, P = protos[t]
+            ii = [i for i, r in enumerate(filas) if r["tarea"] == t]
+            sp = simproto(S[ii], P)  # (b,C)
+            for j, i in enumerate(ii):
+                col = [idx.get(o, -1) for o in filas[i].get("origen", filas[i]["opciones"])]
+                v = sp[j, [max(c, 0) for c in col]]
+                out[i] = v * torch.tensor([c >= 0 for c in col], device=v.device, dtype=v.dtype)
+        return out
+
+    def forward(self, filas, enc, entrenar=True, protos=None):
+        """Devuelve (probs: lista de tensores por fila en el orden de `opciones`, perdidas: dict o None).
+        `protos`: {tarea: (idx, P)} de `prototipos`; sin él (o sin la tarea de la fila) es el modo sin soporte de la ronda 1."""
         dev = self.ranuras.q.device
         for k in {clave_cabeza(r) for r in filas}:
             self.asegurar_cabeza(k, dev)
@@ -246,6 +336,7 @@ class ModeloL2(nn.Module):
             fila_txt.append(ix)
         h = self.torre(enc.pasaje(textos).to(dev))
         sim = maxsim(S, h)  # (B,U)
+        sp_filas = self._simproto(S, filas, protos)
         probs, p_ce, p_kl, p_nce, p_b = [], [], [], [], []
         T = self.log_t["choice"].exp().clamp(min=5e-3)
         for i, r in enumerate(filas):
@@ -253,8 +344,9 @@ class ModeloL2(nn.Module):
             s = sim[i, ix]
             tipo, ops = r["tipo"], r["opciones"]
             y = ops.index(r["etiqueta"])
+            sp = sp_filas[i]
             if tipo == "choice":
-                lg = s / T
+                lg = (s if sp is None else s + self.beta["choice"] * sp) / T
                 p = F.softmax(lg, -1)
                 ce = F.cross_entropy(lg.unsqueeze(0), torch.tensor([y], device=dev))
                 # InfoNCE: las opciones de las demás filas del lote (todo el conjunto único) son negativos.
@@ -262,11 +354,11 @@ class ModeloL2(nn.Module):
                 p_nce.append(nce)
             elif tipo == "noul":
                 a, b = self.ab["noul"]
-                pt = torch.sigmoid(a * s[0] + b)
+                pt = torch.sigmoid(a * (s[0] + self._ajuste(sp, "noul")) + b)
                 p = torch.stack([1 - pt, pt])
                 ce = -torch.log(p[y].clamp(min=1e-7))
             else:
-                p = self.coral["score%d" % len(ops)](s[:1])[0]
+                p = self.coral["score%d" % len(ops)](s[:1] + self._ajuste(sp, "score"))[0]
                 ce = -torch.log(p[y].clamp(min=1e-7))
             probs.append(p)
             if not entrenar:
@@ -285,6 +377,15 @@ class ModeloL2(nn.Module):
         ps = {"ce": media(p_ce), "kl": media(p_kl), "nce": media(p_nce), "brier": media(p_b)}
         ps["total"] = ps["ce"] + LAMBDA_KL * ps["kl"] + LAMBDA_NCE * ps["nce"] + LAMBDA_B * ps["brier"]
         return probs, ps
+
+
+    def _ajuste(self, sp, tipo):
+        """β · (simproto ponderado de −1 a +1 por la posición de la clase, sobre la suma de pesos positivos): con 2 clases es
+        sp(true) − sp(false). 0 sin prototipos."""
+        if sp is None:
+            return 0.0
+        w = torch.linspace(-1, 1, len(sp), device=sp.device)
+        return self.beta[tipo] * (w * sp).sum() / w.clamp(min=0).sum()
 
 
 def blanda_vector(fila):

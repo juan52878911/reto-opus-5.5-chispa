@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import os
+import random
 from collections import defaultdict
 
 import numpy as np
@@ -131,6 +132,7 @@ def renombrar_fila(fila):
         return fila
     m = dict(zip(fila["opciones"], nuevas))
     r = dict(fila)
+    r["origen"] = list(fila["opciones"])  # nombres originales: los prototipos de soporte se buscan por ellos
     r["opciones"] = nuevas
     r["descripciones"] = {m[o]: fila["descripciones"].get(o, "") for o in fila["opciones"]}
     r["etiqueta"] = m[fila["etiqueta"]]
@@ -213,3 +215,87 @@ class Muestreador:
         rng = np.random.default_rng([self.semilla, paso])
         ts = rng.choice(len(self.tareas), size=self.lote, p=self.p)
         return [self.por[self.tareas[t]][rng.integers(len(self.por[self.tareas[t]]))] for t in ts]
+
+
+def soporte_t17a(train, k=32, semilla=0):
+    """[(posición, fila)]: k por clase, igual que `model.lineas_base.correr.soporte` (orden por id, barajado con semilla fija,
+    clases en orden), de modo que L2 y kNN-32 ven los mismos ejemplos."""
+    rng = random.Random(semilla)
+    por = defaultdict(list)
+    for r in train:
+        por[r["etiqueta"]].append(r)
+    out = []
+    for c in sorted(por):
+        g = sorted(por[c], key=lambda r: r["id"])
+        rng.shuffle(g)
+        out += list(enumerate(g[:k]))
+    return out
+
+
+def restringir(fila, clases):
+    """Copia de una fila `choice` con solo las opciones de `clases` (descripciones y blanda incluidas)."""
+    ops = [o for o in fila["opciones"] if o in clases]
+    r = dict(fila)
+    r["opciones"] = ops
+    r["descripciones"] = {o: fila["descripciones"].get(o, "") for o in ops}
+    if fila.get("blanda"):
+        r["blanda"] = {o: v for o, v in fila["blanda"].items() if o in clases}
+    return r
+
+
+class Episodios:
+    """Muestreador por episodios (T2.1b). Cada paso es una función pura de (semilla, paso):
+    - con prob. `frac_zeroshot` es un paso sin soporte: lote de `meta` (si hay; `frac_meta` topa la fracción de pasos con meta)
+      o, si no, de las filas locales;
+    - si no, un episodio: una tarea local (p ∝ n^ALFA), k ejemplos por clase como soporte (k al azar en [k_min, k_max]) y `lote`
+      consultas de las demás filas de esas clases (sin solapar con el soporte), clases al azar. En las `choice` con más de
+      `vias` clases se eligen `vias` y las opciones de las consultas se reducen a ellas.
+    `paso()` devuelve {tarea, filas, soporte (o None), meta}."""
+
+    def __init__(self, locales, meta=None, lote=64, k_min=4, k_max=32, vias=16, frac_zeroshot=0.25, frac_meta=0.5, alfa=ALFA, semilla=0):
+        self.por = defaultdict(lambda: defaultdict(list))
+        for r in locales:
+            self.por[r["tarea"]][r["etiqueta"]].append(r)
+        for t in list(self.por):  # una clase con una sola fila no puede dar soporte y consulta a la vez
+            self.por[t] = {c: g for c, g in self.por[t].items() if len(g) >= 2}
+            if len(self.por[t]) < 2:
+                del self.por[t]
+        self.tareas = sorted(self.por)
+        n = np.array([sum(len(g) for g in self.por[t].values()) for t in self.tareas], dtype=float)
+        self.p = n ** alfa / (n ** alfa).sum() if len(n) else n
+        self.local = Muestreador(locales, lote, alfa, semilla)
+        self.meta = Muestreador(meta, lote, alfa, semilla) if meta else None
+        self.lote, self.semilla, self.k_min, self.k_max, self.vias = lote, semilla, k_min, k_max, vias
+        self.frac_zeroshot = frac_zeroshot if self.tareas else 1.0
+        self.p_meta = min(1.0, frac_meta / frac_zeroshot) if frac_zeroshot > 0 else 0.0
+        self.n = len(locales)
+
+    def pasos_por_epoca(self):
+        """Pasos para ver una vez las filas locales como consultas."""
+        return max(int(self.n // (self.lote * max(1 - self.frac_zeroshot, 0.05))), 1)
+
+    def paso(self, paso):
+        rng = np.random.default_rng([self.semilla, paso, 1])
+        if rng.random() < self.frac_zeroshot:
+            meta = self.meta is not None and rng.random() < self.p_meta
+            return {"tarea": None, "filas": (self.meta if meta else self.local).lote_paso(paso), "soporte": None, "meta": meta}
+        t = self.tareas[rng.choice(len(self.tareas), p=self.p)]
+        por = self.por[t]
+        clases = sorted(por)
+        if por[clases[0]][0]["tipo"] == "choice" and len(clases) > self.vias:
+            clases = [clases[i] for i in sorted(rng.choice(len(clases), self.vias, replace=False))]
+            restr = set(clases)
+        else:
+            restr = None
+        k = int(rng.integers(self.k_min, self.k_max + 1))
+        soporte, pool = [], {}
+        for c in clases:
+            g = por[c]
+            ix = set(rng.choice(len(g), min(k, len(g) - 1), replace=False).tolist())
+            soporte += [g[i] for i in sorted(ix)]
+            pool[c] = [g[i] for i in range(len(g)) if i not in ix]
+        cs = rng.integers(len(clases), size=self.lote)
+        filas = [pool[clases[c]][rng.integers(len(pool[clases[c]]))] for c in cs]
+        if restr:
+            filas = [restringir(r, restr) for r in filas]
+        return {"tarea": t, "filas": filas, "soporte": soporte, "meta": False}

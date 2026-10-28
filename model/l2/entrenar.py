@@ -3,6 +3,7 @@
     python -m model.l2.entrenar --salida DIR --datos DIR_CONVERTIDOS [--herramientas] [--meta DIR] [--blandas DIR ...]
         [--max-filas 600000] [--epocas 1] [--minutos M] [--s3 s3://bucket/prefijo] [--dev-max 4000]
         [--descongelar N] [--renombrar P] [--maestro-extra DIR --peso-extra W] [--inicial CKPT]
+        [--episodios [--k-min 4 --k-max 32 --vias 16 --frac-meta 0.5 --frac-zeroshot 0.25]]
 
 AdamW (3e-4 ranuras y cabezas, 1e-4 torre), warmup 5 % y coseno, lotes de 64 mensajes con muestreo por tarea (n^0,5).
 Checkpoint cada 10 min en `DIR/ultimo.pt` (atómico) y, con `--s3`, subido; `mejor.pt` por macro-F1 medio en dev.
@@ -14,6 +15,11 @@ torres comparten el codificador, así que los vectores de opción se recalculan 
 tras cada `opt.step()` (ver `Codificador`). `--renombrar P`: con probabilidad P por fila `choice`, los ids de las opciones pasan a
 A, B, C… (se decide por (semilla, paso, id)). `--maestro-extra`: blandas `{id, blanda}` de un segundo maestro, promediadas con
 las existentes con peso `--peso-extra`. `--inicial`: pesos de un checkpoint de T2.1 (sin optimizador) si no hay `ultimo.pt`.
+
+T2.1b: `--episodios` entrena con prototipos de soporte (ver `datos.Episodios`): una tarea local por paso, k ejemplos por clase
+(k al azar en [`--k-min`, `--k-max`]) como soporte y un lote de consultas disjunto; `--frac-zeroshot` de los pasos va sin soporte, con
+meta (como mucho `--frac-meta` de los pasos) o con filas locales. Las épocas se cuentan sobre las filas locales. El dev se mide sin y
+con soporte (k = `--k-max`, el de T1.7a) y `mejor.pt` se elige por el segundo.
 """
 import argparse
 import json
@@ -30,7 +36,7 @@ import torch
 
 from . import datos as D
 from .evaluar import macro_f1_medio, predecir
-from .modelo import Codificador, ModeloL2
+from .modelo import Codificador, ModeloL2, SoporteEval, prototipos
 
 CKPT_CADA_S = 600
 
@@ -69,6 +75,7 @@ def lr_en(paso, total, base, warm=0.05):
 
 
 def preparar_filas(a):
+    """(filas, info, meta): con `--episodios`, `meta` va aparte (los episodios la usan solo sin soporte); si no, está en `filas`."""
     filas = []
     for d in a.datos:
         filas += D.leer(d, split="train", solo_comercial=True)
@@ -76,23 +83,28 @@ def preparar_filas(a):
         h = Path(__file__).resolve().parents[1] / "herramientas" / "train.jsonl"
         filas += D.leer(str(h), split="train", solo_comercial=True)
     info = {"locales": len(filas)}
+    meta = []
     if a.meta:
         tope = max(a.max_filas - len(filas), 0)
         meta, cuentas, cupo = D.submuestrear_meta(a.meta, tope, semilla=a.semilla)
         info["meta"] = {"cuentas": cuentas, "cupo": cupo, "elegidas": len(meta)}
-        filas += meta
+        if not a.episodios:
+            filas += meta
+            meta = []
     if a.blandas:
         bl = D.cargar_blandas(a.blandas)
-        info["blandas"] = D.aplicar_blandas(filas, bl)
+        info["blandas"] = D.aplicar_blandas(filas + meta, bl)
         del bl
     if a.maestro_extra:
         ex = D.cargar_simples(a.maestro_extra)
-        info["extra"] = {"ids": len(ex), "mezcladas": D.mezclar_extra(filas, ex, a.peso_extra)}
+        info["extra"] = {"ids": len(ex), "mezcladas": D.mezclar_extra(filas + meta, ex, a.peso_extra)}
         del ex
     if len(filas) > a.max_filas:  # los datos locales no se recortan a ciegas: submuestreo estable por id
         filas = [r for r in filas if D._u(r["id"], a.semilla) < a.max_filas / len(filas)]
     info["filas"] = len(filas)
-    return filas, info
+    if a.episodios:
+        info["meta_filas"] = len(meta)
+    return filas, info, meta
 
 
 def preparar_dev(a):
@@ -128,6 +140,12 @@ def main(argv=None):
     ap.add_argument("--maestro-extra", nargs="*", default=[], help="blandas {id, blanda} de un segundo maestro (JSONL)")
     ap.add_argument("--peso-extra", type=float, default=0.5, help="peso del segundo maestro en el promedio de blandas")
     ap.add_argument("--inicial", help="checkpoint (T2.1) de donde tomar los pesos si no hay ultimo.pt")
+    ap.add_argument("--episodios", action="store_true", help="entrena por episodios con prototipos de soporte (T2.1b)")
+    ap.add_argument("--k-min", type=int, default=4, help="mínimo de ejemplos de soporte por clase en un episodio")
+    ap.add_argument("--k-max", type=int, default=32, help="máximo (y k del dev con soporte)")
+    ap.add_argument("--vias", type=int, default=16, help="clases por episodio en las tareas choice con más clases")
+    ap.add_argument("--frac-meta", type=float, default=0.5, help="tope de la fracción de pasos con datos de meta")
+    ap.add_argument("--frac-zeroshot", type=float, default=0.25, help="fracción de pasos sin soporte")
     ap.add_argument("--cache-mensajes", action="store_true", help="guarda los estados e5 de cada mensaje (pruebas en seco)")
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -137,15 +155,26 @@ def main(argv=None):
     torch.manual_seed(a.semilla)
     t_ini = time.time()
 
-    filas, info = preparar_filas(a)
+    filas, info, meta = preparar_filas(a)
     dev = preparar_dev(a)
     print("datos:", json.dumps(info, ensure_ascii=False)[:1500], "dev:", len(dev), flush=True)
     if not filas:
         print("error: sin filas de train", file=sys.stderr)
         return 2
-    mues = D.Muestreador(filas, a.lote, semilla=a.semilla)
+    if a.episodios:
+        mues = D.Episodios(filas, meta, a.lote, a.k_min, a.k_max, a.vias, a.frac_zeroshot, a.frac_meta, semilla=a.semilla)
+        print("episodios: %d tareas con soporte, %d filas locales, %d de meta, p(sin soporte)=%.2f" % (
+            len(mues.tareas), len(filas), len(meta), mues.frac_zeroshot), flush=True)
+    else:
+        mues = D.Muestreador(filas, a.lote, semilla=a.semilla)
     total = a.pasos or int(mues.pasos_por_epoca() * a.epocas)
-    claves = sorted({"score%d" % len(r["opciones"]) for r in filas if r["tipo"] == "score"})
+    claves = sorted({"score%d" % len(r["opciones"]) for r in filas + meta if r["tipo"] == "score"})
+    sop_dev = None
+    if a.episodios:
+        por_tarea = {}
+        for r in filas:
+            por_tarea.setdefault(r["tarea"], []).append(r)
+        sop_dev = SoporteEval(por_tarea, a.k_max, a.semilla)
 
     enc = Codificador(device=a.device, cache_mensajes=a.cache_mensajes, descongelar=a.descongelar)
     modelo = ModeloL2().to(a.device)
@@ -203,6 +232,11 @@ def main(argv=None):
         if not dev:
             return
         f1, _ = macro_f1_medio(dev, predecir(modelo, enc, dev))
+        if sop_dev:
+            sop_dev.cache.limpiar()  # los pesos cambiaron
+            f1_sin = f1
+            f1, _ = macro_f1_medio(dev, predecir(modelo, enc, dev, soporte=sop_dev))
+            print("dev paso %d: macro-F1 medio sin soporte %.4f, con soporte (k=%d) %.4f" % (paso, f1_sin, a.k_max, f1), flush=True)
         print("dev paso %d: macro-F1 medio %.4f (mejor %.4f)" % (paso, f1, mejor["f1"]), flush=True)
         if f1 > mejor["f1"]:
             mejor.update(f1=f1, paso=paso)
@@ -217,7 +251,12 @@ def main(argv=None):
     while paso < total and not parar:
         for g, b in zip(opt.param_groups, bases):
             g["lr"] = lr_en(paso, total, b)
-        _, ps = modelo(D.renombrar_lote(mues.lote_paso(paso), a.renombrar, a.semilla, paso), enc)
+        if a.episodios:
+            ep = mues.paso(paso)
+            lote_p, protos = ep["filas"], (None if ep["soporte"] is None else {ep["tarea"]: prototipos(modelo, enc, ep["soporte"])})
+        else:
+            lote_p, protos = mues.lote_paso(paso), None
+        _, ps = modelo(D.renombrar_lote(lote_p, a.renombrar, a.semilla, paso), enc, protos=protos)
         opt.zero_grad(set_to_none=True)
         ps["total"].backward()
         torch.nn.utils.clip_grad_norm_([*modelo.parameters(), *enc.parametros_entrenables()], 1.0)

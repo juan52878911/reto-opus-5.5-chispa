@@ -1,6 +1,7 @@
 #!/bin/bash
 CHISPA_S3=__CHISPA_S3__
-L2_ARGS='__L2_ARGS__'   # opciones extra de model.l2.entrenar, p. ej. «--descongelar 4 --renombrar 0.3» (sin comillas dentro)
+L2_ARGS='__L2_ARGS__'   # opciones extra de model.l2.entrenar, p. ej. «--descongelar 4 --renombrar 0.3» o «--episodios --k-min 4 --k-max 32
+                        # --frac-meta 0.5 --frac-zeroshot 0.25» (T2.1b; sin comillas dentro). Con --episodios se evalúa también con --soporte $k-max.
 CKPT_INICIAL='__CKPT_INICIAL__'   # s3://… de un checkpoint de T2.1 (un fichero .pt) de donde arrancar; vacío = desde cero
 HORAS=__HORAS__   # horas de vida de la instancia (entrenamiento + preparación + evaluación); apagado forzoso a HORAS×60+20 min
 # user-data de una g5.xlarge on-demand (A10G, 24 GB) con la AMI «Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.10
@@ -56,9 +57,9 @@ subir_y_apagar() {
   trap - EXIT
   sleep 1   # deja que tee vacíe el log
   mkdir -p "$OUT"
-  [ -d "$OUT/pred" ] && tar -C "$OUT" -czf "$OUT/pred.tgz" pred
+  [ -d "$OUT/pred" ] && tar -C "$OUT" -czf "$OUT/pred.tgz" pred $( [ -d "$OUT/pred_soporte" ] && echo pred_soporte )
   [ -n "$FALLO" ] && echo "$FALLO" > "$OUT/FALLO"
-  for f in resultados.json resultados_renombrado.json caida.md delta.md entrenamiento.json pred.tgz FALLO; do
+  for f in resultados.json resultados_soporte.json resultados_renombrado.json caida.md delta.md entrenamiento.json pred.tgz FALLO; do
     [ -f "$OUT/$f" ] && { s3cp "$OUT/$f" "$CHISPA_S3/$f" || echo "no se pudo subir $f"; }
   done
   for f in ultimo.pt mejor.pt; do
@@ -223,6 +224,11 @@ cp "$CKPT/entrenamiento.json" "$OUT/" 2>/dev/null
 echo "== evaluar $(date -u +%T)"
 EV=(--ckpt "$CKPT/mejor.pt" --salida "$OUT" --datos "$DATOS" --renombrar)
 [ -d "$LISTON" ] && EV+=(--liston "$LISTON")
+case " $L2_ARGS " in   # T2.1b: con episodios, la evaluación lleva la columna con soporte (k = --k-max, 32 por defecto = T1.7a)
+  *" --episodios "*) KSOP=32; read -ra _A <<< "$L2_ARGS"
+    for i in "${!_A[@]}"; do [ "${_A[$i]}" = --k-max ] && KSOP=${_A[$((i+1))]}; done
+    EV+=(--soporte "$KSOP");;
+esac
 [ "${CHISPA_LOCAL:-}" = 1 ] && EV+=(--device cpu --max-filas 200)
 "$PY" -u -m model.l2.evaluar "${EV[@]}" || fallo "evaluar"
 [ -f "$OUT/delta.md" ] && { echo "== Δ por tarea"; cat "$OUT/delta.md"; }
