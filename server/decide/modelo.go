@@ -62,11 +62,34 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			return mt, fmt.Errorf("sección ESQUEMAS: %w", err)
 		}
-		if d, err := NuevoL2ORT(onnx, esq, calib, tok); err != nil {
+		var conj *chispa3.Conj
+		if f.Tiene(chispa3.CONJ) {
+			if conj, err = f.Conj(); err != nil {
+				return mt, fmt.Errorf("sección CONJ: %w", err)
+			}
+		}
+		d, err := montarL2(onnx, esq, calib, tok, conj)
+		if err != nil {
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {
 			mt.L2 = d
 		}
 	}
 	return mt, nil
+}
+
+// montarL2 monta L2c si hay CONJ y L2 si no.
+func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador, conj *chispa3.Conj) (Decisor, error) {
+	if conj == nil {
+		return NuevoL2ORT(onnx, esq, calib, tok)
+	}
+	if tok == nil {
+		return nil, ErrSinTokenizador
+	}
+	ses, err := NuevaSesionORT(onnx)
+	if err != nil {
+		return nil, err
+	}
+	base := NuevoL2Con(ses, esq, calib, tok)
+	return NuevoL2cCon(base, base, conj), nil
 }

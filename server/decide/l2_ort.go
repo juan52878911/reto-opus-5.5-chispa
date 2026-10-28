@@ -70,11 +70,8 @@ func (o *sesionORT) Ranuras(ids []int64) ([][]float32, error) {
 	return S, nil
 }
 
-// NuevoL2ORT abre el ONNX de la sección L2 con ONNX Runtime y monta el decisor.
-func NuevoL2ORT(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador) (Decisor, error) {
-	if tok == nil {
-		return nil, errors.New("L2: hace falta un Tokenizador de e5 (no hay uno en Go todavía)")
-	}
+// NuevaSesionORT abre el ONNX de la sección L2 con ONNX Runtime.
+func NuevaSesionORT(onnx []byte) (SesionS, error) {
 	iniciarORT.Do(func() {
 		if RutaORT != "" {
 			ort.SetSharedLibraryPath(RutaORT)
@@ -88,5 +85,17 @@ func NuevoL2ORT(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tok
 	if err != nil {
 		return nil, err
 	}
-	return NuevoL2Con(&sesionORT{s: s}, esq, calib, tok), nil
+	return &sesionORT{s: s}, nil
+}
+
+// NuevoL2ORT abre el ONNX de la sección L2 con ONNX Runtime y monta el decisor.
+func NuevoL2ORT(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador) (Decisor, error) {
+	if tok == nil {
+		return nil, ErrSinTokenizador
+	}
+	ses, err := NuevaSesionORT(onnx)
+	if err != nil {
+		return nil, err
+	}
+	return NuevoL2Con(ses, esq, calib, tok), nil
 }

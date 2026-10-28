@@ -30,6 +30,7 @@ type Plan struct {
 	Pregunta  pregunta `json:"pregunta"`
 	L1        string   `json:"l1"`        // .chispa-l1; vacío = sin L1
 	L2Chispa  string   `json:"l2_chispa"` // .chispa v3 de model/l2/exportar.py: de aquí salen L2 y ESQUEMAS; vacío = sin L2
+	Conj      string   `json:"conj"`      // sección CONJ ya codificada (train.py --conjunta); vacío = sin cabeza conjunta
 	Meta      Meta     `json:"meta"`
 	Salida    string   `json:"salida"`
 	Semilla   uint64   `json:"semilla"`
