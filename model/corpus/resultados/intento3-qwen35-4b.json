@@ -1,0 +1,444 @@
+{
+ "fuente": "chispa T1.3 (Qwen/Qwen3.5-4B, local)",
+ "backend": "local",
+ "modelo": "Qwen/Qwen3.5-4B",
+ "licencia_modelo": "Apache-2.0",
+ "motor": "transformers",
+ "licencia": "Apache-2.0 + propia (Chispa)",
+ "minutos_esta_ejecucion": 41.36,
+ "tope_min": 120.0,
+ "por_clase_pedido": 150,
+ "lote": 20,
+ "semilla": 1,
+ "parado_por_tope": false,
+ "tope_usd": 8.0,
+ "usd_total": 0.0,
+ "usd_esta_ejecucion": 0.0,
+ "llamadas": 123,
+ "tokens_in": 67681,
+ "tokens_out": 56820,
+ "reintentos_esta_ejecucion": 2122,
+ "coseno": "e5-small",
+ "lotes_fallidos": 417,
+ "tareas": {
+  "whatsapp_comercio": {
+   "filas": 19,
+   "train": 19,
+   "dev": 0,
+   "filas_por_clase": {
+    "compra": {
+     "train": 0,
+     "dev": 0
+    },
+    "soporte": {
+     "train": 0,
+     "dev": 0
+    },
+    "queja": {
+     "train": 0,
+     "dev": 0
+    },
+    "saludo": {
+     "train": 19,
+     "dev": 0
+    },
+    "escalate": {
+     "train": 0,
+     "dev": 0
+    }
+   },
+   "descartes": {
+    "lotes_sin_respuesta": 36,
+    "vacio_o_largo": 0,
+    "verificador_no": 42,
+    "generados": 62,
+    "verificados": 62,
+    "exacto": 0,
+    "jaccard": 0,
+    "coseno": 1,
+    "conflicto_etiqueta": 0,
+    "fuga_test": 0,
+    "tras_dedup": 19,
+    "dedup_total": 1
+   },
+   "por_estilo": {
+    "coloquial": {
+     "verificados": 20,
+     "rechazados": 0
+    },
+    "ataque_spam": {
+     "verificados": 20,
+     "rechazados": 20
+    },
+    "ataque_puro_spam": {
+     "verificados": 21,
+     "rechazados": 21
+    },
+    "ataque_puro_inyeccion": {
+     "verificados": 1,
+     "rechazados": 1
+    }
+   },
+   "pct_verificador_no": 67.7,
+   "pct_dedup": 5.0,
+   "gasto": {
+    "usd": 0.0,
+    "llamadas": 41,
+    "tokens_in": 15749,
+    "tokens_out": 21060
+   }
+  },
+  "pqrs": {
+   "filas": 128,
+   "train": 113,
+   "dev": 15,
+   "filas_por_clase": {
+    "peticion": {
+     "train": 19,
+     "dev": 0
+    },
+    "queja": {
+     "train": 0,
+     "dev": 14
+    },
+    "reclamo": {
+     "train": 17,
+     "dev": 0
+    },
+    "sugerencia": {
+     "train": 0,
+     "dev": 0
+    },
+    "felicitacion": {
+     "train": 77,
+     "dev": 1
+    },
+    "escalate": {
+     "train": 0,
+     "dev": 0
+    }
+   },
+   "descartes": {
+    "lotes_sin_respuesta": 39,
+    "vacio_o_largo": 0,
+    "verificador_no": 3,
+    "generados": 140,
+    "verificados": 140,
+    "exacto": 3,
+    "jaccard": 0,
+    "coseno": 6,
+    "conflicto_etiqueta": 0,
+    "fuga_test": 0,
+    "tras_dedup": 128,
+    "dedup_total": 9
+   },
+   "por_estilo": {
+    "coloquial": {
+     "verificados": 22,
+     "rechazados": 1
+    },
+    "voz": {
+     "verificados": 40,
+     "rechazados": 2
+    },
+    "tecleo": {
+     "verificados": 1,
+     "rechazados": 0
+    },
+    "neutro": {
+     "verificados": 38,
+     "rechazados": 0
+    },
+    "mezcla": {
+     "verificados": 20,
+     "rechazados": 0
+    },
+    "ataque_spam": {
+     "verificados": 19,
+     "rechazados": 0
+    }
+   },
+   "pct_verificador_no": 2.1,
+   "pct_dedup": 6.6,
+   "gasto": {
+    "usd": 0.0,
+    "llamadas": 46,
+    "tokens_in": 22519,
+    "tokens_out": 21462
+   }
+  },
+  "fintech": {
+   "filas": 173,
+   "train": 153,
+   "dev": 20,
+   "filas_por_clase": {
+    "consulta_saldo": {
+     "train": 0,
+     "dev": 0
+    },
+    "transferencia": {
+     "train": 0,
+     "dev": 0
+    },
+    "bloqueo_tarjeta": {
+     "train": 1,
+     "dev": 0
+    },
+    "fraude": {
+     "train": 16,
+     "dev": 0
+    },
+    "credito": {
+     "train": 96,
+     "dev": 0
+    },
+    "pago_pse": {
+     "train": 14,
+     "dev": 0
+    },
+    "recarga": {
+     "train": 0,
+     "dev": 0
+    },
+    "retiro": {
+     "train": 12,
+     "dev": 0
+    },
+    "pago_servicios": {
+     "train": 0,
+     "dev": 0
+    },
+    "certificados": {
+     "train": 14,
+     "dev": 0
+    },
+    "soporte_app": {
+     "train": 0,
+     "dev": 20
+    },
+    "queja": {
+     "train": 0,
+     "dev": 0
+    },
+    "escalate": {
+     "train": 0,
+     "dev": 0
+    }
+   },
+   "descartes": {
+    "lotes_sin_respuesta": 86,
+    "vacio_o_largo": 0,
+    "verificador_no": 114,
+    "generados": 307,
+    "verificados": 307,
+    "exacto": 10,
+    "jaccard": 4,
+    "coseno": 6,
+    "conflicto_etiqueta": 0,
+    "fuga_test": 0,
+    "tras_dedup": 173,
+    "dedup_total": 20
+   },
+   "por_estilo": {
+    "ataque_inyeccion": {
+     "verificados": 40,
+     "rechazados": 4
+    },
+    "coloquial": {
+     "verificados": 27,
+     "rechazados": 11
+    },
+    "neutro": {
+     "verificados": 20,
+     "rechazados": 0
+    },
+    "ataque_ofuscado": {
+     "verificados": 40,
+     "rechazados": 14
+    },
+    "tecleo": {
+     "verificados": 39,
+     "rechazados": 8
+    },
+    "mezcla": {
+     "verificados": 60,
+     "rechazados": 27
+    },
+    "voz": {
+     "verificados": 21,
+     "rechazados": 2
+    },
+    "largo": {
+     "verificados": 40,
+     "rechazados": 28
+    },
+    "ataque_puro_inyeccion": {
+     "verificados": 20,
+     "rechazados": 20
+    }
+   },
+   "pct_verificador_no": 37.1,
+   "pct_dedup": 10.4,
+   "gasto": {
+    "usd": 0.0,
+    "llamadas": 36,
+    "tokens_in": 29413,
+    "tokens_out": 14298
+   }
+  },
+  "herramientas": {
+   "filas": 0,
+   "train": 0,
+   "dev": 0,
+   "filas_por_clase": {
+    "kindling_lanzar": {
+     "train": 0,
+     "dev": 0
+    },
+    "kindling_gestionar": {
+     "train": 0,
+     "dev": 0
+    },
+    "chrono_logs": {
+     "train": 0,
+     "dev": 0
+    },
+    "chrono_git": {
+     "train": 0,
+     "dev": 0
+    },
+    "obsidian_buscar": {
+     "train": 0,
+     "dev": 0
+    },
+    "obsidian_escribir": {
+     "train": 0,
+     "dev": 0
+    },
+    "navegador": {
+     "train": 0,
+     "dev": 0
+    },
+    "busqueda_web": {
+     "train": 0,
+     "dev": 0
+    },
+    "agente_explorar": {
+     "train": 0,
+     "dev": 0
+    },
+    "agente_planear": {
+     "train": 0,
+     "dev": 0
+    },
+    "agente_revisar": {
+     "train": 0,
+     "dev": 0
+    },
+    "correo_leer": {
+     "train": 0,
+     "dev": 0
+    },
+    "correo_enviar": {
+     "train": 0,
+     "dev": 0
+    },
+    "agenda": {
+     "train": 0,
+     "dev": 0
+    },
+    "drive_leer": {
+     "train": 0,
+     "dev": 0
+    },
+    "drive_escribir": {
+     "train": 0,
+     "dev": 0
+    },
+    "slack_leer": {
+     "train": 0,
+     "dev": 0
+    },
+    "slack_enviar": {
+     "train": 0,
+     "dev": 0
+    },
+    "github_pr": {
+     "train": 0,
+     "dev": 0
+    },
+    "github_issues": {
+     "train": 0,
+     "dev": 0
+    },
+    "github_ci": {
+     "train": 0,
+     "dev": 0
+    },
+    "terminal": {
+     "train": 0,
+     "dev": 0
+    },
+    "delega_lanzar": {
+     "train": 0,
+     "dev": 0
+    },
+    "delega_estado": {
+     "train": 0,
+     "dev": 0
+    },
+    "aws_costos": {
+     "train": 0,
+     "dev": 0
+    },
+    "aws_recursos": {
+     "train": 0,
+     "dev": 0
+    },
+    "editar_archivos": {
+     "train": 0,
+     "dev": 0
+    },
+    "base_datos": {
+     "train": 0,
+     "dev": 0
+    },
+    "programar_tarea": {
+     "train": 0,
+     "dev": 0
+    },
+    "docs_librerias": {
+     "train": 0,
+     "dev": 0
+    },
+    "leer_documento": {
+     "train": 0,
+     "dev": 0
+    },
+    "escalate": {
+     "train": 0,
+     "dev": 0
+    }
+   },
+   "descartes": {
+    "lotes_sin_respuesta": 256,
+    "vacio_o_largo": 0,
+    "verificador_no": 0,
+    "generados": 0,
+    "verificados": 0,
+    "exacto": 0,
+    "jaccard": 0,
+    "coseno": 0,
+    "conflicto_etiqueta": 0,
+    "fuga_test": 0,
+    "tras_dedup": 0,
+    "dedup_total": 0
+   },
+   "por_estilo": {},
+   "pct_verificador_no": 0.0,
+   "pct_dedup": 0.0,
+   "gasto": {}
+  }
+ },
+ "hipotesis_refutada": true
+}
