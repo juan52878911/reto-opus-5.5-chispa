@@ -21,6 +21,9 @@ type Informe struct {
 	NTrain    int                `json:"n_train"`
 	NValid    int                `json:"n_valid"`
 	L0Valid   float64            `json:"l0_valid_acc"`
+	L0MacroF1 float64            `json:"l0_valid_macro_f1"`
+	L0Buckets int                `json:"l0_buckets"`
+	L0Bytes   int                `json:"l0_bytes"`
 	L1Valid   float64            `json:"l1_valid_acc,omitempty"`
 	L1TauOK   bool               `json:"l1_tau_alcanza_objetivo"`
 	Calib     chispa3.Calib      `json:"calib"`
@@ -80,7 +83,10 @@ func entrenar(p *Plan) (*Informe, error) {
 
 	// L0: lineal sobre los ejemplos; la validación fija el τ propio del modelo.
 	t := time.Now()
-	res, err := train.Train(tr, va, train.Config{Spec: chispa.DefaultSpec(), Seed: p.Semilla})
+	spec := chispa.DefaultSpec()
+	spec.Buckets = uint32(bucketsParaL0(len(p.Pregunta.Opciones), p.L0MaxMB))
+	inf.L0Buckets = int(spec.Buckets)
+	res, err := train.Train(tr, va, train.Config{Spec: spec, Seed: p.Semilla})
 	if err != nil {
 		return nil, fmt.Errorf("L0: %w", err)
 	}
@@ -88,9 +94,11 @@ func entrenar(p *Plan) (*Informe, error) {
 	if err != nil {
 		return nil, err
 	}
+	inf.L0Bytes = len(l0)
 	inf.Tiempos["l0"] = time.Since(t).Seconds()
 	if res.Valid != nil {
 		inf.L0Valid = res.Valid.Accuracy
+		inf.L0MacroF1 = res.Valid.MacroF1
 	}
 
 	secs := []chispa3.Seccion{{Tipo: chispa3.L0, Datos: l0}}

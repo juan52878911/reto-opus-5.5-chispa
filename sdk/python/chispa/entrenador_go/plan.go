@@ -37,6 +37,7 @@ type Plan struct {
 	FracValid float64  `json:"frac_valid"`    // 0,2 por defecto
 	TauL0     float64  `json:"tau_l0"`        // τ de L0 en `evaluar` (el servidor lo toma de su config): 0,8
 	TauObj    float64  `json:"tau_precision"` // precisión objetivo de τ de escalate: 0,95
+	L0MaxMB   float64  `json:"l0_max_mb"`     // tope de la tabla de pesos de L0 en MB (1e6 bytes); 48 por defecto
 }
 
 type Meta struct {
@@ -65,6 +66,9 @@ func leerPlan(ruta string) (*Plan, error) {
 	}
 	if p.TauL0 <= 0 || p.TauL0 > 1 {
 		p.TauL0 = 0.8
+	}
+	if p.L0MaxMB <= 0 {
+		p.L0MaxMB = 48
 	}
 	if p.Semilla == 0 {
 		p.Semilla = 1
@@ -131,4 +135,19 @@ func textoOpcion(p pregunta, o opcion) string {
 		s = append(s, o.Description)
 	}
 	return strings.Join(s, " · ")
+}
+
+// bucketsParaL0 devuelve el mayor número de buckets (potencia de dos, ≤ el de por defecto) con el que la tabla de pesos de
+// L0 (buckets × salidas × 2 bytes; una sola salida si hay dos clases) cabe en maxMB. El lector de kindling rechaza más de
+// 64 MiB. Reducir buckets es hashing más denso: más colisiones, mismas características.
+func bucketsParaL0(clases int, maxMB float64) int {
+	salidas := clases
+	if clases <= 2 {
+		salidas = 1
+	}
+	b := chispa.DefaultBuckets
+	for b > chispa.MinBuckets && float64(b)*float64(salidas)*2 > maxMB*1e6 {
+		b >>= 1
+	}
+	return b
 }

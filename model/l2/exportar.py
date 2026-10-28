@@ -1,12 +1,13 @@
 """Exportación de L2 a ONNX int8 y empaquetado en `.chispa` v3 (T2.6).
 
     python -m model.l2.exportar --ckpt DIR --calib calib.json --esquemas A.jsonl [B.jsonl…] --salida l2.chispa
-        [--paridad dev.jsonl [--n-paridad 500]] [--sin-poda] [--trabajo DIR]
+        [--paridad dev.jsonl [--n-paridad 500] [--min-top1 0.95]] [--cuant …] [--sin-poda] [--trabajo DIR]
 
 1. ONNX fp32 del codificador + ranuras: (input_ids, attention_mask) → S ∈ R^{B×K×d}, opset 17. Con vocabulario podado, la
    tabla de embeddings se recorta y el grafo lleva dentro la tabla id original → id podado (los ids son los del tokenizador
    de e5; los que no están pasan a <unk>).
-2. int8 dinámico con `onnxruntime.quantization.quantize_dynamic`.
+2. int8 dinámico con `onnxruntime.quantization.quantize_dynamic` (`--cuant todo|codificador|ninguna`, `--per-channel`): por
+   defecto solo el codificador, por canal y con las ranuras en fp32.
 3. Torres de opción en int8 con una escala por vector. Claves de ESQUEMAS (`HashEsquema(pregunta, opciones)`): en `choice`,
    una entrada por opción con `opciones=[opción]`; en `noul` y `score`, una por pregunta con la lista completa de opciones
    (el vector de consulta, `texto_consulta`).
@@ -40,6 +41,7 @@ VOCAB_PODADO = RAIZ / "model" / "bench" / "vocab-podado-e5-small.json"
 GO_DIR = Path(__file__).resolve().parent / "empaquetar_go"
 OPSET = 17
 MAX_L2_MB = 60
+MIN_TOP1 = 0.95
 
 
 # ---------------------------------------------------------------- grafo
@@ -125,9 +127,29 @@ def exportar_onnx(env, ruta, vocab_n):
                           dynamic_axes={"input_ids": {0: "b", 1: "s"}, "attention_mask": {0: "b", 1: "s"}, "S": {0: "b"}})
 
 
-def cuantizar(fp32, int8):
+CUANT = ("todo", "codificador", "ninguna")
+PREFIJO_RANURAS = "/ranuras/"
+
+
+def cuantizar(fp32, int8, modo="codificador", per_channel=True):
+    """`todo`: todo el grafo; `codificador`: solo MatMul y Gather (tabla de embeddings) del codificador, con las ranuras
+    (atención y proyecciones) en fp32; `ninguna`: copia el fp32."""
+    if modo not in CUANT:
+        raise ValueError("cuantización %r desconocida (%s)" % (modo, ", ".join(CUANT)))
+    if modo == "ninguna":
+        shutil.copyfile(fp32, int8)
+        return
+    import onnx
     from onnxruntime.quantization import QuantType, quantize_dynamic
-    quantize_dynamic(str(fp32), str(int8), weight_type=QuantType.QInt8)
+    kw = {}
+    if modo == "codificador":
+        nodos = [n for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.name.startswith(PREFIJO_RANURAS)]
+        # el preprocesado de ORT parte cada Gemm en «<nombre>_MatMul» + Add antes de excluir: hay que excluir también ese nombre
+        nombres = [n.name for n in nodos] + [n.name + "_MatMul" for n in nodos if n.op_type == "Gemm"]
+        if not nombres:
+            raise RuntimeError("el grafo no tiene nodos %s*: no se pueden dejar las ranuras en fp32" % PREFIJO_RANURAS)
+        kw = {"nodes_to_exclude": nombres, "op_types_to_quantize": ["MatMul", "Gather"]}
+    quantize_dynamic(str(fp32), str(int8), weight_type=QuantType.QInt8, per_channel=per_channel, **kw)
 
 
 def sesion(ruta, hilos=1):
@@ -210,6 +232,16 @@ def paridad(modelo, enc, sess, filas, torres):
     return {"n": len(filas), "dif_media": float(d.mean()), "dif_max": float(d.max()), "acuerdo_top1": float(top)}
 
 
+def fraccion_unk(enc, filas, vocab):
+    """Parte de los tokens de las filas que la poda manda a <unk>: si es alta, la paridad mide la poda y no la cuantización."""
+    keep, tot, fuera = set(vocab["ids_originales"]), 0, 0
+    for r in filas:
+        ids = enc.tok(["query: " + r["texto"]], truncation=True, max_length=enc.max_tok)["input_ids"][0]
+        tot += len(ids)
+        fuera += sum(int(i) not in keep for i in ids)
+    return fuera / max(tot, 1)
+
+
 def latencia(sess, vocab_n, tokens=(16, 64, 256), reps=50, calentar=5):
     """ms por consulta (lote 1, 1 hilo): media, p50 y p99. Cota en la microVM, no la cifra de c6a."""
     rng = np.random.default_rng(0)
@@ -257,7 +289,8 @@ def meta_de(filas, dorado=""):
     return {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
 
 
-def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256)):
+def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256),
+              cuant="codificador", per_channel=True):
     """Todo el camino hasta el `.chispa`. `encoder`: módulo HF (atención eager) del que sale el grafo; `vocab`: dict o None."""
     trabajo = Path(trabajo)
     trabajo.mkdir(parents=True, exist_ok=True)
@@ -268,19 +301,29 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     env = Envoltura(encoder, modelo.ranuras, remap)
     fp32, int8 = trabajo / "l2-fp32.onnx", trabajo / "l2-int8.onnx"
     exportar_onnx(env, fp32, n_vocab)
-    cuantizar(fp32, int8)
+    cuantizar(fp32, int8, cuant, per_channel)
     torres = entradas_torres(modelo, enc, filas_esq)
     dim = int(torres[0][2].shape[0])
     empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib["chispa"], salida)
     inf = {"l2_mb": int8.stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "chispa_mb": Path(salida).stat().st_size / 1e6,
-           "torres": len(torres), "vocab_podado": bool(vocab), "opset": OPSET, "k_ranuras": K_RANURAS}
+           "torres": len(torres), "vocab_podado": bool(vocab), "cuant": cuant, "per_channel": per_channel, "opset": OPSET, "k_ranuras": K_RANURAS}
     sess = sesion(int8)
     if len(filas_paridad):
         inf["paridad"] = paridad(modelo, enc, sess, list(filas_paridad), torres)
+        if vocab:
+            inf["paridad"]["tokens_unk"] = fraccion_unk(enc, filas_paridad, vocab)
     if latencias:
         inf["latencia_1_hilo"] = latencia(sess, n_vocab if remap is None else len(remap), latencias)
     inf["torres_entradas"] = torres
     return inf
+
+
+def comprobar_paridad(inf, minimo):
+    """Error si el acuerdo top-1 del informe es menor que `minimo` (sin paridad medida no hay nada que comprobar)."""
+    p = inf.get("paridad")
+    if p and p["acuerdo_top1"] < minimo:
+        raise RuntimeError("paridad: acuerdo top-1 %.3f < %.3f con --cuant %s (dif. media %.2g, máx %.2g)"
+                           % (p["acuerdo_top1"], minimo, inf.get("cuant"), p["dif_media"], p["dif_max"]))
 
 
 def main(argv=None):
@@ -293,6 +336,10 @@ def main(argv=None):
     ap.add_argument("--n-paridad", type=int, default=500)
     ap.add_argument("--vocab-podado", default=str(VOCAB_PODADO))
     ap.add_argument("--sin-poda", action="store_true", help="no aplicar el vocabulario podado")
+    ap.add_argument("--cuant", choices=CUANT, default="codificador",
+                    help="todo: todo el grafo en int8; codificador: solo MatMul y embeddings del codificador (ranuras en fp32); ninguna: fp32")
+    ap.add_argument("--per-channel", action=argparse.BooleanOptionalAction, default=True, help="pesos int8 con una escala por canal de salida")
+    ap.add_argument("--min-top1", type=float, default=MIN_TOP1, help="falla si el acuerdo top-1 con PyTorch queda por debajo")
     ap.add_argument("--trabajo", help="directorio de los ONNX (por defecto, temporal)")
     a = ap.parse_args(argv)
     from transformers import AutoModel
@@ -307,12 +354,13 @@ def main(argv=None):
     filas = D.leer(a.esquemas)
     par = D.leer(a.paridad)[:a.n_paridad] if a.paridad else []
     with tempfile.TemporaryDirectory() as t:
-        inf = construir(modelo, enc, encoder, ck, calib, filas, a.salida, a.trabajo or t, vocab, par)
+        inf = construir(modelo, enc, encoder, ck, calib, filas, a.salida, a.trabajo or t, vocab, par, cuant=a.cuant, per_channel=a.per_channel)
     inf.pop("torres_entradas")
     Path(a.salida + ".informe.json").write_text(json.dumps(inf, indent=1) + "\n")
     print(json.dumps(inf, indent=1))
     if inf["l2_mb"] > MAX_L2_MB:
         print("AVISO: L2 pesa %.1f MB (> %d MB)" % (inf["l2_mb"], MAX_L2_MB), file=sys.stderr)
+    comprobar_paridad(inf, a.min_top1)
     return 0
 
 
