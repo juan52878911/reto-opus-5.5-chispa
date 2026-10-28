@@ -50,6 +50,7 @@ type params struct {
 	ModeloOrigen string         `json:"modelo_origen"`
 	Tokenizador  string         `json:"tokenizador"`
 	MedianaPieza int            `json:"mediana_pieza"`
+	Modo         string         `json:"modo,omitempty"`
 }
 
 // Modelo es un .chispa-l1 cargado. Es de solo lectura y seguro para uso concurrente.

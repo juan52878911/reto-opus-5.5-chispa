@@ -64,12 +64,20 @@ func (m *Modelo) Tokenizar(texto string) []int32 {
 
 // tokenizarTrozo normaliza, aplica Metaspace y corre Viterbi sobre el unigram.
 func (m *Modelo) tokenizarTrozo(s string, ids []int32) []int32 {
+	if m.p.Modo == modoXLMR {
+		return m.trozoXLMR(s, ids)
+	}
 	s = m.norm.normalizar(s)
 	if s == "" {
 		return ids
 	}
 	ms := m.p.Metaspace
 	s = ms + strings.ReplaceAll(s, " ", ms)
+	return m.viterbi(s, ids)
+}
+
+// viterbi segmenta s (ya normalizada y con Metaspace) en piezas del unigram y las añade a ids.
+func (m *Modelo) viterbi(s string, ids []int32) []int32 {
 	// posiciones de byte de cada carácter
 	pos := make([]int, 0, len(s)+1)
 	for i := range s {

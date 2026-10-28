@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Imprime en stdout un tar.gz con lo que necesita la instancia de AWS (ver arranque.sh): server/, runtime/l1/ y
+# Imprime en stdout un tar.gz con lo que necesita la instancia de AWS (ver arranque.sh): server/, runtime/l1/, runtime/tok/ y
 # format/chispa3/ (los `replace` de server/go.mod los exigen), el Dockerfile en server/deploy/ y gomod-proxy/,
 # la caché de módulos de kindling (está en la caché de Go de esta máquina, no se puede bajar de un proxy público).
 # Sin ficheros .chispa de más de 1 MB ni binarios. Uso: bash server/deploy/aws/empaquetar.sh > codigo.tgz
@@ -13,7 +13,7 @@ mkdir -p "$T/gomod-proxy/github.com/juan52878911"
 cp -r "$KIND" "$T/gomod-proxy/github.com/juan52878911/"
 find "$T/gomod-proxy" -name '*.lock' -delete
 {
-  find server runtime/l1 format/chispa3 -type f -not -path '*/__pycache__/*' -not -name '*.pyc' -not -name '*.so' \
+  find server runtime/l1 runtime/tok format/chispa3 -type f -not -path '*/__pycache__/*' -not -name '*.pyc' -not -name '*.so' \
     -not -path 'runtime/l1/aws/*' -size -1025k
   find "$T/gomod-proxy" -type f | sed "s|^$T/||"
 } | LC_ALL=C sort -u > "$T/lista"

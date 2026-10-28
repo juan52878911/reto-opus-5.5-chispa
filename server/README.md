@@ -31,7 +31,7 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
 - `state` (string, ≤ 256 KiB): el texto. Es el mismo para todas las preguntas de la petición.
 - `questions` (1..256). Cada una: `id` (obligatorio, único en la petición), `question` (obligatorio),
   `kind` ∈ `choice|score|noul`, `options` y `nonce` (opcional).
-  - `choice`: ≥ 2 opciones (≤ 64) con `id` único y `description` opcional.
+  - `choice`: ≥ 2 opciones (≤ 256; clinc150 trae 150) con `id` único y `description` opcional.
   - `score`: ≥ 2 opciones ordinales, ids `"1"…"K"`.
   - `noul`: opciones opcionales; si van, solo `"false"` y `"true"`. Por defecto las dos.
 - Cuerpo ≤ 1 MiB; campos desconocidos → 400.
@@ -154,7 +154,7 @@ anteriores (`DecisorConPrevias`), y L2c usa las probabilidades de L0 con:
 - El codificador va detrás de `Similitudes` (el ONNX y las torres): `l2c_test.go` prueba con similitudes falsas sin ORT.
 - **Paridad con Python**: `TestL2cParidadConPython` lee `model/l2/tests/fixtures_conjunta/paridad.json` (lo genera
   `sdk/python/tests/fixture_conjunta.py` con `conjunta.Cabeza`): |Δp| máx 8e-8 en 8 casos (tolerancia 1e-4).
-- **Latencia**: la cabeza no añade llamadas al ONNX (L2c usa las mismas ranuras S que L2); el coste extra es el simproto, que va
+- **Latencia** (medida antes de T4.5; después, ver «T4.5»): la cabeza no añade llamadas al ONNX (L2c usa las mismas ranuras S que L2); el coste extra es el simproto, que va
   lineal con las clases: C·K·K·d multiplicaciones (150 clases, K=16, d=256: ≈ 10 ms en esta microVM de 4 vCPU, Go escalar,
   `go test -bench L2c ./decide`; con 2–10 clases, < 1 ms). El resto de la cabeza (logits y softmax) son µs. Frente a los ~30 ms de
   L2 no son despreciables con muchas clases; si hace falta, el bucle por clases se puede paralelizar o vectorizar.
@@ -167,8 +167,8 @@ cd server && GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go && go build
 ```
 `l2_ort.go` usa `github.com/yalue/onnxruntime_go` (sesión dinámica; `decide.RutaORT` fija la ruta de la .so). **No se compiló**:
 ni el módulo ni las cabeceras están aquí, así que escribí contra su API de memoria.
-**Falta además un tokenizador de e5 en Go** (`decide.Tokenizador`: «query: » + ids de XLM-R/sentencepiece, 128 tokens). Hasta
-que exista, `chispa-server` pasa `nil` y L2 queda en stub aun con `ort`.
+`-tags ort` sí compila (T4.4, imagen con `onnxruntime_go v1.19.0` y ORT 1.22.0). El tokenizador de e5 llegó en T4.5 (abajo):
+`chispa-server -tok e5.chispa-tok`; sin `-tok`, L2 queda en stub aun con `ort`.
 
 ### Medidas de L1 real (microVM kindling de 4 vCPU, Xeon 3,3 GHz; cota del i3)
 Potion multilingüe (`runtime/l1/exportar.py`, 155 MB, en un v3 en memoria), `go test ./decide -bench L1Real -benchtime 3s -cpu 1,4`:
@@ -183,3 +183,19 @@ de esquemas caliente, **sin HTTP/JSON**, 4 hilos de goroutine solo en la fila `-
 Con HTTP y JSON el techo medido en T4.1 era ≈ 13 k/s con L0, así que el servidor completo con L1 queda entre eso y estas cifras;
 no se midió por HTTP con el potion. El objetivo del plan (≥ 5 k/s en el i7) tiene margen en CPU, pero no se confirma aquí.
 Máquina compartida: ±30 %. Sin caché fría de páginas del mmap (no se puede vaciar en la VM).
+
+### T4.5: tokenizador de e5 en Go, simproto entero y e2e
+- **Tokenizador** (`runtime/tok`, Go puro, `README.md` allí): `chispa-server -tok e5.chispa-tok` lo pasa a `ArmarDesde`, que monta L2 / L2c
+  con el ONNX. El `.chispa-tok` se exporta con `runtime/tok/exportar.py <dir-e5> x.chispa-tok` (12 MB, no va a git).
+- **simproto entero** (`decide/l2c.go`): cada ranura S se cuantiza a int8 (escala max|S|/127) y el producto con los prototipos int8 se
+  hace en enteros, tres elementos por multiplicación de 64 bits y cuatro ranuras por pasada; los prototipos se empaquetan una vez por
+  entrada de CONJ. `go test ./decide -bench 'Simproto150|L2cCabeza'` (150 clases, K=16, d=256, 16 ranuras; microVM Xeon 3,3 GHz, 4 vCPU):
+  | | antes (float32 escalar) | después |
+  |---|---|---|
+  | `BenchmarkSimproto150` | 10,5 ms | 2,3 ms |
+  | `BenchmarkL2cCabeza` (cabeza entera) | 10,1 ms | 2,4 ms |
+  Coste: la cuantización de S mueve las probabilidades (|Δp| ≤ 3e-3 con el fixture de Python, que tiene d pequeña) frente a los 8e-8 del
+  cálculo en float; ese cálculo sigue en `simprotoRef` y las pruebas de paridad estricta lo usan. El efecto en macro-F1 se mide en `e2e.sh`.
+- **`MaxOpciones` 64 → 256**: clinc150 trae 150 clases (151 con `escalate`).
+- **`deploy/aws/e2e.sh`**: prueba de punta a punta en una c6a.xlarge spot (`__CHISPA_S3__`, `empaquetar_e2e.sh > codigo.tgz`). Pasos en la
+  cabecera del script. En seco: `CHISPA_LOCAL=1 bash server/deploy/aws/e2e.sh` (fixtures, sin ORT).
