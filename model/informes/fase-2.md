@@ -8,7 +8,7 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 | T2.1: L2 con el codificador congelado, ≥ +5 sobre kNN-32 en ≥ 3 tareas | **no** (3 rondas) | `model/l2/resultados/ronda1…ronda3-t22` |
 | T2.2: L2 solo, ≥ 0,95 × mejor referencia y caída al renombrar ≤ 5 | **no** con L2 solo; **sí con la cabeza conjunta L0 + L2 (b)** en 5/5, con caída ≤ 0,1 | `model/l2/resultados/t22c-conjunta`, `t22d-conjunta` |
 | (c) cascada L0 → L2 frente al listón | sí, 5/5; con L0 completo, la conjunta (b) le gana en 4/5 | `model/cascada/resultados/2026-10-28`, `t22d-conjunta` |
-| T2.4, redefinido por tarea el 2026-10-28 (ver abajo) | **4 de 5 tareas cumplen; hatecheck no** (ECE de 0,058 sin calibrar) | `t22d-conjunta/cvtest/calibracion.md` |
+| T2.4, redefinido por tarea el 2026-10-28 (ver abajo) | **3 de 5 cumplen** (clinc150, massive y herramientas); hatecheck e inyecciones no, por ECE | `t22d-conjunta/cvtest/calibracion.md` |
 | T2.5: `.chispa` v3 con fuzz | sí, y además las secciones CONJ y L0TF con fuzz | `format/chispa3` |
 | T2.6: L2 ≤ 60 MB y p99 < 50 ms a 64 tokens en AVX2 | sí: 48 MB y 20 ms en la c6a; de punta a punta, p99 de 9,6–11,3 ms | `server/deploy/resultados/` |
 | T2.6: ASR de la Arena ≤ 0,15 | **sin medir** | — |
