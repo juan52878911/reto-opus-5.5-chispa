@@ -296,6 +296,19 @@ class TestAnonimizar(unittest.TestCase):
         t, _ = self.a("la luz del barrio y el socorro tardío", vocabulario=v)
         self.assertNotIn("[NOMBRE]", t)
 
+    def test_firmas_y_apellidos_sueltos_tras_la_etiqueta(self):
+        v = anonimizar.vocabulario_de(["solicito copia del recibo", "gracias por la colaboración, quedo atenta", "el predial"])
+        t, _ = self.a("Cordial saludo, [NOMBRE] Quintanilla celular 3001234567", vocabulario=v, estricto=v)
+        self.assertNotIn("Quintanilla", t)
+        t, _ = self.a("renuncia de la señora Elvia [NOMBRE] zapateiro c.c 52123456", vocabulario=v, estricto=v)
+        self.assertNotIn("zapateiro", t)
+        t, _ = self.a("recibo a nombre de gilma yaneth cc 52123456", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "gilma|yaneth")
+        t, _ = self.a("Solicito copia del recibo, gracias por la colaboración QUINTILIANO", vocabulario=v, estricto=v)
+        self.assertNotIn("QUINTILIANO", t)
+        t, _ = self.a("SOLICITO COPIA DEL RECIBO", vocabulario=v, estricto=v)  # todo en mayúsculas: no es una firma
+        self.assertEqual(t, "SOLICITO COPIA DEL RECIBO")
+
     def test_vocabulario_con_min_df_ignora_palabras_de_una_sola_fila(self):
         v = anonimizar.vocabulario_de(["pidió osvaldo copia", "pidió copia"], min_df=2)
         self.assertEqual(v, {"pidio", "copia"})

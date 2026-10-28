@@ -181,7 +181,7 @@ def _hasta_nombre(texto, ini, debil, vocabulario=None, estricto=None):
     """Longitud de la racha de palabras de nombre que empieza en `ini`; 0 si no parece un nombre.
 
     Con `vocabulario`, una palabra en MAYÚSCULAS fuera de él (y fuera de las listas) también cuenta como parte del nombre.
-    `estricto` (vocabulario con `min_df=2`) decide qué palabras en minúsculas se suman a un nombre ya empezado."""
+    `estricto` (vocabulario con `min_df` alto, p. ej. 5) decide qué palabras en minúsculas se suman a un nombre ya empezado."""
     pos, fin, n, listas, titulos, mayus = ini, ini, 0, 0, 0, 0
     while n < 5:
         m = _PALABRA.match(texto, pos)
@@ -341,7 +341,7 @@ def _enmascarar_mayusculas(texto, vocabulario, cuentas):
 _RE_ANTES_DOC = re.compile(r",?\s*(?:identificad[oa]|portador[a]?|(?:con\s+)?c\.?\s?c\.?\s*(?:n[°ºo.]*\s*)?\[DOC\]|c[ée]dula)", re.I)
 
 
-def _enmascarar_antes_de_documento(texto, vocabulario, cuentas):
+def _enmascarar_antes_de_documento(texto, vocabulario, cuentas, estricto=None):
     """El nombre que precede a «identificado con», «C.C. [DOC]» o «cédula»: palabras con inicial mayúscula que son de la
     lista o no aparecen en minúsculas en el corpus, hacia atrás desde el rótulo (hasta 5)."""
     out, i = [], 0
@@ -354,7 +354,8 @@ def _enmascarar_antes_de_documento(texto, vocabulario, cuentas):
         while j > 0 and n < 5:
             w = toks[j - 1].group()
             wl = sin_acentos(w)
-            ok = w[0].isupper() and (wl in _TODOS or wl not in (vocabulario or ())
+            minus = w.islower() and n < 3 and (wl in _TODOS or _desconocida(w, estricto))
+            ok = minus or w[0].isupper() and (wl in _TODOS or wl not in (vocabulario or ())
                                      or texto[:toks[j - 1].start()].rstrip().endswith("[NOMBRE]"))
             if wl in _CONECTORES and j > 1 and n and texto[toks[j - 2].end():toks[j - 1].start()] == " ":
                 j -= 1
@@ -432,8 +433,19 @@ def _enmascarar_rachas(texto, vocabulario, cuentas):
 
 
 _RE_ENTRE = re.compile(r"\[NOMBRE\]\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})\s+\[NOMBRE\]")
+_CUE = r"(?:cel|celular|tel|tel[eé]fono|cc|c\.c\.?|c[eé]dula|nit|correo|whatsapp)"
+_RE_COLA = re.compile(r"\[NOMBRE\]\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})(?=\s*(?:[.,;:]?\s*$|[.,;:]?\s+" + _CUE + r"\b|\s*\[(?:TEL|DOC|CORREO|DIR)\]))",
+                      re.I)
 _RE_VECINA_DESPUES = re.compile(r"\[NOMBRE\](?:\s+(?:de|del|de la|de los))?\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})")
 _RE_VECINA_ANTES = re.compile(r"([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})\s+(?:(?:de|del|de la|de los)\s+)?\[NOMBRE\]")
+
+
+def _cola_es_nombre(w, ini, protegidas, vocabulario, con_cue):
+    """Palabra tras [NOMBRE] y antes de «cel», «cc», un dato o el final: la firma sigue (apellido). Al final del texto
+    solo si empieza con mayúscula (en minúsculas sería una palabra cualquiera)."""
+    if ini in protegidas or not (con_cue or w[0].isupper()):
+        return False
+    return sin_acentos(w) in _TODOS or _desconocida(w, vocabulario)
 
 
 def _absorber_vecinas(texto, vocabulario):  # `vocabulario`: el estricto (min_df=2) si hay
@@ -451,6 +463,9 @@ def _absorber_vecinas(texto, vocabulario):  # `vocabulario`: el estricto (min_df
         protegidas = {toks[k].start() for k in _protegidas(toks, texto)}
         nuevo = _RE_ENTRE.sub(lambda m: "[NOMBRE] [NOMBRE]" if es_nombre(m.group(1), m.start(1), True) else m.group(0), texto)
         if nuevo == texto:
+            nuevo = _RE_COLA.sub(lambda m: "[NOMBRE]" if _cola_es_nombre(
+                m.group(1), m.start(1), protegidas, vocabulario, texto[m.end(1):].strip(" .,;:") != "") else m.group(0), texto)
+        if nuevo == texto:
             nuevo = _RE_VECINA_DESPUES.sub(lambda m: "[NOMBRE]" if es_nombre(m.group(1), m.start(1)) else m.group(0), texto)
         if nuevo == texto:  # las posiciones solo valen para el texto sin cambiar
             nuevo = _RE_VECINA_ANTES.sub(lambda m: "[NOMBRE]" if es_nombre(m.group(1), m.start(1)) else m.group(0), texto)
@@ -458,6 +473,18 @@ def _absorber_vecinas(texto, vocabulario):  # `vocabulario`: el estricto (min_df
             break
         texto = nuevo
     return texto
+
+
+def _enmascarar_firma_final(texto, vocabulario, cuentas):
+    """Texto que acaba en UNA palabra en MAYÚSCULAS desconocida tras una en minúsculas: es la firma («… colaboración RAUQEL»)."""
+    m = re.search(r"([A-ZÁÉÍÓÚÑ]{4,})[.\s]*$", texto)
+    if not m or not _desconocida(m.group(1), vocabulario):
+        return texto
+    antes = _PALABRA.findall(texto[:m.start()])
+    if not antes or antes[-1].isupper():
+        return texto
+    cuentas["NOMBRE"] += 1
+    return texto[:m.start()] + "[NOMBRE]" + texto[m.end(1):]
 
 
 def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
@@ -478,12 +505,14 @@ def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
     t = _enmascarar_extra(t, nombres_extra, cuentas)
     t = _enmascarar_disparadores(t, _RE_FUERTE, False, cuentas, vocabulario, estricto)
     t = _enmascarar_disparadores(t, _RE_DEBIL, True, cuentas, vocabulario, estricto)
-    t = _enmascarar_antes_de_documento(t, vocabulario, cuentas)
+    t = _enmascarar_antes_de_documento(t, vocabulario, cuentas, estricto)
     t = _enmascarar_mayusculas(t, vocabulario, cuentas)
     t = _enmascarar_lista(t, cuentas)
     if vocabulario:
         t = _enmascarar_rachas(t, vocabulario, cuentas)
-    t = _enmascarar_antes_de_documento(t, vocabulario, cuentas)  # otra vez: ahora las etiquetas ya están puestas
+    if vocabulario:
+        t = _enmascarar_firma_final(t, vocabulario, cuentas)
+    t = _enmascarar_antes_de_documento(t, vocabulario, cuentas, estricto)  # otra vez: ahora las etiquetas ya están puestas
     t = _absorber_vecinas(t, estricto or vocabulario)
     t = re.sub(r"\[NOMBRE\](?:\s+(?:(?:de|del|la|los|y)\s+)?\[NOMBRE\])+", "[NOMBRE]", t)
     if cuentas["NOMBRE"]:
