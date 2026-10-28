@@ -33,20 +33,30 @@ TEST_T17A = ("massive", "hatecheck", "clinc150", "inyecciones")
 
 @torch.no_grad()
 def predecir(modelo, enc, filas, lote=64, soporte=None):
-    """`soporte`: `modelo.SoporteEval` (prototipos por tarea, calculados una vez); sin él, modo sin soporte."""
+    """`soporte`: `modelo.SoporteEval` (prototipos por conjunto, calculados una vez); sin él, modo sin soporte.
+    Con soporte los lotes no mezclan conjuntos: el modelo busca los prototipos por `tarea` y massive y clinc150 la comparten."""
     modelo.eval()
-    out = []
-    for i in range(0, len(filas), lote):
-        fs = filas[i:i + lote]
-        protos = soporte.protos(modelo, enc, {r["tarea"] for r in fs}) if soporte else None
+    orden = sorted(range(len(filas)), key=lambda i: D.conjunto(filas[i])) if soporte else range(len(filas))
+    out = {}
+    pend = list(orden)
+    while pend:
+        c = D.conjunto(filas[pend[0]]) if soporte else None
+        n = 1
+        while n < min(lote, len(pend)) and (not soporte or D.conjunto(filas[pend[n]]) == c):
+            n += 1
+        ix, pend = pend[:n], pend[n:]
+        fs = [filas[i] for i in ix]
+        protos = soporte.protos(modelo, enc, {c}) if soporte else None
+        if protos:
+            protos = {fs[0]["tarea"]: protos[c]}
         t0 = time.perf_counter()
         probs, _ = modelo(fs, enc, entrenar=False, protos=protos)
         ms = (time.perf_counter() - t0) * 1000 / len(fs)
-        for r, p in zip(fs, probs):
+        for i, r, p in zip(ix, fs, probs):
             p = p.double().cpu()
             p = (p / p.sum()).tolist()
-            out.append({"id": r["id"], "probs": dict(zip(r["opciones"], p)), "ms": round(ms, 3)})
-    return out
+            out[i] = {"id": r["id"], "probs": dict(zip(r["opciones"], p)), "ms": round(ms, 3)}
+    return [out[i] for i in range(len(filas))]
 
 
 def macro_f1_medio(filas, preds):
@@ -99,17 +109,14 @@ def conjuntos_test(datos=None, liston=None, extra=()):
     return {k: v for k, v in out.items() if v}
 
 
-def train_por_tarea(datos=None):
-    """{tarea: filas train} de los conjuntos de T1.7a y de herramientas (T1.4): el soporte sale de aquí."""
-    out = {}
-    fuentes = [str(Path(datos) / (t + ".jsonl")) for t in TEST_T17A if datos and (Path(datos) / (t + ".jsonl")).exists()]
+def train_por_conjunto(datos=None):
+    """{conjunto: filas train} de los conjuntos de T1.7a y de herramientas (T1.4), con las mismas claves que `conjuntos_test`:
+    el soporte sale de aquí. La clave es el nombre del fichero de origen (no el campo `tarea`, que massive y clinc150 comparten)."""
+    fuentes = {t: Path(datos) / (t + ".jsonl") for t in TEST_T17A if datos and (Path(datos) / (t + ".jsonl")).exists()}
     h = RAIZ / "model" / "herramientas" / "train.jsonl"
     if h.exists():
-        fuentes.append(str(h))
-    for f in fuentes:
-        for r in D.leer(f, split="train"):
-            out.setdefault(r["tarea"], []).append(r)
-    return out
+        fuentes["herramientas"] = h
+    return {t: D.leer(str(f), split="train") for t, f in fuentes.items()}
 
 
 def tabla_delta(res, res_s=None):
@@ -160,7 +167,7 @@ def main(argv=None):
     enc = Codificador(device=a.device)
     enc.cargar_enc(ck.get("enc"))  # capas de e5 ajustadas en T2.2, si las hay
     res, res_r, res_s = {}, {}, {}
-    sop = SoporteEval(train_por_tarea(a.datos), a.soporte) if a.soporte else None
+    sop = SoporteEval(train_por_conjunto(a.datos), a.soporte) if a.soporte else None
     for nombre, filas in conjuntos_test(a.datos, a.liston, a.extra).items():
         if a.max_filas:
             filas = filas[:a.max_filas]
