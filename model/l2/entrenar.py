@@ -171,10 +171,10 @@ def main(argv=None):
     claves = sorted({"score%d" % len(r["opciones"]) for r in filas + meta if r["tipo"] == "score"})
     sop_dev = None
     if a.episodios:
-        por_tarea = {}
+        por_conjunto = {}
         for r in filas:
-            por_tarea.setdefault(r["tarea"], []).append(r)
-        sop_dev = SoporteEval(por_tarea, a.k_max, a.semilla)
+            por_conjunto.setdefault(D.conjunto(r), []).append(r)
+        sop_dev = SoporteEval(por_conjunto, a.k_max, a.semilla)
 
     enc = Codificador(device=a.device, cache_mensajes=a.cache_mensajes, descongelar=a.descongelar)
     modelo = ModeloL2().to(a.device)

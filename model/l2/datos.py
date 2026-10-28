@@ -24,6 +24,18 @@ def ficheros(ruta):
     return [ruta]
 
 
+# Prefijo del `id` -> conjunto, para las filas que ya no saben de qué fichero vienen (la mezcla de entrenamiento). Solo los
+# conjuntos que comparten `tarea` con otros o cuyo prefijo difiere del nombre; el resto se agrupa por `tarea`.
+PREFIJO_CONJUNTO = {"massive": "massive", "clinc150": "clinc150", "hatecheck": "hatecheck", "deepset": "inyecciones",
+                    "herr": "herramientas"}
+
+
+def conjunto(r):
+    """Conjunto de una fila: por el prefijo del `id` si es de los conocidos (el fichero de origen no viaja en la fila y el
+    prefijo no siempre se llama igual que él); si no, su `tarea`."""
+    return PREFIJO_CONJUNTO.get(r["id"].partition(":")[0], r["tarea"])
+
+
 def iterar(rutas):
     """Filas de una o varias rutas. Comparte `opciones`, `descripciones` y `pregunta` entre filas iguales (ahorra RAM:
     clinc150 trae 151 descripciones por fila)."""
@@ -255,7 +267,7 @@ class Episodios:
     def __init__(self, locales, meta=None, lote=64, k_min=4, k_max=32, vias=16, frac_zeroshot=0.25, frac_meta=0.5, alfa=ALFA, semilla=0):
         self.por = defaultdict(lambda: defaultdict(list))
         for r in locales:
-            self.por[r["tarea"]][r["etiqueta"]].append(r)
+            self.por[conjunto(r)][r["etiqueta"]].append(r)
         for t in list(self.por):  # una clase con una sola fila no puede dar soporte y consulta a la vez
             self.por[t] = {c: g for c, g in self.por[t].items() if len(g) >= 2}
             if len(self.por[t]) < 2:
@@ -298,4 +310,4 @@ class Episodios:
         filas = [pool[clases[c]][rng.integers(len(pool[clases[c]]))] for c in cs]
         if restr:
             filas = [restringir(r, restr) for r in filas]
-        return {"tarea": t, "filas": filas, "soporte": soporte, "meta": False}
+        return {"tarea": filas[0]["tarea"], "conjunto": t, "filas": filas, "soporte": soporte, "meta": False}
