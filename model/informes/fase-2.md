@@ -64,3 +64,6 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 
 **Propuesta: G2 pasa con dos excepciones anotadas.** Una es el ECE de hatecheck e inyecciones. La otra es la abstención
 ante ataques, que hay que medir con tráfico normal en la fase 4. Si G2 pasa con esas excepciones lo decide Juan.
+
+**Decisión de Juan (2026-10-28): G2 pasa**, con las dos excepciones anotadas: el ECE de hatecheck e inyecciones y la
+abstención. **Abstención máxima con tráfico normal: 20 % por ahora.**
