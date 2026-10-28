@@ -165,6 +165,17 @@ func entrenar(p *Plan) (*Informe, error) {
 		secs = append(secs, chispa3.Seccion{Tipo: chispa3.CONJ, Datos: b})
 	}
 
+	if p.L0TF != "" {
+		b, err := os.ReadFile(p.L0TF)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := chispa3.DecodificarL0TF(b); err != nil {
+			return nil, err
+		}
+		secs = append(secs, chispa3.Seccion{Tipo: chispa3.L0TF, Datos: b})
+	}
+
 	cb, err := calib.Codificar()
 	if err != nil {
 		return nil, err

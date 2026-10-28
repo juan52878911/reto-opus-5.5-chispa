@@ -138,7 +138,7 @@ func (l *lector) toma(n uint64) []byte {
 		return nil
 	}
 	if n > uint64(len(l.b)) {
-		l.err = fmt.Errorf("%w: CONJ truncado", ErrContenido)
+		l.err = fmt.Errorf("%w: sección truncada", ErrContenido)
 		return nil
 	}
 	x := l.b[:n:n]
@@ -199,7 +199,7 @@ func DecodificarConj(b []byte) (*Conj, error) {
 		}
 		ck := uint64(nc) * uint64(k)
 		if l.err == nil && ck*4+ck*uint64(d) > uint64(len(l.b)) {
-			l.err = fmt.Errorf("%w: CONJ truncado", ErrContenido)
+			l.err = fmt.Errorf("%w: sección truncada", ErrContenido)
 		}
 		if l.err != nil {
 			return nil, l.err

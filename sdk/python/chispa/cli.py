@@ -27,6 +27,9 @@ def main(argv=None) -> int:
     t.add_argument("--frac-valid", type=float, default=0.2)
     t.add_argument("--l0-max-mb", type=float, default=48.0,
                    help="tope de la tabla de pesos de L0 en MB; reduce los buckets de hashing hasta que cabe (kindling rechaza > 64 MiB)")
+    t.add_argument("--l0tf-max-mb", type=float, default=48.0,
+                   help="con --conjunta: tope de los coeficientes de L0TF en MB; poda el vocabulario por frecuencia hasta que cabe")
+    t.add_argument("--l0tf-f16", action="store_true", help="con --conjunta: coeficientes de L0TF en f16 en vez de f32")
     d = sub.add_parser("decide", help="una pregunta contra un servidor")
     d.add_argument("--url", required=True)
     d.add_argument("--estado", required=True)
@@ -38,7 +41,8 @@ def main(argv=None) -> int:
         if a.cmd == "train":
             from .train import entrenar
             entrenar(a.ejemplos, a.esquema, a.salida, l1=a.l1, ckpt=a.ckpt, l2=a.l2, conjunta=a.conjunta, repo=a.repo,
-                     pregunta=a.pregunta, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb, log=lambda m: print(m, file=sys.stderr))
+                     pregunta=a.pregunta, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
+                     l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16, log=lambda m: print(m, file=sys.stderr))
         else:
             q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
                  "score": lambda: Score("q", a.pregunta, int(a.opciones[0]))}[a.tipo]()

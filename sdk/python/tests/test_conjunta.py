@@ -1,5 +1,6 @@
 import json
 import shutil
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -91,14 +92,26 @@ class TestTrainConjunta(unittest.TestCase):
         self.assertEqual(con["conjunta"]["clases"], 2)
         a = formato.leer((self.d / "sin.chispa").read_bytes())
         b = formato.leer((self.d / "con.chispa").read_bytes())
-        self.assertEqual(sorted(b), sorted([*a, formato.CONJ]))
+        self.assertEqual(sorted(b), sorted([*a, formato.CONJ, formato.L0TF]))
+        self.assertEqual(con["conjunta"]["l0tf"]["max_features"], None)
         for t in a:
             if t != formato.CALIB:  # CALIB lleva la validación de L0, que no cambia; se compara igualmente abajo
                 self.assertEqual(a[t], b[t], t)
         self.assertEqual(a[formato.CALIB], b[formato.CALIB])
         self.assertLess(len(b[formato.CONJ]), 1 << 20)
+        self.assertEqual(struct.unpack("<IIII", b[formato.L0TF][:16])[::3], (1, 1))  # versión 1, f32
         # La sección es la de esta pregunta: hash de pregunta y opciones ordenadas.
         self.assertIn(formato.hash_esquema(ESQ["pregunta"], sorted(ESQ["opciones"])), [b[formato.CONJ][8:40]])
+
+    def test_l0tf_podado_y_f16(self):
+        con = self.correr("p.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, l0tf_f16=True, l0tf_max_mb=0.002)
+        inf = con["conjunta"]["l0tf"]
+        self.assertTrue(inf["f16"])
+        self.assertEqual(inf["max_features"], int(0.002e6 // (2 * 2)))  # 2 clases × 2 bytes
+        self.assertEqual(inf["ngramas"], inf["max_features"])
+        b = formato.leer((self.d / "p.chispa").read_bytes())[formato.L0TF]
+        v, c, dt = struct.unpack("<III", b[4:16])
+        self.assertEqual((v, c, dt), (inf["ngramas"], 2, 2))
 
     def test_conjunta_pide_checkpoint_y_l2(self):
         from chispa.cliente import ChispaError

@@ -154,6 +154,11 @@ anteriores (`DecisorConPrevias`), y L2c usa las probabilidades de L0 con:
 - El codificador va detrás de `Similitudes` (el ONNX y las torres): `l2c_test.go` prueba con similitudes falsas sin ORT.
 - **Paridad con Python**: `TestL2cParidadConPython` lee `model/l2/tests/fixtures_conjunta/paridad.json` (lo genera
   `sdk/python/tests/fixture_conjunta.py` con `conjunta.Cabeza`): |Δp| máx 8e-8 en 8 casos (tolerancia 1e-4).
+- **L0TF (T4.5c)**: si el `.chispa` trae `L0TF`, `ArmarDesde` registra ese L0 TF-IDF (`l0.go`, `chispa3.L0TFModelo.Probs`) y no el de la sección
+  `L0`; la capa L0 de la cascada y la entrada de L0 de L2c usan sus probabilidades. Sin `L0TF`, el L0 de Chispa como antes.
+  Paridad con sklearn: `TestL0TFParidadConSklearn` (`testdata/l0tf`, 270 frases con tildes, emojis, mayúsculas y espacios raros; lo genera
+  `sdk/python/tests/fixture_l0tf.py`): |Δp| máx 4e-8 en f32 (tolerancia 1e-5); con datos reales (`L0TF_REAL=dir`), 4e-8 en 1500 frases de
+  massive y de clinc150. Latencia: `go test ./decide -bench L0TF` (80 000 n-gramas × 150 clases, f32, frase de 14 palabras): 0,10 ms por consulta.
 - **Latencia** (medida antes de T4.5; después, ver «T4.5»): la cabeza no añade llamadas al ONNX (L2c usa las mismas ranuras S que L2); el coste extra es el simproto, que va
   lineal con las clases: C·K·K·d multiplicaciones (150 clases, K=16, d=256: ≈ 10 ms en esta microVM de 4 vCPU, Go escalar,
   `go test -bench L2c ./decide`; con 2–10 clases, < 1 ms). El resto de la cabeza (logits y softmax) son µs. Frente a los ~30 ms de
