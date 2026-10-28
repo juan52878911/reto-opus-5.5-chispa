@@ -123,7 +123,8 @@ func hangulSigue(a, b rune) bool {
 	return false
 }
 
-func (n *normalizador) normalizar(s string) string {
+// charsmap aplica solo el Precompiled (charsmap de sentencepiece), grafema a grafema.
+func (n *normalizador) charsmap(s string) string {
 	s = strings.ToValidUTF8(s, "�")
 	var sb strings.Builder
 	sb.Grow(len(s))
@@ -143,9 +144,14 @@ func (n *normalizador) normalizar(s string) string {
 			}
 		}
 	})
+	return sb.String()
+}
+
+func (n *normalizador) normalizar(s string) string {
+	s = n.charsmap(s)
 	// " {2,}" → " ", espaciar puntuación, \s+ → " ", strip: todo junto en una pasada equivalente.
 	var out strings.Builder
-	out.Grow(sb.Len() + 8)
+	out.Grow(len(s) + 8)
 	pendiente := false // hay espacio en blanco sin emitir
 	hayTexto := false
 	emitir := func(r rune) {
@@ -156,7 +162,7 @@ func (n *normalizador) normalizar(s string) string {
 		hayTexto = true
 		out.WriteRune(r)
 	}
-	for _, r := range sb.String() {
+	for _, r := range s {
 		switch {
 		case unicode.Is(unicode.White_Space, r):
 			pendiente = true
