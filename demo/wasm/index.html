@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Chispa L1 en WASM</title>
+<style>
+ body{font:16px system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem}
+ textarea{width:100%;box-sizing:border-box;font:inherit} pre{background:#f4f4f4;padding:.6rem;overflow:auto}
+ table{border-collapse:collapse} td,th{border:1px solid #bbb;padding:.2rem .6rem;text-align:right}
+</style>
+</head>
+<body>
+<h1>Chispa L1 en el navegador</h1>
+<p>Embedding estático (Model2Vec int8) en Go puro compilado a WASM. Todo local: sin red ni CDN.</p>
+<p id="estado">Cargando…</p>
+<h2>Pregunta (JSON)</h2>
+<textarea id="pregunta" rows="10"></textarea>
+<h2>Mensaje</h2>
+<textarea id="texto" rows="2">hola, ¿tienen disponible la licuadora roja? ¿cuánto cuesta?</textarea>
+<p><button id="decidir" disabled>Decidir</button>
+ <button id="medir" disabled>Medir latencia (16 / 64 / 256 tokens × 200)</button></p>
+<h2>Decisión</h2><pre id="salida">—</pre>
+<h2>Latencia</h2>
+<table id="lat"><tr><th>tokens</th><th>p50 (µs)</th><th>p99 (µs)</th><th>reps</th></tr></table>
+<script src="wasm_exec.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const MODELO = "potion-es.chispa-l1";
+async function iniciar() {
+  const go = new Go();
+  const [wasm, preg, modelo] = await Promise.all([
+    WebAssembly.instantiateStreaming(fetch("chispa.wasm"), go.importObject),
+    fetch("ejemplo_pregunta.json").then(r => r.text()),
+    fetch(MODELO).then(r => { if (!r.ok) throw new Error(MODELO + " no existe: genéralo (ver README)"); return r.arrayBuffer(); }),
+  ]);
+  go.run(wasm.instance);
+  $("pregunta").value = preg;
+  const r = cargar(new Uint8Array(modelo));
+  if (!r.ok) throw new Error(r.error);
+  $("estado").textContent = `Modelo cargado: ${r.vocab} piezas, dim ${r.dim}, ${(r.bytes / 1048576).toFixed(1)} MB.`;
+  $("decidir").disabled = $("medir").disabled = false;
+}
+$("decidir").onclick = () => {
+  const t0 = performance.now();
+  const r = decidir($("texto").value, $("pregunta").value);
+  $("salida").textContent = JSON.stringify(r, null, 1) + `\n(${((performance.now() - t0) * 1000).toFixed(0)} µs, incluida la llamada JS)`;
+};
+$("medir").onclick = async () => {
+  $("medir").disabled = true;
+  const tabla = $("lat");
+  while (tabla.rows.length > 1) tabla.deleteRow(1);
+  for (const n of [16, 64, 256]) {
+    await new Promise(r => setTimeout(r)); // deja pintar
+    const l = medir(n, 200, $("pregunta").value);
+    const f = tabla.insertRow();
+    f.innerHTML = l.ok ? `<td>${l.tokens_reales}</td><td>${l.p50_us.toFixed(0)}</td><td>${l.p99_us.toFixed(0)}</td><td>${l.reps}</td>`
+                       : `<td colspan=4>${l.error}</td>`;
+  }
+  $("medir").disabled = false;
+};
+iniciar().catch(e => { $("estado").textContent = "Error: " + e.message; });
+</script>
+</body>
+</html>

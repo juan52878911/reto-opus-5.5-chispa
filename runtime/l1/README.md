@@ -26,6 +26,12 @@ Variables de los tests: `CHISPA_L1` (ruta del modelo, por defecto `/tmp/potion.c
 `CHISPA_L1_FUZZ` (jsonl de `referencia.py ids ... --fuzz N`), `CHISPA_L1_REF` (jsonl de `referencia.py emb`).
 El `.chispa-l1` (155 MB) no va a git.
 
+**L1 recortado** (T3.4, demo WASM): `python vocab_recortado.py <modelo> v.json` elige ≤ 50 000 piezas y
+`python exportar.py <modelo> out.chispa-l1 --vocab v.json` exporta solo esas (15,8 MB; ids renumerados en orden; tabla hash y
+filtro de prefijos más pequeños, que la cabecera ya declara). Coseno medio 0,9954 frente al completo en el sondeo
+(`CHISPA_L1_RECORTADO=… go test -run TestRecortado -v`); tests del exportador: `python -m unittest test_exportar`.
+Detalles en `demo/wasm/README.md`. Compila a `GOOS=js GOARCH=wasm` sin cambios.
+
 ## Formato `.chispa-l1` (versión 1, little endian)
 Cabecera de 256 bytes: magia `CHL1\0\0\0\0` · `u32` versión · dim · vocabulario · flags (0) · max. caracteres
 por pieza · bits de la tabla hash (20) · bits del filtro de prefijos (26) · 9 pares `u64` (offset, longitud) de
