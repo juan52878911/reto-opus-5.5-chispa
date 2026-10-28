@@ -1,0 +1,8 @@
+.gradle/
+build/
+local.properties
+chispa/libs/*.aar
+chispa/libs/*.jar
+gradle/wrapper/gradle-wrapper.jar
+*.chispa
+demo/src/main/assets/modelo.chispa
