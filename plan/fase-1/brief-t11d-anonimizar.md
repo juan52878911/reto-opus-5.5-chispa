@@ -54,3 +54,13 @@ Encargo: `plan/fase-1/encargo.md`. Parte de lo que dejó T1.1c en `model/datos/`
 ## Informe
 Termina con un informe de ≤ 15 líneas: qué cambiaste, rama y sha, recuentos de la revisión de 300 por
 fuente, el resultado de `make smoke` con y sin cambios, y qué recomiendas.
+
+## También: fixtures que no llegaron a git
+- Los fixtures de `goemociones` y `soporte_ti` (y cualquier otro de `model/datos/fixtures/**/data/`)
+  no están en el repo: el `.gitignore` de la raíz ignora toda carpeta `data/`. Por eso
+  `python -m unittest discover -s model -t .` da 1 fallo y 3 errores en `model/datos`.
+- Arréglalo de una de dos formas:
+  - un `.gitignore` en `model/datos/fixtures/` con `!**/data/` (como hizo `server/` con `*.chispa`);
+  - o renombrar esas carpetas y ajustar los conversores.
+- Comprueba con `git check-ignore` que quedan dentro y regenera los fixtures que falten, inventados.
+- La zona se amplía a `model/datos/**`, sin tocar el `.gitignore` de la raíz.
