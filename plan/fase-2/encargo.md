@@ -29,7 +29,7 @@ y exportado a ONNX int8 dentro de un `.chispa` v3, que el servidor (`server/`) c
     se submuestrea a ≤ 600 k, con todo tasksource-jev comercial (581 k) y el resto repartido;
   - train de los conversores de `model/datos/` con `uso_comercial: true`;
   - T1.4;
-  - el corpus de T1.3 si llega.
+  - sin corpus sintético: T1.3 quedó fuera tras 4 intentos (ver `model/informes/fase-1.md`).
 - **Etiquetas blandas:** las de tasksource-jev y las del maestro Qwen
   (`s3://…/maestro-20261027/ronda1/`). Haiku, nunca.
 - **Test:** los de T1.7a, el listón humano y las PQRS (solo test, nunca fuera de kindling ni del bucket).

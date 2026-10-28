@@ -17,7 +17,7 @@ instancias de AWS que se apagaron solas.
 | Listón humano: MultiPICo, ALIA (3 anotadores), toxicity-ES y GoEmotions, con el acuerdo entre humanos | hecho; sustituye al etiquetado a mano | `model/liston/` |
 | Metaentrenamiento: 3,26 M filas y 430 tareas (tasksource-jev con licencia comercial, 581 k) | en S3 | `model/meta/` |
 | Maestro Qwen3.5-4B: etiquetas blandas, 18 k filas | en S3 | `model/maestro/` |
-| Corpus sintético con un modelo abierto (Qwen, Apache-2.0) | **no entregado**: 3 intentos fallidos | `model/corpus/` |
+| Corpus sintético con un modelo abierto (Qwen, Apache-2.0) | **fuera**: 4 intentos fallidos | `model/corpus/` |
 
 ## Líneas base (T1.7a)
 
@@ -65,7 +65,11 @@ Tres intentos en una g5.xlarge (≈ 2 USD en total):
    pqrs 128, fintech 173, herramientas 0). La causa probable es JSON truncado: 20 textos por llamada y, en herramientas, el
    prompt largo del catálogo. El texto que sí sale es bueno.
 
-Con la regla de «dos fallos, parar», queda escalado. El entrenamiento no depende de él: los datos de libre uso y el
+4. Qwen3-4B-Instruct-2507, lotes de 6, con prueba de un lote antes de la ejecución completa (2026-10-28): la prueba falla.
+   En herramientas, 21 de 32 lotes salen sin JSON válido; en WhatsApp, el verificador rechaza el 37 %. La instancia se
+   apagó sin la ejecución completa.
+
+**Decisión (sesión principal, con el «sigue hasta terminar» de Juan): el corpus sintético queda fuera.** El entrenamiento no depende de él: los datos de libre uso y el
 metaentrenamiento cubren las tareas. Si se retoma: lotes de 5 a 8 textos, más `max_new_tokens`, el catálogo resumido en
 herramientas y un modelo instruct (`Qwen/Qwen3-4B-Instruct-2507`) en lugar del base.
 
