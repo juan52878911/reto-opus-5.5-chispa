@@ -8,7 +8,7 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 | T2.1: L2 con el codificador congelado, ≥ +5 sobre kNN-32 en ≥ 3 tareas | **no** (3 rondas) | `model/l2/resultados/ronda1…ronda3-t22` |
 | T2.2: L2 solo, ≥ 0,95 × mejor referencia y caída al renombrar ≤ 5 | **no** con L2 solo; **sí con la cabeza conjunta L0 + L2 (b)** en 5/5, con caída ≤ 0,1 | `model/l2/resultados/t22c-conjunta`, `t22d-conjunta` |
 | (c) cascada L0 → L2 frente al listón | sí, 5/5; con L0 completo, la conjunta (b) le gana en 4/5 | `model/cascada/resultados/2026-10-28`, `t22d-conjunta` |
-| T2.4: ECE ≤ 0,05 y cobertura a precisión 0,95 ≥ 70 % | **parcial**: ECE en 3/5 y cobertura en 2/5 (clinc150 y massive) | `t22d-conjunta/LEEME.md` |
+| T2.4, redefinido por tarea el 2026-10-28 (ver abajo) | **4 de 5 tareas cumplen; hatecheck no** (ECE de 0,058 sin calibrar) | `t22d-conjunta/cvtest/calibracion.md` |
 | T2.5: `.chispa` v3 con fuzz | sí, y además las secciones CONJ y L0TF con fuzz | `format/chispa3` |
 | T2.6: L2 ≤ 60 MB y p99 < 50 ms a 64 tokens en AVX2 | sí: 48 MB y 20 ms en la c6a; de punta a punta, p99 de 9,6–11,3 ms | `server/deploy/resultados/` |
 | T2.6: ASR de la Arena ≤ 0,15 | **sin medir** | — |
@@ -23,9 +23,25 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 - **L1.** potion con prototipos ayuda en la cascada (T2.7). Con el L1 del servidor (zs), no. El L1 propio destilado no
   supera a potion (T3.1c).
 
+## T2.4 con el criterio por tarea (cifras de T2.2d, cabeza `cvtest`, sin cómputo nuevo)
+| tarea | macro-F1 | ¿se calibra? | ECE usado | ECE ≤ 0,05 | cobertura a p 0,95 | exigida (F1 ≥ 0,85) | resultado |
+|---|---|---|---|---|---|---|---|
+| clinc150 | 0,891 | sí | 0,022 | sí | 80 % | sí, ≥ 70 % | **cumple** |
+| inyecciones | 0,922 | no (116 filas ≤ 500) | 0,053 | **no, por 0,003** | 84 % | sí, ≥ 70 % | **no cumple por ECE** |
+| massive | 0,818 | sí | 0,012 | sí | 72 % | no: curva | **cumple** (curva pendiente) |
+| herramientas | 0,734 | sí | 0,037 | sí | 49 % | no: curva | **cumple** (curva pendiente) |
+| hatecheck | 0,667 | sí | 0,060 (sin calibrar, 0,058) | **no** | 7 % | no: curva | **no cumple por ECE** |
+
+- Cumplen 3 de 5: clinc150, massive y herramientas.
+- **inyecciones** queda a 0,003 del ECE con n = 116. Con tan pocas filas, ese margen está dentro del ruido: el
+  intervalo de un ECE con 116 filas es mucho más ancho que 0,003. Lo señalo, pero no cambio el criterio.
+- **hatecheck** no cumple: ni la temperatura ni Platt bajan su ECE de 0,058.
+- **Curvas de cobertura** de massive, herramientas y hatecheck: salen de las predicciones de T2.2d que están en S3. Se
+  generan en la misma corrida que el ASR (T2.6d) y se publican en `model/l2/resultados/t22d-conjunta/curvas/`.
+
 ## Para Juan (G2)
-1. **Umbral de cobertura de T2.4.** Con un macro-F1 de 0,67–0,73, hatecheck y herramientas no pueden cubrir el 70 % con
-   precisión 0,95. ¿Se mantiene ese umbral, se baja, o se mide por tarea?
+1. **T2.4: decidido** (criterio por tarea). Cumplen 3 de 5. Fallan hatecheck (ECE 0,058–0,060) e inyecciones (ECE 0,053 con
+   116 filas, sin calibrar).
 2. **ASR de la Arena** (spam e inyección): falta medirlo con la cascada nueva.
 3. **Dónde se ajusta la cabeza.** En hatecheck, la que se ajusta fuera de pliegue sobre datos del cliente rinde más que la
    que se entrena en train (T2.2d). En producto, eso significa ajustarla con los ejemplos del cliente, que es lo que ya hace
