@@ -195,7 +195,7 @@ mkdir -p "$MODELOS/onnx"
 "$PY" -u -m model.l2.calibrar --ckpt "$BASE/mejor.pt" --dev "$PREP/dev.jsonl" --salida "$MODELOS/calib.json" --device cpu \
   || { fallo "calibrar"; cierre; }
 "$PY" -u -m model.l2.exportar --ckpt "$BASE/mejor.pt" --calib "$MODELOS/calib.json" --esquemas "$PREP/dev.jsonl" \
-  --paridad "$PREP/dev.jsonl" --n-paridad 300 --salida "$L2CH" --trabajo "$MODELOS/onnx" || { fallo "exportar L2"; cierre; }
+  --paridad "$PREP/dev.jsonl" --n-paridad 300 --salida "$L2CH" --trabajo "$MODELOS/onnx" ${CHISPA_EXPORT_ARGS:-} || { fallo "exportar L2"; cierre; }
 cp "$L2CH.informe.json" "$RES/exportar.informe.json" 2>/dev/null
 ls -l "$L2CH"
 
