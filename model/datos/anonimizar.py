@@ -338,7 +338,7 @@ def _enmascarar_mayusculas(texto, vocabulario, cuentas):
     return "".join(out)
 
 
-_RE_ANTES_DOC = re.compile(r",?\s*(?:identificad[oa]|portador[a]?|(?:con\s+)?c\.?\s?c\.?\s*(?:n[°ºo.]*\s*)?\[DOC\]|c[ée]dula)", re.I)
+_RE_ANTES_DOC = re.compile(r",?\s*(?<![\wáéíóúñ])(?:identificad[oa]|portador[a]?|(?:con\s+)?c\.?\s?c\.?\s*(?:n[°ºo.]*\s*)?\[DOC\]|c[ée]dula)", re.I)
 
 
 def _enmascarar_antes_de_documento(texto, vocabulario, cuentas, estricto=None):
@@ -570,6 +570,21 @@ def _enmascarar_serie_con_huecos(texto, estricto, cuentas):
     return "".join(out)
 
 
+_RE_SALUDO = re.compile(r"((?:buen[oa]s?\s+(?:d[ií]as?|tardes?|noches?)|hola|estimad[oa]s?|apreciad[oa]s?|cordial saludo)\s*[,:]?\s+)"
+                        r"([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})(?=\s*[,:;])", re.I)
+
+
+def _enmascarar_saludo(texto, vocabulario, cuentas):
+    """«Buenas tardes, JANNETH, le envío…»: la persona a quien se escribe, si es desconocida y va entre comas."""
+    def f(m):
+        w = m.group(2)
+        if (w[0].isupper() or sin_acentos(w) in _TODOS) and (sin_acentos(w) in _TODOS or _desconocida(w, vocabulario)):
+            cuentas["NOMBRE"] += 1
+            return m.group(1) + "[NOMBRE]"
+        return m.group(0)
+    return _RE_SALUDO.sub(f, texto)
+
+
 def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
     """(texto anonimizado, Counter de reemplazos por etiqueta).
 
@@ -593,6 +608,8 @@ def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
     t = _enmascarar_lista(t, cuentas)
     if vocabulario:
         t = _enmascarar_rachas(t, vocabulario, cuentas)
+    if vocabulario:
+        t = _enmascarar_saludo(t, vocabulario, cuentas)
     t = _enmascarar_serie_con_huecos(t, estricto, cuentas)
     t = _enmascarar_serie_minuscula(t, estricto, cuentas)
     if vocabulario:

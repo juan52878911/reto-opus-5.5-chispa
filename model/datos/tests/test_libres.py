@@ -323,6 +323,18 @@ class TestAnonimizar(unittest.TestCase):
         t, _ = self.a("conocer la Norma General de Usos del Suelo", vocabulario=v, estricto=v)
         self.assertNotIn("[NOMBRE]", t)
 
+    def test_portadora_dentro_de_una_palabra_no_es_un_rotulo(self):
+        v = anonimizar.vocabulario_de(["una transportadora", "el traslado"])
+        t, _ = self.a("con una transportadora especialista en trasteos", estricto=v)
+        self.assertEqual(t, "con una transportadora especialista en trasteos")
+
+    def test_saludo_con_nombre_propio(self):
+        v = anonimizar.vocabulario_de(["buenas tardes, señores de la alcaldía, le envío el recibo"])
+        t, _ = self.a("BUENAS TARDES, JANNETH, LE ENVÍO ESTE CORREO", vocabulario=v)
+        self.assertNotIn("JANNETH", t)
+        t, _ = self.a("Buenas tardes, Alcaldía, le envío el recibo", vocabulario=v)
+        self.assertIn("Alcaldía", t)
+
     def test_vocabulario_con_min_df_ignora_palabras_de_una_sola_fila(self):
         v = anonimizar.vocabulario_de(["pidió osvaldo copia", "pidió copia"], min_df=2)
         self.assertEqual(v, {"pidio", "copia"})
