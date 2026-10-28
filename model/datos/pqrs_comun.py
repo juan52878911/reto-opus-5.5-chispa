@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import anonimizar
 from .comun import FuenteAusente, fila
-from .libres import normalizar, reparto_estratificado
+from .libres import normalizar
 
 DATOSGOV = Path.home() / "datos" / "datosgov"
 TIPOS = ["peticion", "queja", "reclamo", "sugerencia", "denuncia", "felicitacion"]
@@ -54,8 +54,10 @@ def construir(corto, fuente, lic, com, tarea, pregunta, opciones, descripciones,
     """registros = [(texto original, etiqueta, nombres_extra)] -> (filas, info).
 
     Anonimiza, descarta textos vacíos o muy cortos, agrupa los textos idénticos (misma `plantilla`, todos en el
-    mismo split) y reparte 80/10/10 con el test estratificado por etiqueta (la del grupo es la más frecuente).
+    mismo split). Por decisión de Juan, todas las PQRS de datos.gov.co van solo a `test` con `uso_comercial=False`
+    (conservan ~1 nombre visible por cada 300 filas): `com` del `meta.json` se ignora.
     """
+    com = False
     cuentas = collections.Counter()
     descartes = collections.Counter()
     filas_ok = []
@@ -72,19 +74,18 @@ def construir(corto, fuente, lic, com, tarea, pregunta, opciones, descripciones,
     grupos = collections.defaultdict(list)
     for t, e in filas_ok:
         grupos[normalizar(t)].append(e)
-    estrato = {k: collections.Counter(v).most_common(1)[0][0] for k, v in grupos.items()}
     plantilla = {k: "%s-%s" % (corto, hashlib.sha1(k.encode("utf-8")).hexdigest()[:10]) for k in grupos}
-    split_de = reparto_estratificado([(plantilla[k], estrato[k], len(v)) for k, v in grupos.items()], sal=sal)
     cont = collections.Counter()
     filas = []
     for t, e in filas_ok:
         k = normalizar(t)
-        sp = split_de[plantilla[k]]
+        sp = "test"
         n = cont[sp]
         cont[sp] += 1
         filas.append(fila(corto, sp, n, tarea=tarea, tipo="choice", pregunta=pregunta, texto=t,
                           opciones=opciones, descripciones=descripciones, etiqueta=e, idioma=idioma,
                           fuente=fuente, licencia=lic, uso_comercial=com, plantilla=plantilla[k]))
     info = {"licencia": lic, "reemplazos": dict(cuentas), "descartadas": dict(descartes),
-            "textos_distintos": len(grupos)}
+            "textos_distintos": len(grupos),
+            "uso_comercial": "false por decisión de Juan (todo a test)"}
     return filas, info

@@ -3,7 +3,8 @@ CHISPA_S3=__CHISPA_S3__
 # Parámetros que sustituye el orquestador junto con __CHISPA_S3__ (en modo local no hacen falta):
 POR_CLASE=${POR_CLASE:-__POR_CLASE__}   # textos pedidos por clase y tarea (para ≥ 2 k útiles por tarea, ver el informe de T1.3b)
 TOPE_MIN=${TOPE_MIN:-__TOPE_MIN__}      # minutos de reloj para la generación (máx. 140: el apagado forzoso es a los 170)
-CHISPA_MODELO=${CHISPA_MODELO:-}        # opcional; por defecto el mayor Qwen Apache-2.0 que exista (ver generar.py)
+CHISPA_MODELO=${CHISPA_MODELO:-}        # opcional; por defecto el mayor Qwen Apache-2.0 que quepa en la GPU (4B con < 30 GB; ver backends.py)
+CHISPA_MOTOR=${CHISPA_MOTOR:-auto}      # transformers | vllm | auto (vLLM si se instala y arranca; si no, transformers)
 # user-data de una g5.xlarge on-demand (A10G, 24 GB) con la AMI «Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.10
 # (Amazon Linux 2023)», root: corre model/corpus/generar.py con el backend local (Qwen abierto, vLLM si se puede instalar,
 # si no transformers) y deja /opt/chispa/corpus.tgz y /opt/chispa/LISTO. Sin Bedrock ni gasto de tokens: el coste son horas de GPU.
@@ -81,17 +82,23 @@ else
 fi
 echo "python: $PY"
 "$PY" -c "import sys, torch; print(sys.version.split()[0], 'torch', torch.__version__, 'cuda', torch.version.cuda, 'disponible', torch.cuda.is_available())"
+case "$CHISPA_MOTOR" in transformers|vllm|auto) ;; *) fallo "CHISPA_MOTOR=$CHISPA_MOTOR no vale (transformers|vllm|auto)"; cierre;; esac
 MOTOR=transformers
 if [ "${CHISPA_LOCAL:-}" != 1 ]; then
   "$PY" -c "import torch; assert torch.cuda.is_available()" || { fallo "torch no ve la GPU"; cierre; }
   nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
   "$PY" -m pip install -q --no-cache-dir -U transformers accelerate huggingface_hub numpy \
     || { fallo "pip install de transformers"; cierre; }
-  # vLLM trae su propio torch: va en un venv aparte y solo se usa si arranca; si no, transformers con el Python de la AMI.
+  # vLLM trae su propio torch: va en un venv aparte y solo se usa si se instala; si no, transformers con el Python de la AMI.
+  # Con «auto», si vLLM se instala pero luego falla al crear el motor (memoria, flashinfer sin nvcc), Local sigue con transformers.
   PYV=$BASE/venv-vllm/bin/python
-  if "$PY" -m venv "$BASE/venv-vllm" && "$BASE/venv-vllm/bin/pip" install -q --no-cache-dir vllm huggingface_hub numpy \
+  if [ "$CHISPA_MOTOR" = transformers ]; then
+    echo "CHISPA_MOTOR=transformers: no se instala vLLM"
+  elif "$PY" -m venv "$BASE/venv-vllm" && "$BASE/venv-vllm/bin/pip" install -q --no-cache-dir vllm huggingface_hub numpy \
        && "$PYV" -c "import vllm, torch; assert torch.cuda.is_available(); print('vllm', vllm.__version__)"; then
-    PY=$PYV; MOTOR=vllm
+    PY=$PYV; MOTOR=$CHISPA_MOTOR
+  elif [ "$CHISPA_MOTOR" = vllm ]; then
+    fallo "CHISPA_MOTOR=vllm pero vLLM no se pudo instalar"; cierre
   else
     echo "vLLM no se pudo instalar o no arranca; sigo con transformers"
   fi

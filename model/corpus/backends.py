@@ -40,9 +40,32 @@ class Bedrock:
 MODELOS_DEFECTO = ("Qwen/Qwen3.5-9B-Instruct", "Qwen/Qwen3.5-9B", "Qwen/Qwen3-8B", "Qwen/Qwen3.5-4B")
 
 
-def elegir_modelo(candidatos=MODELOS_DEFECTO):
-    """El primero de la lista que existe en el Hub (de mayor a menor; el de 9 B en bf16 cabe en 24 GB)."""
+MODELOS_4B = ("Qwen/Qwen3.5-4B-Instruct", "Qwen/Qwen3.5-4B", "Qwen/Qwen3-4B")
+GB_MIN_9B = 30  # el 9 B en bf16 son ~18 GB de pesos: con menos de 30 GB (una A10G de 24 GB) no queda margen para la caché KV
+
+
+def memoria_gpu_gb():
+    """Memoria total de la GPU 0 en GB, o None si no hay GPU o torch no la ve."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return torch.cuda.get_device_properties(0).total_memory / 1e9
+    except Exception:
+        pass
+    return None
+
+
+def candidatos_por_memoria(gb):
+    """Lista de modelos a probar según la memoria de la GPU; sin dato (None) se asume poca."""
+    return MODELOS_DEFECTO if gb is not None and gb >= GB_MIN_9B else MODELOS_4B
+
+
+def elegir_modelo(candidatos=None, gb=None):
+    """El primero de la lista que existe en el Hub (de mayor a menor). Sin lista explícita, la que cabe en la GPU
+    (`gb`, por defecto la detectada): 9 B solo con ≥ 30 GB, si no 4 B."""
     from huggingface_hub import HfApi
+    if candidatos is None:
+        candidatos = candidatos_por_memoria(memoria_gpu_gb() if gb is None else gb)
     for m in candidatos:
         try:
             HfApi().model_info(m)
@@ -105,6 +128,7 @@ class Local:
             self.tok.pad_token = self.tok.eos_token
         self.motor = motor
         if motor in ("auto", "vllm"):
+            fallo = None
             try:
                 from vllm import LLM
                 self.llm = LLM(modelo, dtype="bfloat16", max_model_len=max_len, gpu_memory_utilization=0.90)
@@ -112,7 +136,11 @@ class Local:
             except Exception as e:
                 if motor == "vllm":
                     raise
-                print("vLLM no disponible (%s): transformers" % type(e).__name__, flush=True)
+                fallo = "%s: %s" % (type(e).__name__, e)
+            if fallo is not None:  # fuera del except: así la traza ya no retiene referencias al motor a medias
+                print("vLLM no arranca (%s): sigo con transformers" % fallo, flush=True)
+                self.llm = None
+                self._liberar_gpu()
                 self.motor = "transformers"
         if self.motor == "transformers":
             import torch
@@ -122,6 +150,18 @@ class Local:
             self.mod.to("cuda" if gpu else "cpu").eval()
         self.cola = queue.Queue()
         threading.Thread(target=self._trabajar, daemon=True).start()
+
+    @staticmethod
+    def _liberar_gpu():
+        """Suelta lo que haya dejado un motor vLLM a medias para que transformers tenga la memoria."""
+        import gc
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
     def llamar(self, sistema, usuario, meta, max_tokens, temperatura):
         prompt = dar_formato(self.tok, sistema, usuario)

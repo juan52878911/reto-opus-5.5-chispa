@@ -34,10 +34,10 @@ Para datos.gov.co la licencia sale de `licenseId` del `*.meta.json`, confirmada 
 | FelipeGuerra/Colombian_Spanish_Cyberbullying_Dataset_1 y _2 | `ciberacoso` | mit | tarjetas | true | 80/10/10 por hash del texto |
 | somosnlp/spa_climate_detection | `clima` | **contradictoria** | la cabecera dice cc-by-4.0, pero el texto de la tarjeta dice cc-by-nc-sa-4.0 «por herencia de los datos» | **false** | solo test (todas las filas) |
 | somosnlp/suicide-comments-es | `riesgo_suicida` | — | no está en `~/hf` | — | no disponible |
-| datos.gov.co gb9w-jt96 (Alcaldía de Flandes) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | true (SA: lo derivado debe compartirse igual; ver el informe) | 80/10/10, test estratificado por tipo |
-| datos.gov.co e86p-frfd (ISVIMED) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | true (SA) | idem |
-| datos.gov.co xtj2-ipwy (Concejo de Pereira) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | true (SA) | idem |
-| datos.gov.co m3mt-c275 (Sanidad Militar) | `pqrs_enrutamiento` | cc-by-4.0 | `meta.json`: `CC_40_BY` | true | idem, estratificado por dependencia |
+| datos.gov.co gb9w-jt96 (Alcaldía de Flandes) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | **false: solo test por decisión de Juan** (SA: ver el informe) | solo test (todas las filas) |
+| datos.gov.co e86p-frfd (ISVIMED) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | **false: solo test por decisión de Juan** (SA) | solo test (todas las filas) |
+| datos.gov.co xtj2-ipwy (Concejo de Pereira) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | **false: solo test por decisión de Juan** (SA) | solo test (todas las filas) |
+| datos.gov.co m3mt-c275 (Sanidad Militar) | `pqrs_enrutamiento` | cc-by-4.0 | `meta.json`: `CC_40_BY` | **false: solo test por decisión de Juan** | solo test (todas las filas) |
 
 ### Notas por fuente
 - **Toxicidad (bgonzalezbustamante):** la columna `consensus` NO es la etiqueta, es una marca de acuerdo entre `coder_1` y
@@ -61,6 +61,8 @@ Opciones comunes: `peticion, queja, reclamo, sugerencia, denuncia, felicitacion`
 - Los textos idénticos comparten `plantilla` y split. Las PQRS se anonimizan (`anonimizar.py`) antes de construir la fila.
 
 ### PQRS de datos.gov.co: atribución y SA (pregunta abierta para Juan)
+- **Decisión de Juan: todas las PQRS de datos.gov.co (gb9w, e86p, xtj2, m3mt / `pqrs_enrutamiento`) llevan `uso_comercial: false` y
+  van solo a `test`, igual que ALIA.** Solo test por decisión de Juan; conservan ~1 nombre visible por cada 300 filas; nunca salen de kindling ni del bucket.
 - CC BY-SA 4.0 (gb9w, e86p, xtj2) **obliga a atribuir**: cada entidad (Alcaldía de Flandes, ISVIMED, Concejo de Pereira), la
   licencia con su enlace y la indicación de que los datos se transformaron (anonimizados, reetiquetados). m3mt es CC BY 4.0: solo atribución.
 - Si los datos convertidos se redistribuyen, van con la **misma licencia** (CC BY-SA 4.0), tarjeta con la atribución incluida.
