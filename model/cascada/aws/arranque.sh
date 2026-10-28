@@ -67,7 +67,7 @@ if [ "${CHISPA_LOCAL:-}" = 1 ]; then
   PY=$HOME/venv/bin/python
   export HF_HOME="$HOME/hf"
 else
-  export HF_HOME="$BASE/hf"
+  export HF_HOME="$HOME/hf"   # model/datos lee de ~/hf/hub (ruta fija en comun.py)
   dnf install -y -q python3.11 python3.11-pip || { fallo "dnf install python3.11"; cierre; }
   python3.11 -m venv "$BASE/venv" || { fallo "venv"; cierre; }
   PY=$BASE/venv/bin/python
