@@ -112,7 +112,7 @@ class TestPQRS(Base):
         self.assertEqual(info["sin_mapeo_descartadas"], {"agenda tu cita": 1})
         self.assertEqual(collections.Counter(f["etiqueta"] for f in filas)["peticion"], 8)  # «Solicitud de información» → petición
         self.assertEqual(filas[0]["licencia"], "cc-by-sa-4.0")
-        self.assertTrue(all(f["uso_comercial"] and f["tarea"] == "pqrs" and f["idioma"] == "es-CO" for f in filas))
+        self.assertTrue(all(not f["uso_comercial"] and f["tarea"] == "pqrs" and f["idioma"] == "es-CO" for f in filas))
         self.assertEqual(filas[0]["opciones"], ["peticion", "queja", "reclamo", "sugerencia", "denuncia", "felicitacion"])
 
     def test_e86p_descarta_ambiguos(self):
@@ -146,11 +146,11 @@ class TestPQRS(Base):
             if mod is not pqrs_xtj2:  # el texto de xtj2 solo trae nombres
                 self.assertTrue({"DOC", "TEL", "CORREO", "DIR"} <= set(info["reemplazos"]), info["reemplazos"])
 
-    def test_test_estratificado_por_tipo(self):
-        for mod in (pqrs_gb9w, pqrs_e86p, pqrs_xtj2):
+    def test_pqrs_solo_test_y_no_comercial(self):
+        for mod in (pqrs_gb9w, pqrs_e86p, pqrs_xtj2, pqrs_enrutamiento):
             filas, _ = self.convertir(mod)
-            tipos = {f["etiqueta"] for f in filas}
-            self.assertEqual({f["etiqueta"] for f in filas if f["split"] == "test"}, tipos, mod.__name__)
+            self.assertEqual(por_split(filas), {"test": len(filas)}, mod.__name__)
+            self.assertFalse(any(f["uso_comercial"] for f in filas), mod.__name__)
 
     def test_reparto_estratificado_es_estable_y_sin_partir_grupos(self):
         grupos = [("g%d" % i, "a" if i < 30 else "b", 1 + i % 3) for i in range(60)]
