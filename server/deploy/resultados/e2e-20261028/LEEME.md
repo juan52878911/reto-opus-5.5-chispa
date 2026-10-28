@@ -39,3 +39,20 @@ Dos c6a en paralelo, ya con el int8 por canal del codificador y `--l0-max-mb 48`
 - **Latencia:** p99 de 9–12 ms por consulta en la c6a. L0 responde el 61–67 % en la cascada. En el informe de la cascada
   la capa L2c aparece como «L3»: es una etiqueta mal puesta.
 - **Coste:** dos c6a, unos 21 min cada una, ≈ 0,1 USD.
+
+## Intento 5, tras la ablación (T4.5b) y el L0 TF-IDF en el servidor (T4.5c): H2 se cumple
+`e2e-20261028-l0tf/`. El `.chispa` lleva `L0TF` (TF-IDF de caracteres con LR, paridad Go ↔ sklearn 4e-8), y
+`chispa train --conjunta` entrena la cabeza sobre sus probabilidades fuera de pliegue.
+
+| tarea | /v1/decide (forzado) | cascada | conjunta.py | Δ |
+|---|---|---|---|---|
+| massive | 0,814 | 0,814 | 0,817 | −0,2 |
+| clinc150 | 0,887 | 0,886 | 0,890 | −0,3 |
+
+- **H2 se cumple** (Δ ≥ −1 punto) en las dos tareas.
+- **Latencia en la c6a, cascada:**
+  - L0 tfidf responde el 54–57 % de las consultas, con p99 de 0,2 ms;
+  - L2c responde el resto, con p99 de 9,8–11 ms;
+  - el p99 total medido en el cliente es de 9,6 ms en massive y 11,3 ms en clinc150.
+- **Pendiente menor.** La capa L2c sale etiquetada como «L3» en el informe de la cascada.
+- **Coste:** una c6a de 22 min, ≈ 0,05 USD.
