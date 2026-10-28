@@ -20,7 +20,7 @@ from . import cascada as K
 RAIZ = C.RAIZ
 TAREAS = C.TAREAS
 # Latencia esperada por consulta en el i7 (ms) y de dónde sale cada cifra.
-COSTOS = {"L0": 0.006, "L1-zs": 0.166, "L1-proto": 0.166, "L2": 30.6}
+COSTOS = {"L0": 0.006, "L0c": 0.006, "conjunta": 30.7, "L1-zs": 0.166, "L1-proto": 0.166, "L2": 30.6}
 FUENTES = {
     "L0": "≈ 6 µs/op, `go test -bench L0` sin HTTP, 1 hilo (`server/README.md`)",
     "L1": "166 µs, p99 a 64 tokens (66 reales), potion en Go, 1 hilo (`model/bench/i7/resultados.md`); L1-proto cuesta lo mismo: "
@@ -29,11 +29,14 @@ FUENTES = {
 }
 FACTOR_LISTON = 0.95   # criterio de T2.2: ≥ 0,95 × la mejor referencia
 FORMAS_L2 = [["L0", "L2"], ["L0", "L1-zs", "L2"], ["L0", "L1-proto", "L2"], ["L1-proto", "L2"]]
+FORMAS_COMPLETO = [["L0c", "conjunta"], ["conjunta"]]   # con L0 completo; L0c → L2b-sop se añade según haya L2
 FORMAS_SECO = [["L0", "L1-zs"], ["L0", "L1-proto"]]
 MODOS = ("calidad", "rapida")
 
 
 def costo(nombre):
+    if nombre == "conjunta":
+        return COSTOS["conjunta"]   # L0 + L2 + la cabeza: la conjunta calcula las dos capas siempre
     return COSTOS["L2" if nombre.startswith("L2") else nombre]
 
 
@@ -59,10 +62,13 @@ def variantes_l2(l2dirs, tarea):
     return out
 
 
-def evaluar_tarea(tarea, datos, pred, l2dirs, maestro, resultados_base):
+def evaluar_tarea(tarea, datos, pred, l2dirs, maestro, resultados_base, completo=None):
     train, _, test = C.cargar_tarea(tarea, datos)
-    base = {n: C.leer_pred(Path(pred) / n / (tarea + ".jsonl")) for n in ("L0", "L1-zs", "L1-proto")}
+    base = {n: C.leer_pred(Path(pred) / n / (tarea + ".jsonl")) for n in ("L0", "L1-zs", "L1-proto")} if pred else {}
     base = {n: p for n, p in base.items() if p}
+    if completo:   # L0 con todo train (pred_l0/) y la conjunta (pred/) de `model.l2.conjunta`, mismo test
+        base.update({n: C.leer_pred(Path(completo) / d / (tarea + ".jsonl")) for n, d in (("L0c", "pred_l0"), ("conjunta", "pred"))})
+        base = {n: p for n, p in base.items() if p}
     l2 = variantes_l2(l2dirs, tarea)
     todas = {**base, **l2}
     clases = K.clases_de(test, todas.values())
@@ -81,8 +87,10 @@ def evaluar_tarea(tarea, datos, pred, l2dirs, maestro, resultados_base):
     if l2:
         for v in l2:
             formas += [[v if x == "L2" else x for x in forma] for forma in FORMAS_L2]
-    else:
+    elif not completo:
         formas = FORMAS_SECO
+    if completo:
+        formas += FORMAS_COMPLETO + [["L0c", v] for v in l2 if v.endswith("-sop")]
     for forma in formas:
         if any(n not in todas for n in forma):
             continue
@@ -124,6 +132,20 @@ def resumen(tareas):
     return out
 
 
+def h3(tareas):
+    """H3 (T2.2d): la cascada L0c → L2-sop (punto «calidad») queda por debajo de la conjunta sola en ≥ 3 tareas."""
+    out = {}
+    for n in {n for t in tareas.values() for n in t["cascadas"] if n.startswith("L0c → L2")}:
+        filas = {}
+        for tn, t in tareas.items():
+            if n in t["cascadas"] and "conjunta" in t["cascadas"]:
+                c, j = t["cascadas"][n]["calidad"]["macro_f1"], t["cascadas"]["conjunta"]["mejor_sola"]
+                filas[tn] = {"cascada": c, "conjunta": j, "por_debajo": bool(c < j)}
+        k = sum(f["por_debajo"] for f in filas.values())
+        out[n] = {"tareas": filas, "por_debajo": k, "n": len(filas), "cumple": k >= 3}
+    return out
+
+
 def f3(x):
     return "n/d" if x is None else ("%.3f" % x).replace(".", ",")
 
@@ -154,6 +176,10 @@ def escribir_md(res, ruta, cabecera):
     for k, v in res["resumen"].items():
         L.append("| %s | %d/%d | %d/%d | %d/%d | %s |" % (k, v["pasan"], v["tareas"], v["superan_mejor_capa"], v["tareas"],
                                                         v["pierden_mas_de_1_punto"], v["tareas"], v["hipotesis"]))
+    for n, h in res.get("h3", {}).items():
+        L += ["", "H3 (%s por debajo de la conjunta en ≥ 3 tareas, punto calidad): %d/%d → %s. %s" % (
+            n, h["por_debajo"], h["n"], "NO EVALUABLE (menos de 5 tareas)" if h["n"] < 5 else ("CUMPLE" if h["cumple"] else "REFUTADA"),
+            "; ".join("%s %s vs %s" % (t, f3(f["cascada"]), f3(f["conjunta"])) for t, f in h["tareas"].items()))]
     Path(ruta).write_text("\n".join(L) + "\n", encoding="utf-8")
 
 
@@ -163,6 +189,10 @@ def cabecera(a, seco):
     if seco:
         L += ["**Prueba en seco, sin L2**: no hay predicciones de L2 en esta máquina (están en S3). Solo L0 → L1-zs y L0 → L1-proto, "
               "con L1 como última capa (responde siempre). Las cifras de las cascadas con L2 se miden en la instancia de AWS.", ""]
+    if a.completo:
+        L += ["**L0c = L0 con todo train** (`pred_l0/` de `model.l2.conjunta`), no la línea base de 32 por clase; «conjunta» = `pred/` de la "
+              "misma ejecución. Las cascadas L0c → L2-sop, L0c → conjunta y la conjunta sola se comparan con el mismo L0. La conjunta "
+              "cuesta L0 + L2 (%s ms: calcula las dos siempre)." % COSTOS["conjunta"], ""]
     L += ["## Cómo se midió",
           "- Test de `model.datos.convertir` (MASSIVE es, CLINC150 con `oos`→`escalate`, HateCheck-ES, deepset) y `model/herramientas/test.jsonl`. "
           "Los conjuntos del listón humano (ALIA, GoEmotions, MultiPICo, toxicidad Constitución/protestas) **quedan fuera**: no tienen train para L0.",
@@ -189,7 +219,8 @@ def cabecera(a, seco):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--datos", required=True)
-    ap.add_argument("--pred", required=True, help="salida de model.cascada.capas")
+    ap.add_argument("--pred", help="salida de model.cascada.capas (sin ella, solo las capas de --completo y las de L2)")
+    ap.add_argument("--completo", help="salida de model.l2.conjunta (pred_l0/ = L0 con todo train, pred/ = conjunta): añade L0c → L2-sop, L0c → conjunta y conjunta sola")
     ap.add_argument("--l2b", help="carpeta con pred/ y pred_soporte/ de T2.1b (l2-20261028b)")
     ap.add_argument("--l2c", help="ídem de T2.2 (l2-20261028c)")
     ap.add_argument("--tareas", default=",".join(TAREAS))
@@ -202,13 +233,14 @@ def main(argv=None):
     maestro = json.load(open(a.maestro)) if a.maestro else None
     res = {"fecha": a.fecha, "costos_ms": COSTOS, "fuentes": FUENTES, "semilla": K.SEMILLA, "tareas": {}}
     for tarea in a.tareas.split(","):
-        res["tareas"][tarea] = evaluar_tarea(tarea, a.datos, a.pred, l2dirs, maestro, a.base)
+        res["tareas"][tarea] = evaluar_tarea(tarea, a.datos, a.pred, l2dirs, maestro, a.base, a.completo)
     res["resumen"] = resumen(res["tareas"])
+    res["h3"] = h3(res["tareas"])
     out = Path(a.salida) / a.fecha
     out.mkdir(parents=True, exist_ok=True)
     with open(out / "resultados.json", "w", encoding="utf-8") as f:
         json.dump(res, f, indent=1, ensure_ascii=False)
-    escribir_md(res, out / "informe.md", cabecera(a, not l2dirs))
+    escribir_md(res, out / "informe.md", cabecera(a, not l2dirs and not a.completo))
     print("escrito", out)
 
 
