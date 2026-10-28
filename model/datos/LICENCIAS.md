@@ -25,7 +25,7 @@ Para datos.gov.co la licencia sale de `licenseId` del `*.meta.json`, confirmada 
 
 | Fuente | Tarea | Licencia | De dónde sale | uso_comercial | Splits |
 |---|---|---|---|---|---|
-| SINAI/ALIA-es-discriminative-hate-speech | `odio` | cc-by-4.0 | tarjeta | true. **Ojo:** la etiqueta `foe_class` es una fusión de tres LLM (Apertus, Gemma, MiniMax); los términos de esos modelos pueden restringir entrenar con sus salidas. Decisión de Juan. La muestra humana (3000, 3 anotadores) va a test | train/dev/test (80/10/10 por hash del id) |
+| SINAI/ALIA-es-discriminative-hate-speech | `odio` | cc-by-4.0 | tarjeta | **false: pendiente de decisión de Juan.** La etiqueta `foe_class` es una fusión de tres LLM (Apertus, Gemma, MiniMax); los términos de esos modelos pueden restringir entrenar con sus salidas | solo test (todas las filas; la muestra humana de 3000 con 3 anotadores también) |
 | bgonzalezbustamante/toxicity-protests-ES | `toxicidad` | cc-by-4.0 | tarjeta | true | train/dev/test por hash del `id_obs` |
 | bgonzalezbustamante/toxicity-Constitution-ES | `toxicidad` | cc-by-4.0 | tarjeta | true | idem |
 | mrm8488/go_emotions-es-mt | `emocion` | apache-2.0 | tarjeta (GoEmotions original: Apache-2.0). Traducción automática (EasyNMT) | true | los de origen (ya 80/10/10) |
@@ -43,7 +43,7 @@ Para datos.gov.co la licencia sale de `licenseId` del `*.meta.json`, confirmada 
 - **Toxicidad (bgonzalezbustamante):** la columna `consensus` NO es la etiqueta, es una marca de acuerdo entre `coder_1` y
   `coder_2` (ambos 0 → `consensus=1`; en desacuerdo → 0; ambos 1 puede venir `NA`). Etiqueta = la de los codificadores cuando
   coinciden; los desacuerdos se descartan y se cuentan. `anotadores=2`, `blanda` = proporción de votos, `variedad` ar/cl.
-- **ALIA:** texto repetido se descarta (gana la fila de la muestra humana). Etiqueta humana (mayoría de 3) en la muestra.
+- **ALIA (pendiente de decisión):** mientras Juan no decida, sirve solo para evaluar. Texto repetido se descarta (gana la fila de la muestra humana). Etiqueta humana (mayoría de 3) en la muestra.
 - **GoEmotions-es:** multietiqueta; se usa la **primera** etiqueta de la lista (no «neutral»). 36 308 de 43 410 filas de train
   tienen una sola.
 - **Tickets de TI:** el texto va en inglés, alemán, portugués o español; `idioma` se estima con palabras vacías.
@@ -59,3 +59,10 @@ Opciones comunes: `peticion, queja, reclamo, sugerencia, denuncia, felicitacion`
   Texto = «RESUMEN INFORMACIÓN SOLICITADA»; el nombre del peticionario sirve solo para enmascarar y no se guarda.
 - **m3mt «Dependencia» (enrutamiento):** las 30 dependencias más frecuentes (agrupadas ignorando mayúsculas y acentos) y `otra`.
 - Los textos idénticos comparten `plantilla` y split. Las PQRS se anonimizan (`anonimizar.py`) antes de construir la fila.
+
+### PQRS de datos.gov.co: atribución y SA (pregunta abierta para Juan)
+- CC BY-SA 4.0 (gb9w, e86p, xtj2) **obliga a atribuir**: cada entidad (Alcaldía de Flandes, ISVIMED, Concejo de Pereira), la
+  licencia con su enlace y la indicación de que los datos se transformaron (anonimizados, reetiquetados). m3mt es CC BY 4.0: solo atribución.
+- Si los datos convertidos se redistribuyen, van con la **misma licencia** (CC BY-SA 4.0), tarjeta con la atribución incluida.
+- **Pregunta abierta:** qué implica SA para el modelo entrenado con ellos (¿obra derivada que debe compartirse igual, o uso
+  de datos sin adaptación del modelo?). No se ha decidido; hasta entonces no se publican datos ni pesos derivados de esas tres fuentes.

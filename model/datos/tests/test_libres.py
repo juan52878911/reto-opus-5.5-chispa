@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from model.datos import (anonimizar, ciberacoso, clima, goemociones, libres, odio_alia, pqrs_e86p, pqrs_enrutamiento,
+from model.datos import (informe_pqrs, anonimizar, ciberacoso, clima, goemociones, libres, odio_alia, pqrs_e86p, pqrs_enrutamiento,
                          pqrs_gb9w, pqrs_xtj2, riesgo_suicida, soporte_ti, spam_tanaos, toxicidad_constitucion,
                          toxicidad_protestas, validar)
 from model.datos.comun import FuenteAusente
@@ -36,7 +36,10 @@ class TestFuentesHF(Base):
         r4 = next(f for f in humanas if f["texto"].endswith("esos 4, no valen nada."))
         self.assertEqual((r4["etiqueta"], r4["anotadores"]), ("false", 3))
         self.assertAlmostEqual(r4["blanda"]["true"], 1 / 3.0)
-        self.assertTrue(all(f["tipo"] == "noul" and f["uso_comercial"] and f["licencia"] == "cc-by-4.0" for f in filas))
+        self.assertTrue(all(f["tipo"] == "noul" and f["licencia"] == "cc-by-4.0" for f in filas))
+        # etiquetas de LLM con términos propios: pendiente de decisión de Juan → nada comercial, todo a test
+        self.assertFalse(any(f["uso_comercial"] for f in filas))
+        self.assertEqual({f["split"] for f in filas}, {"test"})
 
     def test_toxicidad_usa_acuerdo_de_codificadores_y_no_la_columna_consensus(self):
         for mod, n_tot in ((toxicidad_protestas, 30), (toxicidad_constitucion, 30)):
@@ -227,10 +230,147 @@ class TestAnonimizar(unittest.TestCase):
         self.assertEqual(c["NOMBRE"], t.count("[NOMBRE]"))
         self.assertNotIn("Torres", t)
 
+    VOC = anonimizar.vocabulario_de([
+        "la alcaldía responde a la solicitud del ciudadano que pide la copia del contrato y el certificado",
+        "solicito información sobre el trámite y envío cordialmente la firma de la salud del municipio"])
+
+    def test_mayusculas_con_nombre_de_la_lista(self):
+        t, _ = self.a("SOLICITO COPIA. ATENTAMENTE: HECTOR FABIO ZULUAGA BEDOYA", vocabulario=self.VOC)
+        for malo in ("HECTOR", "ZULUAGA", "BEDOYA"):
+            self.assertNotIn(malo, t)
+        self.assertIn("SOLICITO COPIA", t)
+        t, _ = self.a("PETICION DE LA SEÑORA ROSALBA QUIÑONEZ RAMIREZ SOBRE EL CONTRATO", vocabulario=self.VOC)
+        self.assertNotRegex(t, "ROSALBA|QUIÑONEZ|RAMIREZ")
+        self.assertIn("SOBRE EL CONTRATO", t)
+
+    def test_tildes_y_minusculas(self):
+        t, _ = self.a("habla jerónimo pérez sobre la salud del barrio")
+        self.assertNotRegex(t, "(?i)jer[óo]nimo|p[ée]rez")
+        t, _ = self.a("ÁNGELA MARÍA NIÑO MUÑOZ pide copia", vocabulario=self.VOC)
+        self.assertNotRegex(t, "ÁNGELA|MUÑOZ|NIÑO")
+        t, _ = self.a("la mora del pago y la rosa del jardín")  # palabras corrientes sueltas
+        self.assertNotIn("[NOMBRE]", t)
+
+    def test_nombres_compuestos(self):
+        t, _ = self.a("JUAN CARLOS DE LA TORRES Y MARIA DEL PILAR GARCIA RESTREPO escribieron", vocabulario=self.VOC)
+        self.assertNotRegex(t, "JUAN|TORRES|PILAR|GARCIA|RESTREPO")
+        self.assertIn("escribieron", t)
+        t, _ = self.a("Habla Ana María de Jesús Pardo López", vocabulario=self.VOC)
+        self.assertNotRegex(t, "Ana|Jesús|Pardo|López")
+
+    def test_contextos_documento_y_ciudadano(self):
+        t, _ = self.a("Yo, Yesenia Cuesta Mena, identificada con C.C. 52.123.456 solicito copia.", vocabulario=self.VOC)
+        self.assertNotRegex(t, "Yesenia|Cuesta|Mena|52")
+        self.assertIn("solicito copia", t)
+        t, _ = self.a("OSCAR LIBREROS PINZON C.C. 79.123.456 SOLICITA CERTIFICADO", vocabulario=self.VOC)
+        self.assertNotRegex(t, "OSCAR|LIBREROS|PINZON|79")
+        self.assertIn("SOLICITA CERTIFICADO", t)
+        t, _ = self.a("El ciudadano WILMER ORTIZ pide ayuda; la ciudadana Zoila Vera también.", vocabulario=self.VOC)
+        self.assertNotRegex(t, "WILMER|ORTIZ|Zoila|Vera")
+        t, _ = self.a("CORDIALMENTE, MARTHA LUCIA ECHAVARRIA", vocabulario=self.VOC)
+        self.assertNotRegex(t, "MARTHA|LUCIA|ECHAVARRIA")
+
+    def test_no_rompe_nombres_de_entidades(self):
+        for ent in ("ALCALDÍA DE FLANDES", "SECRETARÍA DE SALUD", "ALCALDÍA MUNICIPAL DE FLANDES",
+                    "Hospital San José", "CONCEJO DE PEREIRA", "SANIDAD MILITAR"):
+            t, _ = self.a("SOLICITO A LA %s COPIA DEL CONTRATO" % ent, vocabulario=self.VOC)
+            self.assertIn(ent, t)
+        t, _ = self.a("ENVIADO A SECRETARÍA DE SALUD POR JULIAN ANDRES CASTRO", vocabulario=self.VOC)
+        self.assertIn("SECRETARÍA DE SALUD", t)
+        self.assertNotRegex(t, "JULIAN|CASTRO")
+        t, _ = self.a("ALCALDÍA DE FLANDES JUAN PEREZ", vocabulario=self.VOC)
+        self.assertIn("ALCALDÍA DE FLANDES", t)
+        self.assertNotRegex(t, "JUAN|PEREZ")
+
+    def test_nombres_pegados_a_una_etiqueta_y_ambiguos(self):
+        v = anonimizar.vocabulario_de(["el señor franco habla con la alcaldía", "la luz del barrio y el socorro tardío, gracias"])
+        t, _ = self.a("Radicada por la SRA LUZ MARINA DEL SOCORRO ARBOLEDA, solicitud", vocabulario=v)
+        self.assertNotRegex(t, "LUZ|MARINA|SOCORRO|ARBOLEDA")
+        t, _ = self.a("Sucesión del Sr. Mario NOSSA TELLO Ricaurte, por ello solicito", vocabulario=v)
+        self.assertNotRegex(t, "Mario|NOSSA|TELLO|Ricaurte")
+        t, _ = self.a("las personas Gloria Pinzón y Mario Franco con CC 12.345.678 que me vendieron", vocabulario=v)
+        self.assertNotIn("Franco", t)
+        t, _ = self.a("paz y salvo a nombre de osvaldo pinzon zuluaga gracias", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "osvaldo|pinzon|zuluaga")
+        self.assertIn("gracias", t)
+        t, _ = self.a("la luz del barrio y el socorro tardío", vocabulario=v)
+        self.assertNotIn("[NOMBRE]", t)
+
+    def test_firmas_y_apellidos_sueltos_tras_la_etiqueta(self):
+        v = anonimizar.vocabulario_de(["solicito copia del recibo", "gracias por la colaboración, quedo atenta", "el predial"])
+        t, _ = self.a("Cordial saludo, [NOMBRE] Quintanilla celular 3001234567", vocabulario=v, estricto=v)
+        self.assertNotIn("Quintanilla", t)
+        t, _ = self.a("renuncia de la señora Elvia [NOMBRE] zapateiro c.c 52123456", vocabulario=v, estricto=v)
+        self.assertNotIn("zapateiro", t)
+        t, _ = self.a("recibo a nombre de gilma yaneth cc 52123456", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "gilma|yaneth")
+        t, _ = self.a("Solicito copia del recibo, gracias por la colaboración QUINTILIANO", vocabulario=v, estricto=v)
+        self.assertNotIn("QUINTILIANO", t)
+        t, _ = self.a("SOLICITO COPIA DEL RECIBO", vocabulario=v, estricto=v)  # todo en mayúsculas: no es una firma
+        self.assertEqual(t, "SOLICITO COPIA DEL RECIBO")
+
+    def test_firmas_sin_mayusculas_y_nombres_pegados(self):
+        v = anonimizar.vocabulario_de(["la niña pide el recibo", "por favor gracias", "descuento del impuesto", "la norma general de usos del suelo", "nueva propietaria del predio"])
+        t, _ = self.a("pagar con descuento ana elvia chauta martinez nueva propietaria, cc 52123456", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "ana|elvia|chauta|martinez")
+        self.assertIn("nueva propietaria", t)
+        t, _ = self.a("pagar con descuento ana elvia chaparro", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "ana|elvia|chaparro")
+        t, _ = self.a("certificado de la niña danna [NOMBRE] delega", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "danna|delega")
+        t, _ = self.a("agradezco su colaboración Eufemia [NOMBRE]", vocabulario=v, estricto=v)
+        self.assertNotIn("Eufemia", t)
+        t, _ = self.a("conocer la Norma General de Usos del Suelo", vocabulario=v, estricto=v)
+        self.assertNotIn("[NOMBRE]", t)
+
+    def test_portadora_dentro_de_una_palabra_no_es_un_rotulo(self):
+        v = anonimizar.vocabulario_de(["una transportadora", "el traslado"])
+        t, _ = self.a("con una transportadora especialista en trasteos", estricto=v)
+        self.assertEqual(t, "con una transportadora especialista en trasteos")
+
+    def test_saludo_con_nombre_propio(self):
+        v = anonimizar.vocabulario_de(["buenas tardes, señores de la alcaldía, le envío el recibo"])
+        t, _ = self.a("BUENAS TARDES, JANNETH, LE ENVÍO ESTE CORREO", vocabulario=v)
+        self.assertNotIn("JANNETH", t)
+        t, _ = self.a("Buenas tardes, Alcaldía, le envío el recibo", vocabulario=v)
+        self.assertIn("Alcaldía", t)
+
+    def test_vocabulario_con_min_df_ignora_palabras_de_una_sola_fila(self):
+        v = anonimizar.vocabulario_de(["pidió osvaldo copia", "pidió copia"], min_df=2)
+        self.assertEqual(v, {"pidio", "copia"})
+
     def test_sospechosas_cuenta_nombres_aparentes_sin_etiquetas(self):
         voc = anonimizar.vocabulario_de(["hola solicito copia"])
         self.assertEqual(anonimizar.sospechosas("Hola, [NOMBRE] pidió copia. Habló Zenobio Querubín.", voc), ["Zenobio", "Querubín"])
         self.assertEqual(anonimizar.sospechosas("Solicito copia del contrato", voc), [])
+
+
+class TestInformePqrs(unittest.TestCase):
+    def test_patrones_de_nombre_visible(self):
+        voc = anonimizar.vocabulario_de(["solicito copia del recibo", "gracias por su colaboración"])
+        self.assertEqual(informe_pqrs.patrones("Solicito copia del recibo, gracias", voc), set())
+        self.assertIn("lista", informe_pqrs.patrones("Habla Pedro con la oficina", voc))
+        self.assertIn("contexto", informe_pqrs.patrones("Atentamente Zenobio Querubín", voc))
+        self.assertIn("racha", informe_pqrs.patrones("Dice que Zenobio Querubín llamó", voc))
+        self.assertEqual(informe_pqrs.patrones("Pidió ALCALDÍA DE FLANDES copia del recibo", voc), set())
+
+    def test_el_informe_solo_lleva_recuentos(self):
+        import io, json, tempfile, contextlib
+        from unittest import mock
+        fila = lambda i, t: {"id": "pqrs-gb9w:train:%d" % i, "texto": t}
+        filas = [fila(i, "Solicito copia del recibo, atentamente Zenobio Querubín %d" % i) for i in range(5)]
+        falso = mock.Mock(CORTO="pqrs-gb9w", convertir=lambda: (filas, {"reemplazos": {}}))
+        d = tempfile.mkdtemp()
+        with mock.patch.object(informe_pqrs, "FUENTES", (falso,)), mock.patch.object(informe_pqrs, "vocabulario",
+                                                                                    lambda f: {"solicito", "copia", "del", "recibo"}):
+            with contextlib.redirect_stdout(io.StringIO()):
+                informe_pqrs.main(["--salida", d, "--muestra", "3"])
+        with open(d + "/informe.json", encoding="utf-8") as fh:
+            texto = fh.read()
+        self.assertNotIn("Zenobio", texto)
+        info = json.loads(texto)
+        self.assertEqual(info["muestra"], 3)
+        self.assertEqual(info["heuristica_filas_con_nombre_por_fuente"], {"pqrs-gb9w": 3})
 
 
 if __name__ == "__main__":
