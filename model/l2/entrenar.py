@@ -1,0 +1,226 @@
+"""Entrenamiento de L2 (ranuras + torre + cabezas sobre e5 congelado).
+
+    python -m model.l2.entrenar --salida DIR --datos DIR_CONVERTIDOS [--herramientas] [--meta DIR] [--blandas DIR ...]
+        [--max-filas 600000] [--epocas 1] [--minutos M] [--s3 s3://bucket/prefijo] [--dev-max 4000]
+
+AdamW (3e-4 ranuras y cabezas, 1e-4 torre), warmup 5 % y coseno, lotes de 64 mensajes con muestreo por tarea (n^0,5).
+Checkpoint cada 10 min en `DIR/ultimo.pt` (atómico) y, con `--s3`, subido; `mejor.pt` por macro-F1 medio en dev.
+Reanuda solo: si `DIR/ultimo.pt` existe (o está en `--s3`), sigue desde su paso. `--minutos` acota el tiempo de
+entrenamiento: tras 30 pasos recalcula el total de pasos con la velocidad medida (una vez, queda en el checkpoint).
+"""
+import argparse
+import json
+import math
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import torch
+
+from . import datos as D
+from .evaluar import macro_f1_medio, predecir
+from .modelo import Codificador, ModeloL2
+
+CKPT_CADA_S = 600
+
+
+def copiar(origen, destino):
+    """cp local o `aws s3 cp` si alguno es s3://. Con CHISPA_LOCAL=1 el «s3» es /tmp/chispa/s3/<prefijo> (como en arranque.sh).
+    Devuelve True si salió bien (un origen ausente en S3 no es un error)."""
+    origen, destino = str(origen), str(destino)
+    if os.environ.get("CHISPA_LOCAL") == "1":
+        origen, destino = [("/tmp/chispa/s3/" + x[5:]) if x.startswith("s3://") else x for x in (origen, destino)]
+    elif origen.startswith("s3://") or destino.startswith("s3://"):
+        try:
+            return subprocess.run(["aws", "s3", "cp", "--only-show-errors", origen, destino]).returncode == 0
+        except OSError as e:
+            print("aviso: no se pudo ejecutar aws:", e, flush=True)
+            return False
+    try:
+        Path(destino).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(origen, destino)
+        return True
+    except OSError:
+        return False
+
+
+def guardar(ruta, estado):
+    tmp = str(ruta) + ".tmp"
+    torch.save(estado, tmp)
+    os.replace(tmp, ruta)
+
+
+def lr_en(paso, total, base, warm=0.05):
+    w = max(int(total * warm), 1)
+    if paso < w:
+        return base * (paso + 1) / w
+    return base * 0.5 * (1 + math.cos(math.pi * (paso - w) / max(total - w, 1)))
+
+
+def preparar_filas(a):
+    filas = []
+    for d in a.datos:
+        filas += D.leer(d, split="train", solo_comercial=True)
+    if a.herramientas:
+        h = Path(__file__).resolve().parents[1] / "herramientas" / "train.jsonl"
+        filas += D.leer(str(h), split="train", solo_comercial=True)
+    info = {"locales": len(filas)}
+    if a.meta:
+        tope = max(a.max_filas - len(filas), 0)
+        meta, cuentas, cupo = D.submuestrear_meta(a.meta, tope, semilla=a.semilla)
+        info["meta"] = {"cuentas": cuentas, "cupo": cupo, "elegidas": len(meta)}
+        filas += meta
+    if a.blandas:
+        bl = D.cargar_blandas(a.blandas)
+        info["blandas"] = D.aplicar_blandas(filas, bl)
+        del bl
+    if len(filas) > a.max_filas:  # los datos locales no se recortan a ciegas: submuestreo estable por id
+        filas = [r for r in filas if D._u(r["id"], a.semilla) < a.max_filas / len(filas)]
+    info["filas"] = len(filas)
+    return filas, info
+
+
+def preparar_dev(a):
+    dev = []
+    for d in a.datos + ([a.meta] if a.meta else []):
+        dev += D.leer(d, split="dev", solo_comercial=True)
+    if len(dev) > a.dev_max:
+        dev = [r for r in dev if D._u(r["id"], 1) < a.dev_max / len(dev)]
+    return dev
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--salida", required=True)
+    ap.add_argument("--datos", nargs="*", default=[], help="directorios/ficheros convertidos (model.datos.convertir)")
+    ap.add_argument("--herramientas", action="store_true", help="añade model/herramientas/train.jsonl (T1.4)")
+    ap.add_argument("--meta", help="directorio de metaentrenamiento (model.meta.convertir)")
+    ap.add_argument("--blandas", nargs="*", default=[], help="directorios/ficheros con `blanda` (maestro)")
+    ap.add_argument("--max-filas", type=int, default=600_000)
+    ap.add_argument("--epocas", type=float, default=1.0)
+    ap.add_argument("--pasos", type=int, default=0, help="fija el total de pasos (pruebas)")
+    ap.add_argument("--lote", type=int, default=64)
+    ap.add_argument("--minutos", type=float, default=0, help="tope de reloj de entrenamiento (0 = sin tope)")
+    ap.add_argument("--eval-cada", type=int, default=0, help="pasos entre evaluaciones en dev (0 = cada ~1/4 del total)")
+    ap.add_argument("--dev-max", type=int, default=4000)
+    ap.add_argument("--s3", help="prefijo s3:// (o directorio local) donde subir/bajar los checkpoints")
+    ap.add_argument("--ckpt-cada", type=int, default=CKPT_CADA_S, help="segundos entre checkpoints")
+    ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--lr-torre", type=float, default=1e-4)
+    ap.add_argument("--cache-mensajes", action="store_true", help="guarda los estados e5 de cada mensaje (pruebas en seco)")
+    ap.add_argument("--semilla", type=int, default=0)
+    ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    a = ap.parse_args(argv)
+    sal = Path(a.salida)
+    sal.mkdir(parents=True, exist_ok=True)
+    torch.manual_seed(a.semilla)
+    t_ini = time.time()
+
+    filas, info = preparar_filas(a)
+    dev = preparar_dev(a)
+    print("datos:", json.dumps(info, ensure_ascii=False)[:1500], "dev:", len(dev), flush=True)
+    if not filas:
+        print("error: sin filas de train", file=sys.stderr)
+        return 2
+    mues = D.Muestreador(filas, a.lote, semilla=a.semilla)
+    total = a.pasos or int(mues.pasos_por_epoca() * a.epocas)
+    claves = sorted({"score%d" % len(r["opciones"]) for r in filas if r["tipo"] == "score"})
+
+    enc = Codificador(device=a.device, cache_mensajes=a.cache_mensajes)
+    modelo = ModeloL2().to(a.device)
+    for k in claves:
+        modelo.asegurar_cabeza(k, a.device)
+    opt = torch.optim.AdamW(modelo.grupos_optimizador(a.lr, a.lr_torre))
+    bases = [g["lr"] for g in opt.param_groups]
+    paso, mejor, calibrado = 0, {"f1": -1, "paso": -1}, bool(a.pasos or not a.minutos)
+
+    ultimo = sal / "ultimo.pt"
+    if not ultimo.exists() and a.s3:
+        copiar(a.s3.rstrip("/") + "/ultimo.pt", ultimo)
+    if ultimo.exists():
+        ck = torch.load(ultimo, map_location=a.device, weights_only=False)
+        for k in ck.get("cabezas", []):
+            modelo.asegurar_cabeza(k, a.device)
+        opt = torch.optim.AdamW(modelo.grupos_optimizador(a.lr, a.lr_torre))
+        modelo.load_state_dict(ck["modelo"])
+        opt.load_state_dict(ck["opt"])
+        paso, total, mejor, calibrado = ck["paso"], ck["total"], ck["mejor"], ck["calibrado"]
+        print("reanudado en el paso %d de %d" % (paso, total), flush=True)
+
+    def estado():
+        return {"modelo": modelo.state_dict(), "opt": opt.state_dict(), "paso": paso, "total": total, "mejor": mejor,
+                "calibrado": calibrado, "cabezas": sorted(modelo.coral.keys()), "args": vars(a)}
+
+    def checkpoint(sube=True):
+        guardar(ultimo, estado())
+        if sube and a.s3:
+            copiar(ultimo, a.s3.rstrip("/") + "/ultimo.pt")
+            if (sal / "mejor.pt").exists():
+                copiar(sal / "mejor.pt", a.s3.rstrip("/") + "/mejor.pt")
+
+    parar = []
+    for s in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(s, lambda *_: parar.append(1))
+
+    def evaluar_dev():
+        if not dev:
+            return
+        f1, _ = macro_f1_medio(dev, predecir(modelo, enc, dev))
+        print("dev paso %d: macro-F1 medio %.4f (mejor %.4f)" % (paso, f1, mejor["f1"]), flush=True)
+        if f1 > mejor["f1"]:
+            mejor.update(f1=f1, paso=paso)
+            guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": f1})
+        modelo.train()
+
+    eval_cada = a.eval_cada or max(total // 4, 1)
+    modelo.train()
+    t_ent, t_ck, p0, acc = time.time(), time.time(), paso, {}
+    print("entrenando: %d filas, %d pasos (%.2f épocas), dispositivo %s" % (mues.n, total, total / mues.pasos_por_epoca(), a.device), flush=True)
+    while paso < total and not parar:
+        for g, b in zip(opt.param_groups, bases):
+            g["lr"] = lr_en(paso, total, b)
+        _, ps = modelo(mues.lote_paso(paso), enc)
+        opt.zero_grad(set_to_none=True)
+        ps["total"].backward()
+        torch.nn.utils.clip_grad_norm_(modelo.parameters(), 1.0)
+        opt.step()
+        paso += 1
+        for k, v in ps.items():
+            acc[k] = acc.get(k, 0.0) + float(v.detach())
+        if paso % 10 == 0 or paso == 1:
+            n = 1 if paso == 1 else 10
+            print("paso %d/%d " % (paso, total) + " ".join("%s=%.4f" % (k, v / n) for k, v in acc.items())
+                  + " lr=%.2e %.2f s/paso cache=%d/%d" % (opt.param_groups[0]["lr"], (time.time() - t_ent) / (paso - p0),
+                                                          enc.aciertos, enc.aciertos + enc.fallos), flush=True)
+            acc = {}
+        if not calibrado and paso - p0 == 30:
+            por_paso = (time.time() - t_ent) / 30
+            nuevo = paso + int(max(a.minutos * 60 - (time.time() - t_ini), 0) / por_paso * 0.95)
+            if nuevo < total:
+                print("calibrado: %.2f s/paso, el total pasa de %d a %d pasos" % (por_paso, total, nuevo), flush=True)
+                total = nuevo
+                eval_cada = a.eval_cada or max(total // 4, 1)
+            calibrado = True
+        if paso % eval_cada == 0 and paso < total:
+            evaluar_dev()
+        if time.time() - t_ck >= a.ckpt_cada:
+            checkpoint()
+            t_ck = time.time()
+            print("checkpoint en el paso %d" % paso, flush=True)
+    evaluar_dev()
+    if not (sal / "mejor.pt").exists():
+        guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": None})
+    checkpoint()
+    with open(sal / "entrenamiento.json", "w") as f:
+        json.dump({"pasos": paso, "total": total, "mejor": mejor, "filas": mues.n, "info": info,
+                   "segundos": time.time() - t_ini, "interrumpido": bool(parar)}, f, indent=1, ensure_ascii=False)
+    print("fin: paso %d de %d, mejor dev %.4f en el paso %d" % (paso, total, mejor["f1"], mejor["paso"]), flush=True)
+    return 143 if parar else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

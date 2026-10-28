@@ -1,0 +1,253 @@
+"""Modelo L2: ranuras de lectura, torre de opción y cabezas (choice, noul, score/CORAL) sobre e5 congelado.
+
+Un solo pase del mensaje da S ∈ R^{K×d}; cada opción da un vector h ∈ R^d; la puntuación es
+sim(h) = max_k softplus(h · s_k) (MaxSim). Diseño del orquestador: plan/fase-2/encargo.md y el encargo de T2.1.
+"""
+import hashlib
+import math
+import os
+from collections import OrderedDict
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+E5 = "intfloat/multilingual-e5-small"
+DIM_E5 = 384
+MAX_TOK = 128
+K_RANURAS = 16
+D = 256
+LAMBDA_KL, LAMBDA_NCE, LAMBDA_B = 1.0, 0.5, 0.5
+SEP = " · "
+
+
+def texto_opcion(fila, opcion):
+    return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, opcion, SEP, fila["descripciones"].get(opcion, ""))
+
+
+def texto_consulta(fila):
+    """Torre de las cabezas noul y score: la pregunta con la última opción («true», o el nivel máximo)."""
+    return texto_opcion(fila, fila["opciones"][-1])
+
+
+def clave_cabeza(fila):
+    """Una cabeza por tipo de pregunta; score se separa por número de niveles (θ tiene K-1 umbrales)."""
+    return "score%d" % len(fila["opciones"]) if fila["tipo"] == "score" else fila["tipo"]
+
+
+class Codificador:
+    """e5 congelado: estados de token del mensaje y vector de pasaje (media normalizada) con caché por hash del texto."""
+
+    def __init__(self, ruta=None, device="cpu", max_tok=MAX_TOK, cache_max=400_000, cache_mensajes=False):
+        from transformers import AutoModel, AutoTokenizer
+        ruta = ruta or os.environ.get("CHISPA_E5") or E5
+        kw = {"local_files_only": os.environ.get("HF_HUB_OFFLINE") == "1" or os.path.exists(os.path.expanduser("~/hf/hub"))}
+        self.tok = AutoTokenizer.from_pretrained(ruta, **kw)
+        self.enc = AutoModel.from_pretrained(ruta, **kw).to(device).eval()
+        for p in self.enc.parameters():
+            p.requires_grad_(False)
+        self.device, self.max_tok = device, max_tok
+        self.cache = OrderedDict()
+        self.cache_max = cache_max
+        self.msgs = {} if cache_mensajes else None  # estados de token por mensaje: solo para pruebas en seco o varias épocas
+        self.aciertos = self.fallos = 0
+
+    def _pase(self, textos):
+        b = self.tok(textos, padding=True, truncation=True, max_length=self.max_tok, return_tensors="pt").to(self.device)
+        with torch.no_grad(), torch.autocast(self.device.split(":")[0], dtype=torch.bfloat16, enabled=self.device != "cpu"):
+            h = self.enc(**b).last_hidden_state
+        return h.float(), b["attention_mask"].bool()
+
+    @torch.no_grad()
+    def tokens(self, textos):
+        """Estados de la última capa H (B,T,384) y máscara (B,T) de «query: » + texto."""
+        if self.msgs is None:
+            return self._pase(["query: " + t for t in textos])
+        falta = [t for t in dict.fromkeys(textos) if t not in self.msgs]
+        if falta:
+            H, m = self._pase(["query: " + t for t in falta])
+            for t, h, k in zip(falta, H, m):
+                self.msgs[t] = h[k].cpu()
+        T = max(self.msgs[t].shape[0] for t in textos)
+        H = torch.zeros(len(textos), T, DIM_E5)
+        m = torch.zeros(len(textos), T, dtype=torch.bool)
+        for i, t in enumerate(textos):
+            n = self.msgs[t].shape[0]
+            H[i, :n], m[i, :n] = self.msgs[t], True
+        return H.to(self.device), m.to(self.device)
+
+    @staticmethod
+    def hash(texto):
+        return hashlib.sha1(texto.encode("utf-8")).hexdigest()
+
+    @torch.no_grad()
+    def pasaje(self, textos):
+        """(n,384): media normalizada de e5 sobre cada texto (ya con su prefijo «passage: »), cacheada por hash."""
+        claves = [self.hash(t) for t in textos]
+        nuevos = {}
+        for c, t in zip(claves, textos):
+            if c in self.cache:
+                self.aciertos += 1
+                self.cache.move_to_end(c)
+            elif c not in nuevos:
+                nuevos[c] = t
+        if nuevos:
+            self.fallos += len(nuevos)
+            ks, ts = list(nuevos), list(nuevos.values())
+            for i in range(0, len(ts), 256):
+                h, m = self._pase(ts[i:i + 256])
+                mf = m.unsqueeze(-1).float()
+                v = F.normalize((h * mf).sum(1) / mf.sum(1).clamp(min=1), dim=-1).cpu()
+                for k, x in zip(ks[i:i + 256], v):
+                    self.cache[k] = x
+            while len(self.cache) > self.cache_max:
+                self.cache.popitem(last=False)
+        return torch.stack([self.cache[c] for c in claves]).to(self.device)
+
+
+class Ranuras(nn.Module):
+    """K consultas aprendidas, atención cruzada (4 cabezas) sobre H, residual + LayerNorm, proyección a d y normalización."""
+
+    def __init__(self, k=K_RANURAS, dim=DIM_E5, d=D, cabezas=4):
+        super().__init__()
+        self.q = nn.Parameter(torch.randn(k, dim) * 0.02)
+        self.atencion = nn.MultiheadAttention(dim, cabezas, batch_first=True)
+        self.norma = nn.LayerNorm(dim)
+        self.proy = nn.Linear(dim, d)
+
+    def forward(self, H, mascara):
+        q = self.q.unsqueeze(0).expand(H.shape[0], -1, -1)
+        a, _ = self.atencion(q, H, H, key_padding_mask=~mascara, need_weights=False)
+        return F.normalize(self.proy(self.norma(q + a)), dim=-1)  # (B,K,d)
+
+
+class Torre(nn.Module):
+    """MLP de 2 capas sobre el vector de pasaje de e5 → d, normalizado."""
+
+    def __init__(self, dim=DIM_E5, d=D, oculta=512):
+        super().__init__()
+        self.mlp = nn.Sequential(nn.Linear(dim, oculta), nn.GELU(), nn.Linear(oculta, d))
+
+    def forward(self, v):
+        return F.normalize(self.mlp(v), dim=-1)
+
+
+def maxsim(S, h):
+    """S (B,K,d), h (U,d) → (B,U): max_k softplus(h · s_k)."""
+    return F.softplus(torch.einsum("bkd,ud->bku", S, h)).max(dim=1).values
+
+
+class Coral(nn.Module):
+    """P(y > j) = σ(w·sim − θ_j), j=1..K-1, con θ_j = θ_1 + Σ_{m<j} softplus(δ_m): umbrales ordenados, P decreciente."""
+
+    def __init__(self, niveles):
+        super().__init__()
+        self.niveles = niveles
+        self.w = nn.Parameter(torch.tensor(4.0))
+        self.theta1 = nn.Parameter(torch.tensor(2.0))
+        self.delta = nn.Parameter(torch.zeros(niveles - 2))
+
+    def umbrales(self):
+        return torch.cat([self.theta1.view(1), self.theta1 + torch.cumsum(F.softplus(self.delta), 0)])
+
+    def forward(self, sim):
+        """sim (B,) → distribución (B,K)."""
+        sup = torch.sigmoid(self.w * sim.unsqueeze(-1) - self.umbrales())  # (B,K-1) = P(y>j)
+        uno = torch.ones_like(sup[:, :1])
+        return (torch.cat([uno, sup], 1) - torch.cat([sup, 0 * uno], 1)).clamp(min=0)
+
+    @staticmethod
+    def esperado(p):
+        return (p * torch.arange(1, p.shape[1] + 1, device=p.device, dtype=p.dtype)).sum(-1)
+
+
+class ModeloL2(nn.Module):
+    """Parte entrenable de L2 (el codificador e5 va aparte, congelado)."""
+
+    def __init__(self, k=K_RANURAS, d=D):
+        super().__init__()
+        self.ranuras = Ranuras(k, DIM_E5, d)
+        self.torre = Torre(DIM_E5, d)
+        self.log_t = nn.ParameterDict({"choice": nn.Parameter(torch.tensor(math.log(0.02)))})
+        self.ab = nn.ParameterDict({"noul": nn.Parameter(torch.tensor([4.0, -4.0]))})  # a, b
+        self.coral = nn.ModuleDict()
+
+    def asegurar_cabeza(self, clave, device=None):
+        if clave.startswith("score") and clave not in self.coral:
+            self.coral[clave] = Coral(int(clave[5:])).to(device or self.ranuras.q.device)
+
+    def parametros_cabezas(self):
+        return [*self.log_t.parameters(), *self.ab.parameters(), *self.coral.parameters()]
+
+    def grupos_optimizador(self, lr=3e-4, lr_torre=1e-4, wd=0.01):
+        return [{"params": list(self.ranuras.parameters()) + self.parametros_cabezas(), "lr": lr, "weight_decay": wd},
+                {"params": list(self.torre.parameters()), "lr": lr_torre, "weight_decay": wd}]
+
+    def forward(self, filas, enc, entrenar=True):
+        """Devuelve (probs: lista de tensores por fila en el orden de `opciones`, perdidas: dict o None)."""
+        dev = self.ranuras.q.device
+        for k in {clave_cabeza(r) for r in filas}:
+            self.asegurar_cabeza(k, dev)
+        H, m = enc.tokens([r["texto"] for r in filas])
+        S = self.ranuras(H.to(dev), m.to(dev))
+        textos, pos, fila_txt = [], {}, []
+        for r in filas:
+            ts = [texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r)]
+            ix = []
+            for t in ts:
+                if t not in pos:
+                    pos[t] = len(textos)
+                    textos.append(t)
+                ix.append(pos[t])
+            fila_txt.append(ix)
+        h = self.torre(enc.pasaje(textos).to(dev))
+        sim = maxsim(S, h)  # (B,U)
+        probs, p_ce, p_kl, p_nce, p_b = [], [], [], [], []
+        T = self.log_t["choice"].exp().clamp(min=5e-3)
+        for i, r in enumerate(filas):
+            ix = torch.tensor(fila_txt[i], device=dev)
+            s = sim[i, ix]
+            tipo, ops = r["tipo"], r["opciones"]
+            y = ops.index(r["etiqueta"])
+            if tipo == "choice":
+                lg = s / T
+                p = F.softmax(lg, -1)
+                ce = F.cross_entropy(lg.unsqueeze(0), torch.tensor([y], device=dev))
+                # InfoNCE: las opciones de las demás filas del lote (todo el conjunto único) son negativos.
+                nce = F.cross_entropy((sim[i] / T).unsqueeze(0), torch.tensor([fila_txt[i][y]], device=dev))
+                p_nce.append(nce)
+            elif tipo == "noul":
+                a, b = self.ab["noul"]
+                pt = torch.sigmoid(a * s[0] + b)
+                p = torch.stack([1 - pt, pt])
+                ce = -torch.log(p[y].clamp(min=1e-7))
+            else:
+                p = self.coral["score%d" % len(ops)](s[:1])[0]
+                ce = -torch.log(p[y].clamp(min=1e-7))
+            probs.append(p)
+            if not entrenar:
+                continue
+            p_ce.append(ce)
+            t1 = F.one_hot(torch.tensor(y), len(ops)).float().to(dev)
+            p_b.append(((p - t1) ** 2).sum())
+            bl = blanda_vector(r)
+            if bl is not None:
+                bl = bl.to(dev)
+                p_kl.append((bl * (torch.log(bl.clamp(min=1e-8)) - torch.log(p.clamp(min=1e-8)))).sum())
+        if not entrenar:
+            return probs, None
+        cero = sim.sum() * 0
+        media = lambda xs: torch.stack(xs).mean() if xs else cero
+        ps = {"ce": media(p_ce), "kl": media(p_kl), "nce": media(p_nce), "brier": media(p_b)}
+        ps["total"] = ps["ce"] + LAMBDA_KL * ps["kl"] + LAMBDA_NCE * ps["nce"] + LAMBDA_B * ps["brier"]
+        return probs, ps
+
+
+def blanda_vector(fila):
+    """Distribución blanda de la fila sobre `opciones`, renormalizada; None si no hay o no cae en las opciones."""
+    bl = fila.get("blanda")
+    if not bl:
+        return None
+    v = torch.tensor([max(float(bl.get(o, 0.0)), 0.0) for o in fila["opciones"]])
+    s = v.sum()
+    return None if s <= 0 else v / s
