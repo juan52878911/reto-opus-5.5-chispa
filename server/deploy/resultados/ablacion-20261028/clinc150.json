@@ -1,0 +1,276 @@
+{
+ "tarea": "clinc150",
+ "n": 5500,
+ "autocomprobacion": {
+  "n": 200,
+  "dif_max_simproto": 1.6742576258721442e-07,
+  "dif_max_probs_L2": 2.929153473718582e-06
+ },
+ "corridas": [
+  {
+   "nombre": "1 todo servidor",
+   "tipo": "todo-srv",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.8461555930972023,
+   "delta_pts": 0.0
+  },
+  {
+   "nombre": "2 todo referencia",
+   "tipo": "todo-ref",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8893902229319747,
+   "delta_pts": 4.323462983477233
+  },
+  {
+   "nombre": "3A servidor con A de referencia (codificador)",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "ref",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.8504795768083222,
+   "delta_pts": 0.4323983711119861
+  },
+  {
+   "nombre": "3B servidor con B de referencia (torres (ESQUEMAS))",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "ref",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.8460545608194128,
+   "delta_pts": -0.010103227778957002
+  },
+  {
+   "nombre": "3C servidor con C de referencia (prototipos (CONJ))",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "ref",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.8463404169794669,
+   "delta_pts": 0.018482388226459534
+  },
+  {
+   "nombre": "3D servidor con D de referencia (simproto int8)",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "ref",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.8459503261733409,
+   "delta_pts": -0.020526692386146905
+  },
+  {
+   "nombre": "3E servidor con E de referencia (L0 (Chispa/sklearn))",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "ref",
+    "F": "srv"
+   },
+   "macro_f1": 0.8869352952663767,
+   "delta_pts": 4.077970216917437
+  },
+  {
+   "nombre": "3F servidor con F de referencia (atajo de la cascada)",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "ref"
+   },
+   "macro_f1": 0.8461555930972023,
+   "delta_pts": 0.0
+  },
+  {
+   "nombre": "4A referencia con A de servidor (codificador)",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "srv",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8869819765318406,
+   "delta_pts": 4.082638343463829
+  },
+  {
+   "nombre": "4B referencia con B de servidor (torres (ESQUEMAS))",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "srv",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8894883387213651,
+   "delta_pts": 4.333274562416278
+  },
+  {
+   "nombre": "4C referencia con C de servidor (prototipos (CONJ))",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "srv",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8888787740900863,
+   "delta_pts": 4.2723180992883965
+  },
+  {
+   "nombre": "4D referencia con D de servidor (simproto int8)",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "srv",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8893902229319747,
+   "delta_pts": 4.323462983477233
+  },
+  {
+   "nombre": "4E referencia con E de servidor (L0 (Chispa/sklearn))",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "srv",
+    "F": "ref"
+   },
+   "macro_f1": 0.8504792683791431,
+   "delta_pts": 0.43236752819407753
+  },
+  {
+   "nombre": "4F referencia con F de servidor (atajo de la cascada)",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "srv"
+   },
+   "macro_f1": 0.8893902229319747,
+   "delta_pts": 4.323462983477233
+  },
+  {
+   "nombre": "5 servidor con E+ (L0 de Chispa, cabeza reentrenada con L0 de Chispa fuera de pliegue)",
+   "tipo": "extra",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv+",
+    "F": "srv"
+   },
+   "macro_f1": 0.858031806902104,
+   "delta_pts": 1.187621380490167
+  }
+ ],
+ "veredicto": {
+  "valido": true,
+  "run1": 0.8461555930972023,
+  "run2": 0.8893902229319747,
+  "objetivo_srv": 0.846,
+  "objetivo_ref": 0.89,
+  "hueco_pts": 4.323462983477233,
+  "suma_deltas_pts": 4.5288509762558835,
+  "culpables": [
+   "E"
+  ]
+ },
+ "servidor_vs_arnes": {
+  "n": 5500,
+  "acuerdo_top1": 0.9954545454545455,
+  "dif_max": 0.19187257925689333,
+  "dif_media": 0.0032217393578823743,
+  "capas_servidor": {
+   "L2": 5500
+  },
+  "desacuerdos": [
+   {
+    "id": "clinc150:test:361",
+    "arnes": "last_maintenance",
+    "servidor": "transactions"
+   },
+   {
+    "id": "clinc150:test:1417",
+    "arnes": "maybe",
+    "servidor": "travel_alert"
+   },
+   {
+    "id": "clinc150:test:2520",
+    "arnes": "gas_type",
+    "servidor": "maybe"
+   },
+   {
+    "id": "clinc150:test:2927",
+    "arnes": "account_blocked",
+    "servidor": "freeze_account"
+   },
+   {
+    "id": "clinc150:test:2935",
+    "arnes": "freeze_account",
+    "servidor": "account_blocked"
+   }
+  ]
+ },
+ "servidor_macro_f1": 0.8459115454551772,
+ "extras": {
+  "lambda_e_mas": 0.0001,
+  "conjunta_pura_macro_f1": 0.8893902229319747,
+  "conjunta_pura_lambda": 0.0001
+ },
+ "segundos": 1343.7859160900116
+}

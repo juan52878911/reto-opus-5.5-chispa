@@ -1,0 +1,276 @@
+{
+ "tarea": "massive",
+ "n": 2974,
+ "autocomprobacion": {
+  "n": 200,
+  "dif_max_simproto": 2.0729553706910764e-07,
+  "dif_max_probs_L2": 2.64233111768597e-06
+ },
+ "corridas": [
+  {
+   "nombre": "1 todo servidor",
+   "tipo": "todo-srv",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.7656854840539628,
+   "delta_pts": 0.0
+  },
+  {
+   "nombre": "2 todo referencia",
+   "tipo": "todo-ref",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8165486367929118,
+   "delta_pts": 5.086315273894904
+  },
+  {
+   "nombre": "3A servidor con A de referencia (codificador)",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "ref",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.7655028113566723,
+   "delta_pts": -0.018267269729044244
+  },
+  {
+   "nombre": "3B servidor con B de referencia (torres (ESQUEMAS))",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "ref",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.7661868438694134,
+   "delta_pts": 0.050135981545063046
+  },
+  {
+   "nombre": "3C servidor con C de referencia (prototipos (CONJ))",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "ref",
+    "D": "srv",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.7662811590652939,
+   "delta_pts": 0.059567501133117595
+  },
+  {
+   "nombre": "3D servidor con D de referencia (simproto int8)",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "ref",
+    "E": "srv",
+    "F": "srv"
+   },
+   "macro_f1": 0.7656854840539628,
+   "delta_pts": 0.0
+  },
+  {
+   "nombre": "3E servidor con E de referencia (L0 (Chispa/sklearn))",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "ref",
+    "F": "srv"
+   },
+   "macro_f1": 0.8126637972219513,
+   "delta_pts": 4.697831316798851
+  },
+  {
+   "nombre": "3F servidor con F de referencia (atajo de la cascada)",
+   "tipo": "sustituye",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv",
+    "F": "ref"
+   },
+   "macro_f1": 0.7656854840539628,
+   "delta_pts": 0.0
+  },
+  {
+   "nombre": "4A referencia con A de servidor (codificador)",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "srv",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8126637972219513,
+   "delta_pts": 4.697831316798851
+  },
+  {
+   "nombre": "4B referencia con B de servidor (torres (ESQUEMAS))",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "srv",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.816512271032688,
+   "delta_pts": 5.082678697872522
+  },
+  {
+   "nombre": "4C referencia con C de servidor (prototipos (CONJ))",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "srv",
+    "D": "ref",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8166520459112819,
+   "delta_pts": 5.096656185731918
+  },
+  {
+   "nombre": "4D referencia con D de servidor (simproto int8)",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "srv",
+    "E": "ref",
+    "F": "ref"
+   },
+   "macro_f1": 0.8165486367929118,
+   "delta_pts": 5.086315273894904
+  },
+  {
+   "nombre": "4E referencia con E de servidor (L0 (Chispa/sklearn))",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "srv",
+    "F": "ref"
+   },
+   "macro_f1": 0.7662711528797344,
+   "delta_pts": 0.05856688257716014
+  },
+  {
+   "nombre": "4F referencia con F de servidor (atajo de la cascada)",
+   "tipo": "inversa",
+   "cfg": {
+    "A": "ref",
+    "B": "ref",
+    "C": "ref",
+    "D": "ref",
+    "E": "ref",
+    "F": "srv"
+   },
+   "macro_f1": 0.8165486367929118,
+   "delta_pts": 5.086315273894904
+  },
+  {
+   "nombre": "5 servidor con E+ (L0 de Chispa, cabeza reentrenada con L0 de Chispa fuera de pliegue)",
+   "tipo": "extra",
+   "cfg": {
+    "A": "srv",
+    "B": "srv",
+    "C": "srv",
+    "D": "srv",
+    "E": "srv+",
+    "F": "srv"
+   },
+   "macro_f1": 0.7741593381295252,
+   "delta_pts": 0.8473854075562448
+  }
+ ],
+ "veredicto": {
+  "valido": false,
+  "run1": 0.7656854840539628,
+  "run2": 0.8165486367929118,
+  "objetivo_srv": 0.771,
+  "objetivo_ref": 0.817,
+  "hueco_pts": 5.086315273894904,
+  "suma_deltas_pts": 4.807534799477032,
+  "culpables": [
+   "E"
+  ]
+ },
+ "servidor_vs_arnes": {
+  "n": 2974,
+  "acuerdo_top1": 0.9983187626092804,
+  "dif_max": 0.1147704138368017,
+  "dif_media": 0.0024058601951671933,
+  "capas_servidor": {
+   "L2": 2974
+  },
+  "desacuerdos": [
+   {
+    "id": "massive:test:664",
+    "arnes": "calendar_query",
+    "servidor": "alarm_query"
+   },
+   {
+    "id": "massive:test:815",
+    "arnes": "iot_hue_lighton",
+    "servidor": "iot_cleaning"
+   },
+   {
+    "id": "massive:test:1007",
+    "arnes": "audio_volume_mute",
+    "servidor": "audio_volume_other"
+   },
+   {
+    "id": "massive:test:1580",
+    "arnes": "general_greet",
+    "servidor": "calendar_query"
+   },
+   {
+    "id": "massive:test:1740",
+    "arnes": "qa_maths",
+    "servidor": "cooking_recipe"
+   }
+  ]
+ },
+ "servidor_macro_f1": 0.77049168157496,
+ "extras": {
+  "lambda_e_mas": 0.0001,
+  "conjunta_pura_macro_f1": 0.816512271032688,
+  "conjunta_pura_lambda": 0.0001
+ },
+ "segundos": 873.0672445297241
+}
