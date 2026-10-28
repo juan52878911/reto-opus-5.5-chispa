@@ -116,7 +116,17 @@ func run(args []string) error {
 	vonToken := fs.String("von-token", "", "VON bearer token")
 	maxAttacks := fs.Int64("max-attacks", 0, "stop after N attacks (0 = forever)")
 	smoke := fs.Bool("smoke", false, "run -max-attacks attacks, verify, exit")
+	cascada := fs.String("cascada", "", "add chispa-cascada (POST /v1/decide), e.g. spam=http://127.0.0.1:8091,injection=http://127.0.0.1:8092; only those dimensions run, learning off")
+	soloCascada := fs.Bool("solo-cascada", false, "with -cascada: chispa-cascada is the only detector")
 	fs.Parse(args)
+	if *cascada != "" {
+		dims, err := detectors.EnableCascada(*cascada, *soloCascada)
+		if err != nil {
+			return err
+		}
+		contracts.DimensionOrder = dims
+		*batch = 1 << 30 // el bucle de aprendizaje no sabe entrenar la cascada
+	}
 	if *smoke && *maxAttacks == 0 {
 		*maxAttacks = 50
 	}
