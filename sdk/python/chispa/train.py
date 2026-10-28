@@ -74,10 +74,11 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
-             frac_valid=0.2, usar_go=True, conjunta=False, modelo_l2=None, log=print) -> dict:
+             frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, log=print) -> dict:
     """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
-    `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
+    `l0_max_mb` topa la tabla de pesos de L0 (el lector de kindling rechaza más de 64 MiB): se reducen los buckets de hashing
+    (potencias de dos) hasta que cabe; con muchas clases, más colisiones. `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
     características. `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
@@ -131,7 +132,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
             for t_, e in ex:
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
-                "frac_valid": frac_valid, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
+                "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
                 "conj": conj_ruta,
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},

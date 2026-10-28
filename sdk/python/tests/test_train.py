@@ -119,6 +119,25 @@ class TestEntrenar(unittest.TestCase):
         self.assertIn("L2", inf["omitidas"])
 
     @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_l0_de_muchas_clases_cabe_en_el_tope(self):
+        """151 clases sintéticas: con el tope por defecto (48 MB) los buckets bajan a 2^17; con 0,1 MB, a 2^8."""
+        def pal(c, k):  # palabra inventada y distinta por clase y posición: solo letras
+            return "".join(chr(97 + (c * 7 + k * 3 + i * (c % 11 + 1)) % 26) for i in range(5)) + "abcdefghij"[k % 10] * 2
+
+        ops = ["c%d" % i for i in range(151)]
+        (self.d / "e151.json").write_text(json.dumps({"id": "muchas", "pregunta": "¿Cuál?", "tipo": "choice", "opciones": ops}))
+        with open(self.d / "e151.jsonl", "w") as f:
+            for c in range(151):
+                for j in range(10):
+                    f.write(json.dumps({"texto": f"{pal(c, 0)} {pal(c, 1)} {pal(c, 2 + j % 3)} comun", "etiqueta": ops[c]}) + "\n")
+        for mb, buckets in ((None, 1 << 17), (0.1, 1 << 8)):
+            kw = {} if mb is None else {"l0_max_mb": mb}
+            inf = entrenar(self.d / "e151.jsonl", self.d / "e151.json", self.d / "m.chispa", log=lambda m: None, **kw)
+            self.assertEqual(inf["l0_buckets"], buckets)
+            self.assertLessEqual(inf["l0_buckets"] * 151 * 2, (mb or 48) * 1e6)
+            self.assertGreater(inf["l0_valid_acc"], 0.5 if mb is None else 0.0)
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
     def test_el_cargador_de_go_abre_el_respaldo_python(self):
         """chispa3.Abrir + Verificar (CRC y sha256) aceptan lo que escribe formato.py; luego `evaluar` se queja de L0."""
         entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / "s.chispa", usar_go=False, log=lambda m: None)
