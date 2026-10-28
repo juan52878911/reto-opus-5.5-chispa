@@ -1,0 +1,31 @@
+{
+ "pasos": 9379,
+ "total": 9379,
+ "mejor": {
+  "f1": 0.4492405247914394,
+  "paso": 7032
+ },
+ "filas": 600258,
+ "info": {
+  "locales": 93703,
+  "meta": {
+   "cuentas": {
+    "pawsx": 49129,
+    "sib200": 701,
+    "synzs": 2574521,
+    "tsjev": 564830
+   },
+   "cupo": {
+    "tsjev": 506297,
+    "sib200": 0,
+    "pawsx": 0,
+    "synzs": 0
+   },
+   "elegidas": 506596
+  },
+  "blandas": 519061,
+  "filas": 600258
+ },
+ "segundos": 1628.874743461609,
+ "interrumpido": false
+}
