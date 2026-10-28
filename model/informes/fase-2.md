@@ -11,7 +11,7 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 | T2.4, redefinido por tarea el 2026-10-28 (ver abajo) | **3 de 5 cumplen** (clinc150, massive y herramientas); hatecheck e inyecciones no, por ECE | `t22d-conjunta/cvtest/calibracion.md` |
 | T2.5: `.chispa` v3 con fuzz | sí, y además las secciones CONJ y L0TF con fuzz | `format/chispa3` |
 | T2.6: L2 ≤ 60 MB y p99 < 50 ms a 64 tokens en AVX2 | sí: 48 MB y 20 ms en la c6a; de punta a punta, p99 de 9,6–11,3 ms | `server/deploy/resultados/` |
-| T2.6: ASR de la Arena ≤ 0,15 | **sin medir** | — |
+| T2.6: ASR de la Arena ≤ 0,15 | **sí**: el detector cascada saca 0,021 en spam y en injection, pero se abstiene en el 83 % y el 47 % de los ataques | `server/deploy/resultados/arena-20261028/LEEME.md` |
 | De punta a punta, H2: `/v1/decide` a ≤ 1 punto de `conjunta.py` | sí: massive 0,814 frente a 0,817 y clinc150 0,887 frente a 0,890 | `server/deploy/resultados/e2e-20261028/LEEME.md` |
 
 ## Qué es L2 en el producto
@@ -36,13 +36,14 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 - **inyecciones** queda a 0,003 del ECE con n = 116. Con tan pocas filas, ese margen está dentro del ruido: el
   intervalo de un ECE con 116 filas es mucho más ancho que 0,003. Lo señalo, pero no cambio el criterio.
 - **hatecheck** no cumple: ni la temperatura ni Platt bajan su ECE de 0,058.
-- **Curvas de cobertura** de massive, herramientas y hatecheck: salen de las predicciones de T2.2d que están en S3. Se
-  generan en la misma corrida que el ASR (T2.6d) y se publican en `model/l2/resultados/t22d-conjunta/curvas/`.
+- **Curvas de cobertura** de massive, herramientas y hatecheck: publicadas en `model/l2/resultados/t22d-conjunta/curvas/`
+  (tabla cada 5 % de cobertura y SVG).
 
 ## Para Juan (G2)
 1. **T2.4: decidido** (criterio por tarea). Cumplen 3 de 5. Fallan hatecheck (ECE 0,058–0,060) e inyecciones (ECE 0,053 con
    116 filas, sin calibrar).
-2. **ASR de la Arena** (spam e inyección): falta medirlo con la cascada nueva.
+2. **ASR de la Arena: medido, cumple.** Queda abierta la abstención: medir el escalado con tráfico no adversarial antes de
+   los pilotos.
 3. **Dónde se ajusta la cabeza.** En hatecheck, la que se ajusta fuera de pliegue sobre datos del cliente rinde más que la
    que se entrena en train (T2.2d). En producto, eso significa ajustarla con los ejemplos del cliente, que es lo que ya hace
    `chispa train`.
@@ -50,3 +51,16 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 ## Coste de la fase
 - AWS: menos de 5 USD en total en el día (g5 y c6a/m6a, spot cuando había capacidad).
 - Workers: 21,3 USD de cuenta en el día (`delega spend`, perfil personal).
+
+## Cierre de G2 (2026-10-28)
+| criterio | estado |
+|---|---|
+| T2.1, L2 solo con el codificador congelado | no, superado por (b) según la decisión de Juan |
+| T2.2, con la cabeza conjunta | sí, 5/5 |
+| T2.4, por tarea | 3/5: hatecheck e inyecciones fallan por ECE (0,058 y 0,053) |
+| T2.5, formato | sí |
+| T2.6: tamaño, latencia y punta a punta | sí |
+| T2.6: ASR | sí, con abstención alta |
+
+**Propuesta: G2 pasa con dos excepciones anotadas.** Una es el ECE de hatecheck e inyecciones. La otra es la abstención
+ante ataques, que hay que medir con tráfico normal en la fase 4. Si G2 pasa con esas excepciones lo decide Juan.
