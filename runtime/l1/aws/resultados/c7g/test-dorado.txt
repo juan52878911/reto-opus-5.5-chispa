@@ -1,0 +1,10 @@
+=== RUN   TestTokenizadorSondeo
+    l1_test.go:68: 2274 frases, 0 distintas
+--- PASS: TestTokenizadorSondeo (0.03s)
+=== RUN   TestHashCuerpo
+--- PASS: TestHashCuerpo (0.11s)
+=== RUN   TestEmbeddingDorado
+--- PASS: TestEmbeddingDorado (0.01s)
+PASS
+ok  	chispa/runtime/l1	0.160s
+?   	chispa/runtime/l1/cmd/l1medir	[no test files]

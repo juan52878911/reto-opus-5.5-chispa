@@ -1,0 +1,6 @@
+linux/arm64 go1.27.1  abrir=216.995µs  abrir+primer_embed=411.289µs
+RSS tras primer embed: VmRSS: 6828 kB, RssAnon: 720 kB, RssFile: 3588 kB
+tokens= 16 (pedido  16)  p50=13.956µs  p99=27.738µs  max=228.365µs
+tokens= 66 (pedido  64)  p50=56.208µs  p99=79.421µs  max=286.731µs
+tokens=256 (pedido 256)  p50=212.76µs  p99=404.157µs  max=447.652µs
+RSS tras la carga: VmRSS: 29844 kB, RssAnon: 6220 kB, RssFile: 21104 kB

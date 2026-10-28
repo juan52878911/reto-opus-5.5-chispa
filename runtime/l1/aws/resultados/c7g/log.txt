@@ -1,0 +1,127 @@
+== arranque 2026-10-28T01:27:11Z local=0 base=/opt/chispa arch=aarch64
+Amazon Linux 2023 repository                     84 MB/s |  85 MB     00:01    
+Amazon Linux 2023 Kernel Livepatch repository   907 kB/s |  87 kB     00:00    
+Last metadata expiration check: 0:00:01 ago on Wed Oct 28 01:27:28 2026.
+Package tar-2:1.34-1.amzn2023.0.4.aarch64 is already installed.
+Package gzip-1.12-1.amzn2023.0.1.aarch64 is already installed.
+Dependencies resolved.
+================================================================================
+ Package                     Arch    Version                  Repository   Size
+================================================================================
+Installing:
+ python3.11                  aarch64 3.11.17-1.amzn2023.0.1   amazonlinux  29 k
+ python3.11-pip              noarch  22.3.1-2.amzn2023.0.15   amazonlinux 2.8 M
+Installing dependencies:
+ mpdecimal                   aarch64 2.5.1-3.amzn2023.0.3     amazonlinux 103 k
+ python3.11-libs             aarch64 3.11.17-1.amzn2023.0.1   amazonlinux 9.7 M
+ python3.11-pip-wheel        noarch  22.3.1-2.amzn2023.0.15   amazonlinux 1.4 M
+ python3.11-setuptools-wheel noarch  65.5.1-2.amzn2023.0.7    amazonlinux 717 k
+Installing weak dependencies:
+ python3.11-setuptools       noarch  65.5.1-2.amzn2023.0.7    amazonlinux 1.5 M
+
+Transaction Summary
+================================================================================
+Install  7 Packages
+
+Total download size: 16 M
+Installed size: 78 M
+Downloading Packages:
+(1/7): mpdecimal-2.5.1-3.amzn2023.0.3.aarch64.r 3.4 MB/s | 103 kB     00:00    
+(2/7): python3.11-pip-22.3.1-2.amzn2023.0.15.no  69 MB/s | 2.8 MB     00:00    
+(3/7): python3.11-pip-wheel-22.3.1-2.amzn2023.0  51 MB/s | 1.4 MB     00:00    
+(4/7): python3.11-libs-3.11.17-1.amzn2023.0.1.a  74 MB/s | 9.7 MB     00:00    
+(5/7): python3.11-setuptools-65.5.1-2.amzn2023.  43 MB/s | 1.5 MB     00:00    
+(6/7): python3.11-setuptools-wheel-65.5.1-2.amz  24 MB/s | 717 kB     00:00    
+(7/7): python3.11-3.11.17-1.amzn2023.0.1.aarch6 1.1 MB/s |  29 kB     00:00    
+--------------------------------------------------------------------------------
+Total                                            34 MB/s |  16 MB     00:00     
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                        1/1 
+  Installing       : python3.11-setuptools-wheel-65.5.1-2.amzn2023.0.7.no   1/7 
+  Installing       : python3.11-pip-wheel-22.3.1-2.amzn2023.0.15.noarch     2/7 
+  Installing       : mpdecimal-2.5.1-3.amzn2023.0.3.aarch64                 3/7 
+  Installing       : python3.11-3.11.17-1.amzn2023.0.1.aarch64              4/7 
+  Installing       : python3.11-libs-3.11.17-1.amzn2023.0.1.aarch64         5/7 
+  Installing       : python3.11-setuptools-65.5.1-2.amzn2023.0.7.noarch     6/7 
+  Installing       : python3.11-pip-22.3.1-2.amzn2023.0.15.noarch           7/7 
+  Running scriptlet: python3.11-pip-22.3.1-2.amzn2023.0.15.noarch           7/7 
+  Verifying        : mpdecimal-2.5.1-3.amzn2023.0.3.aarch64                 1/7 
+  Verifying        : python3.11-3.11.17-1.amzn2023.0.1.aarch64              2/7 
+  Verifying        : python3.11-libs-3.11.17-1.amzn2023.0.1.aarch64         3/7 
+  Verifying        : python3.11-pip-22.3.1-2.amzn2023.0.15.noarch           4/7 
+  Verifying        : python3.11-pip-wheel-22.3.1-2.amzn2023.0.15.noarch     5/7 
+  Verifying        : python3.11-setuptools-65.5.1-2.amzn2023.0.7.noarch     6/7 
+  Verifying        : python3.11-setuptools-wheel-65.5.1-2.amzn2023.0.7.no   7/7 
+
+Installed:
+  mpdecimal-2.5.1-3.amzn2023.0.3.aarch64                                        
+  python3.11-3.11.17-1.amzn2023.0.1.aarch64                                     
+  python3.11-libs-3.11.17-1.amzn2023.0.1.aarch64                                
+  python3.11-pip-22.3.1-2.amzn2023.0.15.noarch                                  
+  python3.11-pip-wheel-22.3.1-2.amzn2023.0.15.noarch                            
+  python3.11-setuptools-65.5.1-2.amzn2023.0.7.noarch                            
+  python3.11-setuptools-wheel-65.5.1-2.amzn2023.0.7.noarch                      
+
+Complete!
+
+[notice] A new release of pip available: 22.3.1 -> 26.2.2
+[notice] To update, run: python3.11 -m pip install --upgrade pip
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 7 files:  71%|███████▏  | 5/7 [00:00<00:00, 34.90it/s]Fetching 7 files: 100%|██████████| 7/7 [00:01<00:00,  4.35it/s]
+/opt/chispa/hf/hub/models--minishlab--potion-multilingual-128M/snapshots/73908c3438cf03b6a01bcb9611d62b23d0726f08
+go version go1.27.1 linux/arm64
+bajando s3://chispa-pruebas-879381269751/arm64-20261027/codigo.tgz
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+aarch64
+Architecture:                            aarch64
+CPU(s):                                  2
+BIOS Model name:                         AWS Graviton3
+/dev/nvme0n1p1   30G  3.2G   27G  11% /
+== exportar 01:27:53 desde /opt/chispa/hf/hub/models--minishlab--potion-multilingual-128M/snapshots/73908c3438cf03b6a01bcb9611d62b23d0726f08
+/opt/chispa/potion.chispa-l1: 154772608 bytes, sha256 cuerpo 01fe1e57dc1bb1917757723e35264b146c25c4d81a3950a8ec7bb0f6a4ba8808
+hash del cuerpo: 01fe1e57dc1bb1917757723e35264b146c25c4d81a3950a8ec7bb0f6a4ba8808
+esperado:        01fe1e57dc1bb1917757723e35264b146c25c4d81a3950a8ec7bb0f6a4ba8808
+HASH_CUERPO: IGUAL
+== test dorado 01:27:58
+=== RUN   TestTokenizadorSondeo
+    l1_test.go:68: 2274 frases, 0 distintas
+--- PASS: TestTokenizadorSondeo (0.03s)
+=== RUN   TestHashCuerpo
+--- PASS: TestHashCuerpo (0.11s)
+=== RUN   TestEmbeddingDorado
+--- PASS: TestEmbeddingDorado (0.01s)
+PASS
+ok  	chispa/runtime/l1	0.160s
+?   	chispa/runtime/l1/cmd/l1medir	[no test files]
+--- PASS: TestTokenizadorSondeo (0.03s)
+--- PASS: TestHashCuerpo (0.11s)
+--- PASS: TestEmbeddingDorado (0.01s)
+PASS
+ok  	chispa/runtime/l1	0.160s
+== go test ./... 01:28:10
+ok  	chispa/runtime/l1	0.168s
+?   	chispa/runtime/l1/cmd/l1medir	[no test files]
+== l1medir 01:28:10
+linux/arm64 go1.27.1  abrir=216.995µs  abrir+primer_embed=411.289µs
+RSS tras primer embed: VmRSS: 6828 kB, RssAnon: 720 kB, RssFile: 3588 kB
+tokens= 16 (pedido  16)  p50=13.956µs  p99=27.738µs  max=228.365µs
+tokens= 66 (pedido  64)  p50=56.208µs  p99=79.421µs  max=286.731µs
+tokens=256 (pedido 256)  p50=212.76µs  p99=404.157µs  max=447.652µs
+RSS tras la carga: VmRSS: 29844 kB, RssAnon: 6220 kB, RssFile: 21104 kB
+/dev/nvme0n1p1   30G  3.4G   27G  12% /
