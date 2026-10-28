@@ -39,7 +39,7 @@ class Chispa private constructor(
             val fichero = resolver(contexto, rutaModelo)
             val motor = MotorNativo.abrir(fichero.absolutePath)
             return try {
-                montar(motor, tokenizador) { motor.extraerL2ARuta(contexto, fichero) }
+                montar(motor, tokenizador, onnx = { motor.extraerL2ARuta(contexto, fichero) })
             } catch (e: Throwable) {
                 motor.close()
                 throw e
