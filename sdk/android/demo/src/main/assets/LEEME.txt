@@ -1,0 +1,1 @@
+Aquí va modelo.chispa (un .chispa v3 con las secciones L0/L1/CALIB; no está en git). Sin él, la demo lo dice en pantalla.
