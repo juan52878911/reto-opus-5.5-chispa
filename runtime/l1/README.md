@@ -84,6 +84,7 @@ GOARCH=arm64 go test -c -o l1.arm64.test .     # y en la máquina ARM, con el .c
 CHISPA_L1=/ruta/potion.chispa-l1 ./l1.arm64.test -test.run 'Hash|Dorado|Sondeo' -test.v
 ```
 Deben pasar `TestHashCuerpo`, `TestEmbeddingDorado` y `TestTokenizadorSondeo`.
+En instancia (t4g/c7g, Amazon Linux 2023): `aws/arranque-arm64.sh` (user-data; código con `aws/empaquetar.sh`) hace todo lo anterior y sube el log.
 
 **Rendimiento** (`go run ./cmd/l1medir /tmp/potion.chispa-l1`, caché de página caliente; máquina compartida, el
 p99 es ruidoso — entre tandas varió de 0,3 a 10 ms):
