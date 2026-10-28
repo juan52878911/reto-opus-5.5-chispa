@@ -18,3 +18,25 @@
 - **hatecheck.** La conjunta pierde frente a L2 solo. HateCheck es de plantillas: lo que aprende la cabeza en train no se traslada bien a test. Pendiente: entrenar la cabeza fuera de pliegue sobre test, como se eligió τ en T2.7.
 - **Primer intento.** Solo procesó herramientas: `cargar_tareas` agrupaba el train por el campo `tarea`. Arreglado en el commit anterior.
 - **Coste.** Dos g5.xlarge on-demand, unos 5 y 14 min. Menos de 0,5 USD.
+
+## Soporte agrupado por `tarea` en T2.1b: medido, cambia < 0,5 puntos
+- **El fallo.** `evaluar.py` y `entrenar.py` arman el soporte con `train_por_tarea`, que agrupa por el campo `tarea`. Por
+  eso massive y clinc150 comparten soporte («intencion»): los k = 32 por clase salen de la unión, y una etiqueta que exista
+  en los dos conjuntos mezcla filas de ambos. No es fuga de test, porque solo entran filas de train, pero sí ruido en los
+  prototipos.
+- **Cómo se midió.** Esta corrida calcula L2 con soporte agrupado por conjunto: mismo checkpoint T2.1b, mismos datos y
+  mismo `datos.soporte_t17a` con semilla 0. Solo cambia la agrupación. Sin GPU adicional.
+
+| tarea | publicado (T2.1b, agrupado por `tarea`) | por conjunto | Δ |
+|---|---|---|---|
+| massive | 0,636 | 0,632 | −0,4 |
+| clinc150 | 0,776 | 0,775 | −0,1 |
+| herramientas | 0,504 | 0,504 | 0 |
+| hatecheck | 0,630 | 0,630 | 0 |
+| inyecciones | 0,922 | 0,922 | 0 |
+
+- **Conclusión.** Todas las diferencias quedan por debajo de 0,5 puntos. Las cifras publicadas de L2 se mantienen. La
+  cabeza conjunta (b) ya usa el soporte por conjunto. La cascada (c) usa las predicciones publicadas, cuyo error es
+  ≤ 0,4 puntos.
+- **Pendiente.** Corregir la agrupación en `evaluar.py` y `entrenar.py` (por fichero de origen) antes de la próxima ronda
+  de entrenamiento de L2.
