@@ -1,7 +1,8 @@
 # Servidor de Chispa (T4.1)
 
 `POST /v1/decide` decide preguntas con una cascada de capas: L0 (Chispa lineal real, `pkg/chispa`
-de kindling v0.17.0) y L1, L2, L3 (stubs «sin opinión», confianza 0, hasta que lleguen los modelos).
+de kindling v0.17.0), L1 real (T4.1b, embedding estático de `runtime/l1`) y L2 (ONNX, solo con la etiqueta `ort`).
+L3 y las capas sin sección en el modelo son stubs «sin opinión» (confianza 0).
 Esquema de preguntas: `model/esquema.md` (choice, score, noul).
 
 ```
@@ -11,6 +12,7 @@ make -C server serve    # arranca con testdata/config.json (3 modelos de prueba)
 make -C server carga    # generador de carga contra :8090
 ```
 
+Módulos locales por `replace` en `go.mod`: `../format/chispa3` y `../runtime/l1` (sin red).
 Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es el de `arena/`.
 
 ## Contrato
@@ -120,3 +122,43 @@ con 4 núcleos, así que «4 núcleos» aquí no es una medida fiable de paralel
 (máquina compartida): ±30 % entre repeticiones. El coste lo dominan HTTP/JSON, no L0: con la
 petición de 1 pregunta el servidor hace ≈2 k/s por conexión-ciclo; el lote amortiza. El objetivo del
 plan (≥ 5 k/s con L1 en el i7) no se puede confirmar desde aquí.
+
+## T4.1b: `--modelo x.chispa` (L1 real y L2)
+`chispa-server --modelo x.chispa` abre un `.chispa` v3 (o un v2, que `format/chispa3` envuelve con solo L0) y
+arma la cascada con las secciones presentes (`decide.ArmarDesde`); las que faltan quedan como stub.
+- **L0**: la sección `L0` se añade a los modelos de `config.modelos`.
+- **L1** (`decide/l1.go`, sección `L1` con `runtime/l1`): embedding del mensaje y de `pregunta · opción · descripción`
+  de cada opción (cacheados por `ClaveEsquema`, por id de opción: la clave ignora el orden). `choice`: softmax(coseno / T)
+  con la `T` de `CALIB.tipos.choice`. `noul`: la consulta es la opción `true`; p(true) = σ(a·coseno + b) con `a`, `b`, θ de
+  `CALIB.tipos.noul`. `score`: L1 no opina (un coseno no ordena niveles). Sin tipo en CALIB: T = 0,05, a = 4, b = −2, θ = 0,5.
+- **τ**: sin `--config`, el τ de L1 y L2 es el `tau_escalate` de CALIB; con `--config`, manda la config.
+- **L2** (`decide/l2.go` + `l2_ort.go`, secciones `L2` y `ESQUEMAS`): el ONNX da las ranuras S (K×d) del mensaje; la torre de cada
+  opción sale de ESQUEMAS (`HashEsquema(pregunta, [id])` en `choice`; la lista completa de ids, `["false","true"]` en `noul`
+  y `["1".."K"]` en `score`, para el vector de consulta). Puntuación MaxSim `max_k softplus(h·s_k)`, h = int8·escala;
+  luego `choice` softmax(s/T), `noul` σ(a·s+b), `score` CORAL con `scoreK` / `scoreK#j` (`model/l2/README.md`).
+  La puntuación (`l2.go`) no depende de ORT y está probada con una sesión falsa; solo `l2_ort.go` toca ONNX Runtime.
+  Sin `-tags ort`, `l2_stub.go` devuelve `ErrSinORT` y L2 queda como stub (el servidor avisa en el log).
+
+### Compilar con ORT
+La VM no trae la biblioteca. En una máquina con red y `libonnxruntime.so` (1.17+):
+```
+cd server && GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go && go build -tags ort ./...   # o go vet -tags ort ./...
+```
+`l2_ort.go` usa `github.com/yalue/onnxruntime_go` (sesión dinámica; `decide.RutaORT` fija la ruta de la .so). **No se compiló**:
+ni el módulo ni las cabeceras están aquí, así que escribí contra su API de memoria.
+**Falta además un tokenizador de e5 en Go** (`decide.Tokenizador`: «query: » + ids de XLM-R/sentencepiece, 128 tokens). Hasta
+que exista, `chispa-server` pasa `nil` y L2 queda en stub aun con `ort`.
+
+### Medidas de L1 real (microVM kindling de 4 vCPU, Xeon 3,3 GHz; cota del i3)
+Potion multilingüe (`runtime/l1/exportar.py`, 155 MB, en un v3 en memoria), `go test ./decide -bench L1Real -benchtime 3s -cpu 1,4`:
+cascada completa (L0 sin modelo para el esquema → L1) en lotes de 16 preguntas de ~70 caracteres, 3 esquemas con caché
+de esquemas caliente, **sin HTTP/JSON**, 4 hilos de goroutine solo en la fila `-4`:
+
+| Núcleos | decisiones/s | p99 por lote de 16 |
+|---|---|---|
+| 1 | ≈ 24 000 | 1,2 ms |
+| 4 | ≈ 49 000 | 5,4 ms |
+
+Con HTTP y JSON el techo medido en T4.1 era ≈ 13 k/s con L0, así que el servidor completo con L1 queda entre eso y estas cifras;
+no se midió por HTTP con el potion. El objetivo del plan (≥ 5 k/s en el i7) tiene margen en CPU, pero no se confirma aquí.
+Máquina compartida: ±30 %. Sin caché fría de páginas del mmap (no se puede vaciar en la VM).

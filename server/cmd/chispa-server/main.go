@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"time"
 
+	"chispa/format/chispa3"
 	"github.com/juan52878911/chispa/server/decide"
 )
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8090", "dirección de escucha")
 	cfgPath := flag.String("config", "", "JSON de configuración (capas, τ, modelos, cachés)")
+	modelo := flag.String("modelo", "", ".chispa v3 (o v2 envuelto) del que armar L0, L1 y L2 según sus secciones")
 	flag.Parse()
 	cfg := decide.ConfigPorDefecto()
 	if *cfgPath != "" {
@@ -28,7 +30,23 @@ func main() {
 	met := decide.NuevasMetricas()
 	met.EsquemaHits = l0.Hits.Load
 	met.EsquemaMisses = l0.Misses.Load
-	casc, err := decide.NuevaCascada(cfg.Capas, []decide.Decisor{l0, decide.NuevoL1(), decide.NuevoL2(), decide.NuevoL3()}, met)
+	capaL1, capaL2 := decide.NuevoL1(), decide.NuevoL2()
+	if *modelo != "" {
+		f, err := chispa3.Abrir(*modelo)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		mt, err := decide.ArmarDesde(f, l0, &cfg, *cfgPath == "", nil) // aún no hay tokenizador de e5 en Go
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, a := range mt.Avisos {
+			log.Print(a)
+		}
+		capaL1, capaL2 = mt.L1, mt.L2
+	}
+	casc, err := decide.NuevaCascada(cfg.Capas, []decide.Decisor{l0, capaL1, capaL2, decide.NuevoL3()}, met)
 	if err != nil {
 		log.Fatal(err)
 	}
