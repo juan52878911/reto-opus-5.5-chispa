@@ -48,3 +48,4 @@ Gasto por encima del tope, ALIA y PQRS en train, y cambiar los umbrales de arrib
 ## Cambios
 | Fecha | Qué cambió | Por qué | OK de Juan |
 |---|---|---|---|
+| 2026-10-28 | L2 no cumple T2.1 ni T2.2 en tres rondas. Pasa a capa de respaldo: se juzga la cascada L0 → L1 → L2 con el listón de T2.2 (T2.7, `brief-t27-cascada.md`). Después, la cabeza conjunta L0 + L2 (T2.2c, `brief-t22c-conjunta.md`) | La representación de e5-small limita en las tareas de muchas clases, donde gana L0 | Sí: «C y después b. Paralelizar trabajo como hemos hecho para agilizar el desarrollo» |
