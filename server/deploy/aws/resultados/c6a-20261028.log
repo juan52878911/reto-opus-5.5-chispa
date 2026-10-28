@@ -1,0 +1,395 @@
+== arranque 2026-10-28T06:56:32Z local=0 base=/opt/chispa
+== 1. instalar docker, gcc y Go 1.27.1 06:56:32
+Amazon Linux 2023 repository                     61 MB/s |  86 MB     00:01    
+Amazon Linux 2023 Kernel Livepatch repository   896 kB/s |  89 kB     00:00    
+Package tar-2:1.34-1.amzn2023.0.4.x86_64 is already installed.
+Package gzip-1.12-1.amzn2023.0.1.x86_64 is already installed.
+Package python3-3.9.25-1.amzn2023.0.11.x86_64 is already installed.
+Dependencies resolved.
+================================================================================
+ Package                 Arch    Version                     Repository    Size
+================================================================================
+Installing:
+ docker                  x86_64  25.0.18-1.amzn2023.0.2      amazonlinux   49 M
+ gcc                     x86_64  11.5.0-5.amzn2023.0.5       amazonlinux   36 M
+Installing dependencies:
+ annobin-docs            noarch  12.69-1.amzn2023.0.1        amazonlinux   93 k
+ annobin-plugin-gcc      x86_64  12.69-1.amzn2023.0.1        amazonlinux  974 k
+ container-selinux       noarch  4:2.245.0-1.amzn2023        amazonlinux   58 k
+ containerd              x86_64  2.3.7-1.amzn2023.0.1        amazonlinux   24 M
+ cpp                     x86_64  11.5.0-5.amzn2023.0.5       amazonlinux   11 M
+ gc                      x86_64  8.0.4-5.amzn2023.0.2        amazonlinux  105 k
+ gcc-plugin-annobin      x86_64  11.5.0-5.amzn2023.0.5       amazonlinux   38 k
+ glibc-devel             x86_64  2.34-231.amzn2023.0.5       amazonlinux   33 k
+ glibc-headers-x86       noarch  2.34-231.amzn2023.0.5       amazonlinux  439 k
+ guile22                 x86_64  2.2.7-2.amzn2023.0.3        amazonlinux  6.4 M
+ iptables-libs           x86_64  1.8.8-3.amzn2023.0.2        amazonlinux  401 k
+ iptables-nft            x86_64  1.8.8-3.amzn2023.0.2        amazonlinux  183 k
+ kernel-headers          x86_64  1:6.1.189-236.399.amzn2023  amazonlinux  1.4 M
+ libcgroup               x86_64  3.0-1.amzn2023.0.1          amazonlinux   75 k
+ libmpc                  x86_64  1.2.1-2.amzn2023.0.2        amazonlinux   62 k
+ libnetfilter_conntrack  x86_64  1.0.8-2.amzn2023.0.2        amazonlinux   58 k
+ libnfnetlink            x86_64  1.0.1-19.amzn2023.0.2       amazonlinux   30 k
+ libnftnl                x86_64  1.2.2-2.amzn2023.0.2        amazonlinux   84 k
+ libtool-ltdl            x86_64  2.4.7-1.amzn2023.0.3        amazonlinux   38 k
+ libxcrypt-devel         x86_64  4.4.33-7.amzn2023           amazonlinux   32 k
+ make                    x86_64  1:4.3-5.amzn2023.0.2        amazonlinux  534 k
+ pigz                    x86_64  2.5-1.amzn2023.0.4          amazonlinux   83 k
+ runc                    x86_64  1.4.3-1.amzn2023.0.3        amazonlinux  3.7 M
+
+Transaction Summary
+================================================================================
+Install  25 Packages
+
+Total download size: 134 M
+Installed size: 471 M
+Downloading Packages:
+(1/25): container-selinux-2.245.0-1.amzn2023.no 2.4 MB/s |  58 kB     00:00    
+(2/25): annobin-docs-12.69-1.amzn2023.0.1.noarc 2.8 MB/s |  93 kB     00:00    
+(3/25): annobin-plugin-gcc-12.69-1.amzn2023.0.1  21 MB/s | 974 kB     00:00    
+(4/25): cpp-11.5.0-5.amzn2023.0.5.x86_64.rpm     78 MB/s |  11 MB     00:00    
+(5/25): gc-8.0.4-5.amzn2023.0.2.x86_64.rpm      3.8 MB/s | 105 kB     00:00    
+(6/25): containerd-2.3.7-1.amzn2023.0.1.x86_64.  80 MB/s |  24 MB     00:00    
+(7/25): gcc-plugin-annobin-11.5.0-5.amzn2023.0. 1.5 MB/s |  38 kB     00:00    
+(8/25): glibc-devel-2.34-231.amzn2023.0.5.x86_6 1.1 MB/s |  33 kB     00:00    
+(9/25): glibc-headers-x86-2.34-231.amzn2023.0.5  15 MB/s | 439 kB     00:00    
+(10/25): guile22-2.2.7-2.amzn2023.0.3.x86_64.rp  74 MB/s | 6.4 MB     00:00    
+(11/25): iptables-libs-1.8.8-3.amzn2023.0.2.x86  16 MB/s | 401 kB     00:00    
+(12/25): iptables-nft-1.8.8-3.amzn2023.0.2.x86_ 6.8 MB/s | 183 kB     00:00    
+(13/25): docker-25.0.18-1.amzn2023.0.2.x86_64.r  80 MB/s |  49 MB     00:00    
+(14/25): gcc-11.5.0-5.amzn2023.0.5.x86_64.rpm    67 MB/s |  36 MB     00:00    
+(15/25): libcgroup-3.0-1.amzn2023.0.1.x86_64.rp 955 kB/s |  75 kB     00:00    
+(16/25): kernel-headers-6.1.189-236.399.amzn202 7.2 MB/s | 1.4 MB     00:00    
+(17/25): libmpc-1.2.1-2.amzn2023.0.2.x86_64.rpm 2.3 MB/s |  62 kB     00:00    
+(18/25): libnetfilter_conntrack-1.0.8-2.amzn202 2.1 MB/s |  58 kB     00:00    
+(19/25): libnfnetlink-1.0.1-19.amzn2023.0.2.x86 1.0 MB/s |  30 kB     00:00    
+(20/25): libtool-ltdl-2.4.7-1.amzn2023.0.3.x86_ 1.4 MB/s |  38 kB     00:00    
+(21/25): libnftnl-1.2.2-2.amzn2023.0.2.x86_64.r 2.7 MB/s |  84 kB     00:00    
+(22/25): libxcrypt-devel-4.4.33-7.amzn2023.x86_ 1.2 MB/s |  32 kB     00:00    
+(23/25): make-4.3-5.amzn2023.0.2.x86_64.rpm      18 MB/s | 534 kB     00:00    
+(24/25): pigz-2.5-1.amzn2023.0.4.x86_64.rpm     2.3 MB/s |  83 kB     00:00    
+(25/25): runc-1.4.3-1.amzn2023.0.3.x86_64.rpm    72 MB/s | 3.7 MB     00:00    
+--------------------------------------------------------------------------------
+Total                                           149 MB/s | 134 MB     00:00     
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                        1/1 
+  Installing       : runc-1.4.3-1.amzn2023.0.3.x86_64                      1/25 
+  Installing       : libmpc-1.2.1-2.amzn2023.0.2.x86_64                    2/25 
+  Installing       : cpp-11.5.0-5.amzn2023.0.5.x86_64                      3/25 
+  Installing       : containerd-2.3.7-1.amzn2023.0.1.x86_64                4/25 
+  Running scriptlet: containerd-2.3.7-1.amzn2023.0.1.x86_64                4/25 
+  Installing       : pigz-2.5-1.amzn2023.0.4.x86_64                        5/25 
+  Installing       : libtool-ltdl-2.4.7-1.amzn2023.0.3.x86_64              6/25 
+  Installing       : libnftnl-1.2.2-2.amzn2023.0.2.x86_64                  7/25 
+  Installing       : libnfnetlink-1.0.1-19.amzn2023.0.2.x86_64             8/25 
+  Installing       : libnetfilter_conntrack-1.0.8-2.amzn2023.0.2.x86_64    9/25 
+  Installing       : iptables-libs-1.8.8-3.amzn2023.0.2.x86_64            10/25 
+  Installing       : iptables-nft-1.8.8-3.amzn2023.0.2.x86_64             11/25 
+  Running scriptlet: iptables-nft-1.8.8-3.amzn2023.0.2.x86_64             11/25 
+  Installing       : libcgroup-3.0-1.amzn2023.0.1.x86_64                  12/25 
+  Installing       : kernel-headers-1:6.1.189-236.399.amzn2023.x86_64     13/25 
+  Installing       : glibc-headers-x86-2.34-231.amzn2023.0.5.noarch       14/25 
+  Installing       : libxcrypt-devel-4.4.33-7.amzn2023.x86_64             15/25 
+  Installing       : glibc-devel-2.34-231.amzn2023.0.5.x86_64             16/25 
+  Installing       : gc-8.0.4-5.amzn2023.0.2.x86_64                       17/25 
+  Installing       : guile22-2.2.7-2.amzn2023.0.3.x86_64                  18/25 
+  Installing       : make-1:4.3-5.amzn2023.0.2.x86_64                     19/25 
+  Installing       : gcc-11.5.0-5.amzn2023.0.5.x86_64                     20/25 
+  Running scriptlet: gcc-11.5.0-5.amzn2023.0.5.x86_64                     20/25 
+  Running scriptlet: container-selinux-4:2.245.0-1.amzn2023.noarch        21/25 
+  Installing       : container-selinux-4:2.245.0-1.amzn2023.noarch        21/25 
+  Running scriptlet: container-selinux-4:2.245.0-1.amzn2023.noarch        21/25 
+  Installing       : annobin-docs-12.69-1.amzn2023.0.1.noarch             22/25 
+  Installing       : annobin-plugin-gcc-12.69-1.amzn2023.0.1.x86_64       23/25 
+  Running scriptlet: annobin-plugin-gcc-12.69-1.amzn2023.0.1.x86_64       23/25 
+  Running scriptlet: docker-25.0.18-1.amzn2023.0.2.x86_64                 24/25 
+  Installing       : docker-25.0.18-1.amzn2023.0.2.x86_64                 24/25 
+  Running scriptlet: docker-25.0.18-1.amzn2023.0.2.x86_64                 24/25 
+Created symlink /etc/systemd/system/sockets.target.wants/docker.socket → /usr/lib/systemd/system/docker.socket.
+
+  Installing       : gcc-plugin-annobin-11.5.0-5.amzn2023.0.5.x86_64      25/25 
+  Running scriptlet: container-selinux-4:2.245.0-1.amzn2023.noarch        25/25 
+  Running scriptlet: gcc-plugin-annobin-11.5.0-5.amzn2023.0.5.x86_64      25/25 
+  Verifying        : annobin-docs-12.69-1.amzn2023.0.1.noarch              1/25 
+  Verifying        : annobin-plugin-gcc-12.69-1.amzn2023.0.1.x86_64        2/25 
+  Verifying        : container-selinux-4:2.245.0-1.amzn2023.noarch         3/25 
+  Verifying        : containerd-2.3.7-1.amzn2023.0.1.x86_64                4/25 
+  Verifying        : cpp-11.5.0-5.amzn2023.0.5.x86_64                      5/25 
+  Verifying        : docker-25.0.18-1.amzn2023.0.2.x86_64                  6/25 
+  Verifying        : gc-8.0.4-5.amzn2023.0.2.x86_64                        7/25 
+  Verifying        : gcc-11.5.0-5.amzn2023.0.5.x86_64                      8/25 
+  Verifying        : gcc-plugin-annobin-11.5.0-5.amzn2023.0.5.x86_64       9/25 
+  Verifying        : glibc-devel-2.34-231.amzn2023.0.5.x86_64             10/25 
+  Verifying        : glibc-headers-x86-2.34-231.amzn2023.0.5.noarch       11/25 
+  Verifying        : guile22-2.2.7-2.amzn2023.0.3.x86_64                  12/25 
+  Verifying        : iptables-libs-1.8.8-3.amzn2023.0.2.x86_64            13/25 
+  Verifying        : iptables-nft-1.8.8-3.amzn2023.0.2.x86_64             14/25 
+  Verifying        : kernel-headers-1:6.1.189-236.399.amzn2023.x86_64     15/25 
+  Verifying        : libcgroup-3.0-1.amzn2023.0.1.x86_64                  16/25 
+  Verifying        : libmpc-1.2.1-2.amzn2023.0.2.x86_64                   17/25 
+  Verifying        : libnetfilter_conntrack-1.0.8-2.amzn2023.0.2.x86_64   18/25 
+  Verifying        : libnfnetlink-1.0.1-19.amzn2023.0.2.x86_64            19/25 
+  Verifying        : libnftnl-1.2.2-2.amzn2023.0.2.x86_64                 20/25 
+  Verifying        : libtool-ltdl-2.4.7-1.amzn2023.0.3.x86_64             21/25 
+  Verifying        : libxcrypt-devel-4.4.33-7.amzn2023.x86_64             22/25 
+  Verifying        : make-1:4.3-5.amzn2023.0.2.x86_64                     23/25 
+  Verifying        : pigz-2.5-1.amzn2023.0.4.x86_64                       24/25 
+  Verifying        : runc-1.4.3-1.amzn2023.0.3.x86_64                     25/25 
+
+Installed:
+  annobin-docs-12.69-1.amzn2023.0.1.noarch                                      
+  annobin-plugin-gcc-12.69-1.amzn2023.0.1.x86_64                                
+  container-selinux-4:2.245.0-1.amzn2023.noarch                                 
+  containerd-2.3.7-1.amzn2023.0.1.x86_64                                        
+  cpp-11.5.0-5.amzn2023.0.5.x86_64                                              
+  docker-25.0.18-1.amzn2023.0.2.x86_64                                          
+  gc-8.0.4-5.amzn2023.0.2.x86_64                                                
+  gcc-11.5.0-5.amzn2023.0.5.x86_64                                              
+  gcc-plugin-annobin-11.5.0-5.amzn2023.0.5.x86_64                               
+  glibc-devel-2.34-231.amzn2023.0.5.x86_64                                      
+  glibc-headers-x86-2.34-231.amzn2023.0.5.noarch                                
+  guile22-2.2.7-2.amzn2023.0.3.x86_64                                           
+  iptables-libs-1.8.8-3.amzn2023.0.2.x86_64                                     
+  iptables-nft-1.8.8-3.amzn2023.0.2.x86_64                                      
+  kernel-headers-1:6.1.189-236.399.amzn2023.x86_64                              
+  libcgroup-3.0-1.amzn2023.0.1.x86_64                                           
+  libmpc-1.2.1-2.amzn2023.0.2.x86_64                                            
+  libnetfilter_conntrack-1.0.8-2.amzn2023.0.2.x86_64                            
+  libnfnetlink-1.0.1-19.amzn2023.0.2.x86_64                                     
+  libnftnl-1.2.2-2.amzn2023.0.2.x86_64                                          
+  libtool-ltdl-2.4.7-1.amzn2023.0.3.x86_64                                      
+  libxcrypt-devel-4.4.33-7.amzn2023.x86_64                                      
+  make-1:4.3-5.amzn2023.0.2.x86_64                                              
+  pigz-2.5-1.amzn2023.0.4.x86_64                                                
+  runc-1.4.3-1.amzn2023.0.3.x86_64                                              
+
+Complete!
+go version go1.27.1 linux/amd64
+bajando s3://chispa-pruebas-879381269751/imagen-20261028/codigo.tgz
+CPU(s):                                  4
+Model name:                              AMD EPYC 7R13 Processor
+BIOS Model name:                         AMD EPYC 7R13 Processor
+== 2. docker build 06:57:27
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.25kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.27-bookworm
+#2 DONE 0.4s
+
+#3 [internal] load metadata for gcr.io/distroless/cc-debian12:nonroot
+#3 DONE 0.7s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [stage-1 1/3] FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+#5 resolve gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f 0.0s done
+#5 sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf 0B / 83.90kB 0.1s
+#5 sha256:777e96cf322c46bc32aca926c263624c4dc8d7cf37e2fa65ba2c7e697318ebbb 3.82kB / 3.82kB done
+#5 sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e 0B / 12.48kB 0.1s
+#5 sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 0B / 445.71kB 0.1s
+#5 sha256:311bdcc0a31d987b7fe9e3ea5fb941b7c0fb849e985724105e19c226bca2976c 3.98kB / 3.98kB done
+#5 sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f 1.51kB / 1.51kB done
+#5 ...
+
+#6 [internal] load build context
+#6 transferring context: 10.22MB 0.2s done
+#6 DONE 0.2s
+
+#5 [stage-1 1/3] FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+#5 sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf 83.90kB / 83.90kB 0.3s done
+#5 sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e 12.48kB / 12.48kB 0.2s done
+#5 extracting sha256:a5789fc40e828c4e7467626e3f69ec5dea8e5da22fe660db8ae6d16f777b0bbf done
+#5 sha256:bf7a4185f01524837d19abde915ffde84e64368b250f5b5e9f6f75aea62a11d4 0B / 29.00kB 0.3s
+#5 extracting sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e
+#5 sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 445.71kB / 445.71kB 0.3s done
+#5 extracting sha256:990a9c434e5e0f11549a8d4a41a1991e621b04e30cd63269adbc97b1dc38fd7e done
+#5 extracting sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 0.1s
+#5 sha256:2780920e5dbfbe103d03a583ed75345306e572ec5a48cb10361f046767d9f29a 0B / 67B 0.4s
+#5 sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 0B / 188B 0.4s
+#5 sha256:bf7a4185f01524837d19abde915ffde84e64368b250f5b5e9f6f75aea62a11d4 29.00kB / 29.00kB 0.4s done
+#5 extracting sha256:39dc083afc39bd8dc43d456fe7ff7d39292e593bb2769972c11bb2e5f9119386 0.2s done
+#5 sha256:2780920e5dbfbe103d03a583ed75345306e572ec5a48cb10361f046767d9f29a 67B / 67B 0.4s done
+#5 sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 188B / 188B 0.5s done
+#5 sha256:52630fc75a18675c530ed9eba5f55eca09b03e91bd5bc15307918bbc1a7e7296 162B / 162B 0.6s done
+#5 sha256:3214acf345c0cc6bbdb56b698a41ccdefc624a09d6beb0d38b5de0b2303ecaf4 123B / 123B 0.5s done
+#5 sha256:dd64bf2dd177757451a98fcdc999a339c35dee5d9872d8f4dc69c8f3c4dd0112 0B / 80B 0.6s
+#5 sha256:b839dfae01f66e15c6a8b63520557ed315bdfe036342fa7a0c537259f10d7a9a 0B / 351B 0.6s
+#5 sha256:dd64bf2dd177757451a98fcdc999a339c35dee5d9872d8f4dc69c8f3c4dd0112 80B / 80B 0.6s done
+#5 sha256:b839dfae01f66e15c6a8b63520557ed315bdfe036342fa7a0c537259f10d7a9a 351B / 351B 0.7s done
+#5 extracting sha256:bf7a4185f01524837d19abde915ffde84e64368b250f5b5e9f6f75aea62a11d4 done
+#5 extracting sha256:2780920e5dbfbe103d03a583ed75345306e572ec5a48cb10361f046767d9f29a done
+#5 sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 0B / 4.95MB 0.7s
+#5 sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354 0B / 314B 0.7s
+#5 sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b 0B / 143.35kB 0.7s
+#5 sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354 314B / 314B 0.7s done
+#5 extracting sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 done
+#5 extracting sha256:3214acf345c0cc6bbdb56b698a41ccdefc624a09d6beb0d38b5de0b2303ecaf4 done
+#5 extracting sha256:52630fc75a18675c530ed9eba5f55eca09b03e91bd5bc15307918bbc1a7e7296 done
+#5 extracting sha256:dd64bf2dd177757451a98fcdc999a339c35dee5d9872d8f4dc69c8f3c4dd0112 done
+#5 extracting sha256:b839dfae01f66e15c6a8b63520557ed315bdfe036342fa7a0c537259f10d7a9a done
+#5 sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd 0B / 2.51MB 0.8s
+#5 extracting sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354
+#5 sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b 143.35kB / 143.35kB 0.8s done
+#5 extracting sha256:dcaa5a89b0ccda4b283e16d0b4d0891cd93d5fe05c6798f7806781a6a2d84354 done
+#5 extracting sha256:96ed2737ae312e0bc637b40783f7c2f23416cb72ca957aa01855f1614278e64b done
+#5 sha256:336f6c853c4e7eaa77938f48c9b7ce98841916930fb3da435f7ca69586fe5853 0B / 133.53kB 0.9s
+#5 extracting sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89
+#5 sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 4.95MB / 4.95MB 0.9s done
+#5 sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd 2.51MB / 2.51MB 0.9s done
+#5 sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 0B / 57.20kB 1.0s
+#5 sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143 0B / 779.47kB 1.0s
+#5 sha256:336f6c853c4e7eaa77938f48c9b7ce98841916930fb3da435f7ca69586fe5853 133.53kB / 133.53kB 1.1s done
+#5 extracting sha256:235c3625d753c5b8a741210c2e7fb26b47a0d02cf49acc631a38dcf847eedf89 0.1s done
+#5 extracting sha256:dc0fb75e565a59a5824baedc9645656d17bc91c4b31332ee179580fa9f60eacd 0.0s done
+#5 sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472 0B / 40.31kB 1.1s
+#5 extracting sha256:336f6c853c4e7eaa77938f48c9b7ce98841916930fb3da435f7ca69586fe5853 done
+#5 sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143 779.47kB / 779.47kB 1.1s done
+#5 extracting sha256:1e8acdaa260712eac85de25745cd44440065e108314a5d02c01a6678d4b75143 0.0s done
+#5 extracting sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 done
+#5 extracting sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472
+#5 sha256:a812c900745ef51faf67489acb703c178411510edf7e0ab31af973e08567afb0 57.20kB / 57.20kB 1.2s done
+#5 sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472 40.31kB / 40.31kB 1.3s done
+#5 extracting sha256:b16bb3b2bd07785f19e8c72faf8106454371bff33191bdb4480fd8d9455b7472 done
+#5 DONE 1.6s
+
+#7 [build 1/9] FROM docker.io/library/golang:1.27-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5
+#7 resolve docker.io/library/golang:1.27-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 0.0s done
+#7 sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 6.53kB / 6.53kB done
+#7 sha256:fea12ba16096adec0f699ce1c4da2154d320450e56c1f63671f95d2a3551c77b 2.32kB / 2.32kB done
+#7 sha256:e0774ebe198a660f05b03dbafdbe7c806e1dbee8ac7dbff38f8a1b9865a0442a 3.06kB / 3.06kB done
+#7 sha256:8a051559ff62acdfa1af9916c3c67673d946bb71f81cb8f30c565fa647cb6a77 47.19MB / 48.52MB 1.6s
+#7 sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 29.36MB / 64.43MB 1.6s
+#7 sha256:55f3510f14ae1203443980e2b03e3c4adb950f89becd0189ad5032562ef49ea0 23.87MB / 23.87MB 1.5s done
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 7.34MB / 92.63MB 1.6s
+#7 sha256:8a051559ff62acdfa1af9916c3c67673d946bb71f81cb8f30c565fa647cb6a77 48.52MB / 48.52MB 1.6s done
+#7 sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 38.80MB / 64.43MB 1.7s
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 18.87MB / 92.63MB 1.7s
+#7 extracting sha256:8a051559ff62acdfa1af9916c3c67673d946bb71f81cb8f30c565fa647cb6a77
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 3.15MB / 71.15MB 1.7s
+#7 sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 49.28MB / 64.43MB 1.8s
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 28.31MB / 92.63MB 1.8s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 13.63MB / 71.15MB 1.8s
+#7 sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 58.72MB / 64.43MB 1.9s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 23.07MB / 71.15MB 1.9s
+#7 sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 64.43MB / 64.43MB 2.0s
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 48.23MB / 92.63MB 2.0s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 32.51MB / 71.15MB 2.0s
+#7 sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 64.43MB / 64.43MB 2.0s done
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 58.72MB / 92.63MB 2.1s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 42.99MB / 71.15MB 2.1s
+#7 sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 32B / 32B 2.1s done
+#7 sha256:c42ec79d38f93118e728683ce7bb8ffbfa2b4406713e0c670e53ac974b2794cd 126B / 126B 2.0s done
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 66.06MB / 92.63MB 2.2s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 53.48MB / 71.15MB 2.2s
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 88.08MB / 92.63MB 2.4s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 71.15MB / 71.15MB 2.4s
+#7 sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 71.15MB / 71.15MB 2.4s done
+#7 sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 92.63MB / 92.63MB 2.9s done
+#7 extracting sha256:8a051559ff62acdfa1af9916c3c67673d946bb71f81cb8f30c565fa647cb6a77 1.9s done
+#7 extracting sha256:55f3510f14ae1203443980e2b03e3c4adb950f89becd0189ad5032562ef49ea0
+#7 extracting sha256:55f3510f14ae1203443980e2b03e3c4adb950f89becd0189ad5032562ef49ea0 0.5s done
+#7 extracting sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 0.1s
+#7 extracting sha256:e0959ba39613fdd89ed3679cb0483740e954fcc9d3e68d882e6f27130ac124e0 2.1s done
+#7 extracting sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076
+#7 extracting sha256:68f2074ab7fd11f602b2218e3c94fb7870f11631e99647e34b8d6ab97ad04076 1.9s done
+#7 extracting sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b
+#7 extracting sha256:82e0bb27ae78502103ed383ed33346f88a83943fb7bd93977850d5890ee8fb3b 4.2s done
+#7 extracting sha256:c42ec79d38f93118e728683ce7bb8ffbfa2b4406713e0c670e53ac974b2794cd
+#7 extracting sha256:c42ec79d38f93118e728683ce7bb8ffbfa2b4406713e0c670e53ac974b2794cd done
+#7 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#7 DONE 13.1s
+
+#8 [build 2/9] WORKDIR /src
+#8 DONE 3.2s
+
+#9 [build 3/9] COPY gomod-proxy /gomod-proxy
+#9 DONE 0.2s
+
+#10 [build 4/9] COPY format/chispa3 format/chispa3
+#10 DONE 0.1s
+
+#11 [build 5/9] COPY runtime/l1 runtime/l1
+#11 DONE 0.0s
+
+#12 [build 6/9] COPY server server
+#12 DONE 0.0s
+
+#13 [build 7/9] RUN curl -fsSL -o /tmp/ort.tgz       https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz  && mkdir /ort && tar -xzf /tmp/ort.tgz -C /ort --strip-components=1
+#13 DONE 0.6s
+
+#14 [build 8/9] WORKDIR /src/server
+#14 DONE 0.1s
+
+#15 [build 9/9] RUN go get github.com/yalue/onnxruntime_go@v1.19.0  && go build -tags ort -trimpath       -ldflags "-s -w -X github.com/juan52878911/chispa/server/decide.RutaORT=/usr/lib/libonnxruntime.so"       -o /out/chispa-server ./cmd/chispa-server  && go build -trimpath -ldflags "-s -w" -o /out/carga ./cmd/carga
+#15 0.453 go: downloading github.com/yalue/onnxruntime_go v1.19.0
+#15 2.437 go: added github.com/yalue/onnxruntime_go v1.19.0
+#15 2.452 go: downloading github.com/juan52878911/kindling v0.17.0
+#15 DONE 16.2s
+
+#16 [stage-1 2/3] COPY --from=build /ort/lib/libonnxruntime.so.1.22.0 /usr/lib/libonnxruntime.so
+#16 DONE 0.0s
+
+#17 [stage-1 3/3] COPY --from=build /out/chispa-server /out/carga /usr/local/bin/
+#17 DONE 0.0s
+
+#18 exporting to image
+#18 exporting layers 0.1s done
+#18 writing image sha256:02fb9707f9f0cfa0c0e4e251eab70b9efdbadfdb86bedcf8a129d9981fd717a0 done
+#18 naming to docker.io/library/chispa-server done
+#18 DONE 0.1s
+== 3. tamaño de la imagen
+imagen: 57 MB descomprimida, 24 MB comprimida (objetivo <= 150 MB)
+== 4. modelo y arranque 06:58:03
+go: downloading github.com/juan52878911/kindling v0.17.0
+sin modelos en s3://chispa-pruebas-879381269751/imagen-20261028/modelos/: modelo pequeño (L0 de testdata/injection.chispa + L1 diminuto)
+modelo: pequeno (20019 bytes)
+2026/10/28 06:58:17 chispa-server en 0.0.0.0:8090: 1 modelos en L0
+== 5. contrato 06:58:17
+OK    choice 0
+OK    choice 1
+OK    choice 2
+OK    choice 3
+OK    choice 4
+OK    choice 5
+OK    choice 6
+OK    choice 7
+OK    noul+score 0
+OK    noul+score 1
+OK    noul+score 2
+OK    noul+score 3
+OK    noul+score 4
+OK    noul+score 5
+OK    noul+score 6
+OK    kind inválido → 400 con error
+OK    nonce idempotente (misma respuesta, ms incluido)
+OK    /healthz
+OK    /metrics
+chispa_peticiones_total{codigo="200"} 17
+chispa_peticiones_total{codigo="400"} 1
+chispa_decididas_total{capa="L1"} 7
+chispa_decididas_total{capa="L3"} 16
+chispa_escalados_total 16
+contrato: 20/20 OK
+== 6. carga 06:58:17
+-- lote=1 c=8 d=15s (pequeno)
+peticiones=238073 errores=0 lote=1 conc=8
+decisiones/s=15864 peticiones/s=15864 p50=456.071µs p99=1.415535ms
+-- lote=16 c=8 d=15s (pequeno)
+peticiones=78996 errores=0 lote=16 conc=8
+decisiones/s=84250 peticiones/s=5266 p50=1.327541ms p99=4.201853ms
+== 7. go build/test -tags ort 06:58:48
+go: downloading github.com/yalue/onnxruntime_go v1.19.0
+go: added github.com/yalue/onnxruntime_go v1.19.0
+go build -tags ort ./...: OK
+ok  	github.com/juan52878911/chispa/server/decide	0.013s
+/dev/nvme0n1p1   40G  4.3G   36G  11% /
+== listo 2026-10-28T06:58:58Z fallo=no
