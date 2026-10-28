@@ -36,7 +36,10 @@ class TestFuentesHF(Base):
         r4 = next(f for f in humanas if f["texto"].endswith("esos 4, no valen nada."))
         self.assertEqual((r4["etiqueta"], r4["anotadores"]), ("false", 3))
         self.assertAlmostEqual(r4["blanda"]["true"], 1 / 3.0)
-        self.assertTrue(all(f["tipo"] == "noul" and f["uso_comercial"] and f["licencia"] == "cc-by-4.0" for f in filas))
+        self.assertTrue(all(f["tipo"] == "noul" and f["licencia"] == "cc-by-4.0" for f in filas))
+        # etiquetas de LLM con términos propios: pendiente de decisión de Juan → nada comercial, todo a test
+        self.assertFalse(any(f["uso_comercial"] for f in filas))
+        self.assertEqual({f["split"] for f in filas}, {"test"})
 
     def test_toxicidad_usa_acuerdo_de_codificadores_y_no_la_columna_consensus(self):
         for mod, n_tot in ((toxicidad_protestas, 30), (toxicidad_constitucion, 30)):

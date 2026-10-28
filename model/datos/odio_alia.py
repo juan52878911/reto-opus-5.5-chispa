@@ -1,13 +1,14 @@
 """ALIA-es-discriminative-hate-speech (SINAI): `odio`, `noul` (true = discurso de odio).
 
-Etiqueta = `foe_class` (fusión de tres LLM). Las 3000 filas de la muestra humana (3 anotadores de Prolific) van a
-`test`, con `anotadores=3`, `blanda` = proporción de votos y la mayoría humana como etiqueta. El resto se reparte
-80/10/10 por hash del id. Se lee el JSONL en flujo (419 MB) y solo se guardan los campos útiles.
+Etiqueta = `foe_class` (fusión de tres LLM: Apertus, Gemma, MiniMax). Los términos de esos modelos pueden restringir
+entrenar con sus salidas y la decisión es de Juan: hasta entonces `uso_comercial=False` y TODAS las filas van a `test`
+(ver LICENCIAS.md, «pendiente de decisión»). Las 3000 de la muestra humana (3 anotadores de Prolific) llevan
+`anotadores=3`, `blanda` = proporción de votos y la mayoría humana como etiqueta. Se lee el JSONL en flujo (419 MB) y solo se guardan los campos útiles.
 """
 import json
 from pathlib import Path
 
-from .comun import fila, raiz_hf, split_por_clave
+from .comun import fila, raiz_hf
 from .libres import licencia_estricta, normalizar
 
 REPO = "SINAI/ALIA-es-discriminative-hate-speech"
@@ -30,7 +31,8 @@ def _lineas(path):
 
 def convertir(raiz=None):
     raiz = Path(raiz or raiz_hf(REPO))
-    lic, com = licencia_estricta(raiz, ("cc-by-4.0",), "cc-by-4.0")
+    lic, _ = licencia_estricta(raiz, ("cc-by-4.0",), "cc-by-4.0")
+    com = False  # pendiente de decisión de Juan: etiquetas de LLM con términos propios
     humanas = {}
     for r in _lineas(raiz / HUMANA):
         votos = [int(r["annotator_%d" % i]) for i in (1, 2, 3)]
@@ -52,7 +54,7 @@ def convertir(raiz=None):
             split, etq = "test", "true" if sum(v) * 2 > len(v) else "false"
             extra = {"anotadores": 3, "blanda": {"false": (3 - sum(v)) / 3.0, "true": sum(v) / 3.0}}
         else:
-            split, etq = split_por_clave(rid, 0.1, 0.1, "alia-odio"), "true" if int(clase) == 1 else "false"
+            split, etq = "test", "true" if int(clase) == 1 else "false"
             extra = {}
         n = cont.get(split, 0)
         cont[split] = n + 1
@@ -62,4 +64,4 @@ def convertir(raiz=None):
         f.update(extra)
         filas.append(f)
     return filas, {"licencia": lic, "duplicados_descartados": dup, "filas_humanas_en_test": sum(1 for x in filas if "anotadores" in x),
-                   "etiquetas": "foe_class (LLM) salvo la muestra humana"}
+                   "etiquetas": "foe_class (LLM) salvo la muestra humana", "uso_comercial": "false, pendiente de decisión (todo a test)"}
