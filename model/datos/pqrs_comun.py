@@ -61,8 +61,9 @@ def construir(corto, fuente, lic, com, tarea, pregunta, opciones, descripciones,
     filas_ok = []
     limpios = [re.sub(r"\s+", " ", r[0] or "").strip() for r in registros]
     voc = anonimizar.vocabulario_de(limpios) if vocabulario else None
+    estricto = anonimizar.vocabulario_de(limpios, min_df=2) if vocabulario else None
     for limpio, (_, etiqueta, extra) in zip(limpios, registros):
-        t, c = anonimizar.anonimizar(limpio, extra, voc)
+        t, c = anonimizar.anonimizar(limpio, extra, voc, estricto)
         if len(re.sub(r"\[[A-Z]+\]|\W", "", t)) < 3:
             descartes["texto_vacio_o_solo_datos"] += 1
             continue

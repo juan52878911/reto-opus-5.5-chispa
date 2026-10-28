@@ -41,7 +41,9 @@ betty brigitte camila carlota celia clemencia concepcion damaris elsa emma erika
 fernanda francia genoveva gisela hilda ingrid ines irma jacqueline jazmin jenny jennifer jessica johanna
 jhoana katerine leticia lidia lina lisbeth lucila magaly maribel marina marlon matilde melissa miriam myriam
 nohora noemi norma pastora piedad rebeca regina rosalia sonia soledad tulia vanessa vilma wendy yadira
-yaritza yazmin yohana zoraida
+yaritza yazmin yohana zoraida virginia jeronimo angelica geny jenifer yuri yury dolly gina erly nidya
+saray shirley stefany stephany lizeth lizbeth marleny nayibe yuly yineth yulieth andrey hermes gildardo ferney
+uriel ancizar anyi giovany geovanny yovany geovany
 """.split()
 
 # Apellidos comunes en Colombia (sin acentos, minúsculas).
@@ -75,6 +77,8 @@ paez palencia pelaez peralta pimentel pinzon portilla pulgarin quijano quintanil
 riascos ricaurte rivero robledo rubiano sabogal saenz samudio sanabria santacruz sanz sastoque sosa tabares
 tangarife tapias tejada tenorio terreros tobar trochez turriago urbano vacca valdes valenzuela
 vallecilla velilla vergara viana vidal villalobos villareal yanguas zabala zarate zorro
+arenas castilla riveros ceron cardozo ibarra lozada nossa ardila giron herran neira polania quimbaya salgado
+tapia tello ussa vives zamora gil
 """.split()
 
 N_NOMBRES = len(set(NOMBRES))
@@ -87,6 +91,9 @@ def sin_acentos(s):
 
 
 _NOM = {sin_acentos(x) for x in NOMBRES}
+# Nombres que también son palabras corrientes («luz», «socorro»): solo valen junto a un disparador o a otro nombre.
+_AMBIGUOS = {"luz", "socorro", "consuelo", "dolores", "amparo", "esperanza", "fatima", "angeles", "remedios", "mora",
+             "rosa", "paz", "victoria", "gracia", "pilar", "cielo", "aurora"}
 _APE = {sin_acentos(x) for x in APELLIDOS}
 _TODOS = _NOM | _APE
 
@@ -95,6 +102,16 @@ _NO_PERSONA_ANTES = {"san", "santa", "santo", "calle", "carrera", "avenida", "ba
                      "parque", "plaza", "vereda", "municipio", "alcaldia", "concejo", "fundacion", "clinica",
                      "centro", "instituto", "universidad", "puente", "ciudad", "villa"}
 _CONECTORES = {"de", "del", "la", "las", "los", "y", "e"}
+
+# Nombres de entidades («ALCALDÍA DE FLANDES», «SECRETARÍA DE SALUD»): la palabra cabeza protege lo que la sigue.
+_CABEZAS_ENTIDAD = {sin_acentos(x) for x in """alcaldia secretaria concejo gobernacion ministerio hospital clinica colegio
+institucion instituto universidad personeria contraloria procuraduria defensoria registraduria fiscalia policia ejercito
+armada direccion oficina empresa fundacion corporacion departamento municipio unidad superintendencia comisaria
+inspeccion juzgado tribunal corte eps ips esp caja cooperativa asociacion junta parroquia iglesia plaza parque
+barrio vereda sanidad dispensario ese dian sena icbf""".split()}
+_ENTIDAD_PALABRAS = _CABEZAS_ENTIDAD | {"colombia", "colombiano", "colombiana", "bogota", "medellin", "pereira", "cali"}
+_ADJ_ENTIDAD = {"municipal", "nacional", "departamental", "distrital", "general", "local", "regional", "publica",
+                "publico", "social", "militar", "central", "territorial", "educativa", "educativo"}
 
 # Disparadores: fuertes (siguen nombres propios casi siempre) y débiles (exigen más pruebas).
 _FUERTES = ("señor", "señora", "señores", "señorita", "sr", "sra", "srta", "don", "doña", "dr", "dra", "doctor",
@@ -150,9 +167,22 @@ def _es_mayus(w):
     return len(w) > 2 and w.isupper()
 
 
-def _hasta_nombre(texto, ini, debil):
-    """Longitud de la racha de palabras de nombre que empieza en `ini`; 0 si no parece un nombre."""
-    pos, fin, n, listas, titulos = ini, ini, 0, 0, 0
+def _desconocida(w, vocabulario):
+    """Palabra de 3+ letras (en cualquier caja) fuera del vocabulario, de las listas y de las entidades."""
+    wl = sin_acentos(w)
+    return bool(vocabulario) and len(w) > 2 and wl not in vocabulario and wl not in _ENTIDAD_PALABRAS
+
+
+def _mayus_desconocida(w, vocabulario):
+    return bool(vocabulario) and _es_mayus(w) and sin_acentos(w) not in vocabulario and sin_acentos(w) not in _ENTIDAD_PALABRAS
+
+
+def _hasta_nombre(texto, ini, debil, vocabulario=None, estricto=None):
+    """Longitud de la racha de palabras de nombre que empieza en `ini`; 0 si no parece un nombre.
+
+    Con `vocabulario`, una palabra en MAYÚSCULAS fuera de él (y fuera de las listas) también cuenta como parte del nombre.
+    `estricto` (vocabulario con `min_df=2`) decide qué palabras en minúsculas se suman a un nombre ya empezado."""
+    pos, fin, n, listas, titulos, mayus = ini, ini, 0, 0, 0, 0
     while n < 5:
         m = _PALABRA.match(texto, pos)
         if not m:
@@ -161,16 +191,22 @@ def _hasta_nombre(texto, ini, debil):
         wl = sin_acentos(w)
         if wl in _CONECTORES and n:
             sig = _PALABRA.match(texto, m.end() + 1) if m.end() < len(texto) else None
-            if sig and (_es_titulo(sig.group()) or sin_acentos(sig.group()) in _TODOS) and texto[m.end()] == " ":
+            if sig and (_es_titulo(sig.group()) or sin_acentos(sig.group()) in (_TODOS | _AMBIGUOS)
+                        or _mayus_desconocida(sig.group(), vocabulario)) and texto[m.end()] == " ":
                 pos = m.end() + 1
                 continue
             break
         en_lista = wl in _TODOS
-        if not (_es_titulo(w) or (_es_mayus(w) and en_lista) or (en_lista and w[0].isupper())):
+        ambiguo = wl in _AMBIGUOS and (w[0].isupper() or n)
+        minuscula = w.islower() and (en_lista or (n and _desconocida(w, estricto)) or (n and wl in _AMBIGUOS))
+        if not (_es_titulo(w) or (_es_mayus(w) and en_lista) or (en_lista and w[0].isupper())
+                or _mayus_desconocida(w, vocabulario) or ambiguo or minuscula):
             break
+        en_lista = en_lista or ambiguo
         n += 1
         listas += en_lista
         titulos += _es_titulo(w)
+        mayus += not en_lista and _mayus_desconocida(w, vocabulario)
         fin = m.end()
         if m.end() < len(texto) and texto[m.end()] == " ":
             pos = m.end() + 1
@@ -178,18 +214,18 @@ def _hasta_nombre(texto, ini, debil):
             break
     if not n:
         return 0
-    if debil and not (listas or titulos >= 2):
+    if debil and not (listas or titulos + mayus >= 2):
         return 0
     return fin - ini
 
 
-def _enmascarar_disparadores(texto, regex, debil, cuentas):
+def _enmascarar_disparadores(texto, regex, debil, cuentas, vocabulario=None, estricto=None):
     out, i = [], 0
     for m in regex.finditer(texto):
         if m.start() < i:
             continue
         # «la señora de arriba»: solo si el disparador va tras inicio/puntuación o minúscula; igual se mira el nombre
-        largo = _hasta_nombre(texto, m.end(), debil)
+        largo = _hasta_nombre(texto, m.end(), debil, vocabulario, estricto)
         if not largo:
             continue
         out.append(texto[i:m.end()])
@@ -200,13 +236,48 @@ def _enmascarar_disparadores(texto, regex, debil, cuentas):
     return "".join(out)
 
 
+def _protegidas(toks, texto):
+    """Índices de token dentro de nombres de entidad («ALCALDÍA DE FLANDES»): cabeza + conectores + 1-2 palabras."""
+    prot = set()
+    k = 0
+    while k < len(toks):
+        if sin_acentos(toks[k].group()) not in _CABEZAS_ENTIDAD:
+            k += 1
+            continue
+        fin, j, cuerpo = k, k + 1, 0
+        while j < len(toks) and cuerpo < 2 and texto[toks[j - 1].end():toks[j].start()] == " ":
+            w = sin_acentos(toks[j].group())
+            if w in _CONECTORES:
+                j += 1
+                continue
+            con_conector = sin_acentos(toks[j - 1].group()) in _CONECTORES
+            if w in _ADJ_ENTIDAD:
+                fin = j
+            elif w in _TODOS and not con_conector and cuerpo:
+                break
+            elif _es_titulo(toks[j].group()) or toks[j].group().isupper() or con_conector:
+                if w in _TODOS and not con_conector:
+                    break
+                cuerpo += 1
+                fin = j
+            else:
+                break
+            j += 1
+        prot.update(range(k, fin + 1))
+        k = max(fin + 1, k + 1)
+    return prot
+
+
 def _enmascarar_lista(texto, cuentas):
-    """Palabras de la lista de nombres/apellidos (con inicial mayúscula o todo mayúsculas); funde rachas contiguas."""
+    """Palabras de la lista de nombres/apellidos, sin importar mayúsculas ni tildes; funde rachas contiguas.
+
+    Con inicial mayúscula (o todo mayúsculas) basta una palabra; en minúsculas hacen falta 2 o más seguidas y alguna
+    que sea nombre de pila («juan perez»). Los nombres de entidad («Alcaldía de Flandes») no se tocan."""
     toks = list(_PALABRA.finditer(texto))
+    prot = _protegidas(toks, texto)
     marcas = []
     for k, m in enumerate(toks):
-        w = m.group()
-        if sin_acentos(w) not in _TODOS or not w[0].isupper():
+        if sin_acentos(m.group()) not in _TODOS or k in prot:
             continue
         if k and sin_acentos(toks[k - 1].group()) in _NO_PERSONA_ANTES:
             continue
@@ -216,6 +287,7 @@ def _enmascarar_lista(texto, cuentas):
     out, i, k = [], 0, 0
     while k < len(marcas):
         ini, fin = marcas[k], marcas[k]
+        grupo = [marcas[k]]
         # une con la siguiente marca si solo las separa un espacio o un conector («de», «del»)
         while k + 1 < len(marcas):
             sig = marcas[k + 1]
@@ -224,14 +296,86 @@ def _enmascarar_lista(texto, cuentas):
             if sig == fin + 1 and hueco == " " or (
                     sig == fin + 2 and sin_acentos(entre[0].group()) in _CONECTORES and hueco.strip() == entre[0].group()):
                 fin = sig
+                grupo.append(sig)
                 k += 1
             else:
                 break
+        k += 1
+        fuerte = any(toks[g].group()[0].isupper() for g in grupo)
+        if not fuerte and not (len(grupo) >= 2 and any(sin_acentos(toks[g].group()) in _NOM for g in grupo)):
+            continue
         out.append(texto[i:toks[ini].start()])
         out.append("[NOMBRE]")
         cuentas["NOMBRE"] += 1
         i = toks[fin].end()
-        k += 1
+    out.append(texto[i:])
+    return "".join(out)
+
+
+def _enmascarar_mayusculas(texto, vocabulario, cuentas):
+    """Tramos en MAYÚSCULAS de 2 a 4 palabras con al menos un nombre o apellido de la lista: se enmascaran enteros
+    (las vecinas desconocidas son casi siempre el resto del nombre). Sin tocar nombres de entidad."""
+    toks = list(_PALABRA.finditer(texto))
+    prot = _protegidas(toks, texto)
+    out, i, k = [], 0, 0
+    while k < len(toks):
+        j = k
+        while (j < len(toks) and j - k < 4 and j not in prot and len(toks[j].group()) > 1 and toks[j].group().isupper()
+               and (j == k or texto[toks[j - 1].end():toks[j].start()] == " ")
+               and (sin_acentos(toks[j].group()) in _TODOS
+                    or (sin_acentos(toks[j].group()) not in (vocabulario or ()) and sin_acentos(toks[j].group()) not in _ENTIDAD_PALABRAS
+                        and len(toks[j].group()) > 2))):
+            j += 1
+        if j - k >= 2 and any(sin_acentos(toks[x].group()) in _TODOS for x in range(k, j)):
+            out.append(texto[i:toks[k].start()])
+            out.append("[NOMBRE]")
+            cuentas["NOMBRE"] += 1
+            i = toks[j - 1].end()
+            k = j
+        else:
+            k += 1
+    out.append(texto[i:])
+    return "".join(out)
+
+
+_RE_ANTES_DOC = re.compile(r",?\s*(?:identificad[oa]|portador[a]?|(?:con\s+)?c\.?\s?c\.?\s*(?:n[°ºo.]*\s*)?\[DOC\]|c[ée]dula)", re.I)
+
+
+def _enmascarar_antes_de_documento(texto, vocabulario, cuentas):
+    """El nombre que precede a «identificado con», «C.C. [DOC]» o «cédula»: palabras con inicial mayúscula que son de la
+    lista o no aparecen en minúsculas en el corpus, hacia atrás desde el rótulo (hasta 5)."""
+    out, i = [], 0
+    for m in _RE_ANTES_DOC.finditer(texto):
+        toks = [t for t in _PALABRA.finditer(texto, max(i, m.start() - 80), m.start())]
+        if not toks or texto[toks[-1].end():m.start()].strip(" "):
+            continue
+        prot = _protegidas(toks, texto)
+        n, j = 0, len(toks)
+        while j > 0 and n < 5:
+            w = toks[j - 1].group()
+            wl = sin_acentos(w)
+            ok = w[0].isupper() and (wl in _TODOS or wl not in (vocabulario or ())
+                                     or texto[:toks[j - 1].start()].rstrip().endswith("[NOMBRE]"))
+            if wl in _CONECTORES and j > 1 and n and texto[toks[j - 2].end():toks[j - 1].start()] == " ":
+                j -= 1
+                continue
+            if not ok or (j - 1) in prot or wl in _ENTIDAD_PALABRAS:
+                break
+            n += 1
+            j -= 1
+            if j and texto[toks[j - 1].end():toks[j].start()] != " ":
+                break
+        while j < len(toks) and sin_acentos(toks[j].group()) in _CONECTORES:
+            j += 1
+        if n == 0 or j >= len(toks):
+            continue
+        ini = toks[j].start()
+        if ini < i:
+            continue
+        out.append(texto[i:ini])
+        out.append("[NOMBRE]")
+        cuentas["NOMBRE"] += 1
+        i = toks[-1].end()
     out.append(texto[i:])
     return "".join(out)
 
@@ -247,12 +391,15 @@ def _enmascarar_extra(texto, extra, cuentas):
     return texto
 
 
-def vocabulario_de(textos):
-    """Palabras (sin acentos) que aparecen en minúsculas en `textos`: lo que NO es nombre propio en este corpus."""
-    voc = set()
+def vocabulario_de(textos, min_df=1):
+    """Palabras (sin acentos) que aparecen en minúsculas en `textos`: lo que NO es nombre propio en este corpus.
+
+    Con `min_df` > 1 solo cuentan las que aparecen en ese número de textos distintos: un nombre escrito en minúsculas
+    en una sola fila no debe colarse en el vocabulario."""
+    df = collections.Counter()
     for t in textos:
-        voc.update(sin_acentos(w) for w in re.findall(r"(?<![\wÁÉÍÓÚÑ])[a-záéíóúñü]{2,}", t))
-    return voc
+        df.update({sin_acentos(w) for w in re.findall(r"(?<![\wÁÉÍÓÚÑ])[a-záéíóúñü]{2,}", t)})
+    return {w for w, n in df.items() if n >= min_df}
 
 
 _LUGARES_INSTITUCIONES = {"colombia", "bogota", "medellin", "antioquia", "tolima", "flandes", "pereira", "risaralda", "cali",
@@ -264,10 +411,11 @@ def _enmascarar_rachas(texto, vocabulario, cuentas):
     """Rachas de 2 a 4 palabras con inicial mayúscula (no al inicio de frase) que nunca aparecen en minúsculas en el
     corpus y no son lugares ni instituciones corrientes: casi siempre son un nombre y un apellido."""
     toks = list(_PALABRA.finditer(texto))
+    prot = _protegidas(toks, texto)
     out, i, k = [], 0, 0
     while k < len(toks):
         j = k
-        while (j < len(toks) and _es_titulo(toks[j].group()) and sin_acentos(toks[j].group()) not in vocabulario
+        while (j < len(toks) and j not in prot and _es_titulo(toks[j].group()) and sin_acentos(toks[j].group()) not in vocabulario
                and sin_acentos(toks[j].group()) not in _LUGARES_INSTITUCIONES and j - k < 4
                and (j == k or texto[toks[j - 1].end():toks[j].start()] == " ")):
             j += 1
@@ -283,7 +431,36 @@ def _enmascarar_rachas(texto, vocabulario, cuentas):
     return "".join(out)
 
 
-def anonimizar(texto, nombres_extra=(), vocabulario=None):
+_RE_ENTRE = re.compile(r"\[NOMBRE\]\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})\s+\[NOMBRE\]")
+_RE_VECINA_DESPUES = re.compile(r"\[NOMBRE\](?:\s+(?:de|del|de la|de los))?\s+([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})")
+_RE_VECINA_ANTES = re.compile(r"([A-Za-zÁÉÍÓÚÑÜáéíóúñü'’]{3,})\s+(?:(?:de|del|de la|de los)\s+)?\[NOMBRE\]")
+
+
+def _absorber_vecinas(texto, vocabulario):  # `vocabulario`: el estricto (min_df=2) si hay
+    """Palabras pegadas a una etiqueta [NOMBRE] que siguen siendo nombre: de la lista (en cualquier caja), de nombres
+    ambiguos («Socorro») o con inicial mayúscula y desconocidas («[NOMBRE] MELO»)."""
+    def es_nombre(w, ini, entre=False):
+        if ini in protegidas:
+            return False
+        wl = sin_acentos(w)
+        if wl in _TODOS or wl in _AMBIGUOS:
+            return True
+        return entre and w[0].isupper() and _desconocida(w, vocabulario)
+    for _ in range(8):
+        toks = list(_PALABRA.finditer(texto))
+        protegidas = {toks[k].start() for k in _protegidas(toks, texto)}
+        nuevo = _RE_ENTRE.sub(lambda m: "[NOMBRE] [NOMBRE]" if es_nombre(m.group(1), m.start(1), True) else m.group(0), texto)
+        if nuevo == texto:
+            nuevo = _RE_VECINA_DESPUES.sub(lambda m: "[NOMBRE]" if es_nombre(m.group(1), m.start(1)) else m.group(0), texto)
+        if nuevo == texto:  # las posiciones solo valen para el texto sin cambiar
+            nuevo = _RE_VECINA_ANTES.sub(lambda m: "[NOMBRE]" if es_nombre(m.group(1), m.start(1)) else m.group(0), texto)
+        if nuevo == texto:
+            break
+        texto = nuevo
+    return texto
+
+
+def anonimizar(texto, nombres_extra=(), vocabulario=None, estricto=None):
     """(texto anonimizado, Counter de reemplazos por etiqueta).
 
     Con `vocabulario` (ver `vocabulario_de`) se añade la regla de rachas de 2+ palabras capitalizadas desconocidas."""
@@ -299,11 +476,15 @@ def anonimizar(texto, nombres_extra=(), vocabulario=None):
     t = _RE_DOC_PUNTOS.sub(_pon(cuentas, "DOC"), t)
     t = _RE_DOC.sub(_pon(cuentas, "DOC"), t)
     t = _enmascarar_extra(t, nombres_extra, cuentas)
-    t = _enmascarar_disparadores(t, _RE_FUERTE, False, cuentas)
-    t = _enmascarar_disparadores(t, _RE_DEBIL, True, cuentas)
+    t = _enmascarar_disparadores(t, _RE_FUERTE, False, cuentas, vocabulario, estricto)
+    t = _enmascarar_disparadores(t, _RE_DEBIL, True, cuentas, vocabulario, estricto)
+    t = _enmascarar_antes_de_documento(t, vocabulario, cuentas)
+    t = _enmascarar_mayusculas(t, vocabulario, cuentas)
     t = _enmascarar_lista(t, cuentas)
     if vocabulario:
         t = _enmascarar_rachas(t, vocabulario, cuentas)
+    t = _enmascarar_antes_de_documento(t, vocabulario, cuentas)  # otra vez: ahora las etiquetas ya están puestas
+    t = _absorber_vecinas(t, estricto or vocabulario)
     t = re.sub(r"\[NOMBRE\](?:\s+(?:(?:de|del|la|los|y)\s+)?\[NOMBRE\])+", "[NOMBRE]", t)
     if cuentas["NOMBRE"]:
         cuentas["NOMBRE"] = t.count("[NOMBRE]")

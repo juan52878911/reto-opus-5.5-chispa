@@ -230,6 +230,76 @@ class TestAnonimizar(unittest.TestCase):
         self.assertEqual(c["NOMBRE"], t.count("[NOMBRE]"))
         self.assertNotIn("Torres", t)
 
+    VOC = anonimizar.vocabulario_de([
+        "la alcaldía responde a la solicitud del ciudadano que pide la copia del contrato y el certificado",
+        "solicito información sobre el trámite y envío cordialmente la firma de la salud del municipio"])
+
+    def test_mayusculas_con_nombre_de_la_lista(self):
+        t, _ = self.a("SOLICITO COPIA. ATENTAMENTE: HECTOR FABIO ZULUAGA BEDOYA", vocabulario=self.VOC)
+        for malo in ("HECTOR", "ZULUAGA", "BEDOYA"):
+            self.assertNotIn(malo, t)
+        self.assertIn("SOLICITO COPIA", t)
+        t, _ = self.a("PETICION DE LA SEÑORA ROSALBA QUIÑONEZ RAMIREZ SOBRE EL CONTRATO", vocabulario=self.VOC)
+        self.assertNotRegex(t, "ROSALBA|QUIÑONEZ|RAMIREZ")
+        self.assertIn("SOBRE EL CONTRATO", t)
+
+    def test_tildes_y_minusculas(self):
+        t, _ = self.a("habla jerónimo pérez sobre la salud del barrio")
+        self.assertNotRegex(t, "(?i)jer[óo]nimo|p[ée]rez")
+        t, _ = self.a("ÁNGELA MARÍA NIÑO MUÑOZ pide copia", vocabulario=self.VOC)
+        self.assertNotRegex(t, "ÁNGELA|MUÑOZ|NIÑO")
+        t, _ = self.a("la mora del pago y la rosa del jardín")  # palabras corrientes sueltas
+        self.assertNotIn("[NOMBRE]", t)
+
+    def test_nombres_compuestos(self):
+        t, _ = self.a("JUAN CARLOS DE LA TORRES Y MARIA DEL PILAR GARCIA RESTREPO escribieron", vocabulario=self.VOC)
+        self.assertNotRegex(t, "JUAN|TORRES|PILAR|GARCIA|RESTREPO")
+        self.assertIn("escribieron", t)
+        t, _ = self.a("Habla Ana María de Jesús Pardo López", vocabulario=self.VOC)
+        self.assertNotRegex(t, "Ana|Jesús|Pardo|López")
+
+    def test_contextos_documento_y_ciudadano(self):
+        t, _ = self.a("Yo, Yesenia Cuesta Mena, identificada con C.C. 52.123.456 solicito copia.", vocabulario=self.VOC)
+        self.assertNotRegex(t, "Yesenia|Cuesta|Mena|52")
+        self.assertIn("solicito copia", t)
+        t, _ = self.a("OSCAR LIBREROS PINZON C.C. 79.123.456 SOLICITA CERTIFICADO", vocabulario=self.VOC)
+        self.assertNotRegex(t, "OSCAR|LIBREROS|PINZON|79")
+        self.assertIn("SOLICITA CERTIFICADO", t)
+        t, _ = self.a("El ciudadano WILMER ORTIZ pide ayuda; la ciudadana Zoila Vera también.", vocabulario=self.VOC)
+        self.assertNotRegex(t, "WILMER|ORTIZ|Zoila|Vera")
+        t, _ = self.a("CORDIALMENTE, MARTHA LUCIA ECHAVARRIA", vocabulario=self.VOC)
+        self.assertNotRegex(t, "MARTHA|LUCIA|ECHAVARRIA")
+
+    def test_no_rompe_nombres_de_entidades(self):
+        for ent in ("ALCALDÍA DE FLANDES", "SECRETARÍA DE SALUD", "ALCALDÍA MUNICIPAL DE FLANDES",
+                    "Hospital San José", "CONCEJO DE PEREIRA", "SANIDAD MILITAR"):
+            t, _ = self.a("SOLICITO A LA %s COPIA DEL CONTRATO" % ent, vocabulario=self.VOC)
+            self.assertIn(ent, t)
+        t, _ = self.a("ENVIADO A SECRETARÍA DE SALUD POR JULIAN ANDRES CASTRO", vocabulario=self.VOC)
+        self.assertIn("SECRETARÍA DE SALUD", t)
+        self.assertNotRegex(t, "JULIAN|CASTRO")
+        t, _ = self.a("ALCALDÍA DE FLANDES JUAN PEREZ", vocabulario=self.VOC)
+        self.assertIn("ALCALDÍA DE FLANDES", t)
+        self.assertNotRegex(t, "JUAN|PEREZ")
+
+    def test_nombres_pegados_a_una_etiqueta_y_ambiguos(self):
+        v = anonimizar.vocabulario_de(["el señor franco habla con la alcaldía", "la luz del barrio y el socorro tardío, gracias"])
+        t, _ = self.a("Radicada por la SRA LUZ MARINA DEL SOCORRO ARBOLEDA, solicitud", vocabulario=v)
+        self.assertNotRegex(t, "LUZ|MARINA|SOCORRO|ARBOLEDA")
+        t, _ = self.a("Sucesión del Sr. Mario NOSSA TELLO Ricaurte, por ello solicito", vocabulario=v)
+        self.assertNotRegex(t, "Mario|NOSSA|TELLO|Ricaurte")
+        t, _ = self.a("las personas Gloria Pinzón y Mario Franco con CC 12.345.678 que me vendieron", vocabulario=v)
+        self.assertNotIn("Franco", t)
+        t, _ = self.a("paz y salvo a nombre de osvaldo pinzon zuluaga gracias", vocabulario=v, estricto=v)
+        self.assertNotRegex(t, "osvaldo|pinzon|zuluaga")
+        self.assertIn("gracias", t)
+        t, _ = self.a("la luz del barrio y el socorro tardío", vocabulario=v)
+        self.assertNotIn("[NOMBRE]", t)
+
+    def test_vocabulario_con_min_df_ignora_palabras_de_una_sola_fila(self):
+        v = anonimizar.vocabulario_de(["pidió osvaldo copia", "pidió copia"], min_df=2)
+        self.assertEqual(v, {"pidio", "copia"})
+
     def test_sospechosas_cuenta_nombres_aparentes_sin_etiquetas(self):
         voc = anonimizar.vocabulario_de(["hola solicito copia"])
         self.assertEqual(anonimizar.sospechosas("Hola, [NOMBRE] pidió copia. Habló Zenobio Querubín.", voc), ["Zenobio", "Querubín"])
