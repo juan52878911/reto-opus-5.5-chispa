@@ -1,0 +1,2 @@
+# El .gitignore de la raíz ignora toda carpeta data/; aquí los fixtures la necesitan.
+!**/data/
