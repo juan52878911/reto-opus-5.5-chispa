@@ -33,4 +33,4 @@ Encargo: `plan/fase-2/encargo.md`. Decisión de Juan del 2026-10-28: «C y despu
 
 ## Coste de la fase
 - AWS: menos de 5 USD en total en el día (g5 y c6a/m6a, spot cuando había capacidad).
-- Workers: unos 15 USD de cuenta en el día.
+- Workers: 21,3 USD de cuenta en el día (`delega spend`, perfil personal).
