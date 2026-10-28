@@ -59,3 +59,21 @@ Con los valores por defecto el comportamiento es el de T2.1.
 - `evaluar --renombrar`: evalúa también con las opciones renombradas y escribe `caida.md` (macro-F1 original − renombrado por tarea).
 - `aws/arranque.sh`: `__L2_ARGS__` y `__CKPT_INICIAL__`; las descargas de S3 son por fichero (sin `--recursive` ni `sync`) a partir de
   `model/meta/resultados/conversion-20261027.json`; `CHISPA_EXTRA_S3/extra.tgz` opcional para el segundo maestro.
+
+## T2.1b: prototipos de soporte y entrenamiento por episodios
+- `modelo.prototipos`: P_c ∈ R^{K×d} por clase = media normalizada, ranura a ranura, de las ranuras de k ejemplos de soporte.
+  Puntuación `sim_opción(c) + β·simproto(c)` con `simproto = mean_k max_k' (s_k · P_c,k')`; β por tipo (`choice`, `noul`, `score`),
+  inicial 1. En `noul` y `score` el término es la combinación de `simproto` ponderada de −1 a +1 por la posición de la clase
+  (con 2 clases, `sp(true) − sp(false)`) y se suma a la `sim` de la cabeza. Sin `protos` (o con β = 0) sale exactamente la ronda 1;
+  los checkpoints sin β cargan (β = 1).
+- `datos.Episodios` (`--episodios`): función pura de (semilla, paso). 25 % de los pasos sin soporte (`--frac-zeroshot`), de meta
+  mientras `--frac-meta` lo permita; el resto, un episodio de una tarea local: k ejemplos por clase (k ∈ [`--k-min`, `--k-max`]) de
+  soporte y consultas disjuntas, clases uniformes. En las `choice` con más de `--vias` (16) clases se eligen `--vias` y las opciones de
+  las consultas se reducen a ellas (si no, una tarea de 151 clases costaría ~4800 mensajes por paso). Las épocas se cuentan sobre las
+  filas locales.
+- `evaluar --soporte K`: soporte = `datos.soporte_t17a` (mismo algoritmo y semilla 0 que `lineas_base.correr.soporte`: los mismos
+  ejemplos que kNN-32), prototipos en caché por (tarea, hash del soporte) y calculados una vez; `delta.md` lleva las dos columnas. La
+  evaluación renombrada sigue sin soporte. Sin train (listón) no hay soporte: esas filas salen igual en las dos columnas.
+- `aws/arranque.sh`: `L2_ARGS="--episodios --k-min 4 --k-max 32 --frac-meta 0.5 --frac-zeroshot 0.25"`; con `--episodios` evalúa con
+  `--soporte <k-max>`. Las descargas de S3 ya eran por fichero.
+- Dev durante el entrenamiento: sin y con soporte (k = `--k-max`, soporte de los train locales); `mejor.pt` por el segundo.
