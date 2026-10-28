@@ -29,6 +29,8 @@ def main(argv=None) -> int:
                    help="tope de la tabla de pesos de L0 en MB; reduce los buckets de hashing hasta que cabe (kindling rechaza > 64 MiB)")
     t.add_argument("--l0tf-max-mb", type=float, default=48.0,
                    help="con --conjunta: tope de los coeficientes de L0TF en MB; poda el vocabulario por frecuencia hasta que cabe")
+    t.add_argument("--precision-objetivo", type=float, default=0.95,
+                   help="con --conjunta: precisión mínima de lo aceptado para fijar el τ de L2c fuera de pliegue (0,95)")
     t.add_argument("--l0tf-f16", action="store_true", help="con --conjunta: coeficientes de L0TF en f16 en vez de f32")
     d = sub.add_parser("decide", help="una pregunta contra un servidor")
     d.add_argument("--url", required=True)
@@ -42,7 +44,8 @@ def main(argv=None) -> int:
             from .train import entrenar
             entrenar(a.ejemplos, a.esquema, a.salida, l1=a.l1, ckpt=a.ckpt, l2=a.l2, conjunta=a.conjunta, repo=a.repo,
                      pregunta=a.pregunta, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
-                     l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16, log=lambda m: print(m, file=sys.stderr))
+                     l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
+                     precision_objetivo=a.precision_objetivo, log=lambda m: print(m, file=sys.stderr))
         else:
             q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
                  "score": lambda: Score("q", a.pregunta, int(a.opciones[0]))}[a.tipo]()

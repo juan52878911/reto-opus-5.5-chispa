@@ -163,6 +163,7 @@ func entrenar(p *Plan) (*Informe, error) {
 			return nil, err
 		}
 		secs = append(secs, chispa3.Seccion{Tipo: chispa3.CONJ, Datos: b})
+		calib.TauL2c = p.TauL2c
 	}
 
 	if p.L0TF != "" {

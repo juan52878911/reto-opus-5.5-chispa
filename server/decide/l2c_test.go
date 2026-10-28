@@ -427,3 +427,26 @@ func BenchmarkSimproto150(b *testing.B) {
 		}
 	})
 }
+
+func TestAplicarTauL2c(t *testing.T) {
+	tau := 0.42
+	nuevo := func() *Config { return &Config{Capas: []Capa{{Nombre: "L0", Tau: 0.8}, {Nombre: "L2", Tau: 0.7}}} }
+	casos := []struct {
+		nombre            string
+		calib             chispa3.Calib
+		esL2c, tauDeCalib bool
+		quiere            float64
+	}{
+		{"con τ de L2c", chispa3.Calib{TauL2c: &tau}, true, true, 0.42},
+		{"sin τ de L2c: igual que antes", chispa3.Calib{}, true, true, 0.7},
+		{"L2 sin cabeza conjunta", chispa3.Calib{TauL2c: &tau}, false, true, 0.7},
+		{"config explícita manda", chispa3.Calib{TauL2c: &tau}, true, false, 0.7},
+	}
+	for _, c := range casos {
+		cfg := nuevo()
+		aplicarTauL2c(cfg, c.calib, c.esL2c, c.tauDeCalib)
+		if cfg.Capas[1].Tau != c.quiere || cfg.Capas[0].Tau != 0.8 {
+			t.Errorf("%s: τ L0=%v L2=%v, quiero L2=%v", c.nombre, cfg.Capas[0].Tau, cfg.Capas[1].Tau, c.quiere)
+		}
+	}
+}

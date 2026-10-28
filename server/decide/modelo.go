@@ -15,7 +15,7 @@ type Montaje struct {
 
 // ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y monta L1 y L2 con las secciones presentes;
 // las que faltan quedan como stub. Con tauDeCalib, el τ de L1 y L2 pasa a ser el tau_escalate
-// de CALIB (cfg se modifica). tok es el tokenizador de e5 que necesita L2 (puede ser nil).
+// de CALIB (cfg se modifica); si L2 es L2c y CALIB trae tau_l2c, ese es el τ de L2. tok es el tokenizador de e5 que necesita L2 (puede ser nil).
 // f debe seguir abierto mientras se use la cascada.
 func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok Tokenizador) (Montaje, error) {
 	mt := Montaje{L1: NuevoL1(), L2: NuevoL2()}
@@ -82,6 +82,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {
 			mt.L2 = d
+			aplicarTauL2c(cfg, calib, conj != nil, tauDeCalib)
 		}
 	}
 	return mt, nil
@@ -101,4 +102,16 @@ func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Token
 	}
 	base := NuevoL2Con(ses, esq, calib, tok)
 	return NuevoL2cCon(base, base, conj), nil
+}
+
+// aplicarTauL2c fija el τ de L2 al de la cabeza conjunta si CALIB lo trae. El tau_escalate se calibró para L2 solo.
+func aplicarTauL2c(cfg *Config, calib chispa3.Calib, esL2c, tauDeCalib bool) {
+	if !tauDeCalib || !esL2c || calib.TauL2c == nil {
+		return
+	}
+	for i := range cfg.Capas {
+		if cfg.Capas[i].Nombre == "L2" {
+			cfg.Capas[i].Tau = *calib.TauL2c
+		}
+	}
 }

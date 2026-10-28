@@ -63,6 +63,33 @@ class TestFixtureParidad(unittest.TestCase):
             np.testing.assert_allclose(a["sims"], b["sims"], atol=0)
 
 
+class TestTauL2c(unittest.TestCase):
+    def test_menor_tau_que_cumple_el_objetivo(self):
+        from chispa.conjunta import tau_l2c
+        n = 100  # conf 0,99..0,50; acierta el 100 % de las 60 más seguras y el 0 % del resto
+        conf = np.linspace(0.99, 0.5, n)
+        p = np.stack([conf, 1 - conf], 1)
+        y = np.array([0] * 60 + [1] * 40)
+        tau, prec, cob = tau_l2c(p, y, 0.95)
+        self.assertGreaterEqual(prec, 0.95)
+        self.assertAlmostEqual(tau, conf[62], places=9)  # el prefijo más largo con precisión >= 0,95 es 63 filas (60/63)
+        self.assertAlmostEqual(cob, 63 / n)
+        self.assertEqual(tau_l2c(p, 1 - y, 0.95)[0], None)  # todo mal: sin τ
+
+    def test_objetivo_mas_exigente_da_tau_mayor(self):
+        from chispa.conjunta import tau_l2c
+        rng = np.random.default_rng(0)
+        conf = rng.uniform(0.5, 1, 500)
+        p = np.stack([conf, 1 - conf], 1)
+        y = np.where(rng.uniform(size=500) < conf, 0, 1)
+        t90, t99 = tau_l2c(p, y, 0.90)[0], tau_l2c(p, y, 0.99)[0]
+        self.assertTrue(t90 is not None and (t99 is None or t99 >= t90))
+
+    def test_calib_con_y_sin_tau(self):
+        self.assertNotIn("tau_l2c", json.loads(formato.calib({}, 0.7)))
+        self.assertEqual(json.loads(formato.calib({}, 0.7, 0.3))["tau_l2c"], 0.3)
+
+
 @unittest.skipUnless(encontrar_go() and REPO, "sin Go o sin repositorio")
 class TestTrainConjunta(unittest.TestCase):
     def setUp(self):
@@ -81,8 +108,8 @@ class TestTrainConjunta(unittest.TestCase):
         self.modelo_enc = (ModeloL2(), CodificadorFalso())
 
     def correr(self, salida, **kw):
-        return entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / salida, l2=str(self.d / "l2.chispa"),
-                        log=lambda m: None, **kw)
+        kw.setdefault("log", lambda m: None)
+        return entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / salida, l2=str(self.d / "l2.chispa"), **kw)
 
     def test_conjunta_escribe_conj_y_sin_ella_el_fichero_no_cambia(self):
         sin = self.correr("sin.chispa")
@@ -102,6 +129,36 @@ class TestTrainConjunta(unittest.TestCase):
         self.assertEqual(struct.unpack("<IIII", b[formato.L0TF][:16])[::3], (1, 1))  # versión 1, f32
         # La sección es la de esta pregunta: hash de pregunta y opciones ordenadas.
         self.assertIn(formato.hash_esquema(ESQ["pregunta"], sorted(ESQ["opciones"])), [b[formato.CONJ][8:40]])
+
+    def test_pocas_filas_usa_el_tau_de_calib_y_avisa(self):
+        avisos = []
+        self.correr("poco.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, log=avisos.append)
+        self.assertTrue(any("τ de L2c de CALIB" in a for a in avisos), avisos)
+        c = json.loads(formato.leer((self.d / "poco.chispa").read_bytes())[formato.CALIB])
+        self.assertNotIn("tau_l2c", c)
+
+    def test_con_filas_suficientes_escribe_tau_l2c_en_calib(self):
+        rng = np.random.default_rng(1)
+        o1, o2 = list(ESQ["opciones"])
+        pal = {o1: ["rojo", "fuego", "cálido"], o2: ["azul", "mar", "frío"]}
+        with open(self.d / "ej.jsonl", "w") as f:
+            for i in range(400):
+                e = (o1, o2)[i % 2]
+                t = " ".join(rng.choice(pal[e], 2)) + f" {i % 7}" + (" " + rng.choice(pal[(o2, o1)[i % 2]]) if i % 5 == 0 else "")
+                f.write(json.dumps({"texto": t, "etiqueta": e}) + "\n")
+        logs = []
+        inf = self.correr("mucho.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, log=logs.append,
+                          precision_objetivo=0.9)
+        cj = inf["conjunta"]
+        self.assertGreaterEqual(cj["filas_oof"], 200)
+        self.assertEqual(cj["precision_objetivo"], 0.9)
+        c = json.loads(formato.leer((self.d / "mucho.chispa").read_bytes())[formato.CALIB])
+        if cj["tau_l2c"] is None:
+            self.assertNotIn("tau_l2c", c)
+        else:
+            self.assertEqual(c["tau_l2c"], cj["tau_l2c"])
+            self.assertGreaterEqual(cj["precision_oof"], 0.9)
+            self.assertTrue(any("cobertura esperada" in m for m in logs), logs)
 
     def test_l0tf_podado_y_f16(self):
         con = self.correr("p.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, l0tf_f16=True, l0tf_max_mb=0.002)

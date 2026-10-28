@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -423,4 +424,26 @@ func FuzzAbrir(f *testing.F) {
 			}
 		}
 	})
+}
+
+func TestCalibTauL2c(t *testing.T) {
+	tau := 0.31
+	b, err := Calib{TauEscalate: 0.7, TauL2c: &tau}.Codificar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := DecodificarCalib(b)
+	if err != nil || c.TauL2c == nil || *c.TauL2c != tau || c.TauEscalate != 0.7 {
+		t.Fatalf("ida y vuelta: %+v %v", c, err)
+	}
+	sin, _ := Calib{TauEscalate: 0.7}.Codificar()
+	if strings.Contains(string(sin), "tau_l2c") {
+		t.Fatalf("sin τ de L2c no debe escribir el campo: %s", sin)
+	}
+	if c, err := DecodificarCalib(sin); err != nil || c.TauL2c != nil {
+		t.Fatalf("lectura sin campo: %+v %v", c, err)
+	}
+	if _, err := DecodificarCalib([]byte(`{"tau_escalate":0.5,"tau_l2c":1.5}`)); err == nil {
+		t.Fatal("tau_l2c fuera de [0,1] debe fallar")
+	}
 }
