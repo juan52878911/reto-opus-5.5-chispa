@@ -1,0 +1,26 @@
+No de solicitud,Fecha de creación,Tipo de solicitud,Es anonima,Descripción de la solicitud,Estado,Fue delegada,Origen
+0,2020-01-01,Petición,SI,"Solicito copia del contrato número 0. Soy Pedro Gómez, cédula 1032456789, cel 3001234567, correo pedro0@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+1,2020-01-01,Solicitud de información,SI,"Solicito copia del contrato número 1. Soy María Rodríguez, cédula 1032456789, cel 3001234567, correo pedro1@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+2,2020-01-01,Petición,SI,"Solicito copia del contrato número 2. Soy Luis Herrera, cédula 1032456789, cel 3001234567, correo pedro2@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+3,2020-01-01,Solicitud de información,SI,"Solicito copia del contrato número 3. Soy Ana Torres, cédula 1032456789, cel 3001234567, correo pedro3@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+4,2020-01-01,Petición,SI,"Solicito copia del contrato número 4. Soy Pedro Gómez, cédula 1032456789, cel 3001234567, correo pedro4@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+5,2020-01-01,Solicitud de información,SI,"Solicito copia del contrato número 5. Soy María Rodríguez, cédula 1032456789, cel 3001234567, correo pedro5@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+6,2020-01-01,Petición,SI,"Solicito copia del contrato número 6. Soy Luis Herrera, cédula 1032456789, cel 3001234567, correo pedro6@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+7,2020-01-01,Solicitud de información,SI,"Solicito copia del contrato número 7. Soy Ana Torres, cédula 1032456789, cel 3001234567, correo pedro7@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+8,2020-01-01,Queja,SI,"Presento queja por el mal trato recibido en la ventanilla 8. Soy Pedro Gómez, cédula 1032456789, cel 3001234567, correo pedro8@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+9,2020-01-01,Queja,SI,"Presento queja por el mal trato recibido en la ventanilla 9. Soy María Rodríguez, cédula 1032456789, cel 3001234567, correo pedro9@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+10,2020-01-01,Queja,SI,"Presento queja por el mal trato recibido en la ventanilla 10. Soy Luis Herrera, cédula 1032456789, cel 3001234567, correo pedro10@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+11,2020-01-01,Queja,SI,"Presento queja por el mal trato recibido en la ventanilla 11. Soy Ana Torres, cédula 1032456789, cel 3001234567, correo pedro11@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+12,2020-01-01,Reclamo,SI,"Reclamo por el cobro duplicado en la factura 12. Soy Pedro Gómez, cédula 1032456789, cel 3001234567, correo pedro12@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+13,2020-01-01,Reclamo,SI,"Reclamo por el cobro duplicado en la factura 13. Soy María Rodríguez, cédula 1032456789, cel 3001234567, correo pedro13@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+14,2020-01-01,Reclamo,SI,"Reclamo por el cobro duplicado en la factura 14. Soy Luis Herrera, cédula 1032456789, cel 3001234567, correo pedro14@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+15,2020-01-01,Reclamo,SI,"Reclamo por el cobro duplicado en la factura 15. Soy Ana Torres, cédula 1032456789, cel 3001234567, correo pedro15@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+16,2020-01-01,Sugerencia,SI,"Sugiero abrir más puntos de atención en la sede 16. Soy Pedro Gómez, cédula 1032456789, cel 3001234567, correo pedro16@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+17,2020-01-01,Sugerencia,SI,"Sugiero abrir más puntos de atención en la sede 17. Soy María Rodríguez, cédula 1032456789, cel 3001234567, correo pedro17@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+18,2020-01-01,Sugerencia,SI,"Sugiero abrir más puntos de atención en la sede 18. Soy Luis Herrera, cédula 1032456789, cel 3001234567, correo pedro18@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+19,2020-01-01,Sugerencia,SI,"Sugiero abrir más puntos de atención en la sede 19. Soy Ana Torres, cédula 1032456789, cel 3001234567, correo pedro19@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+20,2020-01-01,Denuncia,SI,"Denuncio una posible irregularidad en el proceso 20. Soy Pedro Gómez, cédula 1032456789, cel 3001234567, correo pedro20@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+21,2020-01-01,Denuncia,SI,"Denuncio una posible irregularidad en el proceso 21. Soy María Rodríguez, cédula 1032456789, cel 3001234567, correo pedro21@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+22,2020-01-01,Denuncia,SI,"Denuncio una posible irregularidad en el proceso 22. Soy Luis Herrera, cédula 1032456789, cel 3001234567, correo pedro22@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+23,2020-01-01,Denuncia,SI,"Denuncio una posible irregularidad en el proceso 23. Soy Ana Torres, cédula 1032456789, cel 3001234567, correo pedro23@ejemplo.com, vivo en la calle 45 # 12-34.",Cerrada,NO,Chat
+900,2020-01-01,Agenda tu cita,NO,Quiero una cita el martes,Abierta,NO,Chat

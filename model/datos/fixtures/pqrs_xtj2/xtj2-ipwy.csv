@@ -1,0 +1,31 @@
+CONSEC,FECHA RADICACIÓN,NUMERO RADICADO,Peticion,Queja,Reclamo,Solicitud,Sugerencia,Denuncia,Felicitación,NOMBRE DEL PETICIONARIO,RESUMEN INFORMACIÓN SOLICITADA
+0,2020-01-01,0,SI,NO,NO,NO,NO,NO,NO,Pedro Gómez,Pide copia del documento 0. Atiende Pedro Gómez.
+1,2020-01-01,1,SI,NO,NO,NO,NO,NO,NO,María Rodríguez,Pide copia del documento 1. Atiende María Rodríguez.
+2,2020-01-01,2,SI,NO,NO,NO,NO,NO,NO,Luis Herrera,Pide copia del documento 2. Atiende Luis Herrera.
+3,2020-01-01,3,SI,NO,NO,NO,NO,NO,NO,Ana Torres,Pide copia del documento 3. Atiende Ana Torres.
+4,2020-01-01,4,SI,NO,NO,NO,NO,NO,NO,Pedro Gómez,Pide copia del documento 4. Atiende Pedro Gómez.
+5,2020-01-01,5,SI,NO,NO,NO,NO,NO,NO,María Rodríguez,Pide copia del documento 5. Atiende María Rodríguez.
+6,2020-01-01,6,SI,NO,NO,NO,NO,NO,NO,Luis Herrera,Pide copia del documento 6. Atiende Luis Herrera.
+7,2020-01-01,7,SI,NO,NO,NO,NO,NO,NO,Ana Torres,Pide copia del documento 7. Atiende Ana Torres.
+8,2020-01-01,8,NO,SI,NO,NO,NO,NO,NO,Pedro Gómez,Pide copia del documento 8. Atiende Pedro Gómez.
+9,2020-01-01,9,NO,SI,NO,NO,NO,NO,NO,María Rodríguez,Pide copia del documento 9. Atiende María Rodríguez.
+10,2020-01-01,10,NO,SI,NO,NO,NO,NO,NO,Luis Herrera,Pide copia del documento 10. Atiende Luis Herrera.
+11,2020-01-01,11,NO,SI,NO,NO,NO,NO,NO,Ana Torres,Pide copia del documento 11. Atiende Ana Torres.
+12,2020-01-01,12,NO,NO,SI,NO,NO,NO,NO,Pedro Gómez,Pide copia del documento 12. Atiende Pedro Gómez.
+13,2020-01-01,13,NO,NO,SI,NO,NO,NO,NO,María Rodríguez,Pide copia del documento 13. Atiende María Rodríguez.
+14,2020-01-01,14,NO,NO,SI,NO,NO,NO,NO,Luis Herrera,Pide copia del documento 14. Atiende Luis Herrera.
+15,2020-01-01,15,NO,NO,SI,NO,NO,NO,NO,Ana Torres,Pide copia del documento 15. Atiende Ana Torres.
+16,2020-01-01,16,NO,NO,NO,NO,SI,NO,NO,Pedro Gómez,Pide copia del documento 16. Atiende Pedro Gómez.
+17,2020-01-01,17,NO,NO,NO,NO,SI,NO,NO,María Rodríguez,Pide copia del documento 17. Atiende María Rodríguez.
+18,2020-01-01,18,NO,NO,NO,NO,SI,NO,NO,Luis Herrera,Pide copia del documento 18. Atiende Luis Herrera.
+19,2020-01-01,19,NO,NO,NO,NO,SI,NO,NO,Ana Torres,Pide copia del documento 19. Atiende Ana Torres.
+20,2020-01-01,20,NO,NO,NO,NO,NO,SI,NO,Pedro Gómez,Pide copia del documento 20. Atiende Pedro Gómez.
+21,2020-01-01,21,NO,NO,NO,NO,NO,SI,NO,María Rodríguez,Pide copia del documento 21. Atiende María Rodríguez.
+22,2020-01-01,22,NO,NO,NO,NO,NO,SI,NO,Luis Herrera,Pide copia del documento 22. Atiende Luis Herrera.
+23,2020-01-01,23,NO,NO,NO,NO,NO,SI,NO,Ana Torres,Pide copia del documento 23. Atiende Ana Torres.
+24,2020-01-01,24,NO,NO,NO,NO,NO,NO,SI,Pedro Gómez,Pide copia del documento 24. Atiende Pedro Gómez.
+25,2020-01-01,25,NO,NO,NO,NO,NO,NO,SI,María Rodríguez,Pide copia del documento 25. Atiende María Rodríguez.
+26,2020-01-01,26,NO,NO,NO,NO,NO,NO,SI,Luis Herrera,Pide copia del documento 26. Atiende Luis Herrera.
+27,2020-01-01,27,NO,NO,NO,NO,NO,NO,SI,Ana Torres,Pide copia del documento 27. Atiende Ana Torres.
+98,2020-01-01,98,NO,NO,NO,NO,NO,NO,NO,Sin Marca,Fila sin ningún tipo marcado
+99,2020-01-01,99,SI,SI,NO,NO,NO,NO,NO,Doble Marca,Fila con dos tipos marcados

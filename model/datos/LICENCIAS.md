@@ -16,3 +16,46 @@ y solo se emite `test` (test: `test_reglas.py::test_tarjeta_que_no_confirma_la_l
 | NECOS-TOX | — | No está en `~/hf`: no disponible | — | — |
 
 Comprobado con el dorado nuevo: CLINC150 y deepset convierten con licencia confirmada por la tarjeta; Banking77 no tiene datos en `~/hf` (solo script de carga que descarga de GitHub).
+
+## Fuentes de libre uso en español y PQRS de Colombia (T1.1c)
+
+Misma regla. Además de la cabecera YAML, `libres.licencia_estricta` lee el cuerpo de la tarjeta: si dice NC en una línea
+de licencia, o `cc-by-nc` en cualquier parte, la licencia queda «contradictoria», `uso_comercial: false` y todo va a `test`.
+Para datos.gov.co la licencia sale de `licenseId` del `*.meta.json`, confirmada con el enlace de términos.
+
+| Fuente | Tarea | Licencia | De dónde sale | uso_comercial | Splits |
+|---|---|---|---|---|---|
+| SINAI/ALIA-es-discriminative-hate-speech | `odio` | cc-by-4.0 | tarjeta | true. **Ojo:** la etiqueta `foe_class` es una fusión de tres LLM (Apertus, Gemma, MiniMax); los términos de esos modelos pueden restringir entrenar con sus salidas. Decisión de Juan. La muestra humana (3000, 3 anotadores) va a test | train/dev/test (80/10/10 por hash del id) |
+| bgonzalezbustamante/toxicity-protests-ES | `toxicidad` | cc-by-4.0 | tarjeta | true | train/dev/test por hash del `id_obs` |
+| bgonzalezbustamante/toxicity-Constitution-ES | `toxicidad` | cc-by-4.0 | tarjeta | true | idem |
+| mrm8488/go_emotions-es-mt | `emocion` | apache-2.0 | tarjeta (GoEmotions original: Apache-2.0). Traducción automática (EasyNMT) | true | los de origen (ya 80/10/10) |
+| tanaos/synthetic-spam-detection-dataset-spanish | `spam` | mit | tarjeta. Sintético | true | 80/10/10 por hash del texto |
+| tasksource/it-support-tickets | `soporte_ti` | cc-by-4.0 | tarjeta (CC BY 4.0, Zenodo 10.5281/zenodo.7648117) | true | 80/10/10 por plantilla, estratificado |
+| FelipeGuerra/Colombian_Spanish_Cyberbullying_Dataset_1 y _2 | `ciberacoso` | mit | tarjetas | true | 80/10/10 por hash del texto |
+| somosnlp/spa_climate_detection | `clima` | **contradictoria** | la cabecera dice cc-by-4.0, pero el texto de la tarjeta dice cc-by-nc-sa-4.0 «por herencia de los datos» | **false** | solo test (todas las filas) |
+| somosnlp/suicide-comments-es | `riesgo_suicida` | — | no está en `~/hf` | — | no disponible |
+| datos.gov.co gb9w-jt96 (Alcaldía de Flandes) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | true (SA: lo derivado debe compartirse igual; ver el informe) | 80/10/10, test estratificado por tipo |
+| datos.gov.co e86p-frfd (ISVIMED) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | true (SA) | idem |
+| datos.gov.co xtj2-ipwy (Concejo de Pereira) | `pqrs` | cc-by-sa-4.0 | `meta.json`: `CC_40_BY_SA` | true (SA) | idem |
+| datos.gov.co m3mt-c275 (Sanidad Militar) | `pqrs_enrutamiento` | cc-by-4.0 | `meta.json`: `CC_40_BY` | true | idem, estratificado por dependencia |
+
+### Notas por fuente
+- **Toxicidad (bgonzalezbustamante):** la columna `consensus` NO es la etiqueta, es una marca de acuerdo entre `coder_1` y
+  `coder_2` (ambos 0 → `consensus=1`; en desacuerdo → 0; ambos 1 puede venir `NA`). Etiqueta = la de los codificadores cuando
+  coinciden; los desacuerdos se descartan y se cuentan. `anotadores=2`, `blanda` = proporción de votos, `variedad` ar/cl.
+- **ALIA:** texto repetido se descarta (gana la fila de la muestra humana). Etiqueta humana (mayoría de 3) en la muestra.
+- **GoEmotions-es:** multietiqueta; se usa la **primera** etiqueta de la lista (no «neutral»). 36 308 de 43 410 filas de train
+  tienen una sola.
+- **Tickets de TI:** el texto va en inglés, alemán, portugués o español; `idioma` se estima con palabras vacías.
+- **Ciberacoso:** se quita el autor y las @menciones pasan a «@usuario»; los repetidos entre _1 y _2 se descartan.
+
+### Mapeo del campo «tipo» de las PQRS
+Opciones comunes: `peticion, queja, reclamo, sugerencia, denuncia, felicitacion`.
+- **gb9w «Tipo de solicitud»:** Petición, Solicitud de información y Solicitud de datos personales → `peticion`; Queja, Reclamo,
+  Sugerencia, Denuncia → su tipo. «Agenda tu cita» se descarta (no es un tipo de PQRS).
+- **e86p «CLASIFICACIÓN»:** DERECHO DE PETICION y SOLICITUD DE INFORMACION → `peticion`; QUEJA → `queja`; SUGERENCIA → `sugerencia`.
+  Se descartan DERECHO (ambiguo), QUEJA - RECLAMO (dos tipos), ENTES DE CONTROL y RECURSOS (no son tipos) y los vacíos.
+- **xtj2 (una columna SI/NO por tipo):** Peticion y Solicitud → `peticion`; el resto, su tipo. Sin marca o con dos tipos distintos: descartada.
+  Texto = «RESUMEN INFORMACIÓN SOLICITADA»; el nombre del peticionario sirve solo para enmascarar y no se guarda.
+- **m3mt «Dependencia» (enrutamiento):** las 30 dependencias más frecuentes (agrupadas ignorando mayúsculas y acentos) y `otra`.
+- Los textos idénticos comparten `plantilla` y split. Las PQRS se anonimizan (`anonimizar.py`) antes de construir la fila.
