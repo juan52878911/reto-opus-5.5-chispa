@@ -40,7 +40,7 @@ def vocabulario(filas):
     return voc
 
 
-_CTX = re.compile(r"(?:c\.?\s?c\.?|identificad[oa] con|ciudadan[oa]|firma|atentamente|cordialmente|se[ñn]or[a]?)\W+"
+_CTX = re.compile(r"(?i:c\.?\s?c\.?|identificad[oa] con|ciudadan[oa]|firma|atentamente|cordialmente|se[ñn]or[a]?)\W+"
                   r"((?:[A-ZÁÉÍÓÚÑ][\wáéíóúñü'’]+\s?){1,3})")
 _ANTES = re.compile(r"((?:[A-ZÁÉÍÓÚÑ][\wáéíóúñü'’]+\s){1,3})(?:,\s*)?(?:identificad[oa]|c\.?\s?c\.?\s*\[DOC\])")
 _ETQ = re.compile(r"\[[A-Z]+\]")

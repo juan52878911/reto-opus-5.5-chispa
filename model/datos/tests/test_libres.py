@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from model.datos import (anonimizar, ciberacoso, clima, goemociones, libres, odio_alia, pqrs_e86p, pqrs_enrutamiento,
+from model.datos import (informe_pqrs, anonimizar, ciberacoso, clima, goemociones, libres, odio_alia, pqrs_e86p, pqrs_enrutamiento,
                          pqrs_gb9w, pqrs_xtj2, riesgo_suicida, soporte_ti, spam_tanaos, toxicidad_constitucion,
                          toxicidad_protestas, validar)
 from model.datos.comun import FuenteAusente
@@ -343,6 +343,34 @@ class TestAnonimizar(unittest.TestCase):
         voc = anonimizar.vocabulario_de(["hola solicito copia"])
         self.assertEqual(anonimizar.sospechosas("Hola, [NOMBRE] pidió copia. Habló Zenobio Querubín.", voc), ["Zenobio", "Querubín"])
         self.assertEqual(anonimizar.sospechosas("Solicito copia del contrato", voc), [])
+
+
+class TestInformePqrs(unittest.TestCase):
+    def test_patrones_de_nombre_visible(self):
+        voc = anonimizar.vocabulario_de(["solicito copia del recibo", "gracias por su colaboración"])
+        self.assertEqual(informe_pqrs.patrones("Solicito copia del recibo, gracias", voc), set())
+        self.assertIn("lista", informe_pqrs.patrones("Habla Pedro con la oficina", voc))
+        self.assertIn("contexto", informe_pqrs.patrones("Atentamente Zenobio Querubín", voc))
+        self.assertIn("racha", informe_pqrs.patrones("Dice que Zenobio Querubín llamó", voc))
+        self.assertEqual(informe_pqrs.patrones("Pidió ALCALDÍA DE FLANDES copia del recibo", voc), set())
+
+    def test_el_informe_solo_lleva_recuentos(self):
+        import io, json, tempfile, contextlib
+        from unittest import mock
+        fila = lambda i, t: {"id": "pqrs-gb9w:train:%d" % i, "texto": t}
+        filas = [fila(i, "Solicito copia del recibo, atentamente Zenobio Querubín %d" % i) for i in range(5)]
+        falso = mock.Mock(CORTO="pqrs-gb9w", convertir=lambda: (filas, {"reemplazos": {}}))
+        d = tempfile.mkdtemp()
+        with mock.patch.object(informe_pqrs, "FUENTES", (falso,)), mock.patch.object(informe_pqrs, "vocabulario",
+                                                                                    lambda f: {"solicito", "copia", "del", "recibo"}):
+            with contextlib.redirect_stdout(io.StringIO()):
+                informe_pqrs.main(["--salida", d, "--muestra", "3"])
+        with open(d + "/informe.json", encoding="utf-8") as fh:
+            texto = fh.read()
+        self.assertNotIn("Zenobio", texto)
+        info = json.loads(texto)
+        self.assertEqual(info["muestra"], 3)
+        self.assertEqual(info["heuristica_filas_con_nombre_por_fuente"], {"pqrs-gb9w": 3})
 
 
 if __name__ == "__main__":
