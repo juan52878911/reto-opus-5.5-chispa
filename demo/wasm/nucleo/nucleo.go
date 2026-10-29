@@ -170,6 +170,9 @@ type Latencia struct {
 // Medir cronometra Decidir (embedding del mensaje + coseno con las opciones, torre ya en caché) reps veces sobre
 // un texto de n tokens.
 func (d *Demo) Medir(n, reps int, preguntaJSON string) (Latencia, error) {
+	if reps < 1 {
+		return Latencia{}, errors.New("reps ≥ 1")
+	}
 	var p Pregunta
 	if err := json.Unmarshal([]byte(preguntaJSON), &p); err != nil {
 		return Latencia{}, err

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from setuptools import setup
 from setuptools.command.build_py import build_py
+from setuptools.command.sdist import sdist
 
 AQUI = Path(__file__).resolve().parent
 VENDOR = AQUI / "chispa" / "entrenador_go" / "vendor"
@@ -32,4 +33,12 @@ class BuildPy(build_py):
         super().run()
 
 
-setup(cmdclass={"build_py": BuildPy})
+class Sdist(sdist):
+    """Genera `vendor` antes de listar ficheros: así el .tar.gz lo lleva y el wheel construido desde él también."""
+
+    def run(self):
+        copiar_fuentes()
+        super().run()
+
+
+setup(cmdclass={"build_py": BuildPy, "sdist": Sdist})

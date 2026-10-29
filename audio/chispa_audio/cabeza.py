@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 import numpy as np
 
 KINDS = ("choice", "score", "noul")
+# Mismos topes por defecto que server/decide (MaxOpciones, MaxTextoByte, MaxIDByte).
+MAX_OPCIONES = 256
+MAX_TEXTO = 4 << 10
+MAX_ID = 256
 CAPA_AUDIO = "A1"
 CAPA_ESCALAR = "escalar"  # igual que decide.CapaEscalar del servidor
 
@@ -31,8 +35,14 @@ class Pregunta:
     def validar(self, ruta="questions[0]"):
         if not self.id:
             raise ErrPregunta(f"{ruta}.id: obligatorio")
+        if len(self.id.encode()) > MAX_ID:
+            raise ErrPregunta(f"{ruta}.id: más de {MAX_ID} bytes")
         if not self.question:
             raise ErrPregunta(f"{ruta}.question: obligatorio")
+        if len(self.question.encode()) > MAX_TEXTO:
+            raise ErrPregunta(f"{ruta}.question: más de {MAX_TEXTO} bytes")
+        if len(self.nonce.encode()) > MAX_ID:
+            raise ErrPregunta(f"{ruta}.nonce: más de {MAX_ID} bytes")
         if self.kind not in KINDS:
             raise ErrPregunta(f'{ruta}.kind: "{self.kind}" no válido (choice, score o noul)')
         ids = [o.id for o in self.options]
@@ -43,8 +53,15 @@ class Pregunta:
                 raise ErrPregunta(f'{ruta}.options: en noul solo "false" y "true"')
         elif len(ids) < 2:
             raise ErrPregunta(f"{ruta}.options: {self.kind} necesita al menos 2 opciones")
-        if self.kind == "score" and ids != [str(i) for i in range(1, len(ids) + 1)]:
-            raise ErrPregunta(f'{ruta}.options: score pide ids "1"…"K" en orden')
+        if len(ids) > MAX_OPCIONES:
+            raise ErrPregunta(f"{ruta}.options: máximo {MAX_OPCIONES} opciones")
+        for j, o in enumerate(self.options):
+            if not o.id:
+                raise ErrPregunta(f"{ruta}.options[{j}].id: obligatorio")
+            if len(o.id.encode()) > MAX_ID:
+                raise ErrPregunta(f"{ruta}.options[{j}].id: más de {MAX_ID} bytes")
+            if len(o.description.encode()) > MAX_TEXTO:
+                raise ErrPregunta(f"{ruta}.options[{j}].description: más de {MAX_TEXTO} bytes")
 
     def opciones(self):
         return self.options or [Opcion("false"), Opcion("true")]
