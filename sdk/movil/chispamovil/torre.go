@@ -10,11 +10,11 @@ import (
 
 	"chispa/format/chispa3"
 
-	"github.com/juan52878911/chispa/server/decide"
+	"chispa/runtime/torre"
 )
 
 // Torre de L2 al vuelo en móvil: ORT corre en la app, no en Go. Aquí vive todo lo demás, con la misma regla que
-// server/decide (TextosTorre, OpcionesConsulta, ClaveTorre, CuantizarTorre): la app pide los textos, calcula h con el
+// runtime/torre (Textos, OpcionesConsulta, Clave, Cuantizar), la misma que usa server/decide: la app pide los textos, calcula h con el
 // ONNX de la sección TORR (OnnxTorre) y los ids de IdsPasaje, y los devuelve con InstalarTorresL2.
 // torre_test.go comprueba como comportamiento que móvil y servidor piden los mismos textos y deciden igual.
 
@@ -83,19 +83,19 @@ func (c *Chispa) IdsPasaje(texto string) []byte {
 	return b
 }
 
-// aDecide pasa la pregunta al tipo del servidor, dueño de la regla de torres.
-func aDecide(p pregunta) decide.Pregunta {
-	d := decide.Pregunta{Texto: p.Texto, Kind: p.Kind, Opciones: make([]decide.Opcion, len(p.Opciones))}
+// aTorre pasa la pregunta al tipo de runtime/torre, dueño de la regla de torres.
+func aTorre(p pregunta) torre.Pregunta {
+	d := torre.Pregunta{Texto: p.Texto, Kind: p.Kind, Opciones: make([]torre.Opcion, len(p.Opciones))}
 	for i, o := range p.Opciones {
-		d.Opciones[i] = decide.Opcion{ID: o.ID, Description: o.Description}
+		d.Opciones[i] = torre.Opcion{ID: o.ID, Description: o.Description}
 	}
 	return d
 }
 
-func opcionesConsulta(p pregunta) []decide.Opcion { return decide.OpcionesConsulta(aDecide(p)) }
+func opcionesConsulta(p pregunta) []torre.Opcion { return torre.OpcionesConsulta(aTorre(p)) }
 
 func cuantizarTorre(h []float32) torreL2 {
-	v, e := decide.CuantizarTorre(h)
+	v, e := torre.Cuantizar(h)
 	return torreL2{v, e}
 }
 
@@ -109,7 +109,7 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	}
 	ts := make([]torreL2, len(ops))
 	for i, o := range ops {
-		k := decide.ClaveTorre(p.Texto, o)
+		k := torre.Clave(p.Texto, o)
 		t, ok := c.dyn[k]
 		if !ok {
 			return nil, errors.New("sin torres para este esquema")
@@ -128,7 +128,7 @@ func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 	if err != nil || !c.tieneL2 || c.TorresL2(preguntaJSON) {
 		return "[]"
 	}
-	b, _ := json.Marshal(decide.TextosTorre(aDecide(p)))
+	b, _ := json.Marshal(torre.Textos(aTorre(p)))
 	return string(b)
 }
 
@@ -166,7 +166,7 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 	claves := make(map[string]bool, n)
 	nuevasReales := 0
 	for _, o := range ops {
-		k := decide.ClaveTorre(p.Texto, o)
+		k := torre.Clave(p.Texto, o)
 		if !claves[k] {
 			claves[k] = true
 			if _, ya := c.dyn[k]; !ya {
@@ -196,7 +196,7 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 		delete(c.dynUso, viejo)
 	}
 	for i, o := range ops {
-		k := decide.ClaveTorre(p.Texto, o)
+		k := torre.Clave(p.Texto, o)
 		c.dynTic++
 		c.dyn[k], c.dynUso[k] = nuevas[i], c.dynTic
 	}
