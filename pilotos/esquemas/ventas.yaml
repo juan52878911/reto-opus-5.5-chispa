@@ -1,0 +1,22 @@
+# Plantilla de ventas: intención de la persona y etapa del embudo. Una pregunta por .chispa (`--pregunta ID`).
+# Ejemplos en ejemplos/<id>.csv (textos inventados).
+preguntas:
+  - id: ventas_intencion
+    pregunta: ¿Qué quiere la persona que escribe?
+    tipo: choice
+    opciones:
+      informacion: quiere saber cómo es un producto o servicio, sus características, horarios, ubicación o cómo funciona, sin pedir un precio concreto
+      cotizacion: pide precio, disponibilidad o una cotización de uno o varios productos o servicios
+      compra: quiere comprar ya, confirma un pedido, pregunta cómo pagar o cómo se lo envían
+      postventa: ya compró y pregunta por el estado de su pedido, la entrega, un cambio, una garantía o una factura
+      otro: el mensaje no es una consulta comercial, como un saludo suelto, spam, una oferta de proveedores o algo que no tiene que ver con lo que se vende
+
+  - id: ventas_etapa
+    pregunta: ¿En qué etapa del proceso de compra está la persona?
+    tipo: choice
+    opciones:
+      descubrimiento: apenas se está enterando; pregunta en general o compara opciones, sin una necesidad ni un plazo claros
+      consideracion: tiene una necesidad concreta y evalúa, pide precios, pide detalles técnicos o compara marcas y condiciones
+      decision: ya eligió y va a cerrar; pide condiciones finales, descuento por volumen, forma de pago o fecha de entrega
+      cliente: ya compró y escribe por algo que viene después de la compra, o quiere volver a comprar o recomendar
+      sin_interes: dice que no le interesa, que ya compró en otra parte o que no quiere más mensajes

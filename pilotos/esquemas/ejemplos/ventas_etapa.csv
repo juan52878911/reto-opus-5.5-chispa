@@ -1,0 +1,26 @@
+texto,etiqueta
+"Estoy mirando qué opciones hay para renovar la cocina, aún no sé qué quiero",descubrimiento
+"¿Qué diferencia hay entre un plan de datos y un plan de fibra?",descubrimiento
+"Ando investigando precios por curiosidad, quizá más adelante",descubrimiento
+"Primera vez que escribo, ¿qué es lo que venden exactamente?",descubrimiento
+"Vi su publicidad y quiero entender cómo funciona el servicio",descubrimiento
+"Necesito 40 metros de piso laminado, ¿qué marcas tienen y qué cuesta cada una?",consideracion
+"Estoy comparando ustedes con otra tienda, ¿qué garantía ofrecen?",consideracion
+"Me interesa el modelo X200, ¿cuáles son sus especificaciones y su consumo?",consideracion
+"¿Esta cotización incluye instalación o se cobra aparte?",consideracion
+"Tengo dos propuestas y quiero ver cuál me conviene, ¿me envían el detalle?",consideracion
+"Listo, me quedo con la opción B, ¿me hacen descuento si pago de contado?",decision
+"Ya decidí, ¿qué necesito para firmar el contrato esta semana?",decision
+"Quiero cerrar la compra de las 20 unidades, ¿para cuándo las entregan?",decision
+"Apruebo la cotización, ¿cuáles son los datos para consignar?",decision
+"Voy a pedirles el lote completo, ¿cuál es el mejor precio final?",decision
+"Les compré el mes pasado y quedé feliz, quiero repetir el pedido",cliente
+"Soy cliente desde hace años, ¿tienen algo nuevo para mí?",cliente
+"Quiero recomendar a un amigo, ¿tienen programa de referidos?",cliente
+"Ya tengo el producto y necesito comprar los repuestos",cliente
+"Me atendieron muy bien en mi compra anterior, quiero ampliar el servicio",cliente
+"No me interesa, gracias",sin_interes
+"Ya compré en otra tienda, no sigan escribiendo",sin_interes
+"Por favor no me envíen más mensajes",sin_interes
+"Gracias, pero por ahora no vamos a comprar",sin_interes
+"Quítenme de la lista, no estoy interesado",sin_interes

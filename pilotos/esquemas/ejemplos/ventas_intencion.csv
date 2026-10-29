@@ -1,0 +1,26 @@
+texto,etiqueta
+"¿Qué incluye el plan premium y cuánto tiempo dura el servicio?",informacion
+"¿Hacen domicilios a Chía o solo en Bogotá?",informacion
+"¿Cómo funciona la instalación de paneles solares?",informacion
+"¿Tienen almacén físico o solo venden por internet?",informacion
+"Buenas, ¿qué tipos de garantía manejan?",informacion
+"¿Cuánto cuesta el bulto de cemento y tienen hoy en bodega?",cotizacion
+"Necesito cotizar 30 sillas de oficina para una empresa",cotizacion
+"Me pasan el precio del paquete para cuatro personas en diciembre",cotizacion
+"¿A cómo me dejan la caja de 12 unidades por mayor?",cotizacion
+"Quiero una cotización del seguro para mi moto",cotizacion
+"Listo, quiero comprar el portátil gris, ¿cómo pago?",compra
+"Confirmo el pedido de diez cajas para mañana, envíenme los datos para transferir",compra
+"Me lo llevo, ¿aceptan Nequi?",compra
+"Quiero comprar la membresía anual ahora mismo",compra
+"Voy a pagar con tarjeta, ¿me mandan el link?",compra
+"Compré el lunes y no me ha llegado, ¿cuándo llega?",postventa
+"Quiero cambiar la talla de los zapatos que me enviaron",postventa
+"El electrodoméstico llegó dañado y quiero usar la garantía",postventa
+"Necesito la factura electrónica de mi compra de la semana pasada",postventa
+"¿En qué va mi pedido 4587?",postventa
+"Hola, buenos días",otro
+"Les ofrecemos servicios de posicionamiento web a muy bajo costo",otro
+"Estoy buscando empleo, ¿tienen vacantes?",otro
+"Gana dinero rápido invirtiendo desde casa, escríbenos",otro
+"Número equivocado, disculpen",otro
