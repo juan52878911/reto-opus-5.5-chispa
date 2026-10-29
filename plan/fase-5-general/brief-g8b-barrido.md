@@ -10,7 +10,7 @@ entraron.
    - Es la fórmula de G.8 con κ = λ: con λ = 0 solo cuentan los ejemplos; con λ = ∞, solo la descripción.
    - Añádelo de forma explícita a `formula-shrinkage.md`, con la tabla de equivalencias κ ↔ λ. Indica también qué hace el
      runtime con λ = ∞ por defecto: solo la torre de descripción, es decir, zero-shot.
-2. **Barrido en test.** En `general.sh`, además del κ elegido en dev, evalúa las tareas no vistas (las excluidas) y JevBench
+2. **Barrido en test** en un script nuevo, `model/l2/aws/barrido.sh`, para una c6a.xlarge spot en CPU con el patrón de siempre. Usa el checkpoint que deja `general.sh` en `$CHISPA_G8_S3/ckpt/mejor.pt` (la g5 ya está lanzada y no se toca). Además del κ elegido en dev, evalúa las tareas no vistas (las excluidas) y JevBench
    con soporte k = 8 para λ ∈ {0, 1, 2, 4, 8, ∞}. λ = ∞ es el zero-shot.
    - Reutiliza S y las torres: no recalcules el codificador para cada λ. Si `evaluar` no lo permite, implementa una caché o
      una función que reciba las S ya calculadas.
@@ -27,7 +27,7 @@ entraron.
    `P(y>j) > 0,5`, no el argmax de `P(y=k)`. Así coincide con el runtime.
    - Aplícalo en `modelo.py`, `evaluar.py`, `jevbench.py` y `jevbench_l2.py`. Si `conjunta.py` también lo necesita, cámbialo.
    - Un test con acumuladas no monótonas.
-- `general.sh` debe seguir ≤ 16 KB y con el apagado ≤ 240 min. Si el barrido no cabe, recórtalo y dilo.
+- `barrido.sh` ≤ 16 KB, con `shutdown -h +90`. Si el barrido no cabe, recórtalo y dilo. **No toques `general.sh`**: ya está corriendo.
 - Prueba en seco `CHISPA_LOCAL=1`, `bash -n`, `python -m unittest discover -s model -t .`, y `make test`/`make smoke` en
   verde **después** del último cambio.
 - **Parada:** si algo falla 2 veces, márcalo y para.
@@ -46,6 +46,6 @@ entraron.
 ## Informe
 Termina con un informe de ≤ 8 líneas:
 - rama y sha;
-- tamaño de `general.sh`;
+- tamaño de `barrido.sh`;
 - coste estimado nuevo;
 - qué sustituyo para lanzar.
