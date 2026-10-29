@@ -137,7 +137,11 @@ def comprobar_dim_l2(secs: dict, dim: int) -> None:
         return
     if len(esq) < 4:
         raise ChispaError("--torre: la sección ESQUEMAS está truncada: no se puede comprobar su dim")
-    dim_l2 = struct.unpack("<I", esq[:4])[0]
+    # ESQUEMAS v1 empieza por dim; v2 por (2<<16 | dim): la versión va en los 16 bits altos.
+    u = struct.unpack("<I", esq[:4])[0]
+    if u >> 16 not in (0, 1, 2):
+        raise ChispaError(f"--torre: versión de ESQUEMAS desconocida ({u >> 16})")
+    dim_l2 = u & 0xFFFF
     if dim_l2 != dim:
         raise ChispaError(f"--torre: la dim de la torre ({dim}) no casa con la de L2/ESQUEMAS ({dim_l2})")
 
