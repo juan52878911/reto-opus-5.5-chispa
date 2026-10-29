@@ -18,7 +18,7 @@ Cada pregunta tiene un `kind`. Esquema de filas de datos: [`model/esquema.md`](.
 | `multi` | Multietiqueta: varias opciones a la vez, o ninguna | de 2 a 256, con `id` único | `answers`: la lista de opciones activas (y `answer`, la más probable) |
 
 Siempre vuelve `probs` con una probabilidad calibrada por opción: suman 1 en `choice`, `score` y `noul`; en `multi` cada opción
-lleva la suya (cada una es un sí/no con su umbral) y no suman 1. L0 no opina en `multi`: su clasificador lineal es multiclase.
+lleva la suya (cada una es un sí/no con su umbral) y no suman 1. L0 no opina en `multi`: su clasificador lineal es multiclase, y L2 solo opina si la `CALIB` trae `multi_l2@<hash>` (`chispa train` no lo escribe: en multi decide L1 o L3, si no, escala).
 Un ejemplo por tipo y qué devuelve cada capa: [03-api.md](03-api.md#qué-devuelve-cada-capa).
 
 Las descripciones de las opciones importan: en zero-shot son lo único que Chispa sabe de tu tarea.
@@ -54,7 +54,7 @@ L0 → L1 → L2 → escalar
 | L2 | e5-small (ONNX int8) con ranuras y una torre por opción. Con `CONJ` es L2c, con cabeza conjunta | confianza top-1 ≥ τ |
 | escalar | Ninguna capa llegó a su τ | siempre |
 
-- L1 opina en `multi` con una sigmoide por opción y en `score` con la mediana de la distribución sobre los niveles (a partir de las descripciones de cada nivel); `noul` y `choice` como siempre ([07](07-rendimiento-y-limites.md#zero-shot)).
+- L1 opina en `multi` con una sigmoide por opción (L2, solo con `multi_l2@…` en `CALIB`; ver [03](03-api.md#multi-varias-etiquetas-a-la-vez)) y en `score` con la mediana de la distribución sobre los niveles (a partir de las descripciones de cada nivel); `noul` y `choice` como siempre ([07](07-rendimiento-y-limites.md#zero-shot)).
 - Para un esquema que solo llega en la petición decide L1; si el `.chispa` trae `TORR` (y el servidor usa `-tags ort` y `-tok`), también L2 con torre al vuelo:
   [08-esquemas-nuevos.md](08-esquemas-nuevos.md).
 - Con pocos ejemplos, `chispa train --shrinkage-lambda` añade la sección `SOPL1` y L1 (y L2c) encogen el prototipo hacia la media de los ejemplos, con peso `k/(k+λ)`; sin ella, no hay mezcla ([04](04-formato-chispa.md#secciones)).
