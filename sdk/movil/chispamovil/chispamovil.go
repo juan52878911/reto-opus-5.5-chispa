@@ -119,7 +119,9 @@ func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
 }
 
 func abrir(ruta string, lambdaL1, lambdaL2 float64, explicito bool) (*Chispa, error) {
-	f, err := chispa3.Abrir(ruta)
+	// En el móvil se mapea: el .chispa vive en el almacenamiento privado de la app (nadie lo pisa con cp) y leerlo
+	// entero al heap duplicaría la memoria del L1.
+	f, err := chispa3.AbrirCon(ruta, chispa3.Limites{Mmap: true})
 	if err != nil {
 		return nil, err
 	}
