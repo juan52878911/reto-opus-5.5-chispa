@@ -11,12 +11,15 @@
 package chispamovil
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -70,6 +73,8 @@ type Chispa struct {
 	tok     *tok.Tokenizador   // tokenizador de e5, o nil
 	torre   *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
 	dyn     map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
+	dynUso  map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
+	dynTic  uint64
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -132,6 +137,9 @@ func (c *Chispa) montar() error {
 		if err != nil {
 			return fmt.Errorf("sección TORR: %w", err)
 		}
+		if err := validarPrefijoTorre(f, t.Prefijo); err != nil {
+			return err
+		}
 		c.torre = &t
 	}
 	if f.Tiene(chispa3.L2) && f.Tiene(chispa3.ESQUEMAS) {
@@ -184,7 +192,59 @@ func (c *Chispa) ExtraerL2(destino string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(destino, b, 0o600)
+	return escribirAtomico(destino, b)
+}
+
+// escribirAtomico escribe en un temporal del mismo directorio, lo sincroniza y lo renombra: si el proceso muere a mitad,
+// destino no existe o está completo, nunca truncado.
+func escribirAtomico(destino string, b []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(destino), filepath.Base(destino)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			tmp.Close()
+			os.Remove(tmp.Name())
+		}
+	}()
+	if _, err := tmp.Write(b); err != nil {
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), destino); err != nil {
+		return err
+	}
+	ok = true
+	return nil
+}
+
+// HashSeccion es el sha256 hex de la sección de ese tipo (chispa3.L2, chispa3.TORR…), "" si falta o está corrupta.
+// Sirve para nombrar la caché del ONNX extraído.
+func (c *Chispa) HashSeccion(tipo int) string {
+	b, err := c.f.Bytes(chispa3.Tipo(tipo))
+	if err != nil {
+		return ""
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:])
+}
+
+// TauL2c es el τ de la cabeza conjunta (L2c) de CALIB; −1 si el fichero no lo trae (L2c usa entonces TauEscalate).
+func (c *Chispa) TauL2c() float64 {
+	if c.calib.TauL2c == nil {
+		return -1
+	}
+	return *c.calib.TauL2c
 }
 
 func salida(r respuesta) string {
@@ -209,10 +269,41 @@ func leerPregunta(js string) (pregunta, error) {
 	if p.Kind == "" {
 		p.Kind = "choice"
 	}
-	if len(p.Opciones) == 0 {
-		return p, errors.New("la pregunta no tiene opciones")
+	return p, validarPregunta(&p)
+}
+
+// maxOpciones es el tope del servidor (server/decide MaxOpciones).
+const maxOpciones = 256
+
+// validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score con ≥2 opciones, noul solo
+// {false,true} (vacío → por defecto), ids de opción no vacíos ni repetidos, y MaxOpciones.
+func validarPregunta(p *pregunta) error {
+	switch p.Kind {
+	case "choice", "score":
+		if len(p.Opciones) < 2 {
+			return fmt.Errorf("%s necesita al menos 2 opciones", p.Kind)
+		}
+	case "noul":
+		if len(p.Opciones) == 0 {
+			p.Opciones = []opcion{{ID: "false"}, {ID: "true"}}
+		} else if len(p.Opciones) != 2 || firma([]string{p.Opciones[0].ID, p.Opciones[1].ID}) != firma([]string{"false", "true"}) {
+			return errors.New(`noul solo admite los ids "false" y "true"`)
+		}
 	}
-	return p, nil
+	if len(p.Opciones) > maxOpciones {
+		return fmt.Errorf("máximo %d opciones", maxOpciones)
+	}
+	seen := map[string]bool{}
+	for j, o := range p.Opciones {
+		if o.ID == "" {
+			return fmt.Errorf("options[%d].id: obligatorio", j)
+		}
+		if seen[o.ID] {
+			return fmt.Errorf("options[%d].id: %q repetido", j, o.ID)
+		}
+		seen[o.ID] = true
+	}
+	return nil
 }
 
 func (c *Chispa) params(tipo string) chispa3.ParamsTipo {

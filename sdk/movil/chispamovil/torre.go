@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -20,8 +21,31 @@ const (
 	sepTorre   = " · "
 	idEOS      = 2 // </s> de XLM-R
 	maxDimTorr = 4096
-	maxDin     = 1024 // torres instaladas; al pasarse, la caché se vacía
+	maxDin     = 1024 // torres instaladas; al pasarse, se desalojan las menos usadas
 )
+
+// prefijoTorre es la regla por versión de TORR: el prefijo que la sección debe traer. Una versión futura puede traer otro.
+var prefijoTorre = map[uint32]string{1: "passage: "}
+
+// validarPrefijoTorre rechaza una sección TORR cuya versión no se conoce o cuyo prefijo no es el de su versión.
+func validarPrefijoTorre(f *chispa3.Fichero, prefijo string) error {
+	b, err := f.Bytes(chispa3.TORR)
+	if err != nil {
+		return fmt.Errorf("sección TORR: %w", err)
+	}
+	return validarPrefijoVersion(binary.LittleEndian.Uint32(b), prefijo)
+}
+
+func validarPrefijoVersion(v uint32, prefijo string) error {
+	esperado, ok := prefijoTorre[v]
+	if !ok {
+		return fmt.Errorf("TORR v%d: versión desconocida", v)
+	}
+	if prefijo != esperado {
+		return fmt.Errorf("TORR v%d: prefijo %q no válido; se espera %q", v, prefijo, esperado)
+	}
+	return nil
+}
 
 // TieneTorre dice si el fichero trae la sección TORR.
 func (c *Chispa) TieneTorre() bool { return c.torre != nil }
@@ -48,7 +72,7 @@ func (c *Chispa) IdsPasaje(texto string) []byte {
 	if c.tok == nil || c.torre == nil {
 		return nil
 	}
-	ids := c.tok.TokenizarPasaje(strings.TrimPrefix(texto, c.torre.Prefijo))
+	ids := c.tok.TokenizarCon(c.torre.Prefijo, strings.TrimPrefix(texto, c.torre.Prefijo))
 	if len(ids) == 0 {
 		return nil
 	}
@@ -122,10 +146,13 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	}
 	ts := make([]torreL2, len(ops))
 	for i, o := range ops {
-		t, ok := c.dyn[claveTorre(p.Texto, o)]
+		k := claveTorre(p.Texto, o)
+		t, ok := c.dyn[k]
 		if !ok {
 			return nil, errors.New("sin torres para este esquema")
 		}
+		c.dynTic++
+		c.dynUso[k] = c.dynTic
 		ts[i] = t
 	}
 	return ts, nil
@@ -175,11 +202,35 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.dyn == nil || len(c.dyn)+n > maxDin {
-		c.dyn = map[string]torreL2{}
+	if c.dyn == nil {
+		c.dyn, c.dynUso = map[string]torreL2{}, map[string]uint64{}
+	}
+	claves := make(map[string]bool, n)
+	for _, o := range ops {
+		claves[claveTorre(p.Texto, o)] = true
+	}
+	// LRU: se desalojan las más antiguas, nunca las de esta instalación ni las de otro hilo recién instaladas.
+	for len(c.dyn)+n > maxDin {
+		var viejo string
+		var min uint64
+		for k := range c.dyn {
+			if claves[k] {
+				continue
+			}
+			if u := c.dynUso[k]; viejo == "" || u < min {
+				viejo, min = k, u
+			}
+		}
+		if viejo == "" {
+			break
+		}
+		delete(c.dyn, viejo)
+		delete(c.dynUso, viejo)
 	}
 	for i, o := range ops {
-		c.dyn[claveTorre(p.Texto, o)] = nuevas[i]
+		k := claveTorre(p.Texto, o)
+		c.dynTic++
+		c.dyn[k], c.dynUso[k] = nuevas[i], c.dynTic
 	}
 	return true
 }
