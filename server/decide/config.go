@@ -18,12 +18,13 @@ type Config struct {
 	Modelos         []string `json:"modelos"`          // ficheros .chispa para L0
 	CacheEsquemas   int      `json:"cache_esquemas"`   // entradas del LRU de esquemas
 	CacheRespuestas int      `json:"cache_respuestas"` // entradas del LRU de nonces
+	Limites         Limites  `json:"limites"`          // topes de entrada de /v1/decide
 }
 
 func ConfigPorDefecto() Config {
 	return Config{
 		Capas:         []Capa{{"L0", 0.80}, {"L1", 0.80}, {"L2", 0.70}, {"L3", 0.60}},
-		CacheEsquemas: 1024, CacheRespuestas: 4096,
+		CacheEsquemas: 1024, CacheRespuestas: 4096, Limites: LimitesPorDefecto(),
 	}
 }
 
@@ -56,5 +57,5 @@ func (c Config) Validar() error {
 	if c.CacheEsquemas < 1 || c.CacheRespuestas < 1 {
 		return fmt.Errorf("config: los tamaños de caché deben ser >= 1")
 	}
-	return nil
+	return c.Limites.validar()
 }

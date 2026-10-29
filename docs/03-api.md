@@ -1,6 +1,6 @@
 # API HTTP
 
-Tres rutas. Fuente del contrato: [`server/README.md`](../server/README.md#contrato) y [`server/decide/http.go`](../server/decide/http.go).
+Tres rutas (`POST /v1/decide`, `GET /healthz`, `GET /metrics`). **Contrato formal: [`server/api/openapi.yaml`](../server/api/openapi.yaml)** (OpenAPI 3.1, con ejemplos; `server/decide/contrato_test.go` manda cada ejemplo al handler y valida la respuesta contra sus esquemas). Código: [`server/decide/http.go`](../server/decide/http.go).
 
 ## `POST /v1/decide`
 
@@ -15,7 +15,7 @@ Ejemplo real: [`choice.req.json`](../server/decide/testdata/choice.req.json).
 
 | Campo | Regla |
 |---|---|
-| `state` | texto que se clasifica; el mismo para todas las preguntas; ≤ 256 KiB |
+| `state` | texto que se clasifica; el mismo para todas las preguntas; ≤ `max_estado` |
 | `questions` | de 1 a 256 |
 | `questions[].id` | obligatorio; único en la petición |
 | `questions[].question` | obligatorio |
@@ -44,7 +44,7 @@ Ejemplo real: [`choice.resp.json`](../server/decide/testdata/choice.resp.json). 
 - Los resultados van en el orden de `questions`.
 - `answer`: el id de la opción elegida.
 - `probs`: probabilidad calibrada de cada opción, la de la capa que respondió.
-- `layer`: la capa que contestó. Si `escalate` es true, la última de la cascada.
+- `layer`: la capa que contestó (`L0`…`L3`). Si `escalate` es true, vale `"escalar"`: ninguna capa llegó a su τ.
 - `escalate`: ninguna capa llegó a su τ. `answer` y `probs` son entonces la mejor pista, o `""` y `{}` si nadie opinó.
 - `ms`: tiempo de la cascada para esa pregunta. `nonce` vuelve tal cual.
 
@@ -54,27 +54,56 @@ Con `noul` y `score` ([`noul_score_escala.req.json`](../server/decide/testdata/n
 ```json
 {"results": [
   {"id":"n1","kind":"noul","answer":"false","probs":{"false":0.9,"true":0.1},"layer":"L0","escalate":false,"ms":0},
-  {"id":"s1","kind":"score","answer":"1","probs":{"1":0.4,"2":0.6},"layer":"L3","escalate":true,"ms":0}
+  {"id":"s1","kind":"score","answer":"1","probs":{"1":0.4,"2":0.6},"layer":"escalar","escalate":true,"ms":0}
 ]}
 ```
 Este segundo ejemplo sale de un test con capas falsas: muestra el formato de un escalado, no cifras reales.
 
 ### Errores
-`{"error": "..."}` con la ruta del campo. Ejemplo real
-([`kind_invalido_400.resp.json`](../server/decide/testdata/kind_invalido_400.resp.json)):
+Todo error lleva el mismo cuerpo tipado. `code` es estable y pensado para programas; `message` es para humanos (lleva la ruta del campo) y puede cambiar. `question_id` solo aparece cuando el error es de una pregunta con id.
 
 ```json
-{"error": "questions[0].kind: \"raro\" no válido (choice, score o noul)"}
+{"error": {"code": "invalid_kind", "message": "questions[0].kind: \"raro\" no válido (choice, score o noul)", "question_id": "1"}}
 ```
+Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_invalido_400.resp.json).
 
-| Código | Cuándo |
-|---|---|
-| 400 | JSON no válido, campo desconocido o regla incumplida |
-| 405 | método distinto de POST |
-| 413 | cuerpo de más de 1 MiB |
+| HTTP | `code` | Cuándo |
+|---|---|---|
+| 400 | `invalid_json` | JSON ilegible, campo desconocido o datos tras el objeto |
+| 400 | `empty_questions` | `questions` vacío o ausente |
+| 400 | `too_many_questions` | más de `max_preguntas` |
+| 400 | `state_too_long` | `state` > `max_estado` bytes |
+| 400 | `missing_id` | pregunta sin `id` |
+| 400 | `duplicate_question_id` | `id` de pregunta repetido |
+| 400 | `missing_question` | pregunta sin `question` |
+| 400 | `missing_kind` / `invalid_kind` | `kind` ausente / distinto de `choice`, `score`, `noul` |
+| 400 | `too_few_options` | `choice` o `score` con menos de 2 opciones |
+| 400 | `too_many_options` | más de `max_opciones` |
+| 400 | `invalid_options` | `noul` con opciones distintas de `false` y `true` |
+| 400 | `missing_option_id` / `duplicate_option_id` | opción sin `id` / `id` repetido |
+| 400 | `field_too_long` | `question`, `description`, un `id` o el `nonce` por encima de `max_texto` / `max_id` |
+| 404 | `not_found` | ruta que no existe |
+| 405 | `method_not_allowed` | método distinto de POST en `/v1/decide` (cabecera `Allow: POST`) |
+| 413 | `request_too_large` | cuerpo > `max_cuerpo` |
 
 La validación es todo o nada: una pregunta mala rechaza la petición entera. Un fallo interno de una capa solo salta esa capa
 (cuenta en `chispa_capa_errores_total`).
+
+**Compatibilidad.** Antes el error era `{"error": "texto"}`; ahora `error` es un objeto. Los clientes que lo leen como string
+(SDK Python: `ErrorSolicitud.mensaje` pasa a ser el dict; Android e iOS no consumen esta API HTTP, solo el JSON de `chispamovil`) siguen
+funcionando por el código HTTP, que no cambia; quien muestre `error` tal cual verá el objeto. `server/deploy/aws/contrato.py` solo comprueba que `error` exista.
+
+### Límites
+Defaults y cómo cambiarlos: sección `limites` del JSON de `-config` (un campo a 0 u omitido deja el default; negativo es un error de arranque).
+
+| Clave | Default | Qué limita |
+|---|---|---|
+| `max_cuerpo` | 1 MiB | bytes del cuerpo HTTP (413) |
+| `max_preguntas` | 256 | preguntas por petición |
+| `max_opciones` | 256 | opciones por pregunta |
+| `max_estado` | 256 KiB | bytes de `state` |
+| `max_texto` | 4096 | bytes de `question` y de cada `description` |
+| `max_id` | 256 | bytes de cada `id` y del `nonce` |
 
 ### Nonce
 Misma petición y mismo `nonce`: devuelve el resultado guardado sin decidir otra vez (`ms` incluido).

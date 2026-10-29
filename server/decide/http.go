@@ -11,22 +11,89 @@ import (
 	"net/http"
 )
 
+// Valores por defecto de los límites (ver Limites).
 const (
 	MaxCuerpo     = 1 << 20
 	MaxPreguntas  = 256
 	MaxOpciones   = 256
 	MaxEstadoByte = 256 << 10
+	MaxTextoByte  = 4 << 10 // question, description de opción
+	MaxIDByte     = 256     // id de pregunta, id de opción, nonce
 )
+
+// Códigos de error de la API (campo error.code). Contrato: server/api/openapi.yaml.
+const (
+	ErrJSONInvalido      = "invalid_json"
+	ErrCuerpoGrande      = "request_too_large"
+	ErrMetodo            = "method_not_allowed"
+	ErrNoEncontrado      = "not_found"
+	ErrSinPreguntas      = "empty_questions"
+	ErrDemasiadasPreg    = "too_many_questions"
+	ErrEstadoLargo       = "state_too_long"
+	ErrIDFalta           = "missing_id"
+	ErrPreguntaFalta     = "missing_question"
+	ErrKindFalta         = "missing_kind"
+	ErrKindInvalido      = "invalid_kind"
+	ErrPocasOpciones     = "too_few_options"
+	ErrDemasiadasOpc     = "too_many_options"
+	ErrOpcionesInvalidas = "invalid_options"
+	ErrOpcionIDFalta     = "missing_option_id"
+	ErrPreguntaIDDup     = "duplicate_question_id"
+	ErrOpcionIDDup       = "duplicate_option_id"
+	ErrCampoLargo        = "field_too_long"
+)
+
+// Limites son los topes de entrada de /v1/decide. Un valor 0 en el JSON de configuración
+// conserva el valor por defecto.
+type Limites struct {
+	MaxCuerpo    int `json:"max_cuerpo"`    // bytes del cuerpo HTTP → 413
+	MaxPreguntas int `json:"max_preguntas"` // preguntas por petición
+	MaxOpciones  int `json:"max_opciones"`  // opciones por pregunta
+	MaxEstado    int `json:"max_estado"`    // bytes de state
+	MaxTexto     int `json:"max_texto"`     // bytes de question y de cada description
+	MaxID        int `json:"max_id"`        // bytes de cada id y nonce
+}
+
+func LimitesPorDefecto() Limites {
+	return Limites{MaxCuerpo, MaxPreguntas, MaxOpciones, MaxEstadoByte, MaxTextoByte, MaxIDByte}
+}
+
+func (l Limites) validar() error {
+	for n, v := range map[string]int{"max_cuerpo": l.MaxCuerpo, "max_preguntas": l.MaxPreguntas, "max_opciones": l.MaxOpciones,
+		"max_estado": l.MaxEstado, "max_texto": l.MaxTexto, "max_id": l.MaxID} {
+		if v < 0 {
+			return fmt.Errorf("config: limites.%s no puede ser negativo, llegó %d", n, v)
+		}
+	}
+	return nil
+}
 
 // Servidor expone la cascada por HTTP.
 type Servidor struct {
 	Cascada *Cascada
 	Met     *Metricas
 	nonces  *LRU[[]byte] // nonce+contenido → Resultado serializado
+	lim     Limites
 }
 
 func NuevoServidor(c *Cascada, met *Metricas, cacheRespuestas int) *Servidor {
-	return &Servidor{Cascada: c, Met: met, nonces: NewLRU[[]byte](cacheRespuestas)}
+	return &Servidor{Cascada: c, Met: met, nonces: NewLRU[[]byte](cacheRespuestas), lim: LimitesPorDefecto()}
+}
+
+// ConLimites cambia los topes de entrada (los campos a 0 se quedan en su valor por defecto).
+func (s *Servidor) ConLimites(l Limites) *Servidor {
+	d := LimitesPorDefecto()
+	for _, p := range []struct {
+		dst *int
+		v   int
+	}{{&d.MaxCuerpo, l.MaxCuerpo}, {&d.MaxPreguntas, l.MaxPreguntas},
+		{&d.MaxOpciones, l.MaxOpciones}, {&d.MaxEstado, l.MaxEstado}, {&d.MaxTexto, l.MaxTexto}, {&d.MaxID, l.MaxID}} {
+		if p.v > 0 {
+			*p.dst = p.v
+		}
+	}
+	s.lim = d
+	return s
 }
 
 func (s *Servidor) Handler() http.Handler {
@@ -39,6 +106,9 @@ func (s *Servidor) Handler() http.Handler {
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		s.Met.Escribe(w)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		s.fallo(w, http.StatusNotFound, ErrNoEncontrado, "", "ruta %s no existe", r.URL.Path)
 	})
 	return mux
 }
@@ -58,30 +128,47 @@ type respuestaHTTP struct {
 	Results []json.RawMessage `json:"results"`
 }
 
+// errorHTTP es el cuerpo de todo error: {"error":{"code","message","question_id"}}.
 type errorHTTP struct {
-	Error string `json:"error"`
+	Error cuerpoError `json:"error"`
 }
 
-func (s *Servidor) fallo(w http.ResponseWriter, code int, format string, a ...any) {
-	s.Met.Peticion(code)
+type cuerpoError struct {
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	QuestionID string `json:"question_id,omitempty"`
+}
+
+// errAPI es un error de validación: código HTTP, código tipado y la pregunta implicada.
+type errAPI struct {
+	status int
+	code   string
+	qid    string
+	msg    string
+}
+
+func (e *errAPI) Error() string { return e.msg }
+
+func (s *Servidor) fallo(w http.ResponseWriter, status int, code, qid, format string, a ...any) {
+	s.Met.Peticion(status)
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(errorHTTP{fmt.Sprintf(format, a...)})
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(errorHTTP{cuerpoError{Code: code, Message: fmt.Sprintf(format, a...), QuestionID: qid}})
 }
 
 func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")
-		s.fallo(w, http.StatusMethodNotAllowed, "método %s no permitido: usa POST", r.Method)
+		s.fallo(w, http.StatusMethodNotAllowed, ErrMetodo, "", "método %s no permitido: usa POST", r.Method)
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxCuerpo))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, int64(s.lim.MaxCuerpo)))
 	if err != nil {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
-			s.fallo(w, http.StatusRequestEntityTooLarge, "cuerpo de más de %d bytes", MaxCuerpo)
+			s.fallo(w, http.StatusRequestEntityTooLarge, ErrCuerpoGrande, "", "cuerpo de más de %d bytes", s.lim.MaxCuerpo)
 		} else {
-			s.fallo(w, http.StatusBadRequest, "no se pudo leer el cuerpo: %v", err)
+			s.fallo(w, http.StatusBadRequest, ErrJSONInvalido, "", "no se pudo leer el cuerpo: %v", err)
 		}
 		return
 	}
@@ -89,16 +176,16 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&req); err != nil {
-		s.fallo(w, http.StatusBadRequest, "JSON no válido: %v", err)
+		s.fallo(w, http.StatusBadRequest, ErrJSONInvalido, "", "JSON no válido: %v", err)
 		return
 	}
 	if dec.More() {
-		s.fallo(w, http.StatusBadRequest, "JSON no válido: datos tras el objeto")
+		s.fallo(w, http.StatusBadRequest, ErrJSONInvalido, "", "JSON no válido: datos tras el objeto")
 		return
 	}
-	preguntas, err := validar(req)
-	if err != nil {
-		s.fallo(w, http.StatusBadRequest, "%v", err)
+	preguntas, ea := s.lim.validarPeticion(req)
+	if ea != nil {
+		s.fallo(w, ea.status, ea.code, ea.qid, "%s", ea.msg)
 		return
 	}
 	out := respuestaHTTP{Results: make([]json.RawMessage, len(preguntas))}
@@ -124,57 +211,76 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 
-func validar(req peticion) ([]Pregunta, error) {
-	if len(req.State) > MaxEstadoByte {
-		return nil, fmt.Errorf("state de más de %d bytes", MaxEstadoByte)
+func bad(code, qid, format string, a ...any) *errAPI {
+	return &errAPI{http.StatusBadRequest, code, qid, fmt.Sprintf(format, a...)}
+}
+
+func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
+	if len(req.State) > l.MaxEstado {
+		return nil, bad(ErrEstadoLargo, "", "state de más de %d bytes", l.MaxEstado)
 	}
 	if len(req.Questions) == 0 {
-		return nil, errors.New("questions: hace falta al menos una pregunta")
+		return nil, bad(ErrSinPreguntas, "", "questions: hace falta al menos una pregunta")
 	}
-	if len(req.Questions) > MaxPreguntas {
-		return nil, fmt.Errorf("questions: máximo %d por petición, llegaron %d", MaxPreguntas, len(req.Questions))
+	if len(req.Questions) > l.MaxPreguntas {
+		return nil, bad(ErrDemasiadasPreg, "", "questions: máximo %d por petición, llegaron %d", l.MaxPreguntas, len(req.Questions))
 	}
 	ids := map[string]bool{}
 	out := make([]Pregunta, len(req.Questions))
 	for i, q := range req.Questions {
 		at := fmt.Sprintf("questions[%d]", i)
 		if q.ID == "" {
-			return nil, fmt.Errorf("%s.id: obligatorio", at)
+			return nil, bad(ErrIDFalta, "", "%s.id: obligatorio", at)
+		}
+		if len(q.ID) > l.MaxID {
+			return nil, bad(ErrCampoLargo, "", "%s.id: más de %d bytes", at, l.MaxID)
 		}
 		if ids[q.ID] {
-			return nil, fmt.Errorf("%s.id: %q repetido", at, q.ID)
+			return nil, bad(ErrPreguntaIDDup, q.ID, "%s.id: %q repetido", at, q.ID)
 		}
 		ids[q.ID] = true
 		if q.Question == "" {
-			return nil, fmt.Errorf("%s.question: obligatorio", at)
+			return nil, bad(ErrPreguntaFalta, q.ID, "%s.question: obligatorio", at)
+		}
+		if len(q.Question) > l.MaxTexto {
+			return nil, bad(ErrCampoLargo, q.ID, "%s.question: más de %d bytes", at, l.MaxTexto)
+		}
+		if len(q.Nonce) > l.MaxID {
+			return nil, bad(ErrCampoLargo, q.ID, "%s.nonce: más de %d bytes", at, l.MaxID)
 		}
 		ops := q.Options
 		switch q.Kind {
 		case KindChoice, KindScore:
 			if len(ops) < 2 {
-				return nil, fmt.Errorf("%s.options: %s necesita al menos 2 opciones", at, q.Kind)
+				return nil, bad(ErrPocasOpciones, q.ID, "%s.options: %s necesita al menos 2 opciones", at, q.Kind)
 			}
 		case KindNoul:
 			if len(ops) == 0 {
 				ops = []Opcion{{ID: "false"}, {ID: "true"}}
 			} else if len(ops) != 2 || firma([]string{ops[0].ID, ops[1].ID}) != firma([]string{"false", "true"}) {
-				return nil, fmt.Errorf(`%s.options: noul solo admite los ids "false" y "true"`, at)
+				return nil, bad(ErrOpcionesInvalidas, q.ID, `%s.options: noul solo admite los ids "false" y "true"`, at)
 			}
 		case "":
-			return nil, fmt.Errorf("%s.kind: obligatorio (choice, score o noul)", at)
+			return nil, bad(ErrKindFalta, q.ID, "%s.kind: obligatorio (choice, score o noul)", at)
 		default:
-			return nil, fmt.Errorf("%s.kind: %q no válido (choice, score o noul)", at, q.Kind)
+			return nil, bad(ErrKindInvalido, q.ID, "%s.kind: %q no válido (choice, score o noul)", at, q.Kind)
 		}
-		if len(ops) > MaxOpciones {
-			return nil, fmt.Errorf("%s.options: máximo %d opciones", at, MaxOpciones)
+		if len(ops) > l.MaxOpciones {
+			return nil, bad(ErrDemasiadasOpc, q.ID, "%s.options: máximo %d opciones", at, l.MaxOpciones)
 		}
 		seen := map[string]bool{}
 		for j, o := range ops {
 			if o.ID == "" {
-				return nil, fmt.Errorf("%s.options[%d].id: obligatorio", at, j)
+				return nil, bad(ErrOpcionIDFalta, q.ID, "%s.options[%d].id: obligatorio", at, j)
+			}
+			if len(o.ID) > l.MaxID {
+				return nil, bad(ErrCampoLargo, q.ID, "%s.options[%d].id: más de %d bytes", at, j, l.MaxID)
+			}
+			if len(o.Description) > l.MaxTexto {
+				return nil, bad(ErrCampoLargo, q.ID, "%s.options[%d].description: más de %d bytes", at, j, l.MaxTexto)
 			}
 			if seen[o.ID] {
-				return nil, fmt.Errorf("%s.options[%d].id: %q repetido", at, j, o.ID)
+				return nil, bad(ErrOpcionIDDup, q.ID, "%s.options[%d].id: %q repetido", at, j, o.ID)
 			}
 			seen[o.ID] = true
 		}

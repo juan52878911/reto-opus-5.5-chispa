@@ -1,0 +1,227 @@
+openapi: 3.1.0
+info:
+  title: chispa-server
+  version: "1.0.0"
+  description: Clasificador tipado (choice, score, noul) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion.
+servers:
+  - url: http://127.0.0.1:8090
+paths:
+  /v1/decide:
+    post:
+      operationId: decide
+      summary: Decide una o varias preguntas sobre un mismo texto
+      description: Validacion todo o nada, una pregunta mala rechaza la peticion entera. Los resultados van en el orden de questions. Con nonce, la misma peticion devuelve el resultado guardado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideRequest"
+            examples:
+              zero_shot:
+                summary: Esquema nuevo, solo con descripciones
+                value: {"state":"Quiero cancelar mi tarjeta de credito porque me cobraron una cuota que no reconozco","questions":[{"id":"intencion","question":"Que quiere hacer el cliente?","kind":"choice","options":[{"id":"cancelar_producto","description":"Quiere dar de baja un producto"},{"id":"disputar_cobro","description":"Reclama un cobro que no reconoce"},{"id":"consultar_saldo","description":"Pregunta por su saldo"}]}]}
+              noul_y_score:
+                summary: Una pregunta si/no y una escala del 1 al 3
+                value: {"state":"El pedido llego roto y nadie contesta","questions":[{"id":"n1","question":"Hay una queja?","kind":"noul"},{"id":"s1","question":"Que tan urgente es?","kind":"score","options":[{"id":"1"},{"id":"2"},{"id":"3"}],"nonce":"abc-1"}]}
+              kind_invalido:
+                value: {"state":"hola","questions":[{"id":"q1","question":"Tema?","kind":"raro","options":[{"id":"a"},{"id":"b"}]}]}
+              opciones_repetidas:
+                value: {"state":"hola","questions":[{"id":"q1","question":"Tema?","kind":"choice","options":[{"id":"a"},{"id":"a"}]}]}
+              sin_preguntas:
+                value: {"state":"hola","questions":[]}
+              json_roto:
+                value: {"state":"hola","pregunta":1}
+      responses:
+        "200":
+          description: Un resultado por pregunta, en orden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecideResponse"
+              examples:
+                zero_shot:
+                  value: {"results":[{"id":"intencion","kind":"choice","answer":"disputar_cobro","probs":{"cancelar_producto":0.2,"disputar_cobro":0.7,"consultar_saldo":0.1},"layer":"L2","escalate":false,"ms":3.2}]}
+                noul_y_score:
+                  value: {"results":[{"id":"n1","kind":"noul","answer":"true","probs":{"false":0.1,"true":0.9},"layer":"L0","escalate":false,"ms":0.1},{"id":"s1","kind":"score","answer":"3","probs":{"1":0.1,"2":0.2,"3":0.7},"layer":"L1","escalate":false,"ms":0.4,"nonce":"abc-1"}]}
+        "400":
+          description: Peticion no valida (ver codigos en ErrorCode)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                kind_invalido:
+                  value: {"error":{"code":"invalid_kind","message":"questions[0].kind: \"raro\" no valido (choice, score o noul)","question_id":"q1"}}
+                opciones_repetidas:
+                  value: {"error":{"code":"duplicate_option_id","message":"questions[0].options[1].id: \"a\" repetido","question_id":"q1"}}
+                sin_preguntas:
+                  value: {"error":{"code":"empty_questions","message":"questions: hace falta al menos una pregunta"}}
+                json_roto:
+                  value: {"error":{"code":"invalid_json","message":"JSON no valido: json: unknown field \"pregunta\""}}
+        "405":
+          description: Metodo distinto de POST
+          headers:
+            Allow:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Cuerpo mayor que limites.max_cuerpo (1 MiB por defecto)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Salud
+      responses:
+        "200":
+          description: El servidor esta vivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              examples:
+                ok:
+                  value: {"status":"ok"}
+  /metrics:
+    get:
+      operationId: metrics
+      summary: Metricas en formato de texto Prometheus
+      responses:
+        "200":
+          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...)
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    DecideRequest:
+      type: object
+      additionalProperties: false
+      required: [questions]
+      properties:
+        state:
+          type: string
+          maxLength: 262144
+          description: Texto que se clasifica, el mismo para todas las preguntas. Limite en bytes, max_estado.
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 256
+          description: Limite max_preguntas.
+          items:
+            $ref: "#/components/schemas/Question"
+    Question:
+      type: object
+      additionalProperties: false
+      required: [id, question, kind]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: Unico en la peticion (max_id).
+        question:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Max max_texto bytes.
+        kind:
+          type: string
+          enum: [choice, score, noul]
+        options:
+          type: array
+          maxItems: 256
+          description: "choice y score: al menos 2, con id unico (max_opciones). noul: opcional; si va, solo los ids false y true."
+          items:
+            $ref: "#/components/schemas/Option"
+        nonce:
+          type: string
+          maxLength: 256
+          description: Clave de idempotencia opcional.
+    Option:
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 4096
+          description: En zero-shot es lo unico que Chispa ve de la opcion.
+    DecideResponse:
+      type: object
+      additionalProperties: false
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Result"
+    Result:
+      type: object
+      additionalProperties: false
+      required: [id, kind, answer, probs, layer, escalate, ms]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [choice, score, noul]
+        answer:
+          type: string
+          description: Id de la opcion elegida, o vacio si ninguna capa opino.
+        probs:
+          type: object
+          additionalProperties:
+            type: number
+        layer:
+          type: string
+          description: Capa que contesto (L0, L1, L2, L3). Vale "escalar" cuando escalate es true, es decir, ninguna capa llego a su tau.
+        escalate:
+          type: boolean
+        ms:
+          type: number
+        nonce:
+          type: string
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+          description: Texto para humanos con la ruta del campo. No es estable, usa code.
+        question_id:
+          type: string
+          description: Id de la pregunta implicada, cuando se conoce.
+    ErrorCode:
+      type: string
+      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long]
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]

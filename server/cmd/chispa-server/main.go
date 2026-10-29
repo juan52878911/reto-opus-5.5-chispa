@@ -1,4 +1,4 @@
-// chispa-server sirve POST /v1/decide, /healthz y /metrics.
+// chispa-server sirve POST /v1/decide, /healthz y /metrics (contrato: server/api/openapi.yaml).
 package main
 
 import (
@@ -63,7 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv := &http.Server{Addr: *addr, Handler: decide.NuevoServidor(casc, met, cfg.CacheRespuestas).Handler(),
+	srv := &http.Server{Addr: *addr, Handler: decide.NuevoServidor(casc, met, cfg.CacheRespuestas).ConLimites(cfg.Limites).Handler(),
 		ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("chispa-server en %s: %d modelos en L0", *addr, l0.NumModelos())
 	log.Fatal(srv.ListenAndServe())
