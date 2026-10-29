@@ -1,0 +1,5 @@
+=== RUN   TestIgualdadTransformersPasaje
+    tok_test.go:25: sin .chispa-tok (exportar.py; CHISPA_TOK): l1: límites de params fuera de rango
+--- SKIP: TestIgualdadTransformersPasaje (0.01s)
+PASS
+ok  	chispa/runtime/tok	0.008s

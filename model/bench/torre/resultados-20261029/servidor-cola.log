@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/chispa/repo/model/bench/torre/servidor.py", line 128, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/opt/chispa/repo/model/bench/torre/servidor.py", line 80, in main
+    raise RuntimeError("el servidor terminó: " + (trabajo / "servidor.log").read_text()[-600:])
+RuntimeError: el servidor terminó: 2026/10/29 03:29:36 l1: límites de params fuera de rango
+
