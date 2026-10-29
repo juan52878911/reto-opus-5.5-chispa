@@ -1,0 +1,12 @@
+{
+  "id": "solicitud",
+  "pregunta": "¿Qué necesita la persona que escribe a la ferretería?",
+  "tipo": "choice",
+  "opciones": {
+    "cotizacion": "pide precio o disponibilidad de un producto, o una cotización de materiales",
+    "pedido": "quiere comprar y recibir productos, o pregunta por el estado de un pedido ya hecho",
+    "garantia": "reclama por una herramienta defectuosa, un cambio o una devolución",
+    "asesoria": "pide ayuda técnica para elegir o usar un material o una herramienta",
+    "factura": "pide una factura, un RUT o corregir datos de facturación"
+  }
+}

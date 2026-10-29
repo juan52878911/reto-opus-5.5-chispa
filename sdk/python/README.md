@@ -1,6 +1,28 @@
-# SDK de Python de Chispa (T4.3)
+# SDK de Python de Chispa
 
-Paquete `chispa` (`pyproject.toml`, sin dependencias; PyYAML opcional para esquemas `.yaml`).
+Paquete `chispa` (`pyproject.toml`, sin dependencias obligatorias), con la CLI `chispa`.
+
+## Instalación
+```
+pip wheel . --no-deps --no-build-isolation -w dist/     # o: python -m build --wheel
+pip install dist/chispa-0.1.0-py3-none-any.whl          # sin el repositorio al lado
+```
+- **Dentro del wheel**: cliente de `/v1/decide`, `chispa train` (zero-shot y few-shot), la CLI, y el entrenador de Go
+  (`entrenador_go/`) con las fuentes de `format/chispa3` y `runtime/l1` copiadas por `setup.py` al construir desde el repositorio
+  (`entrenador_go/vendor/`, no versionado). Con Go ≥ 1.27 en el PATH, `chispa train` entrena L0 sin el repositorio; hace falta además
+  `github.com/juan52878911/kindling v0.17.0` en la caché de módulos de Go o acceso por red (`GOPROXY`; por defecto está en `off`).
+  Sin Go, el fichero sale sin L0 y lo avisa.
+- **Extras**: `chispa[yaml]` (esquemas `.yaml`), `chispa[torre]` (`--torre`: numpy, onnx, onnxruntime),
+  `chispa[l2]` (torch, transformers, scikit-learn: `--ckpt` y `--conjunta`).
+- **Fuera del wheel**: `model/l2` (checkpoint, calibrar, exportar). `--ckpt` y `--conjunta` necesitan el repositorio (`--repo` o
+  `CHISPA_REPO`) y fallan con ese mensaje si no está. Licencia: propietaria (SDK).
+
+## Modos de `chispa train` y ejemplos
+Ver `chispa train --help`. Con el esquema de ferretería de `docs/02-inicio-rapido.md`, en `ejemplos/`:
+- `ejemplos/zero_shot.py --l1 potion.chispa-l1`: sin ejemplos.
+- `ejemplos/few_shot.py --l1 potion.chispa-l1`: 5 ejemplos por opción (`ejemplos.csv`).
+- `ejemplos/cliente.py [--url …]`: pregunta a un `chispa-server`.
+`tests/test_ejemplos.py` los ejecuta (L1 falso y servidor falso).
 
 ## Cliente de `/v1/decide`
 ```python

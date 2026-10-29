@@ -9,21 +9,53 @@ from .cliente import Chispa, ChispaError
 from .tipos import Choice, Noul, Score
 
 
+DESCRIPCION = """Chispa: clasificador tipado (choice, score, noul) de bajo coste. Decide sobre esquemas y opciones que no ha visto.
+
+  chispa train    arma un fichero .chispa en CPU (zero-shot, few-shot o con datos del cliente)
+  chispa decide   hace una pregunta a un servidor chispa-server (/v1/decide)
+
+Ayuda de cada orden: chispa train --help, chispa decide --help."""
+
+EPILOGO_TRAIN = """\
+Los tres modos (los elige chispa según lo que le pases):
+
+  1. zero-shot      sin --ejemplos. Solo cuenta el esquema: L1 se arma con las descripciones de las opciones.
+                      chispa train --esquema ferreteria.yaml --salida f.chispa --l1 potion.chispa-l1
+  2. few-shot       --ejemplos con pocos casos por opción (menos de 10 en alguna): sin L0, y L1 se calibra con ellos.
+                      chispa train --esquema ferreteria.yaml --ejemplos ej.csv --salida f.chispa --l1 potion.chispa-l1
+                    Con 10 o más por opción entrena también L0 (necesita Go).
+  3. --conjunta     con datos del cliente: al menos 20 ejemplos por opción (con menos avisa y cae a few-shot).
+                    Añade la cabeza conjunta L0 + L2. Necesita --ckpt, torch y el repositorio (--repo o CHISPA_REPO).
+                      chispa train --esquema e.yaml --ejemplos ej.csv --salida f.chispa --ckpt mejor.pt --l2 l2.chispa --conjunta --repo .
+
+--torre torre.onnx se combina con cualquiera de los tres: añade la sección TORR, con la que el servidor (compilado con -tags ort)
+y el móvil calculan al vuelo la torre de un esquema nuevo en L2. Necesita `pip install chispa[torre]`.
+
+Qué hace falta instalado:
+  - solo Python: zero-shot, y few-shot sin L0 (META + L1 + CALIB), más --torre con chispa[torre].
+  - Go ≥ 1.27 en el PATH: entrena L0. El wheel trae el entrenador y las fuentes de Go; kindling (v0.17.0) debe estar en la
+    caché de módulos de Go o accesible por red (GOPROXY). Sin Go, el fichero sale sin L0 y lo avisa.
+  - --ckpt y --conjunta (chispa[l2]): además el repositorio de Chispa (model/l2), que el wheel no incluye.
+Esquemas .yaml: pip install chispa[yaml]; los .json no lo piden."""
+
+
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="chispa")
+    ap = argparse.ArgumentParser(prog="chispa", description=DESCRIPCION, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    t = sub.add_parser("train", help="arma un .chispa v3 en CPU: zero-shot (sin --ejemplos), few-shot (pocos) o --conjunta (con datos del cliente)")
+    t = sub.add_parser("train", help="arma un .chispa v3 en CPU: zero-shot (sin --ejemplos), few-shot (pocos) o --conjunta (con datos del cliente)",
+                       description="Arma un .chispa v3 en CPU a partir de un esquema y, opcionalmente, ejemplos.", epilog=EPILOGO_TRAIN,
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
     t.add_argument("--ejemplos", help="CSV/JSONL con columnas texto|text y etiqueta|label. Sin él, zero-shot: L1 con las descripciones "
                    "de las opciones (y L2/ESQUEMAS con --l2/--ckpt). Con pocos por opción (< 10), few-shot: sin L0 y L1 calibrada con ellos")
     t.add_argument("--esquema", required=True, help="YAML/JSON: id, pregunta, tipo, opciones (con descripciones)")
-    t.add_argument("--salida", required=True)
+    t.add_argument("--salida", required=True, help="el .chispa que se escribe")
     t.add_argument("--l1", help=".chispa-l1 (potion exportado con runtime/l1/exportar.py)")
     t.add_argument("--ckpt", help="checkpoint de L2: calibra y exporta L2 y ESQUEMAS con model/l2")
     t.add_argument("--l2", help=".chispa ya exportado por model/l2/exportar.py: de aquí salen L2 y ESQUEMAS")
     t.add_argument("--conjunta", action="store_true",
                    help="modo «con datos del cliente»: añade la cabeza conjunta L0 + L2 (sección CONJ) y L0TF; necesita train etiquetado "
                         "(--ejemplos, ≥ 20 por opción: con menos avisa por stderr y cae a few-shot), --ckpt y --l2 (o --ckpt solo)")
-    t.add_argument("--repo", help="raíz del repositorio (por defecto CHISPA_REPO o el que contiene este paquete)")
+    t.add_argument("--repo", help="raíz del repositorio de Chispa: solo para --ckpt/--conjunta (por defecto CHISPA_REPO o el que contiene este paquete). Para L0 no hace falta: el wheel trae las fuentes de Go")
     t.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
     t.add_argument("--semilla", type=int, default=1)
     t.add_argument("--frac-valid", type=float, default=0.2)
@@ -46,11 +78,16 @@ def main(argv=None) -> int:
     t.add_argument("--torre-dim", type=int, help="con --torre: dim de h (por defecto de los metadatos del ONNX o de la forma de h)")
     t.add_argument("--torre-max-len", type=int, help="con --torre: tokens máximos del pasaje (metadatos del ONNX o 128)")
     t.add_argument("--torre-prefijo", help="con --torre: prefijo del pasaje (metadatos del ONNX o «passage: »)")
-    d = sub.add_parser("decide", help="una pregunta contra un servidor")
-    d.add_argument("--url", required=True)
-    d.add_argument("--estado", required=True)
+    d = sub.add_parser("decide", help="una pregunta contra un servidor chispa-server",
+                       description="Hace una pregunta a /v1/decide e imprime el resultado en JSON.",
+                       epilog="Ejemplo:\n  chispa decide --url http://127.0.0.1:8090 --estado \"¿cuánto vale el cemento?\" "
+                              "--pregunta \"¿Qué necesita?\" --opciones cotizacion pedido factura\n"
+                              "Con --tipo score, --opciones lleva el número de niveles.",
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
+    d.add_argument("--url", required=True, help="base del servidor, p. ej. http://127.0.0.1:8090")
+    d.add_argument("--estado", required=True, help="el texto a clasificar")
     d.add_argument("--tipo", choices=["choice", "noul", "score"], default="choice")
-    d.add_argument("--pregunta", required=True)
+    d.add_argument("--pregunta", required=True, help="el texto de la pregunta")
     d.add_argument("--opciones", nargs="*", default=[], help="choice: ids; score: el número de niveles")
     a = ap.parse_args(argv)
     try:

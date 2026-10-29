@@ -5,12 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chispa"
 version = "0.1.0"
-description = "Cliente de /v1/decide y «chispa train» (few-shot en CPU) de Chispa"
+description = "SDK de Chispa: cliente de /v1/decide y «chispa train» (zero-shot, few-shot y con datos del cliente) en CPU"
+readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []  # el cliente es solo biblioteca estándar
+license = {text = "Propietaria (SDK). Todos los derechos reservados"}
+authors = [{name = "SDK"}]
+keywords = ["clasificador", "zero-shot", "few-shot", "chispa", "nlp"]
+classifiers = [
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Natural Language :: Spanish",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = []  # el cliente y «chispa train» zero-shot/few-shot son solo biblioteca estándar
 
 [project.optional-dependencies]
-yaml = ["pyyaml"]  # esquemas .yaml; los .json no lo necesitan
+yaml = ["pyyaml"]                         # esquemas .yaml; los .json no lo necesitan
+torre = ["numpy", "onnx", "onnxruntime"]  # --torre: valida el ONNX de la torre y añade la sección TORR
+l2 = ["numpy", "torch", "transformers", "scikit-learn", "pyyaml"]  # --ckpt / --conjunta (además necesitan el repositorio: model/l2)
 
 [project.scripts]
 chispa = "chispa.cli:main"
@@ -19,4 +31,4 @@ chispa = "chispa.cli:main"
 packages = ["chispa"]
 
 [tool.setuptools.package-data]
-chispa = ["entrenador_go/*.go", "entrenador_go/go.mod", "entrenador_go/go.sum"]
+chispa = ["entrenador_go/*.go", "entrenador_go/go.mod", "entrenador_go/go.sum", "entrenador_go/vendor/*/*"]

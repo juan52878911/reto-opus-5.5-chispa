@@ -45,8 +45,22 @@ def encontrar_go() -> Optional[str]:
     return None
 
 
-def preparar_go(trabajo: Path, repo: Path) -> Path:
-    """Copia el entrenador a `trabajo` con los `replace` apuntando a `repo` (sirve también instalado con pip)."""
+def fuentes_go(repo: Optional[Path] = None) -> Optional[tuple]:
+    """(format/chispa3, runtime/l1) que compila el entrenador: los del repositorio si se encuentra y, si no, las copias que el
+    wheel lleva en `entrenador_go/vendor/` (las pone `setup.py` al construir). None si no hay ni una cosa ni otra."""
+    if repo:
+        return Path(repo) / "format/chispa3", Path(repo) / "runtime/l1"
+    v = GO_DIR / "vendor"
+    if (v / "chispa3/go.mod").is_file() and (v / "l1/go.mod").is_file():
+        return v / "chispa3", v / "l1"
+    return None
+
+
+def preparar_go(trabajo: Path, fuentes) -> Path:
+    """Copia el entrenador a `trabajo` con los `replace` apuntando a `fuentes` (de `fuentes_go`; un Path se toma como raíz del repo)."""
+    if not isinstance(fuentes, tuple):
+        fuentes = fuentes_go(fuentes)
+    chispa3, l1 = fuentes
     d = trabajo / "entrenador_go"
     d.mkdir()
     for f in GO_DIR.glob("*.go"):
@@ -54,8 +68,8 @@ def preparar_go(trabajo: Path, repo: Path) -> Path:
             shutil.copy(f, d / f.name)
     shutil.copy(GO_DIR / "go.sum", d / "go.sum")
     mod = (GO_DIR / "go.mod").read_text()
-    mod = mod[: mod.index("replace (")] + (f"replace (\n\tchispa/format/chispa3 => {repo}/format/chispa3\n"
-                                           f"\tchispa/runtime/l1 => {repo}/runtime/l1\n)\n")
+    mod = mod[: mod.index("replace (")] + (f"replace (\n\tchispa/format/chispa3 => {Path(chispa3).resolve()}\n"
+                                           f"\tchispa/runtime/l1 => {Path(l1).resolve()}\n)\n")
     (d / "go.mod").write_text(mod)
     return d
 
@@ -181,6 +195,7 @@ def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semill
             "L1 se calibra con todos los ejemplos")
     salida.parent.mkdir(parents=True, exist_ok=True)
     repo, go = encontrar_repo(repo), encontrar_go()
+    fuentes = fuentes_go(repo)
     if ckpt and not repo:
         raise ChispaError("--ckpt necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
     if conjunta:
@@ -192,10 +207,11 @@ def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semill
             raise ChispaError("--conjunta necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
     with tempfile.TemporaryDirectory(prefix="chispa-train-") as tmp:
         tmp = Path(tmp)
-        if not (usar_go and repo and go):
+        if not (usar_go and fuentes and go):
             if conjunta:
-                raise ChispaError("--conjunta necesita el entrenador de Go y el repositorio (CHISPA_REPO)")
-            motivo = "desactivado" if not usar_go else "no hay Go" if not go else "no se encuentra el repositorio (CHISPA_REPO)"
+                raise ChispaError("--conjunta necesita el entrenador de Go (instala Go) y el repositorio (--repo o CHISPA_REPO)")
+            motivo = ("desactivado" if not usar_go else "no hay Go en el PATH (instala Go ≥ 1.27 para entrenar L0)" if not go
+                      else "el wheel no trae las fuentes de Go y no se encuentra el repositorio (--repo o CHISPA_REPO)")
             return _sin_go(q, extra, l1, salida, t0, motivo, log)
         l2_ch = l2 or ""
         tiempo_l2 = None
@@ -232,7 +248,7 @@ def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semill
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
                 "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"]}}
         (tmp / "plan.json").write_text(json.dumps(plan, ensure_ascii=False))
-        d = preparar_go(tmp, repo)
+        d = preparar_go(tmp, fuentes)
         env = dict(os.environ, GOFLAGS=os.environ.get("GOFLAGS", "-mod=mod"), GOPROXY=os.environ.get("GOPROXY", "off"))
         t = time.time()
         b = subprocess.run([go, "build", "-o", str(tmp / "entrenador"), "."], cwd=d, env=env, capture_output=True, text=True)
@@ -274,5 +290,5 @@ def _sin_go(q, extra, l1, salida: Path, t0, motivo, log) -> dict:
         omitidas["L1"] = "sin --l1"
     salida.write_bytes(formato.escribir(secs))
     nombres = {1: "META", 3: "L1", 6: "CALIB"}
-    return {"salida": str(salida), "secciones": [nombres[t] for t in sorted(secs)], "omitidas": omitidas,
+    return {"salida": str(salida), "modo": "few-shot", "secciones": [nombres[t] for t in sorted(secs)], "omitidas": omitidas,
             "bytes": salida.stat().st_size, "tiempos_s": {}, "reloj_s": time.time() - t0, "l0_valid_acc": 0.0}
