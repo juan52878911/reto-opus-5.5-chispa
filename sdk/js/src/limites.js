@@ -46,6 +46,13 @@ export function validar(estado, preguntas, lim = LIMITES) {
   if (preguntas.length > lim.maxPreguntas) {
     throw falla("too_many_questions", `questions: ${preguntas.length}, máximo ${lim.maxPreguntas}`);
   }
+  // como el escáner del servidor: el tope de opciones salta antes que cualquier otro error de las preguntas
+  preguntas.forEach((q, i) => {
+    if (q !== null && typeof q === "object" && Array.isArray(q.options) && q.options.length > lim.maxOpciones) {
+      const id = typeof q.id === "string" ? q.id : undefined;
+      throw falla("too_many_options", `questions[${i}].options: ${q.options.length}, máximo ${lim.maxOpciones}`, id);
+    }
+  });
   const vistos = new Set();
   preguntas.forEach((q, i) => {
     const r = `questions[${i}]`;

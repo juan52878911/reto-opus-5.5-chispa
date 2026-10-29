@@ -482,3 +482,16 @@ test("orden de validación como el servidor: nonce largo antes que kind vacío",
   const q = { id: "q1", question: "x", kind: "", nonce: "n".repeat(LIMITES.maxId + 1) };
   assert.throws(() => validar("", [q]), (e) => e instanceof ErrorChispa && e.codigo === "field_too_long");
 });
+
+test("R13: too_many_options antes que los errores de la pregunta (kind, id, noul)", () => {
+  const lim = { ...LIMITES, maxOpciones: 3 };
+  const cuatro = ["a", "b", "c", "d"].map((id) => ({ id }));
+  const casos = [
+    [[{ id: "1", question: "q", options: cuatro }], "1"],
+    [[{ kind: "noul", question: "q" }, { id: "2", question: "q", kind: "choice", options: cuatro }], "2"],
+    [[{ id: "1", question: "q", kind: "noul", options: cuatro }], "1"],
+  ];
+  for (const [qs, qid] of casos) {
+    assert.throws(() => validar("", qs, lim), (e) => e instanceof ErrorChispa && e.codigo === "too_many_options" && e.idPregunta === qid);
+  }
+});

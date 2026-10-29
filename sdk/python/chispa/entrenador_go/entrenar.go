@@ -348,7 +348,8 @@ func calibrarL1(m *l1.Modelo, p *Plan, exs, va []chispa.Example, calib *chispa3.
 }
 
 // copiarCalibL2 copia a calib los campos de L2 de la CALIB de l2.chispa tal como L2 los lee (ParaL2): si ya trae tipos_l2/tau_escalate_l2
-// valen esos y no sus tipos/tau_escalate, que son los de L1.
+// valen esos y no sus tipos/tau_escalate, que son los de L1. nil se trata como ausente (null en el JSON); sin ningún τ, tau_escalate_l2 = 0 («aceptar
+// toda confianza»), que es lo que escribe también `calib_de_l2` en Python (test cruzado: tests/calib_l2_casos.json).
 func copiarCalibL2(calib *chispa3.Calib, c2 chispa3.Calib) {
 	p := c2.ParaL2()
 	calib.TiposL2 = p.Tipos

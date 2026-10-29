@@ -301,6 +301,36 @@ class TestModos(unittest.TestCase):
         self.assertEqual((con["tipos_l2"], con["tau_escalate_l2"], con["tau_l2c"]), (tipos, 0.35, 0.5))
 
     @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_ckpt_con_l2_copia_la_calib_de_l2_entera(self):
+        """Con `--ckpt` y `--l2`, tipos_l2/tau_escalate_l2 son los del `--l2` (noul, score4, score5…), no solo el tipo del esquema calibrado."""
+        from unittest import mock
+        repo = Path(__file__).resolve().parents[3]
+        fuente = formato.leer((repo / "server/decide/testdata/calib-score.chispa").read_bytes())
+        cf = json.loads(fuente[formato.CALIB])
+        l2 = {formato.L2: b"onnx", formato.ESQUEMAS: b"esq", formato.CALIB: fuente[formato.CALIB]}
+        (self.d / "fuente.chispa").write_bytes(formato.escribir(l2))
+        solo = formato.escribir({**l2, formato.CALIB: formato.calib({"choice": {"T": 9.0}}, 0.123)})
+        real, logs = subprocess.run, []
+
+        def falso(cmd, **kw):
+            if cmd[1:3] != ["-m", cmd[2]] or not cmd[2].startswith("model.l2."):
+                return real(cmd, **kw)
+            if cmd[2] == "model.l2.exportar":
+                Path(cmd[cmd.index("--salida") + 1]).write_bytes(solo)
+            return mock.Mock(returncode=0, stderr="")
+        with mock.patch("chispa.train.subprocess.run", falso):
+            self.correr(self.jsonl(5), "ck.chispa", ckpt="ck", repo=str(repo), l2=str(self.d / "fuente.chispa"), log=logs.append)
+            self.correr(self.jsonl(5), "sinl2.chispa", ckpt="ck", repo=str(repo), log=logs.append)
+        c = json.loads(formato.leer((self.d / "ck.chispa").read_bytes())[formato.CALIB])
+        self.assertEqual(c["tipos_l2"], cf["tipos"])
+        self.assertEqual(c["tau_escalate_l2"], cf["tau_escalate"])
+        for k in ("noul", "score4", "score5"):
+            self.assertIn(k, c["tipos_l2"])
+        c = json.loads(formato.leer((self.d / "sinl2.chispa").read_bytes())[formato.CALIB])
+        self.assertEqual(list(c["tipos_l2"]), ["choice"])
+        self.assertTrue(any("--ckpt sin --l2" in m for m in logs), logs)
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
     def test_con_diez_por_opcion_sigue_entrenando_l0(self):
         inf = self.correr(self.jsonl(10))
         self.assertEqual(inf["secciones"], ["META", "L0", "CALIB"])
@@ -328,6 +358,15 @@ class TestCalibL2YaEntrenada(unittest.TestCase):
         r = calib_de_l2({formato.CALIB: c})
         self.assertEqual(r["tipos_l2"], {"choice": {"T": 0.7}})
         self.assertEqual(r["tau_escalate_l2"], 0.6)
+
+    def test_calib_de_l2_casos_cruzados_con_go(self):
+        """Mismos casos que `TestCopiarCalibL2CasosCruzadosConPython` (entrenador Go): nulos y ausentes dan lo mismo."""
+        from chispa import formato
+        from chispa.train import calib_de_l2
+        casos = json.loads((Path(__file__).parent / "calib_l2_casos.json").read_text())
+        for k in casos:
+            r = calib_de_l2({formato.CALIB: json.dumps(k["calib"]).encode()})
+            self.assertEqual(r, k["esperado"], k["nombre"])
 
     def test_aviso_l2_sin_calib(self):
         from chispa import formato

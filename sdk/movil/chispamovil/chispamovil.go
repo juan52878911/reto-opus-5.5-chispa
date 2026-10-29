@@ -429,6 +429,10 @@ const (
 // validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score/multi con ≥2 opciones, noul solo
 // {false,true} (vacío → por defecto), ids de opción no vacíos ni repetidos, y MaxOpciones.
 func validarPregunta(p *pregunta) error {
+	// como el escáner del servidor: el tope de opciones salta antes que los demás errores de la pregunta
+	if len(p.Opciones) > maxOpciones {
+		return codigo("too_many_options", "máximo %d opciones", maxOpciones)
+	}
 	if p.Texto == "" {
 		return codigo("missing_question", "question: obligatorio")
 	}
@@ -940,20 +944,20 @@ func (c *Chispa) TokenizarE5(texto string) []byte {
 // TorresL2 dice si hay torres de ESQUEMAS para la pregunta; la cascada lo consulta antes de tokenizar y llamar a ORT.
 func (c *Chispa) TorresL2(preguntaJSON string) bool {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 || c.sinOpinionMulti(p) {
+	if err != nil || !c.tieneL2 || c.sinOpinionMulti(p, true) {
 		return false
 	}
 	_, err = c.torresL2(p)
 	return err == nil
 }
 
-// sinOpinionMulti: multi sin CALIB «multi_l2» del esquema; L2 no opinará, así que ni se piden torres ni se ejecuta ONNX.
-func (c *Chispa) sinOpinionMulti(p pregunta) bool {
+// sinOpinionMulti: contar solo en TorresL2 (una vez por petición; el cliente llama luego a TextosTorreL2/PuntuarL2). Multi sin CALIB «multi_l2» del esquema; L2 no opinará, así que ni se piden torres ni se ejecuta ONNX.
+func (c *Chispa) sinOpinionMulti(p pregunta, contar bool) bool {
 	if p.Kind != "multi" || c.l2OpinaMulti(p, claveCalibMulti(p)) {
 		return false
 	}
 	// CALIB multi_l2 con esquema pero ninguna casa con la pregunta: lo cuenta como el servidor (multi_l2_sin_calib).
-	if c.calibPorEsquema(true).capa[1] {
+	if contar && c.calibPorEsquema(true).capa[1] {
 		c.avisarCalibAusente("multi_l2")
 	}
 	return true
@@ -1095,7 +1099,7 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	if !c.tieneL2 {
 		return fallo(errors.New("el fichero no trae las secciones L2 y ESQUEMAS"))
 	}
-	if c.sinOpinionMulti(p) {
+	if c.sinOpinionMulti(p, false) {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
 	}
 	ts, err := c.torresL2(p)

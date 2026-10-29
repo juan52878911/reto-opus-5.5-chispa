@@ -2,7 +2,10 @@ package main
 
 import (
 	"chispa/format/chispa3"
+	"encoding/json"
 	"math"
+	"os"
+	"reflect"
 	"testing"
 )
 
@@ -65,5 +68,43 @@ func TestCopiarCalibL2UsaTiposL2(t *testing.T) {
 	copiarCalibL2(&c, c2)
 	if c.TiposL2["choice"].T != 0.3 || *c.TauEscalateL2 != 0.4 {
 		t.Fatalf("sin tipos_l2 debe copiar tipos/tau_escalate: %+v", c)
+	}
+}
+
+// R13: mismos casos que `calib_de_l2` de Python (tests/calib_l2_casos.json): campos nulos o ausentes dan el mismo resultado.
+func TestCopiarCalibL2CasosCruzadosConPython(t *testing.T) {
+	b, err := os.ReadFile("../../tests/calib_l2_casos.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var casos []struct {
+		Nombre   string
+		Calib    json.RawMessage
+		Esperado map[string]json.RawMessage
+	}
+	if err := json.Unmarshal(b, &casos); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range casos {
+		var c2, c chispa3.Calib
+		if err := json.Unmarshal(k.Calib, &c2); err != nil {
+			t.Fatalf("%s: %v", k.Nombre, err)
+		}
+		copiarCalibL2(&c, c2)
+		sb, _ := json.Marshal(c)
+		var got map[string]json.RawMessage
+		_ = json.Unmarshal(sb, &got)
+		for _, campo := range []string{"tipos_l2", "tau_escalate_l2", "tau_l2c"} {
+			var g, w any
+			if v, ok := got[campo]; ok {
+				_ = json.Unmarshal(v, &g)
+			}
+			if v, ok := k.Esperado[campo]; ok {
+				_ = json.Unmarshal(v, &w)
+			}
+			if !reflect.DeepEqual(g, w) || (got[campo] == nil) != (k.Esperado[campo] == nil) {
+				t.Errorf("%s: %s = %s, esperado %s", k.Nombre, campo, got[campo], k.Esperado[campo])
+			}
+		}
 	}
 }

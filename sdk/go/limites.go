@@ -47,6 +47,12 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 	if len(qs) > l.MaxPreguntas {
 		return falla("too_many_questions", fmt.Sprintf("questions: %d, máximo %d", len(qs), l.MaxPreguntas), "")
 	}
+	// como el escáner del servidor: el tope de opciones salta antes que cualquier otro error de las preguntas
+	for i, q := range qs {
+		if len(q.Opciones) > l.MaxOpciones {
+			return falla("too_many_options", fmt.Sprintf("questions[%d].options: %d, máximo %d", i, len(q.Opciones), l.MaxOpciones), q.ID)
+		}
+	}
 	vistos := map[string]bool{}
 	for i, q := range qs {
 		r := fmt.Sprintf("questions[%d]", i)

@@ -288,20 +288,38 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 def calib_de_l2(secciones) -> dict:
     """Campos de CALIB del `.chispa` final que salen de la CALIB de un `l2.chispa` (`secciones` = `formato.leer`): `tipos_l2` (sus `tipos_l2` si ya los trae, si no sus `tipos`, con
-    `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate_l2` (su `tau_escalate_l2` o, si no, `tau_escalate`) y `tau_l2c`. Sin CALIB (o sin cada campo) no devuelve la clave."""
+    `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate_l2` (su `tau_escalate_l2` o, si no, `tau_escalate`; sin ninguno 0, «aceptar todo», como Go) y `tau_l2c`. Los `null` cuentan como ausentes. Sin CALIB devuelve {}."""
     if formato.CALIB not in secciones:
         return {}
     d = json.loads(secciones[formato.CALIB])
     r = {}
-    tipos = d.get("tipos_l2", d.get("tipos"))
+    # null cuenta como ausente (igual que `copiarCalibL2` en Go, que decodifica null como nil)
+    tipos = d.get("tipos_l2") if d.get("tipos_l2") is not None else d.get("tipos")
     if isinstance(tipos, dict):
         r["tipos_l2"] = tipos
-    tau = d.get("tau_escalate_l2", d.get("tau_escalate"))
-    if tau is not None:
-        r["tau_escalate_l2"] = tau
+    # sin ningún τ, 0: como Go (`TauEscalate` cero = L2 acepta toda confianza)
+    tau = d.get("tau_escalate_l2") if d.get("tau_escalate_l2") is not None else d.get("tau_escalate")
+    r["tau_escalate_l2"] = tau if tau is not None else 0
     if d.get("tau_l2c") is not None:
         r["tau_l2c"] = d["tau_l2c"]
     return r
+
+
+def _calib_l2_entera(exportado: Path, l2, log) -> None:
+    """Con `--ckpt`, la CALIB de L2 que sale de calibrar solo cubre el tipo del esquema de entrenamiento: noul, scoreK y multi_l2@…
+    caerían a los valores por defecto del servidor. Con `--l2` además, la CALIB de ese `l2.chispa` sustituye a la calibrada, entera
+    (todos sus tipos, `tau_escalate_l2` y `tau_l2c`: `calib_de_l2` y el entrenador de Go la pasan a `tipos_l2` tal cual). Sin `--l2`
+    no hay de dónde copiarla (calibrar solo ve las filas del esquema): se avisa."""
+    if not l2:
+        log("AVISO: --ckpt sin --l2: tipos_l2 solo trae el tipo del esquema; los demás (noul, scoreK, multi_l2@…) usarán los valores por defecto del servidor")
+        return
+    fuente = formato.leer(Path(l2).read_bytes())
+    if formato.CALIB not in fuente:
+        log("AVISO: --l2 sin CALIB: tipos_l2 solo trae el tipo del esquema; los demás usarán los valores por defecto del servidor")
+        return
+    sec = formato.leer(exportado.read_bytes())
+    sec[formato.CALIB] = fuente[formato.CALIB]
+    exportado.write_bytes(formato.escribir(sec))
 
 
 def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="servidor") -> dict:
@@ -335,6 +353,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
             tiempos["l2"] = time.time() - t
             l2_ch = str(tmp / "l2.chispa")
             sec = formato.leer(Path(l2_ch).read_bytes())
+            log("AVISO: --ckpt sin --l2 y sin ejemplos: no se calibra, tipos_l2 queda vacío y L2 usará los valores por defecto del servidor")
     elif l2:
         sec = formato.leer(Path(l2).read_bytes())
     if l2_ch:
@@ -343,7 +362,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
                 raise ChispaError(f"--l2: falta la sección {n}")
             secs[t_] = sec[t_]
         c2 = calib_de_l2(sec)
-        if "tipos_l2" not in c2 and "tau_escalate_l2" not in c2:
+        if not c2:
             log("AVISO: --l2 sin CALIB: L2 usará la CALIB de L1")
         secs[formato.CALIB] = json.dumps({**json.loads(secs[formato.CALIB]), **c2}).encode()
     else:
@@ -486,6 +505,7 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
                 if r.returncode:
                     raise ChispaError(f"{cmd[2]} falló:\n{r.stderr[-2000:]}")
             l2_ch, tiempo_l2 = str(tmp / "l2.chispa"), time.time() - t
+            _calib_l2_entera(Path(l2_ch), l2, log)
         if conjunta:
             t = time.time()
             from . import conjunta as cj
