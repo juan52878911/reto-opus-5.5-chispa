@@ -15,7 +15,7 @@ Solo ficheros: nada de esto se ha lanzado ni construido aquí (sin red, y kling 
 docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-cpu -t chispa-server:cpu .
 docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-ort -t chispa-server:ort .
 ```
-`ORT_VERSION` (1.22.0) y `ORT_GO_VERSION` (v1.19.0, debe ser de una versión ≤ ORT) son `--build-arg`. Para ort, cgo compila
+`ORT_VERSION` (1.31.1, la libonnxruntime con la que se probó; `--build-arg`) debe ser compatible con `onnxruntime_go` v1.38.0, que fija `server/go.mod`; el build no hace `go get`. Para ort, cgo compila
 en la plataforma destino (qemu o builder arm64 nativo). Para kling, una arquitectura por vez (`--load` / `--output type=oci`).
 
 ## Volúmenes

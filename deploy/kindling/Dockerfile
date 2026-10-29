@@ -5,8 +5,7 @@
 # Hacen falta format/chispa3, runtime/l1, runtime/tok y server por los `replace` de server/go.mod, y gomod-proxy/
 # con la caché de módulos de kindling (como server/deploy/Dockerfile). No construida aquí (sin red).
 ARG GO_VERSION=1.27
-ARG ORT_VERSION=1.22.0
-ARG ORT_GO_VERSION=v1.19.0
+ARG ORT_VERSION=1.31.1
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm AS cpu
 ARG TARGETOS TARGETARCH
@@ -24,7 +23,7 @@ RUN cd deploy/kindling/sondeo && GOOS=$TARGETOS GOARCH=$TARGETARCH go build -tri
 
 # ORT=1: cgo exige compilar en la plataforma destino (buildx con qemu o un builder nativo arm64).
 FROM golang:${GO_VERSION}-bookworm AS ort
-ARG TARGETARCH ORT_VERSION ORT_GO_VERSION
+ARG TARGETARCH ORT_VERSION
 WORKDIR /src
 COPY gomod-proxy /gomod-proxy
 ENV GOPROXY=file:///gomod-proxy,https://proxy.golang.org GONOSUMDB=github.com/juan52878911/* \
@@ -38,8 +37,8 @@ COPY deploy/kindling/sondeo deploy/kindling/sondeo
 RUN case "$TARGETARCH" in amd64) A=x64;; arm64) A=aarch64;; *) exit 1;; esac \
  && curl -fsSL -o /tmp/ort.tgz https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-${A}-${ORT_VERSION}.tgz \
  && mkdir /ort && tar -xzf /tmp/ort.tgz -C /ort --strip-components=1
-RUN cd server && go get github.com/yalue/onnxruntime_go@${ORT_GO_VERSION} \
- && go build -tags ort -trimpath -ldflags "-s -w -X github.com/juan52878911/chispa/server/decide.RutaORT=/usr/lib/libonnxruntime.so" \
+# onnxruntime_go lo fija server/go.mod (v1.38.0); no se hace `go get` al construir.
+RUN cd server && go build -tags ort -trimpath -ldflags "-s -w -X github.com/juan52878911/chispa/server/decide.RutaORT=/usr/lib/libonnxruntime.so" \
       -o /out/chispa-server ./cmd/chispa-server
 RUN cd deploy/kindling/sondeo && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/sondeo .
 # libstdc++ y libgcc_s (las pide libonnxruntime.so) salen del builder: su ruta depende de la arquitectura.
