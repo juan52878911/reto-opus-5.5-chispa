@@ -557,6 +557,8 @@ def ampliar_vocab(enc, vocab, rutas, lote=512):
 
 def fraccion_unk_textos(enc, textos, vocab):
     """Parte de los tokens de `textos` que la poda manda a <unk>."""
+    if not textos:
+        return 0.0
     keep = set(vocab["ids_originales"])
     ids = [i for t in ids_torre(enc, textos) for i in t]
     return sum(int(i) not in keep for i in ids) / max(len(ids), 1)
