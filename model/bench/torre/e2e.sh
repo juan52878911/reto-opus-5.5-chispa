@@ -143,12 +143,15 @@ echo "export: --cuant-torre <variante> $EXPORT_ARGS"
 for v in $VARIANTES; do
   TORRE=$RES/torre-$v.onnx
   if "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" "${CKPT_ARG[@]}" $EXPORT_ARGS --cuant-torre "$v" --calib-torre "$RES/calib-torre.jsonl" --n-calib 500 \
-       --medir-torre "$RES/paridad-$v" > "$RES/exportar-torre-$v.log" 2>&1; then tail -3 "$RES/exportar-torre-$v.log"   # su LEEME.md habla de pesos aleatorios: solo vale paridad.json
+       --medir-torre "$RES/paridad-$v" > "$RES/exportar-torre-$v.log" 2>&1 \
+     || { echo "exportar con --medir-torre falló (sin poda cabe justo en memoria); se repite sin medir la paridad"; fallo "paridad-$v no medida"
+          "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" "${CKPT_ARG[@]}" $EXPORT_ARGS --cuant-torre "$v" --calib-torre "$RES/calib-torre.jsonl" --n-calib 500 \
+            >> "$RES/exportar-torre-$v.log" 2>&1; }; then tail -3 "$RES/exportar-torre-$v.log"   # su LEEME.md habla de pesos aleatorios: solo vale paridad.json
   else tail -20 "$RES/exportar-torre-$v.log"; fallo "exportar --torre-onnx $v"; estado "metadata_$v" "FALLO no se exportó"; continue; fi
   "$PY" -I -c "
-import json, onnx, sys
+import json, onnx, os, sys
 p = {x.key: x.value for x in onnx.load(sys.argv[1], load_external_data=False).metadata_props}
-esp = {'chispa.torre.dim': '256', 'chispa.torre.max_len': str(json.load(open(sys.argv[2]))['max_len']), 'chispa.torre.prefijo': 'passage: '}
+esp = {'chispa.torre.dim': '256', 'chispa.torre.max_len': str(json.load(open(sys.argv[2]))['max_len'] if os.path.exists(sys.argv[2]) else p.get('chispa.torre.max_len')), 'chispa.torre.prefijo': 'passage: '}
 mal = {k: p.get(k) for k in esp if p.get(k) != esp[k]}
 print(p); sys.exit('metadata_props mal: %r' % mal if mal else 0)" "$TORRE" "$RES/paridad-$v/paridad.json" \
     && estado "metadata_$v" "OK dim=256 max_len prefijo='passage: '" || estado "metadata_$v" "FALLO ver log"
