@@ -74,6 +74,123 @@ def preparar_go(trabajo: Path, fuentes) -> Path:
     return d
 
 
+_EMBEBER_GO = """package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"chispa/runtime/l1"
+)
+
+// Embebe con L1 los textos de stdin ({"l1": ruta, "textos": [...]}): lo que decide.L1 hace con el mensaje.
+func main() {
+	var in struct {
+		L1     string   `json:"l1"`
+		Textos []string `json:"textos"`
+	}
+	if err := json.NewDecoder(os.Stdin).Decode(&in); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	m, err := l1.Abrir(in.L1)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "L1:", err)
+		os.Exit(1)
+	}
+	out := struct {
+		Dim int         `json:"dim"`
+		Emb [][]float32 `json:"emb"`
+		Ok  []bool      `json:"ok"`
+	}{Dim: m.Dim()}
+	for _, t := range in.Textos {
+		e := make([]float32, m.Dim())
+		out.Ok = append(out.Ok, m.Embed(t, e))
+		out.Emb = append(out.Emb, e)
+	}
+	json.NewEncoder(os.Stdout).Encode(out)
+}
+"""
+
+
+def embeber_con_go(l1: str, textos: List[str], fuentes, go: str, trabajo: Path):
+    """Embeddings de L1 de `textos` con el modelo `l1` (.chispa-l1), calculados con runtime/l1 en Go: (E (n,dim) float32, ok (n,) bool)."""
+    import numpy as np
+    d = trabajo / "embeber_go"
+    d.mkdir()
+    (d / "main.go").write_text(_EMBEBER_GO)
+    shutil.copy(GO_DIR / "go.sum", d / "go.sum")
+    mod = (GO_DIR / "go.mod").read_text()
+    chispa3, l1_dir = fuentes
+    mod = mod[: mod.index("replace (")] + (f"replace (\n\tchispa/format/chispa3 => {Path(chispa3).resolve()}\n"
+                                           f"\tchispa/runtime/l1 => {Path(l1_dir).resolve()}\n)\n")
+    (d / "go.mod").write_text(mod)
+    env = dict(os.environ, GOFLAGS=os.environ.get("GOFLAGS", "-mod=mod"), GOPROXY=os.environ.get("GOPROXY", "off"))
+    b = subprocess.run([go, "build", "-o", str(trabajo / "embeber"), "."], cwd=d, env=env, capture_output=True, text=True)
+    if b.returncode:
+        raise ChispaError(f"go build (embeber) falló:\n{b.stderr[-2000:]}")
+    r = subprocess.run([str(trabajo / "embeber")], input=json.dumps({"l1": str(Path(l1).resolve()), "textos": list(textos)}),
+                       capture_output=True, text=True)
+    if r.returncode:
+        raise ChispaError(f"embeber falló:\n{r.stderr[-2000:]}")
+    o = json.loads(r.stdout)
+    return np.array(o["emb"], dtype=np.float32).reshape(len(textos), o["dim"]), np.array(o["ok"], dtype=bool)
+
+
+def seccion_sopl1(q, ex, embeber):
+    """SOPL1 de la pregunta `q` con los ejemplos `ex` ([(texto, opción)]): por opción, k (ejemplos que L1 ve) y la media de sus
+    embeddings de L1 en int8. `embeber(textos) → (E, ok)`. Devuelve (bytes de la sección, {opción: k}, dim)."""
+    import numpy as np
+    E, ok = embeber([t for t, _ in ex])
+    ids = sorted(o.id for o in q.options)
+    dim = E.shape[1]
+    k = np.zeros(len(ids), dtype=np.uint32)
+    media = np.zeros((len(ids), dim), dtype=np.float32)
+    for (t, etq), e, v in zip(ex, E, ok):
+        if v and etq in ids:
+            i = ids.index(etq)
+            k[i] += 1
+            media[i] += e
+    media /= np.maximum(k, 1)[:, None]
+    esc, mq = formato.cuantizar_media(media)
+    b = formato.sopl1(dim, [{"hash": formato.clave_conj(q.question, ids), "ids": ids, "k": k, "escala": esc, "media": mq}])
+    return b, {i: int(n) for i, n in zip(ids, k)}, dim
+
+
+def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None) -> None:
+    """Reescribe `salida` con la sección SOPL1 (soporte few-shot para el encogimiento del prototipo de L1/L2). Sin `embeber`, los
+    embeddings salen de runtime/l1 en Go (hace falta Go y las fuentes); sin eso, avisa y no escribe nada."""
+    salida = Path(salida)
+    if not (l1 and ex):
+        motivo = "sin --l1" if not l1 else "sin --ejemplos"
+        inf.setdefault("omitidas", {})["SOPL1"] = motivo
+        log(f"AVISO: sin SOPL1: {motivo}")
+        return
+    with tempfile.TemporaryDirectory(prefix="chispa-sopl1-") as tmp:
+        if embeber is None:
+            go, fuentes = encontrar_go(), fuentes_go(encontrar_repo(repo))
+            if not (go and fuentes):
+                inf.setdefault("omitidas", {})["SOPL1"] = "hace falta Go y las fuentes de runtime/l1 para embeber los ejemplos"
+                log("AVISO: sin SOPL1: " + inf["omitidas"]["SOPL1"])
+                return
+            embeber = lambda textos: embeber_con_go(l1, textos, fuentes, go, Path(tmp))
+        b, ks, dim = seccion_sopl1(q, ex, embeber)
+    secs = formato.leer(salida.read_bytes())
+    secs[formato.SOPL1] = b
+    tmp_f = salida.with_name(salida.name + ".tmp")
+    try:
+        tmp_f.write_bytes(formato.escribir(secs))
+        os.replace(tmp_f, salida)
+    finally:
+        tmp_f.unlink(missing_ok=True)
+    inf["bytes"] = salida.stat().st_size
+    if "SOPL1" not in inf.get("secciones", []):
+        inf.setdefault("secciones", []).append("SOPL1")
+    inf["soporte"] = {"lambda_sugerida": lambda_, "k": ks, "dim": dim, "bytes": len(b)}
+    log(f"SOPL1: k por opción {ks}, dim {dim}, {len(b)} bytes; el runtime la usa con l1_shrinkage_lambda (y l2_shrinkage_lambda) = {lambda_:g}")
+
+
 def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable) -> List[List[str]]:
     """calibrar → exportar de `model/l2` (necesitan el repo en el cwd y torch/transformers)."""
     calib, salida = trabajo / "calib_l2.json", trabajo / "l2.chispa"
@@ -145,14 +262,21 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
-             log=print) -> dict:
+             shrinkage_lambda=None, embeber=None, log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
     `l0_max_mb` topa la tabla de pesos de L0 (el lector de kindling rechaza más de 64 MiB): se reducen los buckets de hashing
     (potencias de dos) hasta que cabe; con muchas clases, más colisiones. `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
     características. `conjunta` también escribe L0TF (el L0 tfidf que alimenta a la cabeza; `l0tf_max_mb` topa su tabla de coeficientes podando el
-    vocabulario por frecuencia, `l0tf_f16` los guarda en media precisión). `validacion` (JSONL/CSV de texto y etiqueta, fuera de `ejemplos`) fija el τ de L2c sobre esas filas; sin ella, `margen` y `suelo` (H2 de T4.6c). `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
+    vocabulario por frecuencia, `l0tf_f16` los guarda en media precisión). `validacion` (JSONL/CSV de texto y etiqueta, fuera de `ejemplos`) fija el τ de L2c sobre esas filas; sin ella, `margen` y `suelo` (H2 de T4.6c). `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests).
+
+    `shrinkage_lambda` (≥ 0; por defecto None) activa la sección SOPL1: con `ejemplos` y `l1`, guarda por opción k y la media de los
+    embeddings de L1 de sus ejemplos, para que el runtime encoja el prototipo de la descripción hacia ellos (w = k/(k+λ)). Sin él
+    no se escribe nada y el fichero es el de siempre. λ no va en el fichero: lo lee el runtime de su config (`l1_shrinkage_lambda`,
+    `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe. `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
+    if shrinkage_lambda is not None and (shrinkage_lambda != shrinkage_lambda or shrinkage_lambda < 0):
+        raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (∞ = no escribir SOPL1): {shrinkage_lambda}")
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
         from .torre import validar_torre
         torre = validar_torre(torre, torre_dim, torre_max_len, torre_prefijo, log)
@@ -163,6 +287,12 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
                     frac_valid=frac_valid, l0_max_mb=l0_max_mb, usar_go=usar_go, conjunta=conjunta, modelo_l2=modelo_l2,
                     l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,
                     margen=margen, suelo=suelo, tope_tau=tope_tau, log=log)
+    if shrinkage_lambda is not None:
+        if shrinkage_lambda == float("inf"):
+            log("--shrinkage-lambda ∞: no se escribe SOPL1 (w = 0)")
+        else:
+            q, _ = cargar_esquema(esquema, pregunta)
+            anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, shrinkage_lambda, inf, log, embeber, repo)
     if torre:
         from .torre import anadir_torr
         anadir_torr(salida, torre, inf)

@@ -22,6 +22,8 @@ type L1 struct {
 	m      *l1.Modelo
 	calib  chispa3.Calib
 	cache  *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
+	sopl   *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
+	lambda *float64                   // λ del encogimiento; nil = ∞ (sin mezcla, el comportamiento de antes)
 	Hits   atomic.Uint64
 	Misses atomic.Uint64
 }
@@ -29,6 +31,17 @@ type L1 struct {
 // NuevoL1Modelo monta L1 sobre un modelo ya abierto. calib puede estar vacía (T por defecto).
 func NuevoL1Modelo(m *l1.Modelo, calib chispa3.Calib, cacheEsquemas int) *L1 {
 	return &L1{m: m, calib: calib, cache: NewLRU[map[string][]float32](cacheEsquemas)}
+}
+
+// ConSoporte activa el prototipo encogido: con una pregunta presente en sopl (SOPL1), el prototipo de cada opción es
+// normaliza((1−w)·p_desc + w·media(ejemplos)), w = k/(k+λ). lambda nil o +Inf deja L1 como estaba. Debe llamarse antes
+// de usar L1 (no es seguro con peticiones en curso). Un soporte de otra dimensión que el modelo se ignora.
+func (l *L1) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L1 {
+	if sopl != nil && sopl.Dim() != l.m.Dim() {
+		sopl = nil
+	}
+	l.sopl, l.lambda = sopl, lambda
+	return l
 }
 
 func (l *L1) Nombre() string { return "L1" }
@@ -61,9 +74,18 @@ func (l *L1) opciones(p Pregunta) map[string][]float32 {
 	}
 	l.Misses.Add(1)
 	v := make(map[string][]float32, len(p.Opciones))
+	var sop *chispa3.EntradaSopl1
+	if l.sopl != nil && l.lambda != nil {
+		sop, _ = l.sopl.Buscar(ClaveConj(p))
+	}
 	for _, o := range p.Opciones {
 		e := make([]float32, l.m.Dim())
 		l.m.Embed(textoOpcion(p, o), e)
+		if sop != nil {
+			if k, media, ok := sop.Opcion(o.ID, l.m.Dim()); ok {
+				e = chispa3.Mezclar(e, media, chispa3.PesoSoporte(k, l.lambda))
+			}
+		}
 		v[o.ID] = e
 	}
 	l.cache.Put(k, v)

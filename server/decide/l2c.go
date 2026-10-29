@@ -23,6 +23,17 @@ type L2c struct {
 	*L2
 	sim  Similitudes
 	conj *chispa3.Conj
+
+	sopl   *chispa3.Sopl1 // k por opción (SOPL1), o nil
+	lambda *float64       // λ del encogimiento de L2; nil = ∞ (sin mezcla)
+}
+
+// ConSoporte activa la mezcla en L2: con una pregunta presente en sopl, la torre de cada opción (la de la descripción, de
+// ESQUEMAS o al vuelo) se encoge hacia la media de sus ranuras de soporte en CONJ, p = normaliza((1−w)·torre + w·media),
+// w = k/(k+λ) con el k de SOPL1, y el MaxSim se recalcula con p. lambda nil o +Inf deja L2c como estaba. Antes de usarla.
+func (l *L2c) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L2c {
+	l.sopl, l.lambda = sopl, lambda
+	return l
 }
 
 // NuevoL2cCon monta L2c sobre cualquier fuente de similitudes (el ONNX real solo existe con la etiqueta ort).
@@ -61,7 +72,40 @@ func (l *L2c) DecidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 	if len(S) == 0 || len(S[0]) != e.D {
 		return l.L2.Decidir(ctx, p)
 	}
-	return cabezaConj(p, e, S, sims, l0.Probs), nil
+	return cabezaConj(p, e, S, l.mezclarSims(p, e, S, sims), l0.Probs), nil
+}
+
+// torreDe devuelve la torre de la descripción de la opción: la de ESQUEMAS o, si el esquema es nuevo, la que L2 acaba de
+// calcular al vuelo (sigue en la caché; si se desalojó, ok=false y esa opción no se mezcla).
+func (l *L2c) torreDe(p Pregunta, o Opcion) (vec []byte, escala float32, ok bool) {
+	if l.L2 == nil {
+		return nil, 0, false
+	}
+	if v, esc, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, []string{o.ID})); ok {
+		return v, esc, true
+	}
+	if l.cache != nil {
+		if t, ok := l.cache.Get(claveTorre(p.Texto, o)); ok {
+			return t.v, t.e, true
+		}
+	}
+	return nil, 0, false
+}
+
+// mezclarSims aplica chispa3.MezclarSimsL2 si hay λ y SOPL1 con la pregunta; si no, devuelve sims tal cual: el comportamiento de antes.
+func (l *L2c) mezclarSims(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sims []float64) []float64 {
+	if l.sopl == nil || l.lambda == nil {
+		return sims
+	}
+	sop, ok := l.sopl.Buscar(ClaveConj(p))
+	if !ok {
+		return sims
+	}
+	ids := make([]string, len(p.Opciones))
+	for i, o := range p.Opciones {
+		ids[i] = o.ID
+	}
+	return chispa3.MezclarSimsL2(e, sop, l.lambda, ids, S, sims, func(i int) ([]byte, float32, bool) { return l.torreDe(p, p.Opciones[i]) })
 }
 
 // cabezaConj pone la cabeza de CONJ (chispa3.EntradaConj.ProbsCabeza, compartida con el SDK móvil) en una Respuesta.
