@@ -1,5 +1,5 @@
 // carga es un generador de carga sencillo para chispa-server: N trabajadores
-// mandan POST /v1/decide en bucle durante -d y se imprimen decisiones/s y p50/p99.
+// mandan POST /v1/decide en bucle durante -d y se imprimen decisiones/s (preguntas decididas por segundo), peticiones/s y p50/p99.
 package main
 
 import (
@@ -22,6 +22,10 @@ func main() {
 	textos := flag.String("textos", "", "fichero con un mensaje por línea; se rotan entre peticiones (por defecto, el fijo de siempre)")
 	csv := flag.Bool("csv", false, "añade una línea CSV: decisiones_s,peticiones_s,p50_ms,p99_ms,peticiones,errores")
 	timeout := flag.Duration("timeout", 0, "timeout de cada petición (0 = 2×duración)")
+	esquemas := flag.String("esquemas", "", "esquemas-carga.json: manda sus preguntas (zero-shot) en vez de la fija; ver README")
+	var lotesNombre string
+	flag.StringVar(&lotesNombre, "lotes-nombre", "", "con -esquemas: lote con nombre (uno, tres, cinco, ocho…); sin él, -lote N toma N preguntas del fichero rotando")
+	flag.StringVar(&lotesNombre, "lote-nombre", "", "alias de -lotes-nombre")
 	capas := flag.Bool("capas", false, "cuenta la capa que decidió cada resultado y la imprime")
 	flag.Parse()
 
@@ -32,7 +36,18 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	cuerpos := construirCuerpos(estados, *lote)
+	var cuerpos [][]byte
+	if *esquemas != "" {
+		es, err := cargarEsquemas(*esquemas)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if cuerpos, *lote, err = construirCuerposEsquemas(es, estados, lotesNombre, *lote); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		cuerpos = construirCuerpos(estados, *lote)
+	}
 
 	if *timeout <= 0 {
 		*timeout = 2 * *dur
@@ -71,6 +86,9 @@ func main() {
 		float64(len(lat)**lote)/el, float64(len(lat))/el, p(.5), p(.99))
 	if *capas {
 		fmt.Println("capas=" + formatoCapas(porCapa))
+		if *esquemas != "" {
+			fmt.Println("preguntas=" + formatoPreguntas(porCapa))
+		}
 	}
 	if *csv {
 		fmt.Println(lineaCSV(len(lat), errs, *lote, el, p(.5), p(.99)))

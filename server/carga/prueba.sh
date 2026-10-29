@@ -7,6 +7,7 @@ ck() { [ "$2" = "$3" ] || { echo "FALLA $1: esperado «$2», obtenido «$3»"; f
 csv=$(printf 'h\nl1,1,1,100,1,1,1,1,0,"-"\nl1,1,2,0,0,0,0,0,-1,"-"\nl2,4,1,0,0,0,0,0,-1,"-"\n')
 t=$(echo "$csv" | awk -F, -v stub=0 -f "$D/tabla.awk")
 ck media "$(echo "$t" | sed -n 1p | cut -d'|' -f4)" " 100 "
+ck "pet/s" "$(echo "$t" | sed -n 1p | cut -d'|' -f5)" " 1 "
 echo "$t" | sed -n 1p | grep -q "FALLÓ 1 tanda" || { echo "FALLA: fila l1 sin FALLÓ"; fallos=1; }
 echo "$t" | sed -n 2p | grep -q "| FALLÓ |" || { echo "FALLA: fila l2 sin FALLÓ"; fallos=1; }
 # 10: puerto ocupado
