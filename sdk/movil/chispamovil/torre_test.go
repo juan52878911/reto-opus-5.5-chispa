@@ -82,14 +82,6 @@ func movilL2(t *testing.T) *Chispa {
 	return &Chispa{esq: esq, tieneL2: true, calib: calibTorre()}
 }
 
-func aDecide(p pregunta) decide.Pregunta {
-	d := decide.Pregunta{ID: "q", Estado: "hola", Texto: p.Texto, Kind: p.Kind}
-	for _, o := range p.Opciones {
-		d.Opciones = append(d.Opciones, decide.Opcion{ID: o.ID, Description: o.Description})
-	}
-	return d
-}
-
 var preguntasTorre = []string{
 	`{"question":"¿Cuál es el motivo?","kind":"choice","options":[{"id":"queja","description":"se queja del cobro"},{"id":"duda"},{"id":"baja","description":"quiere irse"}]}`,
 	`{"question":"¿Es urgente?","kind":"noul","options":[{"id":"false"},{"id":"true","description":"urgente ya"}]}`,
@@ -117,7 +109,7 @@ func TestTextosYDecisionIgualesAlServidor(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want, err := srv.Decidir(context.Background(), aDecide(p))
+		want, err := srv.Decidir(context.Background(), aDecideL2(p))
 		if err != nil {
 			t.Fatalf("%s: servidor: %v", q, err)
 		}
@@ -233,4 +225,11 @@ func TestAbrirConTORR(t *testing.T) {
 	if !c.TieneTorre() || string(c.OnnxTorre()) != "onnx!" || c.DimTorre() != 256 {
 		t.Fatalf("TORR: %v %q %d", c.TieneTorre(), c.OnnxTorre(), c.DimTorre())
 	}
+}
+
+// aDecideL2 es aDecide con el estado que usan los tests de L2.
+func aDecideL2(p pregunta) decide.Pregunta {
+	d := aDecide(p)
+	d.ID, d.Estado = "q", "hola"
+	return d
 }
