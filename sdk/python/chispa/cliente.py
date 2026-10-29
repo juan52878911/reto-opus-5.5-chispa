@@ -33,7 +33,18 @@ class ErrorTransporte(ChispaError):
     """No hubo respuesta válida tras todos los reintentos (red, 5xx, 429 o cuerpo ilegible)."""
 
 
-_REINTENTABLES = {429, 500, 502, 503, 504}
+_REINTENTABLES = {429, 500, 502, 504}
+# 503 solo se reintenta si el servidor manda `Retry-After`: el `-timeout` del servidor responde 503 sin esa cabecera y repetirlo
+# amplifica la sobrecarga (cada intento gasta otra vez la cascada entera). Con `Retry-After` se espera lo que pida (≥ backoff).
+_TOPE_RETRY_AFTER = 30.0
+
+
+def _retry_after(e) -> float | None:
+    v = e.headers.get("Retry-After") if e.headers is not None else None
+    try:
+        return min(max(float(v), 0.0), _TOPE_RETRY_AFTER) if v is not None else None
+    except ValueError:
+        return None  # fecha HTTP u otra cosa: se trata como ausente
 
 
 class Chispa:
@@ -77,22 +88,24 @@ class Chispa:
     def _post(self, ruta: str, cuerpo):
         req = urllib.request.Request(self.url + ruta, data=cuerpo, method="POST" if cuerpo is not None else "GET",
                                      headers={"Content-Type": "application/json"} if cuerpo is not None else {})
-        ultimo = None
+        ultimo, pedida = None, 0.0
         for intento in range(self.reintentos + 1):
             if intento:
-                self._dormir(self.espera * 2 ** (intento - 1))
+                self._dormir(max(self.espera * 2 ** (intento - 1), pedida))
+            pedida = 0.0
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as r:
                     return json.loads(r.read())
             except urllib.error.HTTPError as e:
                 texto = e.read().decode("utf-8", "replace")
-                if e.code not in _REINTENTABLES:
+                ra = _retry_after(e)
+                if e.code not in _REINTENTABLES and not (e.code == 503 and ra is not None):
                     try:
                         texto = json.loads(texto).get("error", texto)
                     except (ValueError, AttributeError):
                         pass
                     raise ErrorSolicitud(e.code, texto) from None  # str (formato viejo) o dict (tipado)
-                ultimo = f"HTTP {e.code}"
+                ultimo, pedida = f"HTTP {e.code}", ra or 0.0
             except (urllib.error.URLError, OSError, ValueError) as e:  # ValueError: JSON ilegible
                 ultimo = repr(e)
         raise ErrorTransporte(f"{self.url}{ruta}: {ultimo} tras {self.reintentos + 1} intentos")
