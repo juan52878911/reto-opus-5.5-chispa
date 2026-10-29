@@ -81,3 +81,19 @@ func TestR11CodigosYOrdenComoServidor(t *testing.T) {
 		}
 	}
 }
+
+// R12 H5: L2 con «multi_l2@<hash>» de otro texto no opina y cuenta como CALIB ausente (como el servidor), con aviso único.
+func TestR12MultiL2SinCalibDelEsquemaCuentaAusente(t *testing.T) {
+	c := movilL2(t)
+	c.calib.Tipos["multi_l2@deadbeef"] = chispa3.ParamsTipo{B: 1, Theta: 0.5}
+	q := `{"question":"¿Temas R12?","kind":"multi","options":[{"id":"a"},{"id":"b"},{"id":"c"}]}`
+	if c.TorresL2(q) {
+		t.Fatal("TorresL2 debía ser false")
+	}
+	if n := c.MultiCalibAusente(); n != 1 {
+		t.Fatalf("contador = %d, quería 1", n)
+	}
+	if av := c.Avisos(); strings.Count(av, "CALIB de multi_l2") != 1 {
+		t.Fatalf("aviso: %q", av)
+	}
+}

@@ -949,7 +949,14 @@ func (c *Chispa) TorresL2(preguntaJSON string) bool {
 
 // sinOpinionMulti: multi sin CALIB «multi_l2» del esquema; L2 no opinará, así que ni se piden torres ni se ejecuta ONNX.
 func (c *Chispa) sinOpinionMulti(p pregunta) bool {
-	return p.Kind == "multi" && !c.l2OpinaMulti(p, claveCalibMulti(p))
+	if p.Kind != "multi" || c.l2OpinaMulti(p, claveCalibMulti(p)) {
+		return false
+	}
+	// CALIB multi_l2 con esquema pero ninguna casa con la pregunta: lo cuenta como el servidor (multi_l2_sin_calib).
+	if c.calibPorEsquema(true).capa[1] {
+		c.avisarCalibAusente("multi_l2")
+	}
+	return true
 }
 
 type torreL2 struct {
