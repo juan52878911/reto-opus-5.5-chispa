@@ -1,0 +1,17 @@
+[
+  {"nombre": "tipos_l2 y tau_escalate_l2 nulos: caen a tipos y tau_escalate",
+   "calib": {"tipos": {"choice": {"T": 0.3, "a": 1, "b": 0, "theta": 0.5}}, "tipos_l2": null, "tau_escalate": 0.4, "tau_escalate_l2": null},
+   "esperado": {"tipos_l2": {"choice": {"T": 0.3, "a": 1, "b": 0, "theta": 0.5}}, "tau_escalate_l2": 0.4}},
+  {"nombre": "sin tau_escalate: tau_escalate_l2 = 0 (aceptar todo), igual en Go y Python",
+   "calib": {"tipos": {"choice": {"T": 0.3, "a": 1, "b": 0, "theta": 0.5}}},
+   "esperado": {"tipos_l2": {"choice": {"T": 0.3, "a": 1, "b": 0, "theta": 0.5}}, "tau_escalate_l2": 0}},
+  {"nombre": "tipos_l2 y tau_escalate_l2 mandan sobre tipos y tau_escalate; tau_l2c pasa",
+   "calib": {"tipos": {"choice": {"T": 0.05, "a": 0, "b": 0, "theta": 0}}, "tipos_l2": {"choice": {"T": 0.7, "a": 0, "b": 0, "theta": 0}}, "tau_escalate": 0.9, "tau_escalate_l2": 0.6, "tau_l2c": 0.5},
+   "esperado": {"tipos_l2": {"choice": {"T": 0.7, "a": 0, "b": 0, "theta": 0}}, "tau_escalate_l2": 0.6, "tau_l2c": 0.5}},
+  {"nombre": "tipos_l2 vacío es «L2 no mira tipos», no ausencia",
+   "calib": {"tipos": {"choice": {"T": 0.3, "a": 0, "b": 0, "theta": 0}}, "tipos_l2": {}, "tau_escalate": 0.4},
+   "esperado": {"tipos_l2": {}, "tau_escalate_l2": 0.4}},
+  {"nombre": "sin tipos ni tipos_l2: no hay tipos_l2",
+   "calib": {"tau_escalate": 0.4, "tau_l2c": null},
+   "esperado": {"tau_escalate_l2": 0.4}}
+]

@@ -129,7 +129,7 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 // el orden de InstalarTorresL2. "[]" si ya hay torres (ESQUEMAS o instaladas), si el fichero no trae L2 o si la pregunta no vale.
 func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 || c.sinOpinionMulti(p) || c.TorresL2(preguntaJSON) {
+	if err != nil || !c.tieneL2 || c.sinOpinionMulti(p, false) || c.TorresL2(preguntaJSON) {
 		return "[]"
 	}
 	b, _ := json.Marshal(torre.Textos(aTorre(p)))

@@ -32,3 +32,25 @@ func TestOrdenValidacionNonceAntesQueKind(t *testing.T) {
 		t.Errorf("got %v", e)
 	}
 }
+
+// R13: too_many_options sale antes que los errores de la pregunta (kind, id, noul), como el escáner del servidor.
+func TestR13TooManyOptionsAntesQueErroresDePregunta(t *testing.T) {
+	l := LimitesPorDefecto()
+	l.MaxOpciones = 3
+	cuatro := []Opcion{{ID: "a"}, {ID: "b"}, {ID: "c"}, {ID: "d"}}
+	casos := []struct {
+		nombre string
+		qs     []Pregunta
+		qid    string
+	}{
+		{"sin kind", []Pregunta{{ID: "1", Texto: "q", Opciones: cuatro}}, "1"},
+		{"id vacío antes", []Pregunta{{Kind: KindNoul, Texto: "q"}, {ID: "2", Texto: "q", Kind: KindChoice, Opciones: cuatro}}, "2"},
+		{"noul con 4", []Pregunta{{ID: "1", Texto: "q", Kind: KindNoul, Opciones: cuatro}}, "1"},
+	}
+	for _, c := range casos {
+		e := l.validar("", c.qs)
+		if e == nil || e.Codigo != "too_many_options" || e.IDPregunta != c.qid {
+			t.Errorf("%s: got %+v", c.nombre, e)
+		}
+	}
+}
