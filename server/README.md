@@ -165,15 +165,21 @@ anteriores (`DecisorConPrevias`), y L2c usa las probabilidades de L0 con:
   L2 no son despreciables con muchas clases; si hace falta, el bucle por clases se puede paralelizar o vectorizar.
 - Sin L0 en la cascada, L2c no puede usar la cabeza y se comporta como L2.
 
-### Compilar con ORT
-La VM no trae la biblioteca. En una máquina con red y `libonnxruntime.so` (1.17+):
+### Compilar y probar con ORT
+`go.mod` trae `github.com/yalue/onnxruntime_go v1.38.0` (probado con `libonnxruntime.so.1.31.1`). Sin `-tags ort` no se usa
+(`l2_stub.go`, `torre/ort_stub.go`). Receta sin red (nodo-b; la caché de módulos de `~/go/pkg/mod` tiene el módulo):
 ```
-cd server && GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go && go build -tags ort ./...   # o go vet -tags ort ./...
+. ~/orquestador/herr/env.sh                      # Go, venv, GOPROXY=off
+export CC=~/orquestador/herr/zigcc CGO_ENABLED=1 # para -race
+export CHISPA_ORT_LIB=~/orquestador/herr/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1
+cd server && go test -tags ort -race -count=1 ./...
 ```
-`l2_ort.go` usa `github.com/yalue/onnxruntime_go` (sesión dinámica; `decide.RutaORT` fija la ruta de la .so). **No se compiló**:
-ni el módulo ni las cabeceras están aquí, así que escribí contra su API de memoria.
-`-tags ort` sí compila (T4.4, imagen con `onnxruntime_go v1.19.0` y ORT 1.22.0). El tokenizador de e5 llegó en T4.5 (abajo):
-`chispa-server -tok e5.chispa-tok`; sin `-tok`, L2 queda en stub aun con `ort`.
+`CHISPA_ORT_LIB` fija `decide.RutaORT` y `torre.RutaORT` en los tests; en el servidor, la .so del sistema o `RutaORT`.
+Para (re)añadir el módulo sin red: `GOPROXY=file://$HOME/go/pkg/mod/cache/download GOSUMDB=off GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go@v1.38.0`.
+Tests ORT: `torre/ort_test.go` (`sintetico.onnx` y su referencia) y `decide/l2_ort_test.go` (`TestL2TorreORTEsquemaNuevo`: L2 con
+`decide/testdata/l2_sintetico.onnx` + torre al vuelo + `/v1/decide` con un esquema nuevo, un solo entorno ORT; se regenera con
+`python decide/testdata/l2_sintetico.py`). Los ONNX son sintéticos (pesos aleatorios): prueban la mecánica, no la calidad.
+El tokenizador de e5 llegó en T4.5 (abajo): `chispa-server -tok e5.chispa-tok`; sin `-tok`, L2 queda en stub aun con `ort`.
 
 ### Medidas de L1 real (microVM kindling de 4 vCPU, Xeon 3,3 GHz; cota del i3)
 Potion multilingüe (`runtime/l1/exportar.py`, 155 MB, en un v3 en memoria), `go test ./decide -bench L1Real -benchtime 3s -cpu 1,4`:
