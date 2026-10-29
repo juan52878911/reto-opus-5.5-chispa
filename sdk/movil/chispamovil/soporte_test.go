@@ -106,8 +106,8 @@ func TestAbrirConSoporteLeeSOPL1(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ficheroV3(t, chispa3.Seccion{Tipo: chispa3.SOPL1, Datos: b})
-	if c.sopl == nil || c.lambdaL1 == nil || *c.lambdaL1 != SoporteL1PorDefecto || c.lambdaL2 != nil {
-		t.Fatalf("Abrir usa λ=4 en L1 y L2 apagado: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
+	if c.sopl != nil || c.lambdaL1 != nil || c.lambdaL2 != nil || !strings.Contains(c.Avisos(), "l1_lambda_calib") {
+		t.Fatalf("CALIB sin l1_lambda_calib: Abrir deja el soporte apagado con aviso: sopl=%v λ=%v/%v avisos=%q", c.sopl, c.lambdaL1, c.lambdaL2, c.Avisos())
 	}
 	ruta := filepath.Join(t.TempDir(), "s.chispa")
 	if err := os.WriteFile(ruta, mustEscribir(t, b), 0o600); err != nil {
@@ -119,7 +119,7 @@ func TestAbrirConSoporteLeeSOPL1(t *testing.T) {
 	}
 	off.Cerrar()
 	c2, err := AbrirConSoporte(ruta, 3, SoporteApagado)
-	if err != nil || c2.sopl == nil || c2.sopl.Len() != 1 || c2.lambdaL1 == nil || *c2.lambdaL1 != 3 || c2.lambdaL2 != nil || c2.Avisos() != "" {
+	if err != nil || c2.sopl == nil || c2.sopl.Len() != 1 || c2.lambdaL1 == nil || *c2.lambdaL1 != 3 || c2.lambdaL2 != nil || !strings.Contains(c2.Avisos(), "sin encogimiento") {
 		t.Fatalf("%v %v", c2, err)
 	}
 	c2.Cerrar()

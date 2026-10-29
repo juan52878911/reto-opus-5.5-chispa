@@ -78,10 +78,11 @@ type Chispa struct {
 	dynUso  map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
 	dynTic  uint64
 
-	sopl     *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
-	lambdaL1 *float64       // λ del encogimiento del soporte en L1; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
-	lambdaL2 *float64       // ídem en L2c
-	avisos   []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con el encogimiento activo)
+	sopl        *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
+	lambdaL1    *float64       // λ del encogimiento del soporte en L1; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
+	lambdaL2    *float64       // ídem en L2c
+	explicitoL1 bool           // el λ de L1 lo pidió el llamador (AbrirConSoporte), no es el default de Abrir
+	avisos      []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con el encogimiento activo)
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -101,7 +102,7 @@ const SoporteL1PorDefecto = 4
 // AbrirConSoporte(ruta, SoporteL1PorDefecto, SoporteApagado); para el comportamiento anterior en L1,
 // AbrirConSoporte(ruta, SoporteApagado, SoporteApagado).
 func Abrir(ruta string) (*Chispa, error) {
-	return AbrirConSoporte(ruta, SoporteL1PorDefecto, SoporteApagado)
+	return abrir(ruta, SoporteL1PorDefecto, SoporteApagado, false)
 }
 
 // SoporteApagado es el valor de λ de AbrirConSoporte que apaga el encogimiento (el puente de gomobile no tiene opcionales:
@@ -114,11 +115,15 @@ const SoporteApagado = -1.0
 // valor negativo o NaN) = apagado explícito (sin soporte, lo que hacía Abrir antes del default 4); 0 = solo los ejemplos; +Infinito = solo la descripción, en las dos
 // capas (antes +Inf apagaba). Sin la sección, o con una pregunta que no está en ella, no cambia nada.
 func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
+	return abrir(ruta, lambdaL1, lambdaL2, true)
+}
+
+func abrir(ruta string, lambdaL1, lambdaL2 float64, explicito bool) (*Chispa, error) {
 	f, err := chispa3.Abrir(ruta)
 	if err != nil {
 		return nil, err
 	}
-	c := &Chispa{f: f, cache: map[string][][]float32{}, lambdaL1: lambdaDe(lambdaL1), lambdaL2: lambdaDe(lambdaL2)}
+	c := &Chispa{f: f, cache: map[string][][]float32{}, lambdaL1: lambdaDe(lambdaL1), lambdaL2: lambdaDe(lambdaL2), explicitoL1: explicito}
 	if err := c.montar(); err != nil {
 		f.Close()
 		return nil, err
@@ -136,6 +141,26 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
+	if f.Tiene(chispa3.CALIB) {
+		var err error
+		if c.calib, err = f.Calib(); err != nil {
+			return fmt.Errorf("sección CALIB: %w", err)
+		}
+	}
+	// El τ de L1 se calibró con un λ (CALIB.l1_lambda_calib; ausente = sin encogimiento). Un .chispa viejo con SOPL1 y sin ese
+	// campo no mezcla el soporte con el λ por defecto de Abrir (no cambia su resultado); un λ explícito sí se respeta.
+	if f.Tiene(chispa3.SOPL1) && c.lambdaL1 != nil {
+		lc := c.calib.L1LambdaCalib
+		switch {
+		case lc == nil && !c.explicitoL1:
+			c.lambdaL1 = nil
+			c.avisos = append(c.avisos, "SOPL1 sin CALIB.l1_lambda_calib: τ de L1 calibrado sin encogimiento; soporte de L1 apagado (usa AbrirConSoporte para activarlo)")
+		case lc == nil:
+			c.avisos = append(c.avisos, "L1 mezcla SOPL1 con λ explícito, pero su τ se calibró sin encogimiento: la cobertura y precisión prometidas no valen")
+		case *lc != *c.lambdaL1:
+			c.avisos = append(c.avisos, fmt.Sprintf("λ de L1 del runtime (%g) distinto del de calibración (l1_lambda_calib=%g): CALIB descalibrada", *c.lambdaL1, *lc))
+		}
+	}
 	// SOPL1 solo hace falta con el encogimiento activo: apagado no se decodifica, y si está mal el fichero abre igual.
 	if f.Tiene(chispa3.SOPL1) && (c.lambdaL1 != nil || c.lambdaL2 != nil) {
 		sopl, err := f.Sopl1()
@@ -143,12 +168,6 @@ func (c *Chispa) montar() error {
 			c.avisos = append(c.avisos, "SOPL1 inválida, sin mezcla de soporte: "+err.Error())
 		} else {
 			c.sopl = sopl
-		}
-	}
-	if f.Tiene(chispa3.CALIB) {
-		var err error
-		if c.calib, err = f.Calib(); err != nil {
-			return fmt.Errorf("sección CALIB: %w", err)
 		}
 	}
 	if f.Tiene(chispa3.L0TF) {
@@ -321,20 +340,42 @@ func fallo(err error) string {
 	return salida(respuesta{Error: err.Error(), Probs: map[string]float64{}})
 }
 
+// decodificarEstricto es el decodificador del servidor (http.go): campos desconocidos y datos tras el objeto son error.
+func decodificarEstricto(js string, v any) error {
+	dec := json.NewDecoder(strings.NewReader(js))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return err
+	}
+	if dec.More() {
+		return errors.New("JSON no válido: datos tras el objeto")
+	}
+	return nil
+}
+
 func leerPregunta(js string) (pregunta, error) {
 	var p pregunta
-	if err := json.Unmarshal([]byte(js), &p); err != nil {
+	if err := decodificarEstricto(js, &p); err != nil {
 		return p, err
 	}
+	return p, comprobarPregunta(&p)
+}
+
+func comprobarPregunta(p *pregunta) error {
 	switch p.Kind {
 	case "choice", "noul", "score":
 	case "":
-		return p, errors.New("kind: obligatorio (choice, score o noul)")
+		return errors.New("kind: obligatorio (choice, score o noul)")
 	default:
-		return p, fmt.Errorf("kind no válido: %q", p.Kind)
+		return fmt.Errorf("kind no válido: %q", p.Kind)
 	}
-	return p, validarPregunta(&p)
+	return validarPregunta(p)
 }
+
+// maxEstadoByte es el tope del servidor para el texto (server/decide MaxEstadoByte).
+const maxEstadoByte = 256 << 10
+
+var errEstadoLargo = errors.New("state_too_long: el texto supera 256 KiB")
 
 // maxOpciones es el tope del servidor (server/decide MaxOpciones).
 const maxOpciones = 256
@@ -452,6 +493,9 @@ func (c *Chispa) torres(p pregunta) [][]float32 {
 // Decidir es L1: coseno entre el mensaje y «pregunta · opción · descripción» y softmax con la T de CALIB (0,05 por
 // defecto), como server/decide/l1.go y demo/wasm. preguntaJSON es la pregunta del servidor ({question, kind, options}).
 func (c *Chispa) Decidir(texto, preguntaJSON string) string {
+	if len(texto) > maxEstadoByte {
+		return fallo(errEstadoLargo)
+	}
 	p, err := leerPregunta(preguntaJSON)
 	if err != nil {
 		return fallo(err)
@@ -556,6 +600,9 @@ func firma(ids []string) string {
 // DecidirL0 es el Chispa lineal: usa el modelo de la sección L0 cuyas etiquetas coinciden con los ids de las
 // opciones. Sin modelo para la pregunta no opina.
 func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
+	if len(texto) > maxEstadoByte {
+		return fallo(errEstadoLargo)
+	}
 	p, err := leerPregunta(preguntaJSON)
 	if err != nil {
 		return fallo(err)
@@ -833,11 +880,11 @@ type entradaConj struct {
 // cascada cae entonces a PuntuarL2.
 func (c *Chispa) CabezaConjunta(simsJSON string) string {
 	var in entradaConj
-	if err := json.Unmarshal([]byte(simsJSON), &in); err != nil {
+	if err := decodificarEstricto(simsJSON, &in); err != nil {
 		return fallo(err)
 	}
-	p, err := leerPregunta(simsJSON)
-	if err != nil {
+	p := in.pregunta
+	if err := comprobarPregunta(&p); err != nil {
 		return fallo(err)
 	}
 	sinOpinar := salida(respuesta{Ok: true, Probs: map[string]float64{}})
