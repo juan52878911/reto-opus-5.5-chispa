@@ -1,0 +1,21 @@
+{
+  "name": "@juanbedoya/chispa",
+  "version": "0.1.0",
+  "description": "Cliente JavaScript de /v1/decide de Chispa: sin dependencias, ESM, tipos a mano.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": ["src", "README.md"],
+  "engines": { "node": ">=20" },
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node --test"
+  }
+}

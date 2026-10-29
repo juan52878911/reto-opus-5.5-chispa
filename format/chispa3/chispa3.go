@@ -1,5 +1,5 @@
 // Paquete chispa3 es el contenedor .chispa v3: una cabecera con versión, una tabla de secciones
-// (tipo, offset, longitud, sha256) y las secciones (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF). El cargador
+// (tipo, offset, longitud, sha256) y las secciones (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1). El cargador
 // valida toda la estructura al abrir y el sha256 de cada sección antes de entregar sus bytes.
 package chispa3
 
@@ -29,6 +29,8 @@ const (
 	CALIB
 	CONJ
 	L0TF
+	TORR
+	SOPL1
 	numTipos = iota + 1
 )
 
@@ -50,6 +52,10 @@ func (t Tipo) String() string {
 		return "CONJ"
 	case L0TF:
 		return "L0TF"
+	case TORR:
+		return "TORR"
+	case SOPL1:
+		return "SOPL1"
 	}
 	return fmt.Sprintf("tipo(%d)", uint32(t))
 }
@@ -91,6 +97,9 @@ type Limites struct {
 	MaxSecciones int            // numTipos-1
 	MaxSeccion   int64          // 512 MiB, para los tipos sin entrada propia
 	PorTipo      map[Tipo]int64 // máximo por tipo
+	// Mmap mapea el fichero en vez de leerlo entero al heap (por defecto se lee). Con mmap, un cp/truncado
+	// encima del fichero en uso tira el proceso con SIGBUS; solo es seguro si nadie lo reescribe in situ.
+	Mmap bool
 }
 
 const (
@@ -211,7 +220,7 @@ func Escribir(w io.Writer, secs []Seccion) error {
 
 var crcTabla = crc32.MakeTable(crc32.Castagnoli)
 
-// Abrir mapea ruta en memoria y la valida con los límites por defecto. Acepta también un .chispa
+// Abrir lee ruta entera en memoria (copia privada, inmune a que reescriban el fichero) y la valida con los límites por defecto. Acepta también un .chispa
 // v1/v2, que envuelve en un Fichero con solo la sección L0.
 func Abrir(ruta string) (*Fichero, error) { return AbrirCon(ruta, Limites{}) }
 
@@ -235,7 +244,11 @@ func AbrirCon(ruta string, lim Limites) (*Fichero, error) {
 	if st.Size() < tamCabecera {
 		return nil, fmt.Errorf("%w: %d bytes", ErrTruncado, st.Size())
 	}
-	data, cerrar, err := mapear(f, st.Size())
+	mapa := leerEntero
+	if lim.Mmap {
+		mapa = mapear
+	}
+	data, cerrar, err := mapa(f, st.Size())
 	if err != nil {
 		return nil, err
 	}
@@ -407,4 +420,14 @@ func (f *Fichero) Close() error {
 		return f.cerrar()
 	}
 	return nil
+}
+
+// leerEntero copia el fichero al heap: sin páginas compartidas con el fichero no hay SIGBUS ni pesos mezclados
+// si alguien hace cp encima.
+func leerEntero(f *os.File, n int64) ([]byte, func() error, error) {
+	b := make([]byte, n)
+	if _, err := io.ReadFull(f, b); err != nil {
+		return nil, nil, fmt.Errorf("chispa3: leyendo el fichero: %w", err)
+	}
+	return b, func() error { return nil }, nil
 }

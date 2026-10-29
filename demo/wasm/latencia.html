@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Chispa · arnés de latencia en el navegador</title>
+<style>
+ body{font:16px system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem}
+ table{border-collapse:collapse} td,th{border:1px solid #bbb;padding:.2rem .6rem;text-align:right} th:first-child,td:first-child{text-align:left}
+ pre{background:#f4f4f4;padding:.6rem;overflow:auto} input{width:6rem}
+</style>
+</head>
+<body>
+<h1>Arnés de latencia (L1 en WASM)</h1>
+<p>Decide N textos variados con el esquema de la ferretería, tras un calentamiento. Todo local: sin red ni CDN.
+ Cierra otras pestañas y no cambies de pestaña mientras mide.</p>
+<p id="estado">Cargando…</p>
+<p><label>N decisiones <input id="n" type="number" value="2000" min="50" step="50"></label>
+ <label>calentamiento <input id="calor" type="number" value="200" min="0" step="50"></label>
+ <label>lote <input id="lote" type="number" value="50" min="1"></label></p>
+<p><button id="medir" disabled>Medir</button> <button id="bajar" disabled>Descargar JSON</button> <span id="avance"></span></p>
+<table id="tabla" hidden>
+ <tr><th>tiempo (µs)</th><th>p50</th><th>p95</th><th>p99</th><th>máx</th></tr>
+ <tr id="f-dec"></tr><tr id="f-txt"></tr><tr id="f-lote"></tr>
+</table>
+<p id="resto"></p>
+<h2>JSON</h2><pre id="json">—</pre>
+<p><a href="index.html">← volver a la demo</a></p>
+<script src="wasm_exec.js"></script>
+<script src="arnes.js"></script>
+<script src="cargador.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let api, resultado;
+const fila = (id, nombre, s) => $(id).innerHTML = `<td>${nombre}</td>` + [s.p50, s.p95, s.p99, s.max].map(x => `<td>${x.toFixed(1)}</td>`).join("");
+iniciarChispa("potion-es.chispa-l1").then(a => {
+  api = a;
+  $("estado").textContent = `Modelo cargado: ${a.info.vocab} piezas, dim ${a.info.dim}, ${(a.info.bytes / 1048576).toFixed(1)} MB.`;
+  $("medir").disabled = false;
+}).catch(e => { $("estado").textContent = "Error: " + e.message; });
+$("medir").onclick = async () => {
+  $("medir").disabled = $("bajar").disabled = true;
+  try {
+    resultado = await Arnes.correrArnes(api, {
+      n: +$("n").value, calentamiento: +$("calor").value, lote: +$("lote").value,
+      progreso: (fase, i, t) => $("avance").textContent = `${fase}: ${i}/${t}`,
+    });
+    $("tabla").hidden = false;
+    fila("f-dec", "por decisión (JS→wasm)", resultado.por_decision_us);
+    if (resultado.por_lote) {
+      fila("f-txt", `por texto en lote de ${resultado.por_lote.tamano} (dentro del wasm)`, resultado.por_lote.por_texto_us);
+      fila("f-lote", "lote completo", resultado.por_lote.lote_us);
+    }
+    const m = resultado.memoria.despues;
+    $("resto").textContent = `${resultado.decisiones_por_s.toFixed(0)} decisiones/s · wasm ${(m.wasm_buffer_bytes / 1048576).toFixed(0)} MB · heap Go ${(m.heap_alloc / 1048576).toFixed(1)} MB · ${resultado.entorno.user_agent}`;
+    $("json").textContent = JSON.stringify(resultado, null, 1);
+    $("avance").textContent = "listo";
+    $("bajar").disabled = false;
+  } catch (e) { $("avance").textContent = "Error: " + e.message; }
+  $("medir").disabled = false;
+};
+$("bajar").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(resultado, null, 1)], { type: "application/json" }));
+  a.download = `latencia-chispa-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  a.click();
+};
+</script>
+</body>
+</html>

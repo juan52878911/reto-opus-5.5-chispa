@@ -23,6 +23,19 @@ type L2c struct {
 	*L2
 	sim  Similitudes
 	conj *chispa3.Conj
+
+	sopl   *chispa3.Sopl1 // k por opción (SOPL1), o nil
+	lambda *float64       // κ ≡ λ del encogimiento de L2; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
+}
+
+// ConSoporte activa el shrinkage de G.8 en L2c (κ ≡ λ; ver chispa3.SimprotoMezclado): con una pregunta presente en sopl, los
+// prototipos de cada opción con k > 0 son Q_j = λ_c·torre + (1−λ_c)·ranura_j de CONJ, λ_c = λ/(λ+k) con el k de SOPL1,
+// normalizados por ranura; solo cambia el simproto (sim_opción, el MaxSim de la torre, queda igual). Con SOPL1 v2 la media lleva
+// la norma de cada ranura (como modelo.py). lambda nil = apagado (L2c como estaba); λ = 0 = solo ejemplos; λ = +Inf = solo descripción
+// (antes +Inf apagaba). Antes de usarla.
+func (l *L2c) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L2c {
+	l.sopl, l.lambda = sopl, lambda
+	return l
 }
 
 // NuevoL2cCon monta L2c sobre cualquier fuente de similitudes (el ONNX real solo existe con la etiqueta ort).
@@ -46,6 +59,11 @@ func ClaveConj(p Pregunta) [32]byte {
 }
 
 func (l *L2c) DecidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, error) {
+	r, err := l.decidirCon(ctx, p, previas)
+	return l.L2.marcarNuevo(p, r, err)
+}
+
+func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, error) {
 	if p.Kind != KindChoice || len(p.Opciones) == 0 {
 		return l.L2.Decidir(ctx, p)
 	}
@@ -54,23 +72,76 @@ func (l *L2c) DecidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 	if !ok || !hay || len(l0.Probs) == 0 {
 		return l.L2.Decidir(ctx, p)
 	}
-	S, sims, ok, err := l.sim.Similitudes(p)
+	var ts []torreDin // las torres con las que puntuó la fuente de similitudes, si las expone
+	var S [][]float32
+	var sims []float64
+	var err error
+	if st, conTorres := l.sim.(interface {
+		similitudesTorres(context.Context, Pregunta) ([][]float32, []float64, []torreDin, bool, error)
+	}); conTorres {
+		S, sims, ts, ok, err = st.similitudesTorres(ctx, p)
+	} else {
+		S, sims, ok, err = l.sim.Similitudes(ctx, p)
+	}
 	if err != nil || !ok {
 		return Respuesta{}, err
 	}
 	if len(S) == 0 || len(S[0]) != e.D {
 		return l.L2.Decidir(ctx, p)
 	}
-	return cabezaConj(p, e, S, sims, l0.Probs), nil
+	return cabezaConj(p, e, S, sims, l.mezclarSimproto(p, S, ts), l0.Probs), nil
 }
 
-// cabezaConj pone la cabeza de CONJ (chispa3.EntradaConj.ProbsCabeza, compartida con el SDK móvil) en una Respuesta.
-func cabezaConj(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sims []float64, l0 map[string]float64) Respuesta {
+// torreDe devuelve la torre de la descripción de la opción: la de ESQUEMAS o, si el esquema es nuevo, la que L2 acaba de
+// calcular al vuelo (sigue en la caché; si se desalojó, ok=false y esa opción no se mezcla).
+func (l *L2c) torreDe(p Pregunta, o Opcion) (vec []byte, escala float32, ok bool) {
+	if l.L2 == nil {
+		return nil, 0, false
+	}
+	if v, esc, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, []string{o.ID})); ok {
+		return v, esc, true
+	}
+	if l.cache != nil {
+		if t, ok := l.cache.Get(claveTorre(p.Texto, o)); ok {
+			return t.v, t.e, true
+		}
+	}
+	return nil, 0, false
+}
+
+// mezclarSimproto aplica chispa3.SimprotoMezclado (shrinkage de G.8 sobre los prototipos, κ ≡ λ) si hay λ y SOPL1 con la
+// pregunta; si no, devuelve nil y la cabeza usa el simproto de CONJ: el comportamiento de antes.
+func (l *L2c) mezclarSimproto(p Pregunta, S [][]float32, ts []torreDin) []float64 {
+	if l.sopl == nil || l.lambda == nil {
+		return nil
+	}
+	sop, ok := l.sopl.Buscar(ClaveConj(p))
+	if !ok {
+		return nil
+	}
+	e, ok := l.conj.Buscar(ClaveConj(p))
+	if !ok {
+		return nil
+	}
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
 	}
-	pr := e.ProbsCabeza(ids, S, sims, l0)
+	return chispa3.SimprotoMezclado(e, sop, l.lambda, ids, S, func(i int) ([]byte, float32, bool) {
+		if len(ts) == len(p.Opciones) { // la misma torre que puntuó: determinista y como en el móvil
+			return ts[i].v, ts[i].e, true
+		}
+		return l.torreDe(p, p.Opciones[i])
+	})
+}
+
+// cabezaConj pone la cabeza de CONJ (chispa3.EntradaConj.ProbsCabeza, compartida con el SDK móvil) en una Respuesta.
+func cabezaConj(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sims, sp []float64, l0 map[string]float64) Respuesta {
+	ids := make([]string, len(p.Opciones))
+	for i, o := range p.Opciones {
+		ids[i] = o.ID
+	}
+	pr := e.ProbsCabezaSp(ids, S, sims, l0, sp)
 	r := Respuesta{Probs: make(map[string]float64, len(pr))}
 	for i, id := range ids {
 		r.Probs[id] = pr[i]

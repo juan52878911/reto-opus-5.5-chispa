@@ -1,6 +1,8 @@
 import json
 import threading
+import time
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from chispa import Choice, Chispa, ChispaError, ErrorSolicitud, ErrorTransporte, Noul, Score
@@ -10,7 +12,8 @@ class Falso:
     """Servidor falso con el JSON del contrato (server/README.md); `fallos` = códigos a devolver antes de responder."""
 
     def __init__(self, fallos=()):
-        self.fallos, self.peticiones = list(fallos), []
+        self.fallos, self.peticiones, self.retry_after, self.cuerpo_error = list(fallos), [], None, "boom"
+        self.autorizaciones = []  # cabecera Authorization de cada POST (None si no vino)
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -20,6 +23,8 @@ class Falso:
             def _json(self, code, obj):
                 b = json.dumps(obj).encode()
                 self.send_response(code)
+                if code in (429, 503, 504) and outer.retry_after is not None:
+                    self.send_header("Retry-After", outer.retry_after)
                 self.send_header("Content-Length", str(len(b)))
                 self.end_headers()
                 self.wfile.write(b)
@@ -30,8 +35,9 @@ class Falso:
             def do_POST(self):
                 req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.peticiones.append(req)
+                outer.autorizaciones.append(self.headers.get("Authorization"))
                 if outer.fallos:
-                    return self._json(outer.fallos.pop(0), {"error": "boom"})
+                    return self._json(outer.fallos.pop(0), {"error": outer.cuerpo_error})
                 qs = req["questions"]
                 if any(q["kind"] == "raro" for q in qs):
                     return self._json(400, {"error": 'questions[0].kind: "raro" no válido (choice, score o noul)'})
@@ -78,19 +84,164 @@ class TestCliente(unittest.TestCase):
         self.assertEqual(rs[1].nivel, 1)
 
     def test_nonce_automatico_estable_entre_reintentos(self):
-        self.f.fallos[:] = [503, 502]
+        self.f.fallos[:] = [503, 503]
         self.c.decidir("x", [Noul("n", "¿?")])
         nonces = {p["questions"][0]["nonce"] for p in self.f.peticiones}
         self.assertEqual(len(self.f.peticiones), 3)
         self.assertEqual(len(nonces), 1)
         self.assertEqual(len(next(iter(nonces))), 32)
 
+    def test_429_500_502_no_se_reintentan(self):
+        for codigo in (429, 500, 502):
+            with self.subTest(codigo=codigo):
+                self.f.peticiones.clear()
+                self.f.fallos[:] = [codigo, codigo]
+                with self.assertRaises(ErrorSolicitud) as cm:
+                    self.c.decidir("x", [Noul("n", "¿?")])
+                self.assertEqual(cm.exception.status, codigo)
+                self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_api_key_viaja_como_bearer_solo_en_decide(self):
+        c = Chispa(self.f.url, api_key="s3creto", dormir=lambda s: None)
+        c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(self.f.autorizaciones, ["Bearer s3creto"])
+        self.assertTrue(c.salud())
+        self.assertEqual(len(self.f.autorizaciones), 1)  # /healthz no lleva clave (y el falso no lo anota)
+
+    def test_sin_api_key_no_hay_cabecera(self):
+        self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(self.f.autorizaciones, [None])
+
+    def test_401_no_se_reintenta(self):
+        self.f.fallos[:] = [401, 401]
+        self.f.cuerpo_error = {"code": "unauthorized", "message": "clave de API ausente o incorrecta"}
+        with self.assertRaises(ErrorSolicitud) as cm:
+            Chispa(self.f.url, api_key="mala", dormir=lambda s: self.fail("no debe esperar")).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual((cm.exception.status, cm.exception.codigo), (401, "unauthorized"))
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_api_key_con_salto_final_se_recorta(self):
+        Chispa(self.f.url, api_key="s3creto\n", dormir=lambda s: None).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(self.f.autorizaciones, ["Bearer s3creto"])
+
+    def test_api_key_invalida_falla_al_construir_sin_mostrar_la_clave(self):
+        for mala in ("cl€ve-secreta", "con espacio", "tab\tsecreta", "a\nb-secreta", " \n"):
+            with self.subTest(mala=mala):
+                with self.assertRaises(ValueError) as cm:
+                    Chispa(self.f.url, api_key=mala)
+                self.assertNotIn("secreta", str(cm.exception))
+                self.assertNotIn(mala.strip() or "zz", str(cm.exception))
+
+    def test_repr_y_errores_no_llevan_la_clave(self):
+        c = Chispa(self.f.url, api_key="s3creto-unico", dormir=lambda s: None, reintentos=1)
+        self.assertNotIn("s3creto-unico", repr(c))
+        self.f.fallos[:] = [503, 503]
+        with self.assertRaises(ErrorTransporte) as cm:
+            c.decidir("x", [Noul("n", "¿?")])
+        self.assertNotIn("s3creto-unico", str(cm.exception))
+
+    def test_valueerror_al_armar_la_peticion_no_se_reintenta_ni_se_traga(self):
+        c = Chispa(self.f.url, dormir=lambda s: self.fail("no debe esperar"))
+        with mock.patch("urllib.request.urlopen", side_effect=ValueError("Invalid header value")) as u:
+            with self.assertRaises(ValueError):
+                c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(u.call_count, 1)
+
+    def test_403_no_se_reintenta(self):
+        self.f.fallos[:] = [403, 403]
+        with self.assertRaises(ErrorSolicitud) as cm:
+            Chispa(self.f.url, api_key="mala", dormir=lambda s: self.fail("no debe esperar")).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(cm.exception.status, 403)
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_429_no_se_reintenta_y_expone_retry_after(self):
+        self.f.fallos[:] = [429, 429]
+        self.f.retry_after = "7"
+        self.f.cuerpo_error = {"code": "rate_limited", "message": "límite"}
+        with self.assertRaises(ErrorSolicitud) as cm:
+            self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual((cm.exception.status, cm.exception.codigo, cm.exception.retry_after), (429, "rate_limited", 7.0))
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_429_retry_after_se_topa_a_30s_y_sin_cabecera_es_none(self):
+        self.f.fallos[:] = [429]
+        self.f.retry_after = "999"
+        with self.assertRaises(ErrorSolicitud) as cm:
+            self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(cm.exception.retry_after, 30.0)
+        self.f.fallos[:] = [429]
+        self.f.retry_after = None
+        with self.assertRaises(ErrorSolicitud) as cm:
+            self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertIsNone(cm.exception.retry_after)
+
+    def test_timeout_propio_no_se_reintenta_y_el_defecto_supera_los_30s_del_servidor(self):
+        self.assertGreater(Chispa(self.f.url).timeout, 30.0)
+        f = Falso()
+        self.addCleanup(f.cerrar)
+        orig = f.srv.RequestHandlerClass.do_POST
+
+        def lento(h):
+            time.sleep(1.0)
+            try:
+                orig(h)
+            except OSError:
+                pass
+        f.srv.RequestHandlerClass.do_POST = lento
+        with self.assertRaises(ErrorTransporte):
+            Chispa(f.url, timeout=0.3, dormir=lambda s: None).decidir("x", [Noul("n", "¿?")])
+        time.sleep(1.2)
+        self.assertEqual(len(f.peticiones), 1)
+
+    def test_nonce_vacio_se_trata_como_ausente(self):
+        self.c.decidir("x", [Noul("n", "¿?", nonce="")])
+        self.assertEqual(len(self.f.peticiones[0]["questions"][0]["nonce"]), 32)
+
+    def test_503_de_proxy_sin_retry_after_se_reintenta_con_backoff(self):
+        self.f.fallos[:] = [503, 503]
+        esperas = []
+        Chispa(self.f.url, espera=0.1, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(len(self.f.peticiones), 3)
+        self.assertEqual(esperas, [0.1, 0.2])
+
+    def test_503_timeout_del_servidor_no_se_reintenta_aunque_traiga_retry_after(self):
+        self.f.fallos[:] = [503, 503]
+        self.f.retry_after = "5"
+        self.f.cuerpo_error = {"code": "timeout", "message": "la petición superó el tiempo máximo"}
+        esperas = []
+        with self.assertRaises(ErrorSolicitud) as cm:
+            Chispa(self.f.url, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual((cm.exception.status, cm.exception.codigo), (503, "timeout"))
+        self.assertEqual(len(self.f.peticiones), 1)
+        self.assertEqual(esperas, [])
+
+    def test_504_no_se_reintenta(self):
+        self.f.fallos[:] = [504, 504]
+        with self.assertRaises(ErrorSolicitud):
+            self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_503_retry_after_se_topa_a_30s(self):
+        self.f.fallos[:] = [503]
+        self.f.retry_after = "999"
+        esperas = []
+        Chispa(self.f.url, espera=0.1, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(esperas, [30.0])
+
+    def test_503_con_retry_after_se_reintenta_y_lo_respeta(self):
+        self.f.fallos[:] = [503]
+        self.f.retry_after = "2"
+        esperas = []
+        Chispa(self.f.url, espera=0.1, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(len(self.f.peticiones), 2)
+        self.assertEqual(esperas, [2.0])
+
     def test_sin_nonce_automatico(self):
         Chispa(self.f.url, nonce_auto=False).decidir("x", [Noul("n", "¿?")])
         self.assertNotIn("nonce", self.f.peticiones[0]["questions"][0])
 
     def test_reintentos_agotados(self):
-        self.f.fallos[:] = [500] * 10
+        self.f.fallos[:] = [503] * 10
         esperas = []
         c = Chispa(self.f.url, reintentos=2, espera=0.1, dormir=esperas.append)
         with self.assertRaises(ErrorTransporte):
@@ -105,6 +256,32 @@ class TestCliente(unittest.TestCase):
         self.assertEqual(cm.exception.status, 400)
         self.assertIn("kind", cm.exception.mensaje)
         self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_error_tipado_y_formato_viejo(self):
+        from unittest import mock
+        import io
+        import urllib.error
+
+        def http(cuerpo):
+            return urllib.error.HTTPError("http://x", 400, "Bad", {}, io.BytesIO(cuerpo.encode()))
+        c = Chispa("http://x", reintentos=0)
+        tipado = '{"error":{"code":"bad_question","message":"opciones repetidas","question_id":"q1"}}'
+        with mock.patch("urllib.request.urlopen", side_effect=http(tipado)):
+            with self.assertRaises(ErrorSolicitud) as cm:
+                c.decidir("x", [Noul("n", "¿?")])
+        e = cm.exception
+        self.assertEqual((e.status, e.codigo, e.mensaje, e.question_id), (400, "bad_question", "opciones repetidas", "q1"))
+        self.assertIn("opciones repetidas", str(e))
+        with mock.patch("urllib.request.urlopen", side_effect=http('{"error":"texto viejo"}')):
+            with self.assertRaises(ErrorSolicitud) as cm:
+                c.decidir("x", [Noul("n", "¿?")])
+        e = cm.exception
+        self.assertEqual((e.mensaje, e.codigo, e.question_id), ("texto viejo", "", None))
+        with mock.patch("urllib.request.urlopen", side_effect=http("no json")):
+            with self.assertRaises(ErrorSolicitud) as cm:
+                c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(cm.exception.mensaje, "no json")
+        self.assertEqual(ErrorSolicitud(400, {"code": "c", "message": "m"}).mensaje, "m")
 
     def test_servidor_caido(self):
         url = self.f.url

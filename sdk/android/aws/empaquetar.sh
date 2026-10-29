@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Imprime en stdout un tar.gz con lo que necesita la instancia de AWS (ver arranque.sh): sdk/android/ (sin aws/), sdk/ios/,
-# sdk/movil/, runtime/l1/, runtime/tok/, format/chispa3/ y el módulo server/ (go.mod, go.sum y decide/ con sus
+# sdk/movil/, runtime/l1/, runtime/tok/, runtime/torre/, format/chispa3/ y el módulo server/ (go.mod, go.sum y decide/ con sus
 # testdata/l0tf: los `replace` y los tests de paridad de sdk/movil/chispamovil los exigen),
 # model/l2/tests/fixtures_conjunta/ (paridad de CONJ), runtime/l1/exportar.py y runtime/tok/exportar.py (arranque.sh
 # construye el .chispa-tok para la paridad del tokenizador),
@@ -18,7 +18,7 @@ mkdir -p "$T/gomod-proxy/github.com/juan52878911"
 cp -R "$KIND" "$T/gomod-proxy/github.com/juan52878911/"
 find "$T/gomod-proxy" -name '*.lock' -type f -exec rm -f {} +
 cd "$RAIZ"
-find sdk/android sdk/ios sdk/movil runtime/l1 runtime/tok format/chispa3 server/testdata server/go.mod server/go.sum server/decide \
+find sdk/android sdk/ios sdk/movil runtime/l1 runtime/tok runtime/torre format/chispa3 server/testdata server/go.mod server/go.sum server/decide server/torre \
   model/l2/tests/fixtures_conjunta demo/wasm/ejemplo_pregunta.json -type f \
   -not -path 'sdk/android/aws/*' -not -path '*/.gradle/*' -not -path '*/.build/*' -not -path '*/build/*' -not -path '*/__pycache__/*' \
   -not -path 'runtime/l1/aws/*' -not -name '*.pyc' -not -name '*.so' -not -name '*.aar' -not -name '*.jar' \

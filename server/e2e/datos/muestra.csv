@@ -1,0 +1,16 @@
+texto,etiqueta
+"¿Cuánto vale el bulto de cemento y tienen hoy?",cotizacion
+"Necesito cotizar varillas y mallas para una placa",cotizacion
+"¿Tienen disponible el taladro de media pulgada?",cotizacion
+"Quiero comprar tres cajas de clavos y que me las envíen",pedido
+"Hice un pedido hace una semana y no llega",pedido
+"¿En qué va mi pedido 9912?",pedido
+"El taladro que compré dejó de funcionar",garantia
+"Quiero devolver la pulidora, vino defectuosa",garantia
+"Me llegó otra sierra y quiero cambiarla",garantia
+"¿Qué broca sirve para concreto?",asesoria
+"No sé si usar silicona o sellante en el baño",asesoria
+"¿Cómo instalo una llave de lavamanos?",asesoria
+"Necesito la factura electrónica de mi compra",factura
+"Me pueden mandar el RUT de la ferretería",factura
+"Corrijan el NIT de la factura por favor",factura

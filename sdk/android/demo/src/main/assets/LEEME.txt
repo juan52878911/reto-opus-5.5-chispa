@@ -1,1 +1,5 @@
-Aquí va modelo.chispa (un .chispa v3 con las secciones L0/L1/CALIB; no está en git). Sin él, la demo lo dice en pantalla.
+Aquí pueden ir (no están en git): modelo.chispa (un .chispa v3 con L0/L1/CALIB; con L2/ESQUEMAS/TORR para la cascada
+completa), e5.chispa-tok (el tokenizador de e5, para L2) y esquema.json (el esquema few-shot del .chispa:
+{"question": "...", "kind": "choice", "options": [{"id": "...", "description": "..."}]}).
+Sin ellos la demo lo dice en pantalla; la pantalla «Medir» también los acepta como fichero elegido o por adb push
+(ver MEDIR.md).

@@ -1,0 +1,4 @@
+modo,concurrencia,tanda,decisiones_s,peticiones_s,p50_ms,p99_ms,peticiones,errores,capas
+l1,1,1,14815,1852,0.510,0.945,18519,0,"escalar:148152"
+l1,4,1,36953,4619,0.816,1.756,46198,0,"escalar:369584"
+l1,16,1,57474,7184,1.889,5.949,71870,0,"escalar:574960"

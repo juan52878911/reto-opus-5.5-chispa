@@ -15,19 +15,58 @@ const tDefecto = 0.05
 
 // L1 es el embedding estático (Model2Vec en Go puro): puntúa cada opción por
 // coseno entre el mensaje y «pregunta · opción · descripción». choice: softmax
-// del coseno / T; noul: σ(a·coseno + b) con el umbral θ. score no lo cubre
-// (sin opinión): un coseno no ordena niveles y no hay cabeza calibrada para ello.
+// del coseno / T; noul: σ(a·coseno + b) con el umbral θ; score: el mismo softmax
+// sobre los niveles (en el orden de la pregunta) y la respuesta es la mediana de
+// esa distribución, con confianza P(mediana).
 type L1 struct {
 	m      *l1.Modelo
 	calib  chispa3.Calib
 	cache  *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
+	sopl   *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
+	lambda *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
 	Hits   atomic.Uint64
 	Misses atomic.Uint64
 }
 
 // NuevoL1Modelo monta L1 sobre un modelo ya abierto. calib puede estar vacía (T por defecto).
 func NuevoL1Modelo(m *l1.Modelo, calib chispa3.Calib, cacheEsquemas int) *L1 {
-	return &L1{m: m, calib: calib, cache: NewLRU[map[string][]float32](cacheEsquemas)}
+	c := newLRU[map[string][]float32](cacheEsquemas, BytesCacheL1Defecto, costeEmbeddings)
+	return &L1{m: m, calib: calib, cache: c}
+}
+
+// costeEmbeddings es el tamaño de los embeddings de opción de un esquema: float32 por componente más id y cabeceras.
+func costeEmbeddings(v map[string][]float32) (n int) {
+	for id, e := range v {
+		n += len(id) + 4*len(e) + 24 + 48
+	}
+	return n
+}
+
+// ConCacheBytes cambia el tope en bytes de la caché de esquemas (descarta lo cacheado); mb <= 0 deja el de por defecto.
+// Debe llamarse antes de usar L1.
+func (l *L1) ConCacheBytes(mb int) *L1 {
+	if mb > 0 {
+		l.cache = newLRU[map[string][]float32](0, mb<<20, costeEmbeddings)
+	}
+	return l
+}
+
+// UsaMetricas conecta L1 con /metrics (chispa_cache_bytes{cache="l1"}); lo hace NuevaCascada.
+func (l *L1) UsaMetricas(m *Metricas) {
+	if m != nil {
+		m.FijaCacheBytes("l1", func() int64 { return l.cache.Bytes() })
+	}
+}
+
+// ConSoporte activa el prototipo encogido: con una pregunta presente en sopl (SOPL1), el prototipo de cada opción es
+// normaliza((1−w)·p_desc + w·media(ejemplos)), w = k/(k+λ). lambda nil (apagado) deja L1 como estaba; λ = 0 usa solo los ejemplos y λ = +Inf solo la descripción. Debe llamarse antes
+// de usar L1 (no es seguro con peticiones en curso). Un soporte de otra dimensión que el modelo se ignora.
+func (l *L1) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L1 {
+	if sopl != nil && sopl.Dim() != l.m.Dim() {
+		sopl = nil
+	}
+	l.sopl, l.lambda = sopl, lambda
+	return l
 }
 
 func (l *L1) Nombre() string { return "L1" }
@@ -60,9 +99,18 @@ func (l *L1) opciones(p Pregunta) map[string][]float32 {
 	}
 	l.Misses.Add(1)
 	v := make(map[string][]float32, len(p.Opciones))
+	var sop *chispa3.EntradaSopl1
+	if l.sopl != nil && l.lambda != nil {
+		sop, _ = l.sopl.Buscar(ClaveConj(p))
+	}
 	for _, o := range p.Opciones {
 		e := make([]float32, l.m.Dim())
 		l.m.Embed(textoOpcion(p, o), e)
+		if sop != nil {
+			if k, media, ok := sop.Opcion(o.ID, l.m.Dim()); ok {
+				e = chispa3.Mezclar(e, media, chispa3.PesoSoporte(k, l.lambda))
+			}
+		}
 		v[o.ID] = e
 	}
 	l.cache.Put(k, v)
@@ -78,7 +126,7 @@ func coseno(a, b []float32) float64 {
 }
 
 func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
-	if p.Kind == KindScore || len(p.Opciones) == 0 {
+	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
 	msg := make([]float32, l.m.Dim())
@@ -100,7 +148,34 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		}
 		return respuestaNoul(prm.A*s+prm.B, prm.Theta), nil
 	}
+	if p.Kind == KindScore {
+		return respuestaScore(p, sims, l.paramsScore().T), nil
+	}
 	return respuestaSoftmax(p, sims, l.params("choice").T), nil
+}
+
+// paramsScore: la T de «score» si CALIB la trae; si no, la de choice (o la de por defecto).
+func (l *L1) paramsScore() chispa3.ParamsTipo {
+	if p, ok := l.calib.Tipos["score"]; ok && p.T > 0 {
+		return p
+	}
+	return l.params("choice")
+}
+
+// respuestaScore: softmax de coseno/T sobre los niveles (probs por id, como L2) y salida
+// ordinal: answer es el nivel mediano (primero con masa acumulada ≥ 0,5) y conf su probabilidad,
+// así que una distribución repartida entre niveles lejanos baja la confianza y escala.
+func respuestaScore(p Pregunta, sims []float64, T float64) Respuesta {
+	r := respuestaSoftmax(p, sims, T)
+	var acc float64
+	for _, o := range p.Opciones {
+		acc += r.Probs[o.ID]
+		if acc >= 0.5 {
+			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
+			break
+		}
+	}
+	return r
 }
 
 func respuestaNoul(z, theta float64) Respuesta {

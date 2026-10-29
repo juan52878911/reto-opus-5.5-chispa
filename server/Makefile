@@ -1,9 +1,13 @@
-.PHONY: test bench carga
+.PHONY: test bench carga carga-arnes
 export GOFLAGS = -mod=mod
 export GOPROXY = off
 
+# Los tests con el tokenizador real usan CHISPA_TOK (o $$TMPDIR/e5.chispa-tok); sin él se saltan, y aquí se cuenta cuántos.
 test:
-	go vet ./... && go test -race ./...
+	go vet ./... && go test -race -v ./... 2>&1 | tee .test.log | grep -E '^(--- FAIL|FAIL|panic)' ; \
+	  r=$$(grep -cE '^(--- FAIL|FAIL|panic)' .test.log); \
+	  echo "ok=$$(grep -cE '^--- PASS' .test.log) saltados=$$(grep -cE '^--- SKIP' .test.log) fallos=$$r"; \
+	  grep -E '^--- SKIP' .test.log; rm -f .test.log; [ "$$r" = 0 ]
 
 bench:
 	go test ./decide -run '^$$' -bench . -benchtime 2s -cpu 1,4
@@ -14,3 +18,7 @@ serve:
 
 carga:
 	go run ./cmd/carga -c 8 -d 10s
+
+# Arnés reproducible (ver carga/README.md): make -C server carga-arnes ARGS="-d 10s -n 1"
+carga-arnes:
+	carga/correr.sh $(ARGS)

@@ -156,7 +156,7 @@ if [ "${CHISPA_LOCAL:-}" = 1 ]; then
   "$BASE/chispa-server" -addr 127.0.0.1:$PUERTO -modelo "$M/modelo.chispa" > "$BASE/servidor.log" 2>&1 &
   SRVPID=$!
 elif [ $IMAGEN = 1 ]; then
-  docker run -d --name chispa -p $PUERTO:8090 -v "$M":/modelos:ro chispa-server >/dev/null || fallo "docker run"
+  docker run -d --name chispa --stop-timeout 40 -p $PUERTO:8090 -v "$M":/modelos:ro chispa-server -abierto >/dev/null || fallo "docker run"
 fi
 LISTO_SRV=0
 if [ "${CHISPA_LOCAL:-}" = 1 ] || [ $IMAGEN = 1 ]; then

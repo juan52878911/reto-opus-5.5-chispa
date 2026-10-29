@@ -4,6 +4,7 @@
 
   referencia.py <dir-e5> <salida.jsonl> [--fuzz N]   casos de borde + frases del sondeo (+ N de fuzz)
   referencia.py <dir-e5> <salida.jsonl> --tokenizers  lo mismo pero con tokenizers sobre tokenizer.json (sin los pasos de transformers)
+  referencia.py <dir-e5> <salida.jsonl> --pasaje      «passage: » en lugar de «query: » (torre de esquemas de L2); combina con lo demás
 """
 import importlib.util
 import json
@@ -44,17 +45,27 @@ def textos(nfuzz):
     return out
 
 
-def main(dir_e5, salida, nfuzz=0, solo_tokenizers=False):
+def textos_torre():
+    """Textos con el formato de texto_opcion («pregunta · opción · descripción», sin el prefijo): separador U+00B7,
+    descripción vacía (termina en « · »), acentos y textos que pasan de 128 tokens."""
+    return ["¿Qué área atiende esto? · facturacion · cobros y reembolsos", "¿Es una queja? · true · ",
+            "¿Es una queja? · true · quejas · y más · puntos", "pregunta · 5 · ", "· · ", " · ", "¿Cuánto? · 1 · muy poco",
+            "¿Por qué área pasa? · " + "x" * 50 + " · " + "descripción larga " * 80, "q · é · ñandú 😀"]
+
+
+def main(dir_e5, salida, nfuzz=0, solo_tokenizers=False, prefijo="query: "):
     if solo_tokenizers:
         from tokenizers import Tokenizer
         t = Tokenizer.from_file(str(Path(dir_e5) / "tokenizer.json"))
         t.enable_truncation(MAX_TOK)
-        ids = lambda s: t.encode("query: " + s).ids
+        ids = lambda s: t.encode(prefijo + s).ids
     else:
         from transformers import AutoTokenizer
         tk = AutoTokenizer.from_pretrained(dir_e5)
-        ids = lambda s: tk("query: " + s, truncation=True, max_length=MAX_TOK)["input_ids"]
+        ids = lambda s: tk(prefijo + s, truncation=True, max_length=MAX_TOK)["input_ids"]
     ts = textos(nfuzz)
+    if prefijo != "query: ":
+        ts += textos_torre()
     with open(salida, "w", encoding="utf-8") as f:
         for s in ts:
             f.write(json.dumps({"texto": s, "ids": ids(s)}, ensure_ascii=False) + "\n")
@@ -65,4 +76,5 @@ if __name__ == "__main__":
     a = sys.argv[1:]
     if len(a) < 2:
         sys.exit(__doc__)
-    main(a[0], a[1], int(a[3]) if len(a) == 4 and a[2] == "--fuzz" else 0, "--tokenizers" in a)
+    nf = int(a[a.index("--fuzz") + 1]) if "--fuzz" in a else 0
+    main(a[0], a[1], nf, "--tokenizers" in a, "passage: " if "--pasaje" in a else "query: ")

@@ -210,10 +210,10 @@ func TestCascadaL0L1Escalate(t *testing.T) {
 		t.Fatalf("noul false: %+v", r)
 	}
 
-	// 5. score: L1 no opina.
-	r = casc.Decidir(ctx, Pregunta{ID: "f", Kind: KindScore, Texto: "¿Qué tan molesto?", Estado: "quiero un reembolso",
-		Opciones: []Opcion{{ID: "1"}, {ID: "2"}, {ID: "3"}}})
-	if !r.Escalate {
+	// 5. score: L1 opina sobre los niveles (más abajo, los tests de score).
+	r = casc.Decidir(ctx, Pregunta{ID: "f", Kind: KindScore, Texto: "¿Qué área?", Estado: "quiero un reembolso de la factura",
+		Opciones: nivelesScore()})
+	if r.Layer != "L1" || r.Escalate || r.Answer != "1" {
 		t.Fatalf("score: %+v", r)
 	}
 }
@@ -334,5 +334,83 @@ func BenchmarkL1Lote16(b *testing.B) {
 		for j := 0; j < 16; j++ {
 			casc.Decidir(ctx, p)
 		}
+	}
+}
+
+func nivelesScore() []Opcion {
+	return []Opcion{{ID: "1", Description: "factura cobro pago dinero reembolso"},
+		{ID: "2", Description: "envio paquete retraso"}, {ID: "3", Description: "pedido hola gracias"}}
+}
+
+func TestL1ScoreNivelesOrdenados(t *testing.T) {
+	casc, mt := cascadaTiny(t, calibTiny(), ConfigPorDefecto())
+	l1 := mt.L1.(*L1)
+	for estado, want := range map[string]string{
+		"quiero un reembolso de la factura": "1",
+		"el paquete llega con retraso":      "2",
+		"hola gracias":                      "3",
+	} {
+		p := Pregunta{ID: "s", Kind: KindScore, Texto: "¿Qué tan urgente?", Estado: estado, Opciones: nivelesScore()}
+		r, err := l1.Decidir(context.Background(), p)
+		if err != nil || r.Answer != want || len(r.Probs) != 3 {
+			t.Fatalf("%q: %+v %v", estado, r, err)
+		}
+		var z float64
+		for _, pr := range r.Probs {
+			z += pr
+		}
+		if math.Abs(z-1) > 1e-9 || r.Conf != r.Probs[want] {
+			t.Fatalf("%q: probs %v conf %v", estado, r.Probs, r.Conf)
+		}
+		if res := casc.Decidir(context.Background(), p); res.Layer != "L1" || res.Answer != want {
+			t.Fatalf("cascada %q: %+v", estado, res)
+		}
+	}
+	// los ids no tienen que ser 1..K: el orden de la pregunta es el orden ordinal
+	ops := []Opcion{{ID: "bajo", Description: "factura cobro"}, {ID: "medio", Description: "paquete envio"}, {ID: "alto", Description: "hola gracias"}}
+	r, _ := l1.Decidir(context.Background(), Pregunta{Kind: KindScore, Texto: "¿Urgencia?", Estado: "paquete envio", Opciones: ops})
+	if r.Answer != "medio" {
+		t.Fatalf("ids ordinales: %+v", r)
+	}
+}
+
+// La respuesta es la mediana: con masa repartida entre extremos gana el nivel central y la confianza
+// (su probabilidad) baja de τ, así que la cascada escala.
+func TestL1ScoreMedianaYAbstencion(t *testing.T) {
+	prob := map[string]float64{"1": .4, "2": .2, "3": .4}
+	sims := []float64{0.4, 0.4 + 0.05*math.Log(.5), 0.4}
+	r := respuestaScore(Pregunta{Opciones: nivelesScore()}, sims, 0.05)
+	if r.Answer != "2" || math.Abs(r.Probs["2"]-prob["2"]) > 1e-9 || r.Conf != r.Probs["2"] {
+		t.Fatalf("mediana: %+v", r)
+	}
+	casc, _ := cascadaTiny(t, calibTiny(), ConfigPorDefecto())
+	// sin palabras del vocabulario: sin opinión → escala
+	res := casc.Decidir(context.Background(), Pregunta{ID: "z", Kind: KindScore, Texto: "¿Urgencia?", Estado: "zzz qqq", Opciones: nivelesScore()})
+	if !res.Escalate || res.Layer != CapaEscalar {
+		t.Fatalf("sin tokens: %+v", res)
+	}
+	// τ de L1 = 1: nada basta, escala con la pista de L1
+	cfg := ConfigPorDefecto()
+	cfg.Capas[1].Tau = 1
+	cal := calibTiny()
+	cal.Tipos["score"] = chispa3.ParamsTipo{T: 20}
+	c2, _ := cascadaTiny(t, cal, cfg)
+	res = c2.Decidir(context.Background(), Pregunta{ID: "y", Kind: KindScore, Texto: "¿Urgencia?", Estado: "quiero un reembolso de la factura", Opciones: nivelesScore()})
+	if !res.Escalate || res.Answer == "" || len(res.Probs) != 3 {
+		t.Fatalf("τ=1: %+v", res)
+	}
+}
+
+// La T de «score» de CALIB manda sobre la de choice; sin ella vale la de choice.
+func TestL1ScoreTemperatura(t *testing.T) {
+	cal := calibTiny()
+	_, mt := cascadaTiny(t, cal, ConfigPorDefecto())
+	cal.Tipos["score"] = chispa3.ParamsTipo{T: 5}
+	_, mt2 := cascadaTiny(t, cal, ConfigPorDefecto())
+	p := Pregunta{Kind: KindScore, Texto: "q", Estado: "quiero un reembolso de la factura", Opciones: nivelesScore()}
+	a, _ := mt.L1.Decidir(context.Background(), p)
+	b, _ := mt2.L1.Decidir(context.Background(), p)
+	if !(b.Probs["1"] < a.Probs["1"]) {
+		t.Fatalf("T=5 debía ablandar: %v frente a %v", b.Probs, a.Probs)
 	}
 }

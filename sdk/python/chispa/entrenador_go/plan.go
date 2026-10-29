@@ -39,6 +39,8 @@ type Plan struct {
 	FracValid float64  `json:"frac_valid"`    // 0,2 por defecto
 	TauL0     float64  `json:"tau_l0"`        // τ de L0 en `evaluar` (el servidor lo toma de su config): 0,8
 	TauObj    float64  `json:"tau_precision"` // precisión objetivo de τ de escalate: 0,95
+	SinL0     bool     `json:"sin_l0"`        // pocos ejemplos por opción (few-shot): sin L0; L1 se calibra con todos los ejemplos
+	L1Lambda  *float64 `json:"l1_lambda"`     // λ de encogimiento (SOPL1) con el que calibrar L1; nil = sin encogimiento
 	L0MaxMB   float64  `json:"l0_max_mb"`     // tope de la tabla de pesos de L0 en MB (1e6 bytes); 48 por defecto
 }
 

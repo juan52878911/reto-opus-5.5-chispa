@@ -45,8 +45,15 @@ func ClaveConj(texto string, ids []string) [32]byte {
 // en su orden. S son las ranuras de L2 con soporte; sims, el MaxSim de L2 por opción; l0, las probabilidades de
 // L0 por id de opción.
 func (e *EntradaConj) ProbsCabeza(ids []string, S [][]float32, sims []float64, l0 map[string]float64) []float64 {
+	return e.ProbsCabezaSp(ids, S, sims, l0, nil)
+}
+
+// ProbsCabezaSp es ProbsCabeza con el simproto ya calculado (SimprotoMezclado); sp nil ⇒ el de CONJ (SimprotoActual).
+func (e *EntradaConj) ProbsCabezaSp(ids []string, S [][]float32, sims []float64, l0 map[string]float64, sp []float64) []float64 {
 	n := len(ids)
-	sp := SimprotoActual(e, S, ids)
+	if sp == nil {
+		sp = SimprotoActual(e, S, ids)
+	}
 	// P_L2 con soporte: softmax((MaxSim + β·simproto) / T).
 	l2 := make([]float64, n)
 	mx := math.Inf(-1)
@@ -275,13 +282,23 @@ type protosPk struct {
 	w int
 }
 
-var cachePk sync.Map // *EntradaConj → *protosPk
+// celdaPk guarda los protos empaquetados de una entrada; vive y muere con su Conj.
+type celdaPk struct {
+	once sync.Once
+	pk   *protosPk
+}
 
-// protosEmpaquetados devuelve los prototipos de e listos para dot3 (se calcula una vez por entrada).
+// protosEmpaquetados devuelve los prototipos de e listos para dot3 (se calcula una vez por entrada
+// decodificada; una entrada armada a mano, sin celda, se recalcula en cada llamada).
 func protosEmpaquetados(e *EntradaConj) *protosPk {
-	if v, ok := cachePk.Load(e); ok {
-		return v.(*protosPk)
+	if e.celda == nil {
+		return empaquetarProtos(e)
 	}
+	e.celda.once.Do(func() { e.celda.pk = empaquetarProtos(e) })
+	return e.celda.pk
+}
+
+func empaquetarProtos(e *EntradaConj) *protosPk {
 	w := (e.D + 2) / 3
 	filas := len(e.Proto) / e.D
 	p := make([]int64, filas*w)
@@ -295,8 +312,7 @@ func protosEmpaquetados(e *EntradaConj) *protosPk {
 			p[f*w+i] = empaquetar3(v[0], v[1], v[2])
 		}
 	}
-	v, _ := cachePk.LoadOrStore(e, &protosPk{p, w})
-	return v.(*protosPk)
+	return &protosPk{p, w}
 }
 
 // cuantizarRanura cuantiza s a int8 con escala max|s|/127, lo empaqueta al revés en out y devuelve la escala.

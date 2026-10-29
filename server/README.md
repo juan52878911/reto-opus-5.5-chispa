@@ -52,7 +52,7 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
 - Los resultados van en el orden de `questions`.
 
 ### Errores
-`400 {"error": "..."}` con la ruta del campo: `questions[2].kind: "raro" no válido (choice, score o noul)`.
+`400 {"error": {"code": "invalid_kind", "message": "...", "question_id": "..."}}`: errores tipados, con la ruta del campo en `message` (`questions[2].kind: "raro" no válido (choice, score o noul)`). Lista de códigos en [`docs/03-api.md`](../docs/03-api.md) y [`api/openapi.yaml`](api/openapi.yaml).
 También 405 (método ≠ POST) y 413 (cuerpo > 1 MiB). No hay errores por pregunta: la validación es
 todo o nada, y un fallo interno de una capa solo la salta (se cuenta en `chispa_capa_errores_total`).
 
@@ -94,7 +94,7 @@ No tengo la especificación de `/v1/systemone`. Lo que supuse, por el encargo:
   y `nonce` devuelto tal cual. Se parecen los tres `kind`.
 - **Suposición**: la respuesta es una lista por pregunta con el mismo `id`. Aquí va envuelta en `{"results": [...]}`;
   si systemone devuelve un array desnudo o usa otra clave, hay que cambiar `respuestaHTTP` (`decide/http.go`).
-- No se parece / es nuestro: `probs`, `layer`, `escalate`, `ms`, y el 400 todo-o-nada con `{"error"}`.
+- No se parece / es nuestro: `probs`, `layer`, `escalate`, `ms`, y el 400 todo-o-nada con `{"error": {"code", "message", "question_id"}}`.
   Los nombres de campo de salida (`answer`, `probs`) son los del encargo, no los de Jev.
 
 ## Pruebas y modelos de prueba
@@ -130,7 +130,7 @@ arma la cascada con las secciones presentes (`decide.ArmarDesde`); las que falta
 - **L1** (`decide/l1.go`, sección `L1` con `runtime/l1`): embedding del mensaje y de `pregunta · opción · descripción`
   de cada opción (cacheados por `ClaveEsquema`, por id de opción: la clave ignora el orden). `choice`: softmax(coseno / T)
   con la `T` de `CALIB.tipos.choice`. `noul`: la consulta es la opción `true`; p(true) = σ(a·coseno + b) con `a`, `b`, θ de
-  `CALIB.tipos.noul`. `score`: L1 no opina (un coseno no ordena niveles). Sin tipo en CALIB: T = 0,05, a = 4, b = −2, θ = 0,5.
+  `CALIB.tipos.noul`. `score`: L1 sí opina: softmax(coseno / T) sobre los niveles (`T` de `CALIB.tipos.score`, o la de choice si falta) y `answer` es el nivel mediano (primero con masa acumulada ≥ 0,5), con su probabilidad como `conf`; una masa repartida entre niveles lejanos baja la confianza y escala. Sin tipo en CALIB: T = 0,05, a = 4, b = −2, θ = 0,5.
 - **τ**: sin `--config`, el τ de L1 y L2 es el `tau_escalate` de CALIB; con `--config`, manda la config.
 - **L2** (`decide/l2.go` + `l2_ort.go`, secciones `L2` y `ESQUEMAS`): el ONNX da las ranuras S (K×d) del mensaje; la torre de cada
   opción sale de ESQUEMAS (`HashEsquema(pregunta, [id])` en `choice`; la lista completa de ids, `["false","true"]` en `noul`
@@ -165,15 +165,24 @@ anteriores (`DecisorConPrevias`), y L2c usa las probabilidades de L0 con:
   L2 no son despreciables con muchas clases; si hace falta, el bucle por clases se puede paralelizar o vectorizar.
 - Sin L0 en la cascada, L2c no puede usar la cabeza y se comporta como L2.
 
-### Compilar con ORT
-La VM no trae la biblioteca. En una máquina con red y `libonnxruntime.so` (1.17+):
+### Compilar y probar con ORT
+`go.mod` trae `github.com/yalue/onnxruntime_go v1.38.0` (probado con `libonnxruntime.so.1.31.1`). Sin `-tags ort` no se usa
+(`l2_stub.go`, `torre/ort_stub.go`). Receta sin red (nodo-b; la caché de módulos de `~/go/pkg/mod` tiene el módulo):
 ```
-cd server && GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go && go build -tags ort ./...   # o go vet -tags ort ./...
+. ~/orquestador/herr/env.sh                      # Go, venv, GOPROXY=off
+export CC=~/orquestador/herr/zigcc CGO_ENABLED=1 # para -race
+export CHISPA_ORT_LIB=~/orquestador/herr/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1
+cd server && go test -tags ort -race -count=1 ./...
 ```
-`l2_ort.go` usa `github.com/yalue/onnxruntime_go` (sesión dinámica; `decide.RutaORT` fija la ruta de la .so). **No se compiló**:
-ni el módulo ni las cabeceras están aquí, así que escribí contra su API de memoria.
-`-tags ort` sí compila (T4.4, imagen con `onnxruntime_go v1.19.0` y ORT 1.22.0). El tokenizador de e5 llegó en T4.5 (abajo):
-`chispa-server -tok e5.chispa-tok`; sin `-tok`, L2 queda en stub aun con `ort`.
+Ruta de la .so en `chispa-server`, de mayor a menor precedencia: `-ort-lib` > `CHISPA_ORT_LIB` > `-ldflags -X …/server/decide.RutaORT=` >
+búsqueda por defecto del sistema. `main` la asigna a `decide.RutaORT` y `torre.RutaORT` (`torre` no puede importar `decide`), así que L2 y la
+torre usan la misma. Al arrancar, si el `.chispa` trae L2 o TORR y ORT no carga, el log dice `AVISO: ONNX Runtime no carga (ruta …, origen)`
+(y L2 queda en stub / `chispa_torres_calculadas_total` en 0). Test: `cmd/chispa-server/ort_si_test.go` (un proceso hijo por origen de la ruta).
+Para (re)añadir el módulo sin red: `GOPROXY=file://$HOME/go/pkg/mod/cache/download GOSUMDB=off GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go@v1.38.0`.
+Tests ORT: `torre/ort_test.go` (`sintetico.onnx` y su referencia) y `decide/l2_ort_test.go` (`TestL2TorreORTEsquemaNuevo`: L2 con
+`decide/testdata/l2_sintetico.onnx` + torre al vuelo + `/v1/decide` con un esquema nuevo, un solo entorno ORT; se regenera con
+`python decide/testdata/l2_sintetico.py`). Los ONNX son sintéticos (pesos aleatorios): prueban la mecánica, no la calidad.
+El tokenizador de e5 llegó en T4.5 (abajo): `chispa-server -tok e5.chispa-tok`; sin `-tok`, L2 queda en stub aun con `ort`.
 
 ### Medidas de L1 real (microVM kindling de 4 vCPU, Xeon 3,3 GHz; cota del i3)
 Potion multilingüe (`runtime/l1/exportar.py`, 155 MB, en un v3 en memoria), `go test ./decide -bench L1Real -benchtime 3s -cpu 1,4`:

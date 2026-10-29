@@ -3,6 +3,7 @@ package decide
 import (
 	"context"
 	"math"
+	"strings"
 	"testing"
 
 	"chispa/format/chispa3"
@@ -37,7 +38,7 @@ func TestL2MaxSim(t *testing.T) {
 	}
 	cal := chispa3.Calib{TauEscalate: 0.5, Tipos: map[string]chispa3.ParamsTipo{
 		"choice": {T: 1, Theta: 0.5}, "noul": {T: 1, A: 1, B: -1, Theta: 0.5},
-		"score3": {T: 1, A: 2, B: 0, Theta: 0.5}, "score3#2": {A: 1},
+		"score3": {T: 1, A: 2, B: 0, Theta: 0.5}, "score3#1": {A: 1},
 	}}
 	// Ranuras: s_1 = (1, 0), s_2 = (0, 0.2): la torre «a» ve 5 y 0; la «b», 0 y 1.
 	l := NuevoL2Con(sesionFalsa{[][]float32{{1, 0}, {0, 0.2}}}, esq, cal, tokFalso{})
@@ -74,5 +75,110 @@ func TestL2MaxSim(t *testing.T) {
 	r, err = l.Decidir(ctx, Pregunta{Texto: "otra", Kind: KindChoice, Opciones: []Opcion{{ID: "a"}, {ID: "b"}}})
 	if err != nil || r.Conf != 0 {
 		t.Fatalf("%+v %v", r, err)
+	}
+}
+
+type sesionCuenta struct{ n int }
+
+func (s *sesionCuenta) Ranuras([]int64) ([][]float32, error) { s.n++; return [][]float32{{1, 0}}, nil }
+
+// Esquema nuevo (sin torre en ESQUEMAS): L2 no opina ni llama al ONNX y la cascada lo decide con L1 en zero-shot.
+func TestEsquemaNuevoLoDecideL1(t *testing.T) {
+	es, err := chispa3.CodificarEsquemas(2, []chispa3.EntradaEsquema{ent("otro", []string{"a"}, 1, 1, 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	esq, err := chispa3.DecodificarEsquemas(es)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ses := &sesionCuenta{}
+	l2 := NuevoL2Con(ses, esq, calibTiny(), tokFalso{})
+	f := v3Tiny(t, calibTiny())
+	mt, err := ArmarDesde(f, NuevoL0(8), &Config{CacheEsquemas: 16, CacheRespuestas: 16}, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casc, err := NuevaCascada([]Capa{{"L1", 0.5}, {"L2", 0.5}}, []Decisor{mt.L1, l2}, NuevasMetricas())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := Pregunta{ID: "n", Kind: KindChoice, Texto: "¿Qué área nunca vista?", Estado: "factura", Opciones: opsReembolso()}
+	r := casc.Decidir(context.Background(), p)
+	if r.Layer != "L1" || r.Answer != "facturacion" || ses.n != 0 {
+		t.Fatalf("%+v, llamadas al ONNX: %d", r, ses.n)
+	}
+	if rr, err := l2.Decidir(context.Background(), p); err != nil || rr.Conf != 0 {
+		t.Fatalf("L2 sin torre debe callar: %+v %v", rr, err)
+	}
+}
+
+// torreFalsa devuelve un vector que depende del texto y cuenta las llamadas.
+type torreFalsa struct {
+	n      int
+	textos []string
+}
+
+func (t *torreFalsa) Torre(texto string) ([]float32, error) {
+	t.n++
+	t.textos = append(t.textos, texto)
+	if strings.Contains(texto, "· quejas ·") {
+		return []float32{1, 0}, nil
+	}
+	return []float32{0, 1}, nil
+}
+
+// Un esquema que ningún ESQUEMAS trae: la primera petición calcula las torres, la segunda sale de la caché.
+func TestL2EsquemaNuevoTorreAlVuelo(t *testing.T) {
+	es, _ := chispa3.CodificarEsquemas(2, []chispa3.EntradaEsquema{ent("q", []string{"a"}, 1, 1, 0)})
+	esq, err := chispa3.DecodificarEsquemas(es)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Una ranura que apunta al eje 0: gana la opción cuya torre es (1, 0).
+	l := NuevoL2Con(sesionFalsa{[][]float32{{3, 0}}}, esq, chispa3.Calib{}, tokFalso{})
+	p := Pregunta{Texto: "¿de qué trata?", Kind: KindChoice, Estado: "me cobraron dos veces",
+		Opciones: []Opcion{{ID: "quejas", Description: "reclamos"}, {ID: "ventas", Description: "compras"}}}
+
+	// Sin codificador de torres: sin opinión, como siempre.
+	if r, err := l.Decidir(context.Background(), p); err != nil || r.Conf != 0 {
+		t.Fatalf("sin torres: %+v %v", r, err)
+	}
+
+	tf := &torreFalsa{}
+	l.ConTorres(tf, 16)
+	r, err := l.Decidir(context.Background(), p)
+	if err != nil || r.Answer != "quejas" || r.Conf <= 0.5 {
+		t.Fatalf("1.ª petición: %+v %v", r, err)
+	}
+	if tf.n != 2 || l.Misses.Load() != 1 || l.Hits.Load() != 0 {
+		t.Fatalf("1.ª: %d llamadas, %d fallos, %d aciertos", tf.n, l.Misses.Load(), l.Hits.Load())
+	}
+	if tf.textos[0] != "passage: ¿de qué trata? · quejas · reclamos" {
+		t.Fatalf("texto de torre %q", tf.textos[0])
+	}
+	r2, _ := l.Decidir(context.Background(), p)
+	if tf.n != 2 || l.Hits.Load() != 1 || r2.Answer != r.Answer || r2.Probs["quejas"] != r.Probs["quejas"] {
+		t.Fatalf("2.ª: %d llamadas, %d aciertos, %+v", tf.n, l.Hits.Load(), r2)
+	}
+	// Mismas opciones en otro orden: misma clave, sigue en caché.
+	p.Opciones[0], p.Opciones[1] = p.Opciones[1], p.Opciones[0]
+	l.Decidir(context.Background(), p)
+	if tf.n != 2 || l.Hits.Load() != 2 {
+		t.Fatalf("orden distinto: %d llamadas, %d aciertos", tf.n, l.Hits.Load())
+	}
+	// Otra descripción = otro esquema: vuelve a calcular.
+	p.Opciones[1].Description = "otra"
+	l.Decidir(context.Background(), p)
+	if l.Misses.Load() != 2 {
+		t.Fatalf("fallos %d", l.Misses.Load())
+	}
+
+	// noul: una torre (la consulta «true»).
+	tf.n = 0
+	rn, err := l.Decidir(context.Background(), Pregunta{Texto: "¿es queja?", Kind: KindNoul,
+		Opciones: []Opcion{{ID: "false"}, {ID: "true", Description: "quejas"}}})
+	if err != nil || tf.n != 1 || rn.Answer == "" {
+		t.Fatalf("noul: %+v %v (%d llamadas)", rn, err, tf.n)
 	}
 }

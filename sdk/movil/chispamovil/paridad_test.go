@@ -255,7 +255,7 @@ type simsFijas struct {
 	sims []float64
 }
 
-func (s simsFijas) Similitudes(decide.Pregunta) ([][]float32, []float64, bool, error) {
+func (s simsFijas) Similitudes(context.Context, decide.Pregunta) ([][]float32, []float64, bool, error) {
 	return s.S, s.sims, true, nil
 }
 
@@ -302,11 +302,15 @@ func TestCabezaConjuntaSinOpinar(t *testing.T) {
 func TestTokenizarE5ParidadConRuntimeTok(t *testing.T) {
 	ruta := os.Getenv("CHISPA_TOK")
 	if ruta == "" {
-		ruta = "/tmp/e5.chispa-tok"
+		ruta = rutaTokPorDefecto()
 	}
 	ref, err := tok.Abrir(ruta)
+	// Solo se salta si no hay fichero y nadie pidió uno: un .chispa-tok que existe y no abre es un fallo, no un salto.
+	if _, e := os.Stat(ruta); e != nil && os.Getenv("CHISPA_TOK") == "" {
+		t.Skipf("sin .chispa-tok (runtime/tok/exportar.py; CHISPA_TOK): %v", e)
+	}
 	if err != nil {
-		t.Skipf("sin .chispa-tok (runtime/tok/exportar.py; CHISPA_TOK): %v", err)
+		t.Fatalf("%s: %v", ruta, err)
 	}
 	c := &Chispa{}
 	if c.TieneTokenizadorE5() || c.TokenizarE5("hola") != nil {
@@ -347,4 +351,15 @@ func TestTokenizarE5RutaMala(t *testing.T) {
 	if err := (&Chispa{}).CargarTokenizadorE5("/no/existe.chispa-tok"); err == nil {
 		t.Fatal("debía fallar")
 	}
+}
+
+// rutaTokPorDefecto: sin CHISPA_TOK, el .chispa-tok del usuario ($TMPDIR o su caché), nunca un /tmp compartido entre trabajos.
+func rutaTokPorDefecto() string {
+	if d := os.Getenv("TMPDIR"); d != "" {
+		return filepath.Join(d, "e5.chispa-tok")
+	}
+	if d, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(d, "chispa", "e5.chispa-tok")
+	}
+	return "e5.chispa-tok"
 }

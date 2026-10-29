@@ -1,23 +1,77 @@
 package decide
 
 import (
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
+	"sync"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
+	"github.com/juan52878911/chispa/server/torre"
 )
+
+// TokenizadorPasaje es el tokenizador de e5 con «passage: » (runtime/tok.TokenizarPasaje) que necesita la torre al vuelo.
+// El Tokenizador que se pasa a ArmarDesde lo puede implementar además de IDs; sin él no se monta la torre.
+type TokenizadorPasaje = torre.Tokenizador
+
+// TokenizadorMaxLen lo implementa el tokenizador cuyo truncado se puede ajustar: ConMaxLen devuelve una copia que trunca la
+// consulta (IDs) a consulta tokens y el pasaje (IDsPasaje) a pasaje. ArmarDesde lo llama con el `chispa.consulta.max_len` del
+// ONNX de L2 y el `max_len` de TORR; un tokenizador que no lo implemente se queda con su truncado (128).
+type TokenizadorMaxLen interface {
+	ConMaxLen(consulta, pasaje int) Tokenizador
+}
+
+// ajustarMaxLen aplica el truncado de los metadatos al tokenizador. Con los dos en el defecto no toca nada.
+func ajustarMaxLen(tok Tokenizador, consulta, pasaje int, avisos *[]string) Tokenizador {
+	if tok == nil || (consulta == chispa3.MaxLenDefecto && pasaje == chispa3.MaxLenDefecto) {
+		return tok
+	}
+	if t, ok := tok.(TokenizadorMaxLen); ok {
+		return t.ConMaxLen(consulta, pasaje)
+	}
+	*avisos = append(*avisos, fmt.Sprintf("el tokenizador no admite truncado ajustable: sigue en %d (los metadatos piden consulta %d, pasaje %d)",
+		chispa3.MaxLenDefecto, consulta, pasaje))
+	return tok
+}
+
+// OpcionArmado ajusta ArmarDesde; sirve para sustituir ORT por piezas falsas en las pruebas.
+type OpcionArmado func(*opcionesArmado)
+
+type opcionesArmado struct {
+	ses    SesionS
+	torres CodificadorTorre
+}
+
+// ConSesionS monta L2 sobre esta sesión en lugar de abrir el ONNX de la sección L2 con ORT.
+func ConSesionS(s SesionS) OpcionArmado { return func(o *opcionesArmado) { o.ses = s } }
+
+// ConCodificadorTorre usa este codificador de torres en lugar de abrir el ONNX de la sección TORR con ORT.
+func ConCodificadorTorre(c CodificadorTorre) OpcionArmado {
+	return func(o *opcionesArmado) { o.torres = c }
+}
 
 // Montaje es lo que sale de armar la cascada desde un .chispa v3 (o v2 envuelto).
 type Montaje struct {
 	L1, L2 Decisor
 	Avisos []string // capas que se quedan como stub y por qué
+	// Cerrar libera las sesiones (L2 y torre) que abrió ArmarDesde; nil si no hay nada que cerrar. Idempotente.
+	Cerrar func() error
 }
 
 // ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y monta L1 y L2 con las secciones presentes;
 // las que faltan quedan como stub. Con tauDeCalib, el τ de L1 y L2 pasa a ser el tau_escalate
 // de CALIB (cfg se modifica); si L2 es L2c y CALIB trae tau_l2c, ese es el τ de L2. tok es el tokenizador de e5 que necesita L2 (puede ser nil).
+// Si el .chispa trae la sección TORR, L2 calcula al vuelo las torres de los esquemas que ESQUEMAS no trae (L2.ConTorres,
+// caché de cfg.CacheTorres torres, tope de cfg.MaxTorresNuevas por petición); sin ella, un esquema nuevo queda sin opinión de L2 como antes. Hace falta que tok
+// implemente TokenizadorPasaje: si no, la torre no se monta y se avisa.
 // f debe seguir abierto mientras se use la cascada.
-func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok Tokenizador) (Montaje, error) {
+func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok Tokenizador, opts ...OpcionArmado) (Montaje, error) {
+	var op opcionesArmado
+	for _, o := range opts {
+		o(&op)
+	}
 	mt := Montaje{L1: NuevoL1(), L2: NuevoL2()}
 	if f.Tiene(chispa3.L0TF) {
 		// El L0 tfidf es el que entrenó la cabeza conjunta: manda sobre el Chispa de kindling del mismo fichero.
@@ -51,6 +105,29 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			}
 		}
 	}
+	var sopl *chispa3.Sopl1
+	lambdaL1 := cfg.LambdaL1()
+	if f.Tiene(chispa3.SOPL1) && cfg.L1ShrinkageLambda == nil && !cfg.L1ShrinkageApagado && calib.L1LambdaCalib == nil {
+		// .chispa anterior a l1_lambda_calib: su CALIB se calibró sin encogimiento, así que el λ por defecto lo descalibraría.
+		// Sin λ de L1 explícito en la config, el soporte de L1 queda apagado (el comportamiento de antes).
+		lambdaL1 = nil
+		mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: el .chispa trae SOPL1 pero su CALIB no trae l1_lambda_calib (calibrado sin encogimiento): "+
+			"L1 no mezcla el soporte; ponga l1_shrinkage_lambda en la config para activarlo (λ=%g por defecto en modelos nuevos)", L1ShrinkageLambdaPorDefecto))
+	}
+	explicito := cfg.L1ShrinkageLambda != nil || cfg.L2ShrinkageLambda != nil // el operador pidió el soporte: SOPL1 ilegible es error
+	if f.Tiene(chispa3.SOPL1) && explicito {
+		var err error
+		if sopl, err = f.Sopl1(); err != nil {
+			return mt, fmt.Errorf("sección SOPL1: %w", err)
+		}
+	} else if f.Tiene(chispa3.SOPL1) {
+		// Sin λ explícito (solo el default de L1, o apagado) una SOPL1 ilegible no impide arrancar: se ignora con aviso.
+		if s, err := f.Sopl1(); err != nil {
+			mt.Avisos = append(mt.Avisos, "SOPL1 inválida, se ignora: "+err.Error())
+		} else {
+			sopl = s
+		}
+	}
 	if f.Tiene(chispa3.L1) {
 		b, err := f.L1()
 		if err != nil {
@@ -60,7 +137,20 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			return mt, fmt.Errorf("sección L1: %w", err)
 		}
-		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas)
+		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, lambdaL1)
+		if sopl != nil && lambdaL1 != nil {
+			switch {
+			case calib.L1LambdaCalib == nil:
+				mt.Avisos = append(mt.Avisos, "AVISO: L1 mezcla SOPL1 con λ explícito pero la CALIB se calibró sin encogimiento (sin l1_lambda_calib): la cobertura y precisión prometidas no valen")
+			case *calib.L1LambdaCalib != *lambdaL1:
+				mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: λ de L1 del runtime (%g) distinto del de la CALIB (l1_lambda_calib=%g): τ de L1 descalibrado", *lambdaL1, *calib.L1LambdaCalib))
+			}
+		} else if sopl != nil && calib.L1LambdaCalib != nil {
+			mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: L1 sin soporte (apagado) pero la CALIB se calibró con λ=%g (l1_lambda_calib): τ de L1 descalibrado", *calib.L1LambdaCalib))
+		}
+		if sopl != nil && sopl.Dim() != m.Dim() {
+			mt.Avisos = append(mt.Avisos, fmt.Sprintf("SOPL1 de dimensión %d y L1 de %d: L1 no mezcla el soporte", sopl.Dim(), m.Dim()))
+		}
 	}
 	if f.Tiene(chispa3.L2) && f.Tiene(chispa3.ESQUEMAS) {
 		onnx, err := f.L2()
@@ -77,31 +167,87 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 				return mt, fmt.Errorf("sección CONJ: %w", err)
 			}
 		}
-		d, err := montarL2(onnx, esq, calib, tok, conj)
+		mq, err := chispa3.MaxLenConsulta(onnx)
+		if err != nil {
+			return mt, fmt.Errorf("sección L2: %w", err)
+		}
+		mp := chispa3.MaxLenDefecto
+		if f.Tiene(chispa3.TORR) {
+			if t, err := f.Torre(); err == nil { // si es ilegible, montarTorres da el error
+				mp = t.MaxLen
+			}
+		}
+		tok = ajustarMaxLen(tok, mq, mp, &mt.Avisos)
+		base, err := montarL2(onnx, esq, calib, tok, op.ses)
 		if err != nil {
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {
-			mt.L2 = d
+			cerrables := []any{base.ses}
+			if f.Tiene(chispa3.TORR) {
+				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas); err != nil {
+					mt.Avisos = append(mt.Avisos, "sin torres al vuelo: "+err.Error())
+				}
+			}
+			cerrables = append(cerrables, base.torres)
+			mt.Cerrar = cierraTodo(cerrables...)
+			mt.L2 = Decisor(base)
+			if conj != nil {
+				mt.L2 = NuevoL2cCon(base, base, conj).ConSoporte(sopl, cfg.L2ShrinkageLambda)
+			}
 			aplicarTauL2c(cfg, calib, conj != nil, tauDeCalib)
+			if cfg.TauL2EsquemaNuevo == nil && calib.TauL2EsquemaNuevo != nil {
+				v := *calib.TauL2EsquemaNuevo
+				cfg.TauL2EsquemaNuevo = &v
+			}
 		}
 	}
 	return mt, nil
 }
 
-// montarL2 monta L2c si hay CONJ y L2 si no.
-func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador, conj *chispa3.Conj) (Decisor, error) {
-	if conj == nil {
-		return NuevoL2ORT(onnx, esq, calib, tok)
-	}
+// montarL2 monta el L2 base sobre ses, o sobre el ONNX de la sección L2 si ses es nil.
+func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador, ses SesionS) (*L2, error) {
 	if tok == nil {
 		return nil, ErrSinTokenizador
 	}
-	ses, err := NuevaSesionORT(onnx)
-	if err != nil {
-		return nil, err
+	if ses == nil {
+		var err error
+		if ses, err = NuevaSesionORT(onnx); err != nil {
+			return nil, err
+		}
 	}
-	base := NuevoL2Con(ses, esq, calib, tok)
-	return NuevoL2cCon(base, base, conj), nil
+	return NuevoL2Con(ses, esq, calib, tok), nil
+}
+
+// montarTorres lee la sección TORR y activa las torres al vuelo en l2; enc, si no es nil, sustituye al ONNX.
+func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTorre, cache, maxNuevas int) error {
+	t, err := f.Torre()
+	if err != nil {
+		return fmt.Errorf("sección TORR: %w", err)
+	}
+	if t.Dim != l2.esq.Dim() {
+		return fmt.Errorf("sección TORR: dimensión %d, pero las ranuras de L2 son de %d", t.Dim, l2.esq.Dim())
+	}
+	b, err := f.Bytes(chispa3.TORR)
+	if err != nil {
+		return err
+	}
+	if err := torre.ValidarPrefijo(binary.LittleEndian.Uint32(b), t.Prefijo); err != nil {
+		return err
+	}
+	if enc == nil {
+		tp, ok := tok.(TokenizadorPasaje)
+		if !ok {
+			return fmt.Errorf("el tokenizador no ofrece el modo passage")
+		}
+		if enc, err = torre.Abrir(t, tp); err != nil {
+			return err
+		}
+	}
+	if cache <= 0 {
+		cache = CacheTorresPorDefecto
+	}
+	l2.ConTorres(enc, cache).ConMaxTorresNuevas(maxNuevas)
+	return nil
 }
 
 // aplicarTauL2c fija el τ de L2 al de la cabeza conjunta si CALIB lo trae. El tau_escalate se calibró para L2 solo.
@@ -113,5 +259,21 @@ func aplicarTauL2c(cfg *Config, calib chispa3.Calib, esL2c, tauDeCalib bool) {
 		if cfg.Capas[i].Nombre == "L2" {
 			cfg.Capas[i].Tau = *calib.TauL2c
 		}
+	}
+}
+
+// cierraTodo devuelve una función que cierra, una sola vez, los io.Closer de la lista (los que no lo son se saltan).
+func cierraTodo(xs ...any) func() error {
+	var once sync.Once
+	var err error
+	return func() error {
+		once.Do(func() {
+			for _, x := range xs {
+				if c, ok := x.(io.Closer); ok {
+					err = errors.Join(err, c.Close())
+				}
+			}
+		})
+		return err
 	}
 }

@@ -415,6 +415,10 @@ func FuzzAbrir(f *testing.F) {
 				DecodificarConj(b)
 			case L0TF:
 				DecodificarL0TF(b)
+			case TORR:
+				DecodificarTORR(b)
+			case SOPL1:
+				DecodificarSopl1(b)
 			case L1:
 				ValidarL1(b)
 			case L0:
@@ -445,5 +449,25 @@ func TestCalibTauL2c(t *testing.T) {
 	}
 	if _, err := DecodificarCalib([]byte(`{"tau_escalate":0.5,"tau_l2c":1.5}`)); err == nil {
 		t.Fatal("tau_l2c fuera de [0,1] debe fallar")
+	}
+}
+
+func TestCalibTauL2EsquemaNuevo(t *testing.T) {
+	c, err := DecodificarCalib([]byte(`{"tipos":{},"tau_escalate":0.5}`))
+	if err != nil || c.TauL2EsquemaNuevo != nil {
+		t.Fatalf("sin campo: %+v %v", c, err)
+	}
+	c, err = DecodificarCalib([]byte(`{"tipos":{},"tau_escalate":0.5,"tau_l2_esquema_nuevo":0.3}`))
+	if err != nil || c.TauL2EsquemaNuevo == nil || *c.TauL2EsquemaNuevo != 0.3 {
+		t.Fatalf("con campo: %+v %v", c, err)
+	}
+	b, _ := Calib{TauEscalate: 0.5}.Codificar()
+	if strings.Contains(string(b), "esquema_nuevo") {
+		t.Fatalf("nil no se escribe: %s", b)
+	}
+	for _, malo := range []string{"1.5", "-0.1"} {
+		if _, err := DecodificarCalib([]byte(`{"tau_escalate":0.5,"tau_l2_esquema_nuevo":` + malo + `}`)); err == nil {
+			t.Errorf("%s debe rechazarse", malo)
+		}
 	}
 }

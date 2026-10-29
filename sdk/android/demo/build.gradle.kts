@@ -13,6 +13,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
@@ -22,11 +23,15 @@ android {
     }
 
     // El modelo se abre desde el APK con openFd: sin comprimir.
-    androidResources { noCompress += "chispa" }
+    androidResources { noCompress += listOf("chispa", "chispa-tok", "json") }
 }
 
 kotlin { jvmToolchain(17) }
 
 dependencies {
     implementation(project(":chispa"))
+
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
 }

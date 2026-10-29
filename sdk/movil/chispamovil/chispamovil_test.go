@@ -91,8 +91,8 @@ func TestDecidirSinOpinionYErrores(t *testing.T) {
 		t.Fatalf("sin tokens debía no opinar: %+v", r)
 	}
 	score := `{"question":"q","kind":"score","options":[{"id":"1"},{"id":"2"}]}`
-	if r := leer(t, c.Decidir("hola", score)); !r.Ok || r.Opina {
-		t.Fatalf("score en L1 no opina: %+v", r)
+	if r := leer(t, c.Decidir("   ", score)); !r.Ok || r.Opina {
+		t.Fatalf("score sin tokens no opina: %+v", r)
 	}
 	for _, mal := range []string{`no es json`, `{"question":"q","options":[]}`, `{"question":"q","kind":"raro","options":[{"id":"a"}]}`} {
 		if r := leer(t, c.Decidir("hola", mal)); r.Ok || r.Error == "" {
@@ -183,7 +183,7 @@ func TestPuntuarL2NoulYScore(t *testing.T) {
 	calib := chispa3.Calib{TauEscalate: 0.4, Tipos: map[string]chispa3.ParamsTipo{
 		"noul":     {T: 1, A: 2, B: -1, Theta: 0.5},
 		"score3":   {T: 1, A: 1, B: 0, Theta: 0.5},
-		"score3#2": {T: 1, A: 1, B: 0, Theta: 0.5},
+		"score3#1": {T: 1, A: 1, B: 0, Theta: 0.5},
 	}}
 	c := &Chispa{esq: esquemasDePrueba(t), tieneL2: true, calib: calib}
 	q := `{"question":"¿urgente?","kind":"noul","options":[{"id":"true"},{"id":"false"}]}`
@@ -201,11 +201,11 @@ func TestPuntuarL2NoulYScore(t *testing.T) {
 
 func TestScoreCoral(t *testing.T) {
 	c := &Chispa{calib: chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{
-		"score3": {T: 1, A: 2, B: 1, Theta: .5}, "score3#2": {T: 1, A: 1, B: 0, Theta: .5}}}}
+		"score3": {T: 1, A: 2, B: 1, Theta: .5}, "score3#1": {T: 1, A: 1, B: 0, Theta: .5}}}}
 	p := pregunta{Kind: "score", Opciones: []opcion{{ID: "1"}, {ID: "2"}, {ID: "3"}}}
 	r := c.score(p, 3)
 	s1 := 1 / (1 + math.Exp(-(2*3 - 1))) // P(y>1)
-	s2 := 1 / (1 + math.Exp(-(2*3 - 2))) // b2 = 1 + a(score3#2) = 2
+	s2 := 1 / (1 + math.Exp(-(2*3 - 2))) // b2 = 1 + a(score3#1) = 2
 	if math.Abs(r.Probs["1"]-(1-s1)) > 1e-12 || math.Abs(r.Probs["2"]-(s1-s2)) > 1e-12 || math.Abs(r.Probs["3"]-s2) > 1e-12 {
 		t.Fatalf("CORAL: %+v", r.Probs)
 	}
@@ -328,5 +328,35 @@ func TestAbrirL0(t *testing.T) {
 	// con otras etiquetas, no hay modelo → no opina
 	if r := leer(t, c.DecidirL0("hola", preguntaCompra)); !r.Ok || r.Opina {
 		t.Fatalf("L0 con otro esquema no opina: %+v", r)
+	}
+}
+
+const preguntaScore = `{"question":"¿Qué tan urgente?","kind":"score","options":[
+ {"id":"1","description":"puede esperar sin problema"},{"id":"2","description":"conviene atenderlo pronto"},{"id":"3","description":"urgente ya"}]}`
+
+func TestDecidirScoreNiveles(t *testing.T) {
+	c := conFalso()
+	for texto, want := range map[string]string{"puede esperar sin problema": "1", "conviene atenderlo pronto": "2", "urgente ya": "3"} {
+		r := leer(t, c.Decidir(texto, preguntaScore))
+		var z float64
+		for _, p := range r.Probs {
+			z += p
+		}
+		if !r.Ok || !r.Opina || r.Answer != want || len(r.Probs) != 3 || math.Abs(z-1) > 1e-9 || r.Conf != r.Probs[want] {
+			t.Fatalf("%q: %+v", texto, r)
+		}
+	}
+	// la T de «score» de CALIB manda sobre la de choice
+	b := conFalso()
+	b.calib = chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"score": {T: 5}}}
+	ra, rb := leer(t, c.Decidir("urgente ya", preguntaScore)), leer(t, b.Decidir("urgente ya", preguntaScore))
+	if !(rb.Probs["3"] < ra.Probs["3"]) {
+		t.Fatalf("T=5 debía ablandar: %v frente a %v", rb.Probs, ra.Probs)
+	}
+	// mediana: masa repartida entre extremos → gana el central con su probabilidad
+	p, _ := leerPregunta(preguntaScore)
+	r := puntuarNiveles(p, []float64{0.4, 0.4 + 0.05*math.Log(.5), 0.4}, 0.05)
+	if r.Answer != "2" || r.Conf != r.Probs["2"] || r.Conf > 0.25 {
+		t.Fatalf("mediana: %+v", r)
 	}
 }

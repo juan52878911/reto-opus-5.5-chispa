@@ -17,7 +17,7 @@ func (m *Modelo) buscar(h uint64, clave string) int32 {
 	mask := uint64(1)<<m.tablaB - 1
 	offs := m.sec[secOffsets]
 	piezas := m.sec[secPiezas]
-	for s := h & mask; ; s = (s + 1) & mask {
+	for s, n := h&mask, uint64(0); n <= mask; s, n = (s+1)&mask, n+1 {
 		v := binary.LittleEndian.Uint32(tabla[4*s:])
 		if v == 0 {
 			return -1
@@ -29,6 +29,7 @@ func (m *Modelo) buscar(h uint64, clave string) int32 {
 			return int32(id)
 		}
 	}
+	return -1
 }
 
 // Tokenizar devuelve los ids del texto tal como los daría tokenizers (add_special_tokens=False,

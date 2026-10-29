@@ -100,16 +100,8 @@ func Desde(data []byte) (*Modelo, error) {
 	if err := json.Unmarshal(m.sec[secParams], &m.p); err != nil {
 		return nil, fmt.Errorf("l1: params: %w", err)
 	}
-	v := m.vocab
-	switch {
-	case m.dim <= 0 || m.dim != m.p.Dim || m.p.EscalaBits != escalaBits || m.p.Metaspace == "" || m.p.Prepend != "always":
-		return nil, errors.New("l1: parámetros incoherentes")
-	case len(m.sec[secPesos]) != v*m.dim, len(m.sec[secEscalas]) != 4*v, len(m.sec[secScores]) != 8*v,
-		len(m.sec[secOffsets]) != 4*(v+1), len(m.sec[secHash]) != 4<<m.tablaB, len(m.sec[secPrefijos]) != 1<<(m.prefB-3):
-		return nil, errors.New("l1: tamaños de sección incoherentes")
-	}
-	if int(le.Uint32(m.sec[secOffsets][4*v:])) != len(m.sec[secPiezas]) {
-		return nil, errors.New("l1: offsets de piezas incoherentes")
+	if err := m.validar(false); err != nil {
+		return nil, err
 	}
 	m.unkScore = m.p.MinScore - m.p.UnkPenaliz
 	n, err := nuevoNormalizador(m.sec[secCharsmap], m.p.Puntuacion)
@@ -121,6 +113,86 @@ func Desde(data []byte) (*Modelo, error) {
 		m.anadidos = append(m.anadidos, anadido{t, int32(id)})
 	}
 	return m, nil
+}
+
+// Topes del lector: un fichero hostil no debe poder pedir reservas ni bucles sin límite.
+const (
+	maxTablaB     = 30
+	maxPrefB      = 40
+	maxMaxPiezaCa = 1 << 16
+	// runtime/tok/exportar.py escribe 1<<30 en los dos para «sin recorte»: solo se usan para truncar, no para reservar.
+	maxMaxTokens = 1 << 30
+	maxRecorte   = 1 << 30
+)
+
+// validar comprueba que el contenido de las secciones es coherente con la cabecera, de modo que
+// buscar, viterbi y Embed no puedan salirse de rango ni quedar en bucle. soloTok: .chispa-tok (sin pesos).
+func (m *Modelo) validar(soloTok bool) error {
+	le := binary.LittleEndian
+	n := uint64(len(m.data))
+	if m.vocab <= 0 || uint64(m.vocab) > n {
+		return errors.New("l1: vocab fuera de rango")
+	}
+	if m.tablaB < 4 || m.tablaB > maxTablaB || m.prefB < 4 || m.prefB > maxPrefB {
+		return errors.New("l1: tamaños de tabla incoherentes")
+	}
+	v := uint64(m.vocab)
+	if soloTok {
+		if m.p.Modo != modoXLMR || m.p.Metaspace == "" {
+			return errors.New("l1: parámetros incoherentes")
+		}
+	} else {
+		if m.dim <= 0 || m.dim != m.p.Dim || m.p.EscalaBits != escalaBits || m.p.Metaspace == "" || m.p.Prepend != "always" {
+			return errors.New("l1: parámetros incoherentes")
+		}
+		if uint64(m.dim) > n || uint64(len(m.sec[secPesos])) != v*uint64(m.dim) || uint64(len(m.sec[secEscalas])) != 4*v {
+			return errors.New("l1: tamaños de sección incoherentes")
+		}
+	}
+	if uint64(len(m.sec[secScores])) != 8*v || uint64(len(m.sec[secOffsets])) != 4*(v+1) ||
+		uint64(len(m.sec[secHash])) != 4<<m.tablaB || uint64(len(m.sec[secPrefijos])) != 1<<(m.prefB-3) {
+		return errors.New("l1: tamaños de sección incoherentes")
+	}
+	if m.p.MaxTokens <= 0 || m.p.MaxTokens > maxMaxTokens || m.p.RecorteTexto <= 0 || m.p.RecorteTexto > maxRecorte ||
+		m.p.MaxPiezaCar <= 0 || m.p.MaxPiezaCar > maxMaxPiezaCa {
+		return errors.New("l1: límites de params fuera de rango")
+	}
+	if m.p.UnkID < 0 || m.p.UnkID >= m.vocab {
+		return errors.New("l1: unk_id fuera de rango")
+	}
+	for t, id := range m.p.Anadidos {
+		if t == "" || id < 0 || id >= m.vocab {
+			return errors.New("l1: token añadido inválido")
+		}
+	}
+	// offsets: no decrecientes, de 0 a len(piezas)
+	offs, np := m.sec[secOffsets], uint64(len(m.sec[secPiezas]))
+	prev := uint64(0)
+	for i := uint64(0); i <= v; i++ {
+		o := uint64(le.Uint32(offs[4*i:]))
+		if o < prev || o > np {
+			return errors.New("l1: offsets de piezas incoherentes")
+		}
+		prev = o
+	}
+	if prev != np {
+		return errors.New("l1: offsets de piezas incoherentes")
+	}
+	// tabla hash: ids en rango y al menos un hueco, para que el sondeo termine
+	hueco := false
+	tabla := m.sec[secHash]
+	for i := 0; i+4 <= len(tabla); i += 4 {
+		e := le.Uint32(tabla[i:])
+		if e == 0 {
+			hueco = true
+		} else if uint64(e-1) >= v {
+			return errors.New("l1: tabla hash con ids fuera de rango")
+		}
+	}
+	if !hueco {
+		return errors.New("l1: tabla hash sin huecos")
+	}
+	return nil
 }
 
 // Verificar recalcula el sha256 del cuerpo y lo compara con el de la cabecera.

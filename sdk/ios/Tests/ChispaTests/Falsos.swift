@@ -25,6 +25,19 @@ final class MotorFalso: Motor {
     var ultimasRanuras: Data?
     var ultimoK = -1
     var cerrado = false
+    /// Zero-shot: mientras `torres` sea false el motor pide estos textos; al instalarlas, `torres` pasa a true (caché).
+    var textosTorre: [String] = []
+    var torresInstaladas: Data?
+    var nInstaladas = 0
+    /// false = `instalarTorresL2` rechaza las torres (y no las cachea).
+    var aceptaTorres = true
+    var tauConj = -1.0
+    /// `tau_l2_esquema_nuevo` de CALIB (−1 = falta).
+    var tauNuevo = -1.0
+    var hashes: [Int: String] = [:]
+    /// Qué hace `extraerL2`: escribe en el destino que se le da (por defecto, nada).
+    var alExtraer: (String) throws -> Void = { _ in }
+    var extracciones = 0
 
     func capas() -> [String] { presentes }
     func tieneCalib() -> Bool { calib }
@@ -35,10 +48,26 @@ final class MotorFalso: Motor {
     func puntuarL2(_ preguntaJson: String, ranuras: Data, k: Int) -> String {
         llamadas.append("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
     }
-    func extraerL2(a destino: String) throws {}
+    func extraerL2(a destino: String) throws { extracciones += 1; try alExtraer(destino) }
+    func tauL2c() -> Double { tauConj }
+    func tauL2EsquemaNuevo() -> Double { tauNuevo }
+    func hashSeccion(_ tipo: Int) -> String { hashes[tipo] ?? "" }
     func tieneConj() -> Bool { conj }
     func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return cabeza() }
+    /// TORR: `onnxDeTorre` no nulo = el fichero la trae; `idsDePasaje` da los ids (int32 LE) de cada texto de torre.
+    var onnxDeTorre: Data?
+    var idsDePasaje: (String) -> Data? = { _ in nil }
+    func tieneTorre() -> Bool { onnxDeTorre != nil }
+    func onnxTorre() -> Data? { onnxDeTorre }
+    func idsPasaje(_ texto: String) -> Data? { idsDePasaje(texto) }
+    func tieneTokenizadorE5() -> Bool { idsE5 != nil }
     func tokenizarE5(_ texto: String) -> Data? { idsE5 }
+    func textosTorreL2(_ preguntaJson: String) -> [String] { torres ? [] : textosTorre }
+    func instalarTorresL2(_ preguntaJson: String, torres bytes: Data, n: Int) -> Bool {
+        llamadas.append("TORRES")
+        if !aceptaTorres { return false }
+        torresInstaladas = bytes; nInstaladas = n; torres = true; return true
+    }
     func cerrar() { cerrado = true }
 }
 
@@ -56,10 +85,16 @@ final class SesionFalsa: SesionRanuras {
 struct TokenizadorFalso: Tokenizador {
     var devuelve: [Int64] = [1]
     var alTokenizar: () -> Void = {}
-    func ids(_ texto: String) -> [Int64] { alTokenizar(); return devuelve }
+    func ids(_ texto: String) throws -> [Int64] { alTokenizar(); return devuelve }
 }
 
 let pregunta = Pregunta(
     "¿Qué quiere el cliente?",
     opciones: [Opcion("compra", descripcion: "quiere comprar"), Opcion("soporte", descripcion: "pide ayuda"), Opcion("saludo")]
+)
+
+/// Una pregunta con un esquema que ningún `.chispa` trae.
+let preguntaNueva = Pregunta(
+    "¿Qué tipo de incidencia es?",
+    opciones: [Opcion("fraude", descripcion: "cargo no reconocido"), Opcion("tarjeta", descripcion: "tarjeta bloqueada o perdida")]
 )

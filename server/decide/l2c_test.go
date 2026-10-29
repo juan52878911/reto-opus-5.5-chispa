@@ -66,7 +66,7 @@ func TestL2cParidadEnteraConPython(t *testing.T) {
 	e, _ := conj.Buscar(ClaveConj(p))
 	var peor float64
 	for n, c := range fx.Casos {
-		r := cabezaConj(p, e, c.S, c.Sims, c.L0)
+		r := cabezaConj(p, e, c.S, c.Sims, nil, c.L0)
 		for i, o := range p.Opciones {
 			peor = math.Max(peor, math.Abs(r.Probs[o.ID]-c.Probs[i]))
 		}
@@ -98,7 +98,7 @@ func TestL2cParidadConPython(t *testing.T) {
 				t.Errorf("caso %d: simproto[%d] Go %v Python %v", n, i, sp[i], c.Sp[i])
 			}
 		}
-		r := cabezaConj(p, e, c.S, c.Sims, c.L0)
+		r := cabezaConj(p, e, c.S, c.Sims, nil, c.L0)
 		var suma float64
 		for i, o := range p.Opciones {
 			d := math.Abs(r.Probs[o.ID] - c.Probs[i])
@@ -121,7 +121,7 @@ type simFalsa struct {
 	n    int
 }
 
-func (s *simFalsa) Similitudes(Pregunta) ([][]float32, []float64, bool, error) {
+func (s *simFalsa) Similitudes(context.Context, Pregunta) ([][]float32, []float64, bool, error) {
 	s.n++
 	return s.S, s.sims, true, nil
 }
@@ -220,18 +220,48 @@ func (d decisorFijo) Nombre() string                                       { ret
 func (d decisorFijo) Decidir(context.Context, Pregunta) (Respuesta, error) { return d.r, nil }
 
 func BenchmarkL2cCabeza(b *testing.B) {
-	// Una tarea de 150 clases con 16 ranuras de 256: el coste de la cabeza sin el ONNX.
+	e, p, l0, sims, S := cabezaBench()
+	b.Run("armada", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			cabezaConj(p, &e, S, sims, nil, l0)
+		}
+	})
+	b.Run("decodificada", func(b *testing.B) {
+		raw, err := chispa3.CodificarConj([]chispa3.EntradaConj{e})
+		if err != nil {
+			b.Fatal(err)
+		}
+		c, err := chispa3.DecodificarConj(raw)
+		if err != nil {
+			b.Fatal(err)
+		}
+		d, ok := c.Buscar(e.Hash)
+		if !ok {
+			b.Fatal("entrada no encontrada")
+		}
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			cabezaConj(p, d, S, sims, nil, l0)
+		}
+	})
+}
+
+// cabezaBench arma una tarea de 150 clases con 16 ranuras de 256: el coste de la cabeza sin el ONNX.
+func cabezaBench() (e chispa3.EntradaConj, p Pregunta, l0 map[string]float64, sims []float64, S [][]float32) {
 	const C, K, D = 150, 16, 256
-	e := chispa3.EntradaConj{Cabeza: chispa3.CabezaLR, K: K, D: D, T: 0.1, Beta: 1, Esc: [3]float32{1, 1, 1},
+	e = chispa3.EntradaConj{Cabeza: chispa3.CabezaLR, K: K, D: D, T: 0.1, Beta: 1, Esc: [3]float32{1, 1, 1},
 		W: []float32{1, 1, 1, 0.1, 0.1, 0.1}}
-	p := Pregunta{Kind: KindChoice}
-	l0, sims := map[string]float64{}, make([]float64, C)
+	p = Pregunta{Kind: KindChoice}
+	l0, sims = map[string]float64{}, make([]float64, C)
 	for i := 0; i < C; i++ {
 		id := string(rune('A'+i/26)) + string(rune('a'+i%26))
 		e.Clases = append(e.Clases, id)
 		p.Opciones = append(p.Opciones, Opcion{ID: id})
 		l0[id], sims[i] = 1.0/C, float64(i%7)/7
 	}
+	e.Hash = chispa3.HashEsquema("bench", e.Clases)
 	e.Escala, e.Proto = make([]float32, C*K), make([]byte, C*K*D)
 	for i := range e.Escala {
 		e.Escala[i] = 0.01
@@ -239,17 +269,14 @@ func BenchmarkL2cCabeza(b *testing.B) {
 	for i := range e.Proto {
 		e.Proto[i] = byte(i * 31)
 	}
-	S := make([][]float32, K)
+	S = make([][]float32, K)
 	for k := range S {
 		S[k] = make([]float32, D)
 		for j := range S[k] {
 			S[k][j] = float32(j%5) / 5
 		}
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		cabezaConj(p, &e, S, sims, l0)
-	}
+	return
 }
 
 func ficheroCon(t *testing.T, conj []byte) *chispa3.Fichero {

@@ -1,13 +1,14 @@
 //go:build js && wasm
 
 // Command main compila a wasm y expone a JavaScript: cargar(bytes), decidir(texto, preguntaJSON),
-// huella(frasesJSON) y medir(tokens, reps, preguntaJSON). Todas devuelven un objeto {ok, ...} o {ok:false, error}.
+// decidirLote(textosJSON, preguntaJSON), memoriaGo(), huella(frasesJSON) y medir(tokens, reps, preguntaJSON). Todas devuelven un objeto {ok, ...} o {ok:false, error}.
 package main
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 	"syscall/js"
 
 	"chispa/demo/wasm/nucleo"
@@ -67,6 +68,22 @@ func main() {
 		}
 		l, err := demo.Medir(a[0].Int(), a[1].Int(), a[2].String())
 		return resultado(l, err)
+	}))
+	js.Global().Set("decidirLote", js.FuncOf(func(_ js.Value, a []js.Value) any {
+		if demo == nil {
+			return resultado(nil, errSinModelo)
+		}
+		var t []string
+		if err := json.Unmarshal([]byte(a[0].String()), &t); err != nil {
+			return resultado(nil, err)
+		}
+		l, err := demo.DecidirLote(t, a[1].String())
+		return resultado(l, err)
+	}))
+	js.Global().Set("memoriaGo", js.FuncOf(func(_ js.Value, _ []js.Value) any {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		return map[string]any{"heap_alloc": float64(m.HeapAlloc), "sys": float64(m.Sys), "num_gc": float64(m.NumGC)}
 	}))
 	js.Global().Set("chispaListo", true)
 	select {} // el runtime de Go debe seguir vivo para atender las llamadas de JS

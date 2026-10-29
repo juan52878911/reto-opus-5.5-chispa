@@ -14,5 +14,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- exported: se lanza desde adb con am start y el extra booleano auto = true. -->
+        <activity
+            android:name=".MedirActivity"
+            android:label="Medir"
+            android:exported="true" />
     </application>
 </manifest>

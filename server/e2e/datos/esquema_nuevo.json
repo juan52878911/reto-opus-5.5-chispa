@@ -1,0 +1,1 @@
+{"id":"urgencia","pregunta":"¿Qué tan urgente es la solicitud del cliente?","tipo":"choice","opciones":{"alta":"necesita respuesta hoy o hay una obra detenida","media":"puede esperar un par de días","baja":"solo consulta sin fecha"}}

@@ -1,0 +1,52 @@
+import Foundation
+import OnnxRuntimeBindings
+
+/// El ONNX de la torre (sección TORR) sobre ONNX Runtime con el EP de CoreML; si no se puede añadir o la sesión no se crea con él, se reabre en CPU.
+/// `ORTSession` solo abre rutas: los bytes de `Motor.onnxTorre` se escriben una vez (nombre por sha256, escritura atómica) en el
+/// directorio temporal. Entradas `input_ids` y `attention_mask` (int64, [1, n]); salida `h` (float32, [1, d]).
+/// Las llamadas a `run` se serializan.
+public final class SesionTorreOrt: SesionTorre {
+    private let entorno: ORTEnv
+    private let sesion: ORTSession
+    private let cerrojo = NSLock()
+
+    /// El proveedor con el que quedó la sesión (`.cpu` si el pedido falló).
+    public let proveedorEfectivo: ProveedorOrt
+
+    public init(onnx: Data, proveedor: ProveedorOrt = proveedorOrtPorDefecto) throws {
+        let ruta = try CacheFicheros.rutaOnnxTorre(onnx, dir: FileManager.default.temporaryDirectory)
+        let env = try ORTEnv(loggingLevel: .warning)
+        entorno = env
+        let (s, efectivo) = try abrirConRespaldo(proveedor, etiqueta: "torre") { p in
+            try ORTSession(env: env, modelPath: ruta, sessionOptions: try opcionesOrt(p))
+        }
+        sesion = s
+        proveedorEfectivo = efectivo
+    }
+
+    /// Compatibilidad con `coreML: Bool`.
+    public convenience init(onnx: Data, coreML: Bool) throws {
+        try self.init(onnx: onnx, proveedor: coreML ? .coreML : .cpu)
+    }
+
+    public func embeber(_ ids: [Int64]) throws -> [Float] {
+        guard !ids.isEmpty else { throw ErrorChispa("torre: texto sin tokens") }
+        let forma: [NSNumber] = [1, NSNumber(value: ids.count)]
+        let mascara = [Int64](repeating: 1, count: ids.count)
+        func tensor(_ v: [Int64]) throws -> ORTValue {
+            let d = NSMutableData(data: v.withUnsafeBufferPointer { Data(buffer: $0) })
+            return try ORTValue(tensorData: d, elementType: .int64, shape: forma)
+        }
+        let entradas = ["input_ids": try tensor(ids), "attention_mask": try tensor(mascara)]
+        cerrojo.lock()
+        defer { cerrojo.unlock() }
+        let salidas = try sesion.run(withInputs: entradas, outputNames: ["h"], runOptions: nil)
+        guard let h = salidas["h"] else { throw ErrorChispa("torre: el modelo no devolvió h") }
+        let forma2 = try h.tensorTypeAndShapeInfo().shape.map { $0.intValue }
+        guard forma2.count == 2, forma2[0] == 1 else { throw ErrorChispa("torre: forma de h \(forma2)") }
+        let bytes = try h.tensorData() as Data
+        let datos = bytes.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        guard datos.count == forma2[1] else { throw ErrorChispa("torre: h trae \(datos.count) valores para \(forma2)") }
+        return datos
+    }
+}

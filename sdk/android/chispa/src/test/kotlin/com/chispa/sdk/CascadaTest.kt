@@ -60,7 +60,7 @@ class CascadaTest {
         assertTrue(r.escalar)
         assertEquals("compra", r.respuesta) // la de mayor confianza vista
         assertEquals(0.60, r.confianza, 1e-12)
-        assertEquals("L2", r.capa) // la última de la cascada
+        assertEquals("escalar", r.capa) // como CapaEscalar del servidor
     }
 
     @Test
@@ -69,7 +69,7 @@ class CascadaTest {
         assertTrue(r.escalar)
         assertEquals("", r.respuesta)
         assertEquals(0.0, r.confianza, 0.0)
-        assertEquals("L1", r.capa)
+        assertEquals("escalar", r.capa)
     }
 
     @Test

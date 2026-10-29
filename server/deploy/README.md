@@ -18,7 +18,10 @@ Hace falta red (descarga ORT de GitHub y `onnxruntime_go` de proxy.golang.org).
 
 ## Usar
 ```
-docker run --rm -p 8090:8090 -v /ruta/modelos:/modelos:ro chispa-server      # sirve /modelos/modelo.chispa
+docker run --rm --stop-timeout 40 -p 8090:8090 -v /ruta/modelos:/modelos:ro -v /ruta/config.json:/etc/chispa/config.json:ro \
+  chispa-server -modelo /modelos/modelo.chispa -config /etc/chispa/config.json   # producción: config con api_keys (cada una con rps > 0)
+docker run --rm --stop-timeout 40 -p 8090:8090 -v /ruta/modelos:/modelos:ro chispa-server -abierto   # SOLO pruebas: sin autenticación
+# La imagen drena con -apagado 35s (>= -timeout 30s): la gracia de parada debe ser >= 40 s (--stop-timeout 40; en Kubernetes terminationGracePeriodSeconds: 40).
 curl -s localhost:8090/healthz
 curl -s localhost:8090/v1/decide -d @server/decide/testdata/choice.req.json
 ```
@@ -26,8 +29,8 @@ curl -s localhost:8090/v1/decide -d @server/decide/testdata/choice.req.json
 Contrato y endpoints: `server/README.md`. `carga` va en la imagen (`--entrypoint carga`).
 
 ## Limitaciones
-- **L2 no responde aún**: falta el tokenizador de e5 en Go (`decide.Tokenizador`; `main.go` pasa `nil`). La imagen
-  compila y carga ORT, pero L2 queda en stub hasta que exista. `chispa-server` solo admite un `-modelo`;
+- **L2 responde si se pasa `-tok`** (`.chispa-tok` de e5, `runtime/tok/exportar.py`; `main.go`); sin él, L2 queda en stub.
+  Otros flags: `-addr`, `-config`, `-modelo` y `-timeout` (tope por petición, 30 s por defecto; responde 503; 0 = sin tope). `chispa-server` solo admite un `-modelo`;
   `arranque.sh` fusiona `l0l1.chispa` y `l2.chispa` con `deploy/mkmodelo -unir` (gana el primero si repiten sección).
 - `go build -tags ort` está **sin compilar**: `l2_ort.go` se escribió de memoria contra `onnxruntime_go`. La prueba
   en AWS lo decide; si falla, `FALLO` en el log lo dice con el error del compilador.
