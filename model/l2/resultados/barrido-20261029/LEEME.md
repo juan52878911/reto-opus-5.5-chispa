@@ -28,3 +28,9 @@ trata como un escalar. No lo relanzo: **se escala**. El arreglo es leer los umbr
 `probs_de`. Ver `calib-score.log`.
 
 Coste: una c6a de 3 min, ≈ 0,01 USD.
+
+## `.chispa` con score K ≥ 3: generado tras G.7c (`10357d9`)
+- Ruta: `s3://chispa-pruebas-879381269751/barrido-20261029b/score/l2-score.chispa` (48,3 MB), con el checkpoint de G.8
+  corrida 2 y el dev de JevBench.
+- Claves de CALIB: `score4`, `score4#1`, `score4#2`, `score5`, `score5#1`, `score5#2` y `score5#3`.
+- Logs en el mismo prefijo `score/`.
