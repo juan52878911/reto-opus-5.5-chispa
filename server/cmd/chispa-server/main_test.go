@@ -84,31 +84,12 @@ func TestExigirClaves(t *testing.T) {
 	}
 }
 
-// bloqueo deja pasar peticiones a /v1/decide solo cuando se suelta.
-func TestConLimitesSaturaYApaga(t *testing.T) {
-	entro, suelta := make(chan struct{}), make(chan struct{})
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/decide" {
-			entro <- struct{}{}
-			<-suelta
-		}
-	})
+func TestConLimitesApaga(t *testing.T) {
 	var apagando atomic.Bool
-	srv := httptest.NewServer(conLimites(h, 1, &apagando))
+	srv := httptest.NewServer(conLimites(http.NotFoundHandler(), &apagando))
 	defer srv.Close()
-	go http.Post(srv.URL+"/v1/decide", "application/json", strings.NewReader("{}"))
-	<-entro
-	resp, err := http.Post(srv.URL+"/v1/decide", "application/json", strings.NewReader("{}"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 503 || resp.Header.Get("Retry-After") == "" {
-		t.Fatalf("saturado: %d retry=%q", resp.StatusCode, resp.Header.Get("Retry-After"))
-	}
-	close(suelta)
 	apagando.Store(true)
-	resp, _ = http.Get(srv.URL + "/healthz")
+	resp, _ := http.Get(srv.URL + "/healthz")
 	resp.Body.Close()
 	if resp.StatusCode != 503 {
 		t.Fatalf("healthz apagando: %d", resp.StatusCode)

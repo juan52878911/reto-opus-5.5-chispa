@@ -33,7 +33,8 @@ func main() {
 	timeout := flag.Duration("timeout", 30*time.Second, "tope de tiempo por petición (cancela su ctx y responde 503 con Retry-After y código timeout); 0 = sin tope")
 	ortLib := flag.String("ort-lib", "", "libonnxruntime.so para L2 y la torre (precede a CHISPA_ORT_LIB y a -ldflags -X …decide.RutaORT; vacío = la del sistema)")
 	maxConex := flag.Int("max-conexiones", 1024, "tope de conexiones TCP abiertas a la vez (0 = sin tope); evita agotar los descriptores con conexiones ociosas")
-	maxEnCurso := flag.Int("max-en-curso", 64, "tope de peticiones a /v1/decide en curso a la vez (0 = sin tope); al llenarse responde 503 overloaded con Retry-After")
+	maxEnCurso := flag.Int("max-en-curso", 64, "tope de peticiones a /v1/decide en curso a la vez (0 = sin tope); al llenarse responde 429 rate_limited con Retry-After (contado en /metrics)")
+	preDrenaje := flag.Duration("pre-drenaje", 0, "al recibir SIGTERM/SIGINT, /healthz responde 503 shutting_down este tiempo con los listeners aún abiertos, para que el balanceador saque el nodo, y luego empieza el apagado (0 = sin espera)")
 	apagado := flag.Duration("apagado", 25*time.Second, "plazo para terminar las peticiones en vuelo tras SIGTERM/SIGINT")
 	abierto := flag.Bool("abierto", false, "permite escuchar fuera de loopback sin api_keys (también vale api_keys_abierto en la config)")
 	adminAddr := flag.String("admin-addr", "", "dirección de escucha aparte para POST /v1/admin/recargar (p. ej. 127.0.0.1:8091); la pública deja de servirla (404). Vacío = comparte -addr")
@@ -75,7 +76,7 @@ func main() {
 	}
 	srv0 := decide.NuevoServidorDe(inicial, met)
 	srv0.ConRecargaDe(armar(met), inicial)
-	srv0.ConPlazoCuerpo(*plazoCuerpo).ConMetricasProtegidas(*metricasProt)
+	srv0.ConMaxEnCurso(*maxEnCurso).ConPlazoCuerpo(*plazoCuerpo).ConMetricasProtegidas(*metricasProt)
 	adminOn := inicial.AdminToken != "" || inicial.AdminTokenSHA256 != ""
 	if *metricasProt && len(inicial.APIKeys) == 0 && (inicial.AdminTokenSHA256 != "" || !adminOn) {
 		log.Print("AVISO: -metricas-protegidas sin api_keys (y sin admin_token en claro): /metrics responderá 401 siempre")
@@ -84,7 +85,7 @@ func main() {
 		log.Printf("AVISO: /v1/admin/recargar comparte el puerto público %s; use -admin-addr 127.0.0.1:<puerto> para separarla", *addr)
 	}
 	apagando := &atomic.Bool{}
-	handler := conLimites(montarHandler(srv0, adminOn, *timeout, met), *maxEnCurso, apagando)
+	handler := conLimites(montarHandler(srv0, adminOn, *timeout, met), apagando)
 	handler = conMetricasAdmin(handler, met)
 	var adminSrv *http.Server
 	if adminOn && *adminAddr != "" {
@@ -132,28 +133,53 @@ func main() {
 	}
 	parar()
 	apagando.Store(true)
+	if *preDrenaje > 0 {
+		log.Printf("apagando (pre-drenaje): /healthz responde 503 shutting_down durante %s antes de cerrar los listeners", *preDrenaje)
+		time.Sleep(*preDrenaje)
+	}
 	log.Printf("apagando: dejo de aceptar y espero las peticiones en vuelo hasta %s", *apagado)
 	sctx, cancel := context.WithTimeout(context.Background(), *apagado)
 	defer cancel()
-	code := 0
-	if adminSrv != nil {
-		adminSrv.Shutdown(sctx)
-	}
-	if err := srv.Shutdown(sctx); err != nil {
-		log.Printf("apagado: plazo agotado con peticiones en vuelo (%v): se cortan", err)
-		srv.Close()
-		code = 1
-	}
+	code := apagarTodo(sctx, srv, adminSrv)
 	cierres.cerrarTodo()
 	log.Print("apagado")
 	os.Exit(code)
+}
+
+// apagarTodo apaga a la vez el listener público y el de administración con el mismo ctx; devuelve 1 si alguno agota el plazo
+// (y lo corta), 0 si no.
+func apagarTodo(ctx context.Context, srv, adminSrv *http.Server) int {
+	var wg sync.WaitGroup
+	var fallos atomic.Int32
+	for _, c := range []struct {
+		nombre string
+		s      *http.Server
+	}{{"público", srv}, {"administración", adminSrv}} {
+		if c.s == nil {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := c.s.Shutdown(ctx); err != nil {
+				log.Printf("apagado: %s: plazo agotado con peticiones en vuelo (%v): se cortan", c.nombre, err)
+				c.s.Close()
+				fallos.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	if fallos.Load() > 0 {
+		return 1
+	}
+	return 0
 }
 
 // cierres sigue los Cerrar de los modelos armados (el de servicio y los pendientes) para liberarlos al apagar: el servidor solo
 // cierra los retirados por una recarga. Cada Cerrar corre una sola vez aunque lo llamen el servidor y el apagado.
 type cierres struct {
 	mu   sync.Mutex
-	todo []func() error
+	todo map[*func() error]func() error
 }
 
 func (c *cierres) registrar(a *decide.Armado) {
@@ -163,16 +189,33 @@ func (c *cierres) registrar(a *decide.Armado) {
 	orig := a.Cerrar
 	var once sync.Once
 	var err error
-	a.Cerrar = func() error { once.Do(func() { err = orig() }); return err }
+	id := new(func() error)
+	a.Cerrar = func() error {
+		once.Do(func() {
+			err = orig()
+			// Ya cerrado: se suelta para que no retenga el modelo (el .chispa, L1, L2) hasta el apagado.
+			c.mu.Lock()
+			delete(c.todo, id)
+			c.mu.Unlock()
+		})
+		return err
+	}
 	c.mu.Lock()
-	c.todo = append(c.todo, a.Cerrar)
+	if c.todo == nil {
+		c.todo = map[*func() error]func() error{}
+	}
+	c.todo[id] = a.Cerrar
 	c.mu.Unlock()
 }
 
 func (c *cierres) cerrarTodo() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
+	fs := make([]func() error, 0, len(c.todo))
 	for _, f := range c.todo {
+		fs = append(fs, f)
+	}
+	c.mu.Unlock() // cada f toma c.mu al terminar
+	for _, f := range fs {
 		if err := f(); err != nil {
 			log.Printf("apagado: cerrar modelo: %v", err)
 		}
@@ -182,20 +225,17 @@ func (c *cierres) cerrarTodo() {
 // nuevoHTTPServer fija los plazos del servidor. WriteTimeout = timeout+5 s (el -timeout lo corta antes con su 503 tipado).
 func nuevoHTTPServer(addr string, h http.Handler, timeout time.Duration) *http.Server {
 	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second,
-		IdleTimeout: 60 * time.Second, MaxHeaderBytes: 64 << 10}
+		IdleTimeout: 10 * time.Second, MaxHeaderBytes: 64 << 10}
 	if timeout > 0 {
 		srv.WriteTimeout = timeout + 5*time.Second
 	}
 	return srv
 }
 
-// conLimites aplica el semáforo de /v1/decide (503 overloaded con Retry-After, sin leer el cuerpo), baja /healthz a 503 al apagar
-// y quita el plazo de escritura a la recarga admin, que puede tardar más.
-func conLimites(h http.Handler, maxEnCurso int, apagando *atomic.Bool) http.Handler {
-	var sem chan struct{}
-	if maxEnCurso > 0 {
-		sem = make(chan struct{}, maxEnCurso)
-	}
+// conLimites baja /healthz a 503 shutting_down al apagar y, en la recarga admin, amplía solo el plazo de escritura (la recarga
+// puede tardar más). El de lectura no se toca, y si la petición trae cuerpo se responde con Connection: close: net/http vacía el
+// cuerpo antes de escribir y un cliente que prometa Content-Length y no lo mande retendría la conexión hasta ReadTimeout.
+func conLimites(h http.Handler, apagando *atomic.Bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/healthz":
@@ -206,26 +246,17 @@ func conLimites(h http.Handler, maxEnCurso int, apagando *atomic.Bool) http.Hand
 				return
 			}
 		case "/v1/admin/recargar":
-			rc := http.NewResponseController(w)
-			rc.SetWriteDeadline(time.Time{})
-			rc.SetReadDeadline(time.Time{})
-		case "/v1/decide":
-			if sem != nil {
-				select {
-				case sem <- struct{}{}:
-					defer func() { <-sem }()
-				default:
-					w.Header().Set("Content-Type", "application/json")
-					w.Header().Set("Retry-After", "1")
-					w.WriteHeader(http.StatusServiceUnavailable)
-					io.WriteString(w, `{"error":{"code":"overloaded","message":"servidor saturado: demasiadas peticiones en curso"}}`+"\n")
-					return
-				}
+			http.NewResponseController(w).SetWriteDeadline(time.Now().Add(plazoEscrituraAdmin))
+			if r.ContentLength != 0 {
+				w.Header().Set("Connection", "close")
 			}
 		}
 		h.ServeHTTP(w, r)
 	})
 }
+
+// plazoEscrituraAdmin es lo que tiene la recarga admin para terminar y responder.
+const plazoEscrituraAdmin = 10 * time.Minute
 
 // limitarConexiones envuelve ln con un tope de conexiones abiertas (como netutil.LimitListener): Accept espera un hueco.
 func limitarConexiones(ln net.Listener, n int) net.Listener {
