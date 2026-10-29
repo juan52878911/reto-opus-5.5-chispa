@@ -42,7 +42,7 @@ def tabla(res):
                    ("go_test_tok", "`TestIgualdadTransformersPasaje` (CHISPA_TOK)"), ("train_torre", "`chispa train --torre`"),
                    ("build_server", "`chispa-server -tags ort` compila")):
         v = estado.get(k)
-        fila(txt, None if v is None else v.startswith("OK"), v.partition(" ")[2] if v else "no llegó")
+        fila(txt, None if v is None or v.startswith("OMITIDO") else v.startswith("OK"), v if v and v.startswith("OMITIDO") else v.partition(" ")[2] if v else "no llegó")
     if srv:
         fila("5 esquemas de JevBench fuera del .chispa decididos por L2 en /v1/decide", bool(srv.get("cinco_l2")),
              "capas %s; aciertos %d/%d" % ([c["layer"] for c in srv.get("cinco", [])], srv.get("cinco_aciertos", 0), len(srv.get("cinco", []))))
