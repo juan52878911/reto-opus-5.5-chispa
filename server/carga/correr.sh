@@ -18,6 +18,8 @@ for c in $CONCS; do [ "$c" -le 64 ] || { echo "máximo 64 conexiones (nodo compa
 [ "$PUERTO" != 8090 ] || { echo "usa un puerto propio, no 8090"; exit 2; }
 [ -f "$TEXTOS" ] || { echo "no existe $TEXTOS"; exit 2; }
 SEG=${DUR%s}
+# el puerto debe estar libre: si no, mediríamos el servidor de otro trabajo
+if curl -s -o /dev/null -m1 "http://127.0.0.1:$PUERTO/healthz"; then echo "el puerto $PUERTO ya está ocupado; usa -p con otro"; exit 1; fi
 
 TMP=$(mktemp -d); SPID=""; LPID=""
 parar() { [ -n "$LPID" ] && kill "$LPID" 2>/dev/null || true; [ -n "$SPID" ] && kill "$SPID" 2>/dev/null && wait "$SPID" 2>/dev/null || true; rm -rf "$TMP"; }
@@ -55,16 +57,22 @@ for modo in $MODOS; do
   args=(-addr "127.0.0.1:$PUERTO" -config "$TMP/cfg-$modo.json")
   [ -n "$MODELO" ] && args+=(-modelo "$MODELO"); [ -n "$TOK" ] && args+=(-tok "$TOK")
   (cd "$SRV" && exec "$TMP/chispa-server" "${args[@]}") > "$TMP/srv-$modo.log" 2>&1 & SPID=$!
-  for i in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$PUERTO/healthz" -m1 && break; kill -0 $SPID 2>/dev/null || { cat "$TMP/srv-$modo.log"; exit 1; }; sleep 0.2; done
+  listo=0
+  for i in $(seq 50); do
+    kill -0 $SPID 2>/dev/null || { cat "$TMP/srv-$modo.log"; exit 1; }
+    curl -s -o /dev/null "http://127.0.0.1:$PUERTO/healthz" -m1 && { listo=1; break; }; sleep 0.2
+  done
+  sleep 0.2   # si el servidor muere por «address already in use», que dé tiempo a verlo
+  if [ "$listo" = 0 ] || ! kill -0 $SPID 2>/dev/null || grep -q "address already in use" "$TMP/srv-$modo.log"; then cat "$TMP/srv-$modo.log"; echo "el servidor no arrancó bien en el puerto $PUERTO"; exit 1; fi
   "$TMP/carga" -url "http://127.0.0.1:$PUERTO/v1/decide" -c 4 -d 2s -textos "$TEXTOS" >/dev/null 2>&1 || true   # calentamiento
   for c in $CONCS; do for t in $(seq "$TANDAS"); do
     ( while :; do echo "$(cut -d' ' -f1 /proc/loadavg)" >> "$TMP/load-$modo-$c-$t"; sleep 2; done ) & LPID=$!
     salida=$("$TMP/carga" -url "http://127.0.0.1:$PUERTO/v1/decide" -c "$c" -d "$DUR" -textos "$TEXTOS" -csv -capas 2>&1 || true)
     kill $LPID 2>/dev/null; wait $LPID 2>/dev/null || true; LPID=""
-    linea=$(echo "$salida" | grep -E '^[0-9.]+,[0-9.]+,[0-9.]+,[0-9.]+,[0-9]+,[0-9]+$' || echo "0,0,0,0,0,?")
+    linea=$(echo "$salida" | grep -E '^[0-9.]+,[0-9.]+,[0-9.]+,[0-9.]+,[0-9]+,[0-9]+$' || echo "0,0,0,0,0,-1")   # errores=-1: tanda fallida entera
     capas=$(echo "$salida" | sed -n 's/^capas=//p')
     echo "$modo,$c,$t,$linea,\"${capas:--}\"" >> "$CSV"
-    echo "$modo c=$c tanda=$t -> $linea ${capas:-}" >&2
+    [ "${linea##*,}" = -1 ] && { echo "$modo c=$c tanda=$t FALLÓ: $(echo "$salida" | tail -1)" >&2; } || echo "$modo c=$c tanda=$t -> $linea ${capas:-}" >&2
   done; done
   grep -i "stub\|ort\|L2" "$TMP/srv-$modo.log" | head -3 > "$TMP/avisos-$modo" || true
   kill $SPID; wait $SPID 2>/dev/null || true; SPID=""
@@ -84,14 +92,13 @@ if [ "$L2STUB" = 1 ]; then echo "- **L2 en stub** (sin ORT/modelo/tok): el modo 
 echo
 echo "## Resultados (media de tandas; p50 = media, p99 = peor tanda)"
 echo
+echo "Las tandas que fallaron enteras (errores=-1 en el CSV) no entran en las medias; si hay, la fila dice FALLÓ."
+echo
 echo "Objetivos: l1 ≥ 5000 dec/s con p99 < 20 ms · l2 ≥ 300 dec/s."
 echo
 echo "| modo | c | dec/s | p50 ms | p99 ms | errores | tandas | objetivo |"
 echo "|---|---|---|---|---|---|---|---|"
-awk -F, -v stub="$L2STUB" 'NR>1{k=$1","$2; n[k]++; d[k]+=$4; p5[k]+=$6; if($7>p9[k])p9[k]=$7; e[k]+=$9; if(!(k in ord)){ord[k]=++m; key[m]=k}}
- END{for(i=1;i<=m;i++){k=key[i]; split(k,a,","); dd=d[k]/n[k]; ok="-";
-  if(a[1]=="l1") ok=(dd>=5000&&p9[k]<20)?"cumple":"NO cumple"; else if(a[1]=="l2") ok=stub?"n/a (L2 stub)":(dd>=300)?"cumple":"NO cumple";
-  printf "| %s | %s | %.0f | %.3f | %.3f | %d | %d | %s |\n",a[1],a[2],dd,p5[k]/n[k],p9[k],e[k],n[k],ok}}' "$CSV"
+awk -F, -v stub="$L2STUB" -f "$(dirname "$0")/tabla.awk" "$CSV"
 echo
 echo "Capas que decidieron (última tanda de cada punto) y datos por tanda: ver \`$(basename "$CSV")\`."
 for m in $MODOS; do echo; echo "Log del servidor ($m):"; echo '```'; cat "$TMP/avisos-$m" 2>/dev/null; echo '```'; done
