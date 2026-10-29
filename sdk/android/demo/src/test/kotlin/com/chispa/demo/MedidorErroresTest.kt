@@ -22,7 +22,7 @@ class MedidorErroresTest {
 
     @Test
     fun unFalloDeCapaSeCuentaComoErrorYQuedaEnLaNota() {
-        val fallos = Medidor.FallosCapa()
+        val fallos = Medidor.Companion.FallosCapa()
         val cascada = Cascada(listOf(CapaConTau(capaRota, 0.0)), alErrorCapa = fallos::anotar)
         val r = Medidor.medir("t", "zero-shot", "c", ConfigMedida(n = 3, calentamiento = 2), {}, { false }, fallos) {
             cascada.decidir(it, pregunta)
@@ -33,7 +33,7 @@ class MedidorErroresTest {
 
     @Test
     fun sinFallosErroresSigueEnCero() {
-        val fallos = Medidor.FallosCapa()
+        val fallos = Medidor.Companion.FallosCapa()
         val r = Medidor.medir("t", "few-shot", "c", ConfigMedida(n = 2, calentamiento = 1), {}, { false }, fallos) {
             com.chispa.sdk.Respuesta("a", 1.0, mapOf("a" to 1.0), "L1", false, 0.1)
         }

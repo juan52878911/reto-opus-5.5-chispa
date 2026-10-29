@@ -66,15 +66,15 @@ final class TauEsquemaNuevoTests: XCTestCase {
         XCTAssertEqual(try Chispa.soporteDe(3, nil)?.1, Chispa.lambdaApagado)
         XCTAssertEqual(try Chispa.soporteDe(nil, 0)?.0, Chispa.lambdaApagado)
         // +∞ ya no apaga: es «solo descripción» y llega tal cual al motor.
-        XCTAssertEqual(try Chispa.soporteDe(.infinity, 0)?.0, .infinity)
+        XCTAssertEqual(try Chispa.soporteDe(Double.infinity, 0)?.0, Double.infinity)
     }
 
     /// R4 #15: un λ negativo o NaN es error al abrir (antes se apagaba el soporte sin avisar); nil sigue siendo apagado.
     func testLambdaNegativoONaNEsError() {
         XCTAssertThrowsError(try Chispa.soporteDe(-5, nil))
         XCTAssertThrowsError(try Chispa.soporteDe(nil, -0.5))
-        XCTAssertThrowsError(try Chispa.soporteDe(2, .nan))
-        XCTAssertThrowsError(try Chispa.soporteDe(-.infinity, 0))
+        XCTAssertThrowsError(try Chispa.soporteDe(2, Double.nan))
+        XCTAssertThrowsError(try Chispa.soporteDe(-Double.infinity, 0))
         XCTAssertNil(try Chispa.soporteDe(nil, nil))
     }
 }

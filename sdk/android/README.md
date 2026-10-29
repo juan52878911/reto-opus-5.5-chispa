@@ -59,3 +59,17 @@ API de `onnxruntime-android` 1.19.2 (`build.gradle.kts`) escrita de memoria, sin
 5. `Pair<T, ProveedorOrt>` desestructurado en `init` de `SesionOrt`/`SesionTorreOrt` con `val` asignados después: Kotlin lo admite.
 6. Test: `abrirConRespaldo<String>(…)` con lambda final de `crear`; si Kotlin no infiere `T`, ya va explícito donde el cierre solo lanza.
 7. Demo: `Medidor.conProveedor` y los parámetros nuevos de `ResultadoEscenario` (con valor por defecto) no rompen `EstadisticasTest`.
+
+## Revisión estática de los tests frente a las firmas (sin kotlinc/JDK en el nodo)
+Se leyeron a mano los 10 ficheros de `chispa/src/test` y los 3 de `demo/src/test` contra `Motor`, `Capa`, `CapaL2`, `Cascada`,
+`Chispa.montar/soporteDe`, `CacheFicheros`, `abrirConRespaldo`, `Medidor.medir` y `ConfigMedida` (nombres de parámetros,
+número y orden, tipos, valores por defecto, `internal`, miembros de `Motor` en `MotorFalso`). Arreglado: `Medidor.FallosCapa`
+está declarada dentro del `companion`, y los tests la citaban como `Medidor.FallosCapa()` (se usa `Medidor.Companion.FallosCapa()`);
+`MotorFalso.textosTorreL2` lleva ahora el tipo de retorno explícito. No se cambió ninguna API.
+Sigue sin asegurarse (nadie lo compiló):
+- Conversión SAM de lambdas a parámetros `fun interface` anulables (`Tokenizador?`, `CodificadorTorre?`) en `Chispa.montar` y `CapaL2(...)`: válida en Kotlin ≥ 1.4, pero no comprobada con la versión del proyecto.
+- `Medidor.Companion.FallosCapa` desde el test del demo y `Medidor.medir` (`internal`): mismo módulo de test, pero sin compilar.
+- Que `android.util.Log` lance `RuntimeException` en la JVM de test (el código lo captura); `unitTests.isReturnDefaultValues` no está activado.
+- El resultado numérico de los tests (se razonó a mano la traza de cada uno, no se ejecutó).
+- `androidTest/MedirP99Test.kt` queda fuera de este repaso.
+Verificar con: `cd sdk/android && ./gradlew :chispa:testDebugUnitTest :demo:testDebugUnitTest`.
