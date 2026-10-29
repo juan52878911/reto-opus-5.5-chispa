@@ -55,6 +55,13 @@ class TestDatos(unittest.TestCase):
         q, extra = cargar_esquema(self.d / "e.yaml")
         self.assertEqual((q.kind, [o.id for o in q.options], extra["licencias"]), ("noul", ["false", "true"], {"x": "mit"}))
 
+    def test_esquema_con_separadores(self):
+        for c in "\x1d\x1e\x1f":
+            for d in (dict(ESQ, pregunta="¿a" + c + "b?"), dict(ESQ, id="x" + c), dict(ESQ, opciones=["a" + c, "b"]),
+                      dict(ESQ, opciones={"a": "d" + c, "b": ""})):
+                with self.assertRaisesRegex(ChispaError, "U\\+001D–U\\+001F"):
+                    cargar_esquema(self.esq(d))
+
     def test_esquema_invalido(self):
         for d, msg in [(dict(ESQ, tipo="raro"), "tipo"), (dict(ESQ, opciones=["a"]), "≥ 2"), ({"id": "x"}, "pregunta"),
                        (dict(ESQ, tipo="noul", opciones=["a", "b"]), "false y true"),

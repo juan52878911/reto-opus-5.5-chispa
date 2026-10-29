@@ -110,7 +110,7 @@ def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dic
         S, ok2 = maxsim_l2([t for t, _ in ex])
         S, Y2 = np.asarray(S)[ok2], Y_todo[ok2]
         if len(Y2) == 0 or Y2.all() or not Y2.any():
-            inf["motivo_l2"] = "multi_l2: sin variación en los ejemplos que L2 pueda puntuar; L2 usará la CALIB de noul"
+            inf["motivo_l2"] = "multi_l2: sin variación en los ejemplos que L2 pueda puntuar; L2 no opina en este esquema (sin CALIB multi_l2)"
         else:
             t2, a2, b2 = _ajustar_capa("multi_l2" + esq, ops, S, Y2)
             tipos.update(t2)
