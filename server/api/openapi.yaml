@@ -86,9 +86,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                timeout:
-                  value: {"error":{"code":"timeout","message":"la petición superó el tiempo máximo"}}
   /healthz:
     get:
       operationId: healthz
