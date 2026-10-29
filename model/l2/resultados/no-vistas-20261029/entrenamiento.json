@@ -1,0 +1,40 @@
+{
+ "pasos": 1640,
+ "total": 1640,
+ "mejor": {
+  "f1": 0.36430979953006365,
+  "paso": 1640
+ },
+ "filas": 78726,
+ "info": {
+  "locales": 78726,
+  "excluir": {
+   "conjuntos": [
+    "hatecheck",
+    "inyecciones",
+    "massive"
+   ],
+   "sin_filas_locales": []
+  },
+  "meta": {
+   "cuentas": {
+    "pawsx": 49129,
+    "sib200": 701,
+    "synzs": 2574521,
+    "tsjev": 564830
+   },
+   "cupo": {
+    "tsjev": 521274,
+    "sib200": 0,
+    "pawsx": 0,
+    "synzs": 0
+   },
+   "elegidas": 521416
+  },
+  "blandas": 528609,
+  "filas": 78726,
+  "meta_filas": 521416
+ },
+ "segundos": 636.9125769138336,
+ "interrumpido": false
+}
