@@ -5,6 +5,8 @@ torre y λ, servidor ORT con `-tok`, torre al vuelo con decisión de L2, recarga
 `evaluar`, `/metrics`). No se tocó código de producto.
 
 ## H1. `chispa-server` no permite indicar la ruta de ONNX Runtime, y sin ella L2 degrada a stub con 200
+
+**Resuelto en `593f065`:** `-ort-lib` > `CHISPA_ORT_LIB` > `-ldflags -X …decide.RutaORT=` > búsqueda del sistema, para L2 y para la torre; aviso al arrancar si ORT no carga. `correr.sh` ya no necesita `LD_LIBRARY_PATH`.
 - `server/decide/l2_ort.go:17` y `server/torre/ort.go:14` declaran `RutaORT`, pero nada en `server/cmd/chispa-server/main.go` la asigna
   (ni bandera ni variable de entorno). `CHISPA_ORT_LIB` solo la leen los tests (`server/decide/l2_ort_test.go:15`, `server/torre/ort_test.go:19`).
 - Resultado: `onnxruntime_go` busca `onnxruntime.so` por el cargador del sistema. Con un `libonnxruntime.so.1.31.1` (venv, nombre con
