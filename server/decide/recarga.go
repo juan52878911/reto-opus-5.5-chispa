@@ -147,6 +147,7 @@ func (s *Servidor) nuevoVivo(a *Armado, gen uint64) *vivo {
 	if a.L0 != nil {
 		s.Met.FijaEsquemas(a.L0.Hits.Load, a.L0.Misses.Load)
 	}
+	s.Met.FijaTauNuevo(a.Cascada.tauNuevo)
 	return &vivo{casc: a.Cascada, nonces: NewLRU[[]byte](n), lim: normalizaLimites(a.Limites), gen: gen, cerrar: a.Cerrar}
 }
 

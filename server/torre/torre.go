@@ -6,6 +6,7 @@ package torre
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 
@@ -70,6 +71,14 @@ func Abrir(t chispa3.Torre, tk Tokenizador) (*Codificador, error) {
 		return nil, err
 	}
 	return Nuevo(ses, tk, t), nil
+}
+
+// Close libera la sesión del codificador si tiene algo que liberar (la de ORT); no hace nada con sesiones sin Close.
+func (c *Codificador) Close() error {
+	if cl, ok := c.ses.(io.Closer); ok {
+		return cl.Close()
+	}
+	return nil
 }
 
 // Dim es la dimensión de h.

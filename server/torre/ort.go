@@ -40,6 +40,18 @@ type sesionORT struct {
 	s  *ort.DynamicAdvancedSession
 }
 
+// Close destruye la sesión de ORT; idempotente y seguro frente a un Run en curso (espera a que termine).
+func (o *sesionORT) Close() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.s == nil {
+		return nil
+	}
+	err := o.s.Destroy()
+	o.s = nil
+	return err
+}
+
 func (o *sesionORT) Embeber(ids, mascara []int64) ([]float32, error) {
 	n := int64(len(ids))
 	if n == 0 || int64(len(mascara)) != n {
@@ -57,6 +69,10 @@ func (o *sesionORT) Embeber(ids, mascara []int64) ([]float32, error) {
 	defer tm.Destroy()
 	salida := []ort.Value{nil}
 	o.mu.Lock()
+	if o.s == nil {
+		o.mu.Unlock()
+		return nil, errors.New("torre: sesión cerrada")
+	}
 	err = o.s.Run([]ort.Value{tid, tm}, salida)
 	o.mu.Unlock()
 	if err != nil {

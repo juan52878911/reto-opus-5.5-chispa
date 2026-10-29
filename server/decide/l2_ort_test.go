@@ -108,3 +108,28 @@ func TestL2TorreORTEsquemaNuevo(t *testing.T) {
 		t.Fatalf("segunda petición %q ≠ %q, aciertos %d", b, a, l2.Hits.Load())
 	}
 }
+
+// R4-3 con ORT real: Cerrar destruye las sesiones (L2 y torre), es idempotente y una sesión cerrada da error en vez de colgarse.
+func TestSesionesORTSeCierran(t *testing.T) {
+	l2onnx, err := os.ReadFile("testdata/l2_sintetico.onnx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ses, err := NuevaSesionORT(l2onnx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ses.Ranuras([]int64{0, 5, 2}); err != nil {
+		t.Fatal(err)
+	}
+	c := ses.(interface{ Close() error })
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Close(); err != nil {
+		t.Fatalf("segundo Close: %v", err)
+	}
+	if _, err := ses.Ranuras([]int64{0, 5, 2}); err == nil {
+		t.Fatal("Ranuras tras Close debe fallar")
+	}
+}
