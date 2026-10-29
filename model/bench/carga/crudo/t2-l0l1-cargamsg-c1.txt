@@ -1,0 +1,4 @@
+loadavg antes: 6.43 4.88 3.10 1/119 11197
+peticiones=169417 errores=0 lote=1 conc=1
+decisiones/s=5647 peticiones/s=5647 p50=171.118µs p99=310.641µs
+rss_servidor_kb: 213720

@@ -1,0 +1,4 @@
+loadavg antes: 6.04 5.19 3.99 1/118 12328
+peticiones=802666 errores=0 lote=1 conc=64
+decisiones/s=26739 peticiones/s=26739 p50=1.727835ms p99=11.283024ms
+rss_servidor_kb: 216732
