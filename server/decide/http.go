@@ -50,7 +50,6 @@ const (
 	ErrNoAutorizado      = "unauthorized"
 	ErrRecargaFallida    = "reload_failed"
 	ErrLimitada          = "rate_limited"
-	ErrSobrecarga        = "overloaded"
 )
 
 // Limites son los topes de entrada de /v1/decide. Un valor 0 en el JSON de configuración
@@ -95,7 +94,7 @@ type Servidor struct {
 // plazoCuerpoDefecto es lo que tiene un cliente para mandar el cuerpo entero de /v1/decide.
 const plazoCuerpoDefecto = 10 * time.Second
 
-// ConMaxEnCurso limita las peticiones a /v1/decide en curso a la vez (n ≤ 0 = sin tope). Se toma tras leer el cuerpo; al llenarse responde 503 overloaded
+// ConMaxEnCurso limita las peticiones a /v1/decide en curso a la vez (n ≤ 0 = sin tope). Se toma tras leer el cuerpo; al llenarse responde 429 rate_limited
 // con Retry-After. Acota la memoria de las decodificaciones simultáneas. Se llama antes de servir.
 func (s *Servidor) ConMaxEnCurso(n int) *Servidor {
 	if n > 0 {
@@ -271,7 +270,7 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 			defer func() { <-s.enCurso }()
 		default:
 			w.Header().Set("Retry-After", "1")
-			s.fallo(w, http.StatusServiceUnavailable, ErrSobrecarga, "", "servidor saturado: demasiadas peticiones en curso")
+			s.fallo(w, http.StatusTooManyRequests, ErrLimitada, "", "servidor saturado: demasiadas peticiones en curso")
 			return
 		}
 	}

@@ -30,7 +30,7 @@ func TestR8CuboLoteNoDejaDeuda(t *testing.T) {
 	}
 }
 
-// R8 H6: un cuerpo lento no retiene hueco de -max-en-curso; el hueco se toma tras leer el cuerpo y da 503 overloaded.
+// R8 H6: un cuerpo lento no retiene hueco de -max-en-curso; el hueco se toma tras leer el cuerpo y da 429 rate_limited.
 func TestR8SemaforoTrasLeerCuerpo(t *testing.T) {
 	a := &armadorModelos{etiquetas: []string{"x"}}
 	s, _ := servidorRecargable(t, a, "")
@@ -65,8 +65,13 @@ func TestR8SemaforoTrasLeerCuerpo(t *testing.T) {
 	buf := make([]byte, 512)
 	n, _ := resp.Body.Read(buf)
 	b.Write(buf[:n])
-	if resp.StatusCode != 503 || resp.Header.Get("Retry-After") == "" || !strings.Contains(b.String(), `"overloaded"`) {
+	if resp.StatusCode != 429 || resp.Header.Get("Retry-After") == "" || !strings.Contains(b.String(), `"rate_limited"`) {
 		t.Fatalf("saturado: %d %q %s", resp.StatusCode, resp.Header.Get("Retry-After"), b.String())
+	}
+	var m strings.Builder
+	s.Met.Escribe(&m)
+	if !strings.Contains(m.String(), `codigo="429"} 1`) {
+		t.Fatalf("la saturación debe contarse una sola vez:\n%s", m.String())
 	}
 }
 
