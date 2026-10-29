@@ -186,3 +186,30 @@ func (d *Demo) Medir(n, reps int, preguntaJSON string) (Latencia, error) {
 	pct := func(q float64) float64 { return t[int(math.Ceil(q*float64(reps)))-1] }
 	return Latencia{Tokens: n, Real: real, Reps: reps, P50us: pct(0.50), P99us: pct(0.99)}, nil
 }
+
+// Lote es el resultado de decidir varios textos en una sola llamada.
+type Lote struct {
+	N       int      `json:"n"`
+	Answers []string `json:"answers"`
+	TotalUs float64  `json:"total_us"`
+}
+
+// DecidirLote decide cada texto frente a la pregunta (la torre de opciones se calcula una sola vez) y mide el
+// tiempo total del lote dentro del wasm, sin el coste de cruzar a JS por texto.
+func (d *Demo) DecidirLote(textos []string, preguntaJSON string) (Lote, error) {
+	var p Pregunta
+	if err := json.Unmarshal([]byte(preguntaJSON), &p); err != nil {
+		return Lote{}, err
+	}
+	if len(p.Opciones) == 0 || (p.Kind != "" && p.Kind != "choice") {
+		return Lote{}, errors.New("la demo solo admite preguntas kind=choice con opciones")
+	}
+	d.opciones(p)
+	l := Lote{N: len(textos), Answers: make([]string, len(textos))}
+	t0 := time.Now()
+	for i, t := range textos {
+		l.Answers[i] = d.decidir(t, p).Answer
+	}
+	l.TotalUs = float64(time.Since(t0).Nanoseconds()) / 1e3
+	return l, nil
+}

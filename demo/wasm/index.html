@@ -5,53 +5,89 @@
 <title>Chispa L1 en WASM</title>
 <style>
  body{font:16px system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem}
- textarea{width:100%;box-sizing:border-box;font:inherit} pre{background:#f4f4f4;padding:.6rem;overflow:auto}
+ textarea,input[type=text]{width:100%;box-sizing:border-box;font:inherit} pre{background:#f4f4f4;padding:.6rem;overflow:auto}
  table{border-collapse:collapse} td,th{border:1px solid #bbb;padding:.2rem .6rem;text-align:right}
 </style>
 </head>
 <body>
 <h1>Chispa L1 en el navegador</h1>
-<p>Embedding estático (Model2Vec int8) en Go puro compilado a WASM. Todo local: sin red ni CDN.</p>
+<p>Embedding estático (Model2Vec int8) en Go puro compilado a WASM. Todo local: sin red ni CDN.
+ Escribe un esquema nuevo (pregunta y opciones con descripción) y un texto: Chispa decide zero-shot, sin haber visto el esquema.</p>
 <p id="estado">Cargando…</p>
-<h2>Pregunta (JSON)</h2>
-<textarea id="pregunta" rows="10"></textarea>
+<p>Ejemplo: <button id="ej-ferr">Ferretería</button> <button id="ej-wa">WhatsApp de comercio</button></p>
+<h2>Esquema</h2>
+<label>Pregunta <input type="text" id="pregunta"></label>
+<label>Opciones, una por línea: <code>id: descripción</code> (la descripción es lo único que Chispa ve de tu tarea)
+<textarea id="opciones" rows="6"></textarea></label>
 <h2>Mensaje</h2>
-<textarea id="texto" rows="2">hola, ¿tienen disponible la licuadora roja? ¿cuánto cuesta?</textarea>
+<textarea id="texto" rows="2"></textarea>
 <p><button id="decidir" disabled>Decidir</button>
- <button id="medir" disabled>Medir latencia (16 / 64 / 256 tokens × 200)</button></p>
-<h2>Decisión</h2><pre id="salida">—</pre>
+ <button id="medir" disabled>Medir latencia (16 / 64 / 256 tokens × 200)</button>
+ <a href="latencia.html">Arnés de latencia (2.000 decisiones, JSON)</a></p>
+<h2>Decisión</h2>
+<p id="resumen">—</p><pre id="salida"></pre>
 <h2>Latencia</h2>
 <table id="lat"><tr><th>tokens</th><th>p50 (µs)</th><th>p99 (µs)</th><th>reps</th></tr></table>
 <script src="wasm_exec.js"></script>
+<script src="cargador.js"></script>
+<script src="arnes.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const MODELO = "potion-es.chispa-l1";
+const EJEMPLOS = {
+  ferr: {
+    pregunta: Arnes.PREGUNTA_FERRETERIA.question,
+    opciones: Arnes.PREGUNTA_FERRETERIA.options.map(o => `${o.id}: ${o.description}`).join("\n"),
+    texto: "Buenas, ¿cuánto vale el bulto de cemento gris de 50 kg y tienen hoy?",
+  },
+  wa: { pregunta: null, opciones: null, texto: "hola, ¿tienen disponible la licuadora roja? ¿cuánto cuesta?" },
+};
+function cargarEjemplo(e) {
+  $("pregunta").value = e.pregunta; $("opciones").value = e.opciones; $("texto").value = e.texto;
+}
+// Construye la pregunta del servidor; devuelve {json} o {error}.
+function esquema() {
+  const pregunta = $("pregunta").value.trim();
+  const opciones = $("opciones").value.split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf(":");
+    return i < 0 ? { id: l } : { id: l.slice(0, i).trim(), description: l.slice(i + 1).trim() };
+  });
+  if (!pregunta) return { error: "escribe la pregunta" };
+  if (opciones.length < 2) return { error: "pon al menos dos opciones" };
+  if (new Set(opciones.map(o => o.id)).size !== opciones.length) return { error: "hay ids de opción repetidos" };
+  return { json: JSON.stringify({ question: pregunta, kind: "choice", options: opciones }) };
+}
+let api;
 async function iniciar() {
-  const go = new Go();
-  const [wasm, preg, modelo] = await Promise.all([
-    WebAssembly.instantiateStreaming(fetch("chispa.wasm"), go.importObject),
-    fetch("ejemplo_pregunta.json").then(r => r.text()),
-    fetch(MODELO).then(r => { if (!r.ok) throw new Error(MODELO + " no existe: genéralo (ver README)"); return r.arrayBuffer(); }),
-  ]);
-  go.run(wasm.instance);
-  $("pregunta").value = preg;
-  const r = cargar(new Uint8Array(modelo));
-  if (!r.ok) throw new Error(r.error);
-  $("estado").textContent = `Modelo cargado: ${r.vocab} piezas, dim ${r.dim}, ${(r.bytes / 1048576).toFixed(1)} MB.`;
+  const ej = await fetch("ejemplo_pregunta.json").then(r => r.json());
+  EJEMPLOS.wa.pregunta = ej.question;
+  EJEMPLOS.wa.opciones = ej.options.map(o => `${o.id}: ${o.description}`).join("\n");
+  cargarEjemplo(EJEMPLOS.ferr);
+  api = await iniciarChispa("potion-es.chispa-l1");
+  $("estado").textContent = `Modelo cargado: ${api.info.vocab} piezas, dim ${api.info.dim}, ${(api.info.bytes / 1048576).toFixed(1)} MB.`;
   $("decidir").disabled = $("medir").disabled = false;
 }
+$("ej-ferr").onclick = () => cargarEjemplo(EJEMPLOS.ferr);
+$("ej-wa").onclick = () => cargarEjemplo(EJEMPLOS.wa);
 $("decidir").onclick = () => {
+  const e = esquema();
+  if (e.error) { $("resumen").textContent = e.error; return; }
   const t0 = performance.now();
-  const r = decidir($("texto").value, $("pregunta").value);
-  $("salida").textContent = JSON.stringify(r, null, 1) + `\n(${((performance.now() - t0) * 1000).toFixed(0)} µs, incluida la llamada JS)`;
+  const r = decidir($("texto").value, e.json);
+  const us = (performance.now() - t0) * 1000; // incluye el cruce JS→wasm
+  if (!r.ok) { $("resumen").textContent = "Error: " + r.error; return; }
+  if (!r.answer) { $("resumen").textContent = "El texto no tiene tokens conocidos."; return; }
+  $("resumen").textContent = `${r.answer} · capa L1 (zero-shot) · confianza ${(r.conf * 100).toFixed(0)} % · ${us.toFixed(0)} µs`;
+  $("salida").textContent = Object.entries(r.probs).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k.padEnd(14)} ${(v * 100).toFixed(1)} %`).join("\n");
 };
 $("medir").onclick = async () => {
+  const e = esquema();
+  if (e.error) { $("resumen").textContent = e.error; return; }
   $("medir").disabled = true;
   const tabla = $("lat");
   while (tabla.rows.length > 1) tabla.deleteRow(1);
   for (const n of [16, 64, 256]) {
     await new Promise(r => setTimeout(r)); // deja pintar
-    const l = medir(n, 200, $("pregunta").value);
+    const l = medir(n, 200, e.json);
     const f = tabla.insertRow();
     f.innerHTML = l.ok ? `<td>${l.tokens_reales}</td><td>${l.p50_us.toFixed(0)}</td><td>${l.p99_us.toFixed(0)}</td><td>${l.reps}</td>`
                        : `<td colspan=4>${l.error}</td>`;

@@ -26,6 +26,8 @@ python -m http.server 8000                                   # y abrir http://lo
   mecanismo, no la calidad; para eso están L0 y `chispa train`).
 - `huella(frasesJSON)` → sha256 de los embeddings float32; `medir(tokens, reps, preguntaJSON)` → p50/p99 en µs de
   `decidir` (embedding + coseno con las opciones ya en caché) sobre un texto de exactamente ese número de tokens.
+- `decidirLote(textosJSON, preguntaJSON)` → `{ok, n, answers, total_us}`: decide un lote en una sola llamada y mide el total dentro del wasm.
+- `memoriaGo()` → `{heap_alloc, sys, num_gc}` (runtime de Go dentro del wasm).
 - El botón «Medir latencia» de la página llama a `medir` con 16, 64 y 256 tokens × 200 repeticiones.
 
 La lógica está en `nucleo/` (sin `syscall/js`), así que se prueba igual en nativo y en wasm.
@@ -60,3 +62,37 @@ piezas largas cambia.
 
 Es una cota de node en una máquina compartida (los p99 incluyen el GC de Go-wasm y ruido de la VM); la del navegador
 (Chrome) queda por medir con el botón de la página.
+
+## Esquema nuevo (zero-shot) en la UI
+`index.html` trae un formulario: pregunta, opciones (una por línea, `id: descripción`) y un mensaje. Al pulsar «Decidir» muestra
+la opción, la capa (siempre L1: es lo que lleva este wasm), la confianza, las probabilidades y el tiempo (incluye el cruce
+JS→wasm). Precargado: la ferretería colombiana de `docs/02-inicio-rapido.md` (no es una tarea de benchmark); el botón
+«WhatsApp de comercio» carga `ejemplo_pregunta.json`. Solo `kind: choice`.
+
+## Arnés de latencia (`latencia.html`, `arnes.js`)
+Receta completa, desde la raíz del repo:
+```
+. ~/orquestador/herr/env.sh                       # Go 1.27 (o el Go que tengas)
+cd demo/wasm && ./construir.sh                    # chispa.wasm; imprime el tamaño
+# potion-es.chispa-l1 en esta carpeta: ver «Construir y servir» arriba (no va a git)
+python3 -m http.server 8000                       # y abrir http://localhost:8000/latencia.html
+```
+En la página: N (2 000 por defecto), calentamiento (200) y tamaño de lote (50) → **Medir** → **Descargar JSON**
+(`latencia-chispa-<fecha>.json`). Deja el fichero en `demo/wasm/resultados/<navegador>-<máquina>.json`
+(esa carpeta no existe aún; créala) y no lo mezcles con otras medidas. Todo es local, sin red.
+
+Qué mide, con textos deterministas (semilla fija) y variados (de ~5 a ~100 palabras) sobre el esquema de la ferretería (5 opciones):
+- **Por decisión**: N llamadas a `decidir`, cada una con `performance.now()` (incluye el cruce JS→wasm y la conversión del
+  resultado): p50, p95, p99, mín/máx/media, y decisiones/s sobre el total.
+- **Por lote**: `decidirLote` con lotes de 50, tiempo medido dentro del wasm; p50/p95/p99 del lote y por texto.
+- **Memoria**: tamaño del buffer del wasm, heap de Go (`memoriaGo`) y, solo en Chrome, `performance.memory`.
+- **Entorno**: user agent, plataforma, núcleos, fecha y configuración. La torre de opciones ya está en caché (se calcula en el calentamiento).
+Nota: los navegadores redondean `performance.now()` (Firefox 1 ms por defecto con `privacy.resistFingerprinting`; Chrome 100 µs
+sin aislamiento de origen): por eso las cifras por lote son más fiables que las de una sola decisión.
+
+### Con node (sin navegador)
+```
+node demo/wasm/prueba_latencia_node.js demo/wasm/potion-es.chispa-l1 [--n 2000] [--calentamiento 200] [--lote 50] [--salida f.json]
+node demo/wasm/prueba_latencia_node.js --stub     # solo comprueba la lógica del arnés (decisor falso; no mide Chispa)
+```
+Usa el mismo `arnes.js` y escribe `latencia-node.json` (por defecto, junto al script). Necesita `chispa.wasm` y el modelo.
