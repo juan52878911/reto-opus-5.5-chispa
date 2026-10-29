@@ -11,7 +11,6 @@
 package chispamovil
 
 import (
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -162,6 +161,9 @@ func (c *Chispa) Capas() string {
 
 // TauEscalate es el τ de CALIB para L1 y L2 (0 si el fichero no trae CALIB; entonces la cascada usa el suyo).
 func (c *Chispa) TauEscalate() float64 { return c.calib.TauEscalate }
+
+// TieneConj dice si el fichero trae la sección CONJ (con L2 y ESQUEMAS): entonces la cascada puede usar CabezaConjunta.
+func (c *Chispa) TieneConj() bool { return c.conj != nil }
 
 // TieneCalib dice si el fichero trae la sección CALIB (si no, TauEscalate no significa nada).
 func (c *Chispa) TieneCalib() bool { return c.f.Tiene(chispa3.CALIB) }
@@ -452,12 +454,21 @@ func ranurasDe(b []byte, k, d int) ([][]float32, error) {
 	if k <= 0 || len(b) != 4*k*d {
 		return nil, fmt.Errorf("L2: %d bytes de ranuras no son %d×%d float32", len(b), k, d)
 	}
+	v := make([]float32, k*d)
+	for i := range v {
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(b[4*i:]))
+	}
+	return partirRanuras(v, k, d)
+}
+
+// partirRanuras corta k·d valores en k ranuras de d.
+func partirRanuras(v []float32, k, d int) ([][]float32, error) {
+	if k <= 0 || len(v) != k*d {
+		return nil, fmt.Errorf("L2: %d valores de ranuras no son %d×%d", len(v), k, d)
+	}
 	S := make([][]float32, k)
 	for r := range S {
-		S[r] = make([]float32, d)
-		for j := range S[r] {
-			S[r][j] = math.Float32frombits(binary.LittleEndian.Uint32(b[4*(r*d+j):]))
-		}
+		S[r] = v[r*d : (r+1)*d : (r+1)*d]
 	}
 	return S, nil
 }
@@ -561,14 +572,14 @@ func (c *Chispa) Huella(frasesJSON string) string {
 type entradaConj struct {
 	pregunta
 	L0      map[string]float64 `json:"l0"`      // probabilidades de L0 por id de opción
-	Ranuras string             `json:"ranuras"` // base64 de las K×d salidas S del ONNX (float32 little endian)
+	Ranuras []float32          `json:"ranuras"` // las K×d salidas S del ONNX, aplanadas por filas
 	K       int                `json:"k"`
 }
 
 // CabezaConjunta es L2c: la cabeza lineal de la sección CONJ sobre las probabilidades de L0 y las similitudes de L2
 // con soporte (server/decide/l2c.go, con el mismo código de chispa3). simsJSON lleva la pregunta (question, kind,
-// options), «l0» (probabilidades de DecidirL0 por id), «ranuras» (base64 de las K×d salidas S del ONNX, float32
-// little endian, lo que recibe PuntuarL2) y «k». Las similitudes MaxSim se calculan aquí contra ESQUEMAS.
+// options), «l0» (probabilidades de DecidirL0 por id), «ranuras» (las K×d salidas S del ONNX aplanadas por filas, como
+// números JSON: float32 sobrevive exacto a la ida y vuelta) y «k». Las similitudes MaxSim se calculan aquí contra ESQUEMAS.
 // Si el fichero no trae CONJ, no hay cabeza para la pregunta, no es choice o falta L0, devuelve ok sin opinar: la
 // cascada cae entonces a PuntuarL2.
 func (c *Chispa) CabezaConjunta(simsJSON string) string {
@@ -596,11 +607,7 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 	if err != nil {
 		return sinOpinar
 	}
-	raw, err := base64.StdEncoding.DecodeString(in.Ranuras)
-	if err != nil {
-		return fallo(fmt.Errorf("ranuras: %w", err))
-	}
-	S, err := ranurasDe(raw, in.K, len(ts[0].v))
+	S, err := partirRanuras(in.Ranuras, in.K, len(ts[0].v))
 	if err != nil {
 		return fallo(err)
 	}

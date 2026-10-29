@@ -194,14 +194,12 @@ func torresParaSims(t *testing.T, fx fixtureConj, c casoConj) ([]byte, [][]float
 	return b, [][]float32{s0}
 }
 
-func ranurasB64(S [][]float32) string {
-	var b []byte
+func planas(S [][]float32) []float32 {
+	var v []float32
 	for _, s := range S {
-		for _, x := range s {
-			b = binary.LittleEndian.AppendUint32(b, math.Float32bits(x))
-		}
+		v = append(v, s...)
 	}
-	return base64.StdEncoding.EncodeToString(b)
+	return v
 }
 
 // La cabeza de CONJ del núcleo móvil coincide con la del servidor (decide.L2c) con |Δp| ≤ 1e-6 sobre los casos del
@@ -221,7 +219,7 @@ func TestCabezaConjuntaParidadConServidor(t *testing.T) {
 		pjs, p := preguntaDe(fx.Pregunta, fx.Opciones)
 		var in map[string]any
 		json.Unmarshal([]byte(pjs), &in)
-		in["l0"], in["ranuras"], in["k"] = caso.L0, ranurasB64(S), len(S)
+		in["l0"], in["ranuras"], in["k"] = caso.L0, planas(S), len(S)
 		js, _ := json.Marshal(in)
 		got := leer(t, c.CabezaConjunta(string(js)))
 		if !got.Ok || !got.Opina {
@@ -266,7 +264,7 @@ func TestCabezaConjuntaSinOpinar(t *testing.T) {
 	fx, raw := leerFixtureConj(t)
 	esq, S := torresParaSims(t, fx, fx.Casos[0])
 	pjs, _ := preguntaDe(fx.Pregunta, fx.Opciones)
-	mk := func(l0 map[string]float64, ranuras string, k int) string {
+	mk := func(l0 map[string]float64, ranuras any, k int) string {
 		var in map[string]any
 		json.Unmarshal([]byte(pjs), &in)
 		in["l0"], in["ranuras"], in["k"] = l0, ranuras, k
@@ -276,20 +274,23 @@ func TestCabezaConjuntaSinOpinar(t *testing.T) {
 	secs := []chispa3.Seccion{{Tipo: chispa3.L2, Datos: []byte("onnx")}, {Tipo: chispa3.ESQUEMAS, Datos: esq}}
 	sinConj := ficheroV3(t, secs...)
 	conConj := ficheroV3(t, append(secs, chispa3.Seccion{Tipo: chispa3.CONJ, Datos: raw})...)
-	ok := mk(fx.Casos[0].L0, ranurasB64(S), 1)
+	if sinConj.TieneConj() || !conConj.TieneConj() {
+		t.Fatal("TieneConj")
+	}
+	ok := mk(fx.Casos[0].L0, planas(S), 1)
 	if r := leer(t, sinConj.CabezaConjunta(ok)); !r.Ok || r.Opina {
 		t.Fatalf("sin CONJ: %+v", r)
 	}
-	if r := leer(t, conConj.CabezaConjunta(mk(nil, ranurasB64(S), 1))); !r.Ok || r.Opina {
+	if r := leer(t, conConj.CabezaConjunta(mk(nil, planas(S), 1))); !r.Ok || r.Opina {
 		t.Fatalf("sin L0: %+v", r)
 	}
 	if r := leer(t, conConj.CabezaConjunta(preguntaCompraL2)); !r.Ok || r.Opina {
 		t.Fatalf("otro esquema: %+v", r)
 	}
-	if r := leer(t, conConj.CabezaConjunta(mk(fx.Casos[0].L0, "!!", 1))); r.Ok || r.Error == "" {
-		t.Fatalf("base64 roto: %+v", r)
+	if r := leer(t, conConj.CabezaConjunta(mk(fx.Casos[0].L0, "no son números", 1))); r.Ok || r.Error == "" {
+		t.Fatalf("ranuras que no son números: %+v", r)
 	}
-	if r := leer(t, conConj.CabezaConjunta(mk(fx.Casos[0].L0, ranurasB64(S), 3))); r.Ok {
+	if r := leer(t, conConj.CabezaConjunta(mk(fx.Casos[0].L0, planas(S), 3))); r.Ok {
 		t.Fatalf("k que no cuadra: %+v", r)
 	}
 	if r := leer(t, conConj.CabezaConjunta("no es json")); r.Ok {
