@@ -34,7 +34,7 @@ import torch.nn.functional as F
 
 from . import calibrar as C
 from . import datos as D
-from .modelo import K_RANURAS, clave_cabeza, maxsim, texto_consulta, texto_opcion
+from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, texto_consulta, texto_opcion
 
 RAIZ = Path(__file__).resolve().parents[2]
 VOCAB_PODADO = RAIZ / "model" / "bench" / "vocab-podado-e5-small.json"
@@ -282,6 +282,18 @@ def latencia(sess, vocab_n, tokens=(16, 64, 256), reps=50, calentar=5):
 # ---------------------------------------------------------------- torre ONNX (contrato-torre.md)
 PREFIJO_TORRE = "/torre/"
 SEMILLA_TORRE = 20261029
+PREFIJO_PASAJE = "passage: "
+
+
+def meta_torre(ruta, dim):
+    """Escribe en `metadata_props` lo que lee `chispa train --torre`: dimensión de h, truncado y prefijo del texto."""
+    import onnx
+    m = onnx.load(str(ruta))
+    for k, v in (("dim", dim), ("max_len", MAX_TOK), ("prefijo", PREFIJO_PASAJE)):
+        for p in [p for p in m.metadata_props if p.key == "chispa.torre." + k]:
+            m.metadata_props.remove(p)
+        m.metadata_props.add(key="chispa.torre." + k, value=str(v))
+    onnx.save(m, str(ruta))
 
 
 def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="codificador", per_channel=True):
@@ -296,6 +308,7 @@ def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="codifi
     fp32 = trabajo / "torre-fp32.onnx"
     exportar_onnx(EnvolturaTorre(encoder, torre, remap), fp32, n_vocab, "h")
     cuantizar(fp32, ruta_int8, cuant, per_channel, PREFIJO_TORRE)
+    meta_torre(ruta_int8, int(torre.mlp[-1].out_features))
     return {"mb": Path(ruta_int8).stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "vocab_n": n_vocab}
 
 

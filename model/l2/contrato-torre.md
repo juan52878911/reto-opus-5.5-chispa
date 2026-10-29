@@ -35,6 +35,10 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
 - **Cuantización:** int8 dinámico **por canal**, solo en los MatMul de e5. Las capas de `Torre` quedan en fp32, igual que
   las ranuras en la consulta.
 - **Opset:** 17.
+- **`metadata_props`** (las escribe `exportar.py` y las lee `chispa train --torre`; valores en texto):
+  - `chispa.torre.dim` = `256` (dimensión de `h`);
+  - `chispa.torre.max_len` = `128` (truncado en tokens);
+  - `chispa.torre.prefijo` = `passage: ` (con el espacio final; forma parte del texto que se tokeniza).
 
 ## Cómo se combinan torre y consulta
 - La consulta (el ONNX que ya existe) da las ranuras `S` (K = 16, d = 256), normalizadas.
