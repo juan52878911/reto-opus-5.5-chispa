@@ -109,9 +109,6 @@ func (l Limites) validarOpciones(q Pregunta, r string) *ErrorChispa {
 		if lon(o.ID) > l.MaxID {
 			return falla("field_too_long", fmt.Sprintf("%s.id: %d bytes, máximo %d", ro, lon(o.ID), l.MaxID), q.ID)
 		}
-		if vistas[o.ID] {
-			return falla("duplicate_option_id", fmt.Sprintf("%s.id: %q repetido", ro, o.ID), q.ID)
-		}
 		if lon(o.Description) > l.MaxTexto {
 			return falla("field_too_long", fmt.Sprintf("%s.description: %d bytes, máximo %d", ro, lon(o.Description), l.MaxTexto), q.ID)
 		}
@@ -120,6 +117,9 @@ func (l Limites) validarOpciones(q Pregunta, r string) *ErrorChispa {
 		}
 		if tieneSeparador(o.Description) {
 			return falla("invalid_characters", ro+".description: no admite los caracteres de control U+001D–U+001F", q.ID)
+		}
+		if vistas[o.ID] {
+			return falla("duplicate_option_id", fmt.Sprintf("%s.id: %q repetido", ro, o.ID), q.ID)
 		}
 		vistas[o.ID] = true
 	}
