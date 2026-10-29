@@ -227,9 +227,11 @@ func TestAbrirConTORR(t *testing.T) {
 	}
 }
 
-// aDecideL2 es aDecide con el estado que usan los tests de L2.
+// aDecideL2 pasa la pregunta al tipo del servidor con el estado que usan los tests de L2.
 func aDecideL2(p pregunta) decide.Pregunta {
-	d := aDecide(p)
-	d.ID, d.Estado = "q", "hola"
+	d := decide.Pregunta{ID: "q", Estado: "hola", Texto: p.Texto, Kind: p.Kind}
+	for _, o := range p.Opciones {
+		d.Opciones = append(d.Opciones, decide.Opcion{ID: o.ID, Description: o.Description})
+	}
 	return d
 }
