@@ -1,6 +1,8 @@
 package torre
 
 import (
+	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -48,5 +50,43 @@ func TestCuantizar(t *testing.T) {
 	v, e = Cuantizar([]float32{127, -127, 63.5})
 	if e != 1 || int8(v[0]) != 127 || int8(v[1]) != -127 || int8(v[2]) != 64 {
 		t.Fatalf("%v %v", v, e)
+	}
+}
+
+// CasoParidad es un caso de testdata/paridad_textos.json, generado por gen_paridad.py con texto_opcion/texto_consulta de
+// model/l2/modelo.py (torre) y texto_opcion de sdk/python/chispa/multi.py (l1, el de chispa train).
+type CasoParidad struct {
+	Kind     string   `json:"kind"`
+	Pregunta string   `json:"pregunta"`
+	Opciones []Opcion `json:"opciones"`
+	Torre    []string `json:"torre"`
+	L1       []string `json:"l1"`
+}
+
+// CargarParidad lee el JSON de paridad (ruta relativa a este paquete).
+func CargarParidad(t testing.TB, ruta string) []CasoParidad {
+	b, err := os.ReadFile(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cs []CasoParidad
+	if err := json.Unmarshal(b, &cs); err != nil {
+		t.Fatal(err)
+	}
+	if len(cs) < 20 {
+		t.Fatalf("solo %d casos de paridad", len(cs))
+	}
+	return cs
+}
+
+func TestParidadPython(t *testing.T) {
+	for i, c := range CargarParidad(t, "testdata/paridad_textos.json") {
+		k := c.Kind
+		if k == "multi" {
+			k = KindChoice
+		}
+		if got := Textos(Pregunta{Texto: c.Pregunta, Kind: k, Opciones: c.Opciones}); !reflect.DeepEqual(got, c.Torre) {
+			t.Errorf("caso %d (%s): Go %q, Python %q", i, c.Kind, got, c.Torre)
+		}
 	}
 }
