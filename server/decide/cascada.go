@@ -18,6 +18,9 @@ type Resultado struct {
 	Nonce    string             `json:"nonce,omitempty"`
 }
 
+// CapaEscalar es el valor de «layer» cuando ninguna capa acepta: no contestó ninguna, así que no se atribuye a la última.
+const CapaEscalar = "escalar"
+
 type capa struct {
 	d   Decisor
 	tau float64
@@ -45,14 +48,14 @@ func NuevaCascada(cfg []Capa, ds []Decisor, met *Metricas) (*Cascada, error) {
 }
 
 // Decidir recorre las capas. Si una falla o no opina, se pasa a la siguiente.
-// Si ninguna alcanza su τ, la última escala: la respuesta es la de mayor
+// Si ninguna alcanza su τ, la cascada escala con layer «escalar»: la respuesta es la de mayor
 // confianza vista (pista para quien reciba la escalada).
 func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	t0 := time.Now()
 	res := Resultado{ID: p.ID, Kind: p.Kind, Nonce: p.Nonce, Probs: map[string]float64{}}
 	var mejor Respuesta
 	previas := Previas{}
-	for i, l := range c.capas {
+	for _, l := range c.capas {
 		t := time.Now()
 		var r Respuesta
 		var err error
@@ -75,11 +78,9 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			res.Ms = ms(time.Since(t0))
 			return res
 		}
-		if i == len(c.capas)-1 {
-			res.Layer = l.d.Nombre()
-		}
 	}
 	res.Escalate = true
+	res.Layer = CapaEscalar
 	res.Answer = mejor.Answer
 	if mejor.Probs != nil {
 		res.Probs = mejor.Probs

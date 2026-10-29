@@ -45,7 +45,7 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
 ```
 - `answer`: id de la opción elegida (en `noul`, `"true"`/`"false"`; en `score`, `"1"…"K"`).
 - `probs`: id de opción → probabilidad calibrada (la de la capa que respondió).
-- `layer`: la capa que contestó; si `escalate` es true, la última capa de la cascada.
+- `layer`: la capa que contestó; si `escalate` es true, `"escalar"` (ninguna capa aceptó; `answer` y `probs` son la mejor respuesta vista).
 - `escalate`: ninguna capa llegó a su τ. `answer`/`probs` son entonces la mejor pista vista
   (la capa con más confianza) y quedan vacíos (`""`, `{}`) si ninguna opinó.
 - `ms`: tiempo de la cascada para esa pregunta. `nonce` se devuelve tal cual.

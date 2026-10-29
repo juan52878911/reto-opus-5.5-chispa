@@ -194,7 +194,7 @@ func TestCascadaL0L1Escalate(t *testing.T) {
 
 	// 3. Mensaje sin ninguna palabra del vocabulario: L1 sin opinión, escala (L2 y L3 son stubs).
 	r = casc.Decidir(ctx, Pregunta{ID: "d", Kind: KindChoice, Texto: "¿Qué área?", Estado: "zzz qqq", Opciones: opsReembolso()})
-	if !r.Escalate || r.Layer != "L3" {
+	if !r.Escalate || r.Layer != CapaEscalar {
 		t.Fatalf("sin tokens: %+v", r)
 	}
 

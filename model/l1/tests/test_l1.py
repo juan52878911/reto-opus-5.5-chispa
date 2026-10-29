@@ -21,7 +21,11 @@ def exportador():
 
 class TokenizadorEstatico(unittest.TestCase):
     def test_lo_acepta_el_exportador(self):
-        tok = json.loads((Path(comun.snapshot("intfloat/multilingual-e5-small")) / "tokenizer.json").read_text())
+        try:
+            snap = comun.snapshot("intfloat/multilingual-e5-small")
+        except IndexError:
+            self.skipTest("falta el snapshot de HF en ~/hf: este test NO se ha ejecutado")
+        tok = json.loads((Path(snap) / "tokenizer.json").read_text())
         t = comun.tokenizador_estatico(tok)
         self.assertTrue(exportador().validar_normalizador(t["normalizer"]))
         self.assertEqual(t["model"]["vocab"], tok["model"]["vocab"])

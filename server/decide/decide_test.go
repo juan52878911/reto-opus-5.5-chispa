@@ -97,7 +97,7 @@ func TestCascadaEscalaConLaMejorPista(t *testing.T) {
 	l2 := &falso{n: "L2", err: errors.New("caída")}
 	c, met := cascadaFalsa(t, []float64{0.8, 0.8, 0.7}, l0, l1, l2)
 	r := c.Decidir(context.Background(), pq)
-	if !r.Escalate || r.Layer != "L2" || r.Answer != "a" {
+	if !r.Escalate || r.Layer != CapaEscalar || r.Answer != "a" {
 		t.Fatalf("%+v", r)
 	}
 	if met.Escalados.Load() != 1 || met.errCapa["L2"].Load() != 1 {
@@ -108,7 +108,7 @@ func TestCascadaEscalaConLaMejorPista(t *testing.T) {
 func TestCascadaStubsEscalan(t *testing.T) {
 	c, _ := cascadaFalsa(t, []float64{0.8, 0.8, 0.7, 0.6}, Stub{"L0"}, NuevoL1(), NuevoL2(), NuevoL3())
 	r := c.Decidir(context.Background(), pq)
-	if !r.Escalate || r.Layer != "L3" || r.Answer != "" {
+	if !r.Escalate || r.Layer != CapaEscalar || r.Answer != "" {
 		t.Fatalf("%+v", r)
 	}
 }
