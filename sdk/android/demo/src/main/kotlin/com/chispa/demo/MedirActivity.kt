@@ -87,7 +87,15 @@ class MedirActivity : Activity() {
         Thread {
             val msg = try {
                 val d = File(File(filesDir, "elegido").apply { mkdirs() }, destino)
-                contentResolver.openInputStream(uri)!!.use { i -> d.outputStream().use { i.copyTo(it) } }
+                // Temporal + renombrado: chispamovil tiene el .chispa mapeado en memoria y truncarlo en sitio daría SIGBUS;
+                // con rename el inodo viejo sigue vivo para el mapeo y los siguientes aperturas ven el nuevo.
+                val tmp = File(d.path + ".${java.util.UUID.randomUUID()}.tmp")
+                try {
+                    contentResolver.openInputStream(uri)!!.use { i -> tmp.outputStream().use { i.copyTo(it) } }
+                    java.nio.file.Files.move(tmp.toPath(), d.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+                } finally {
+                    tmp.delete()
+                }
                 resumenFicheros()
             } catch (e: Exception) {
                 "No se pudo copiar: ${e.message}"

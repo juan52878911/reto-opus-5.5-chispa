@@ -54,10 +54,13 @@ export class ChispaCliente {
    */
   async decidir(estado, preguntas, { nonce } = {}) {
     validar(estado, preguntas, this.limites);
+    // Solo viajan los campos del contrato (el servidor rechaza con 400 los desconocidos); lo demás del objeto del usuario se ignora.
     const qs = preguntas.map((q) => {
-      if (q.nonce !== undefined && q.nonce !== "") return q; // "" cuenta como ausente: el servidor no guardaría nada
-      const n = nonce === undefined || nonce === "" ? globalThis.crypto.randomUUID() : preguntas.length === 1 ? nonce : `${nonce}:${q.id}`;
-      return { ...q, nonce: n };
+      const c = { id: q.id, question: q.question, kind: q.kind };
+      if (q.options !== undefined) c.options = q.options.map((o) => (o.description === undefined ? { id: o.id } : { id: o.id, description: o.description }));
+      if (q.nonce !== undefined && q.nonce !== "") c.nonce = q.nonce; // "" cuenta como ausente: el servidor no guardaría nada
+      else c.nonce = nonce === undefined || nonce === "" ? globalThis.crypto.randomUUID() : preguntas.length === 1 ? nonce : `${nonce}:${q.id}`;
+      return c;
     });
     validar(estado, qs, this.limites); // el nonce derivado también cuenta en bytes
     const resp = await this._pedir("/v1/decide", { state: estado ?? "", questions: qs });

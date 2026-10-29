@@ -1,6 +1,7 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { readFileSync } from "node:fs";
 import { ChispaCliente, ErrorChispa, bytes } from "../src/index.js";
 
 const servidores = [];
@@ -407,4 +408,34 @@ test("R5-9: nonce vacío se trata como ausente (pregunta y opción)", async () =
   await cliente(url).decidir("x", [{ ...ferreteria, nonce: "" }]);
   await cliente(url).decidir("x", [ferreteria], { nonce: "" });
   for (const v of vistas) assert.match(v.cuerpo.questions[0].nonce, /^[0-9a-f-]{36}$/);
+});
+
+/** Propiedades de un esquema de openapi.yaml (sin dependencia de YAML: lee las claves bajo `properties:` por sangría). */
+function propiedadesOpenapi(esquema) {
+  const l = readFileSync(new URL("../../../server/api/openapi.yaml", import.meta.url), "utf8").split("\n");
+  const i = l.findIndex((x) => x === `    ${esquema}:`);
+  assert.ok(i >= 0, `no hay ${esquema} en openapi.yaml`);
+  const p = l.findIndex((x, j) => j > i && x === "      properties:");
+  const claves = [];
+  for (let j = p + 1; j < l.length && /^(        \S|\s*$|          )/.test(l[j]); j++) {
+    const m = /^        (\w+):\s*$/.exec(l[j]);
+    if (m) claves.push(m[1]);
+  }
+  return claves;
+}
+
+test("el cuerpo solo lleva campos de openapi.yaml (el servidor es estricto)", async () => {
+  const f = await falso((req, cuerpo, res) => json(res, 200, { results: cuerpo.questions.map((q) => ({ id: q.id })) }));
+  const c = new ChispaCliente({ url: f.url });
+  const q = { id: "a", question: "¿Sí?", kind: "choice", extra: 1, options: [{ id: "x", description: "d", peso: 2 }, { id: "y", otro: true }], nonce: "n1" };
+  await c.decidir("t", [q, { id: "b", question: "¿No?", kind: "noul", basura: "z" }]);
+  const cuerpo = f.vistas[0].cuerpo;
+  assert.deepEqual(Object.keys(cuerpo).sort(), ["questions", "state"].sort());
+  const okQ = propiedadesOpenapi("Question");
+  const okO = propiedadesOpenapi("Option");
+  assert.ok(okQ.includes("nonce") && okO.includes("description"));
+  for (const x of cuerpo.questions) for (const k of Object.keys(x)) assert.ok(okQ.includes(k), `campo ${k} fuera del contrato`);
+  for (const o of cuerpo.questions[0].options) for (const k of Object.keys(o)) assert.ok(okO.includes(k), `opción: campo ${k} fuera del contrato`);
+  assert.equal(cuerpo.questions[0].nonce, "n1");
+  assert.deepEqual(cuerpo.questions[0].options[1], { id: "y" });
 });
