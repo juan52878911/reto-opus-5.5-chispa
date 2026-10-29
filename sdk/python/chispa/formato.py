@@ -90,7 +90,8 @@ def leer(datos: bytes) -> Dict[int, bytes]:
 
 
 # --- CONJ (ver format/chispa3/conj.go para la disposición) ---
-CONJ_VERSION, CABEZA_LR = 1, 1
+CONJ_VERSION, CONJ_VERSION2, CABEZA_LR = 1, 2, 1
+ESQUEMAS_VERSION2 = 2
 
 
 def hash_esquema(pregunta: str, opciones) -> bytes:
@@ -107,6 +108,38 @@ def hash_esquema(pregunta: str, opciones) -> bytes:
     return h.digest()
 
 
+def hash_esquema2(pregunta: str, kind: str, opciones) -> bytes:
+    """`chispa3.HashEsquema2`: sha256(pregunta · 0x1f · kind · 0x1f · por cada opción ordenada por id (orden de bytes):
+    id · 0x1e · descripción · 0x1d), 16 primeros bytes. `opciones`: pares (id, descripción) en cualquier orden."""
+    h = hashlib.sha256()
+    h.update(pregunta.encode("utf-8") + b"\x1f" + kind.encode("utf-8") + b"\x1f")
+    for i, d in sorted(((i.encode("utf-8"), d.encode("utf-8")) for i, d in opciones), key=lambda o: o[0]):
+        h.update(i + b"\x1e" + d + b"\x1d")
+    return h.digest()[:16]
+
+
+def esquemas(dim: int, entradas, version: int = 1) -> bytes:
+    """Sección ESQUEMAS (`chispa3.CodificarEsquemas`/`CodificarEsquemas2`). Cada entrada: dict con `hash` (32 bytes en v1,
+    16 en v2), `escala` y `vec` (dim) int8. v2: la primera palabra es versión<<16 | dim. Se ordenan por hash."""
+    import numpy as np
+    if version not in (1, ESQUEMAS_VERSION2) or not 0 < dim <= 4096:
+        raise ValueError("ESQUEMAS: versión o dim fuera de rango")
+    ancho = 32 if version == 1 else 16
+    es = sorted(entradas, key=lambda e: e["hash"])
+    for a, b in zip(es, es[1:]):
+        if a["hash"] == b["hash"]:
+            raise ValueError("ESQUEMAS: hash repetido")
+    vecs = [np.ascontiguousarray(e["vec"], dtype=np.int8) for e in es]
+    if any(len(e["hash"]) != ancho or v.shape != (dim,) or not e["escala"] >= 0 or e["escala"] == float("inf")
+           for e, v in zip(es, vecs)):
+        raise ValueError("ESQUEMAS: entrada mal formada")
+    out = [struct.pack("<II", (0 if version == 1 else version) << 16 | dim, len(es))]
+    out += [e["hash"] for e in es]
+    out.append(np.array([e["escala"] for e in es], dtype="<f4").tobytes())
+    out += [v.tobytes() for v in vecs]
+    return b"".join(out)
+
+
 def cuantizar_protos(P):
     """P (C,K,d) float, una ranura por fila → (escala (C,K) f32, proto (C,K,d) int8) con escala = máx|x|/127."""
     import numpy as np
@@ -117,15 +150,22 @@ def cuantizar_protos(P):
     return esc.astype(np.float32), q
 
 
-def conj(entradas) -> bytes:
-    """Sección CONJ. Cada entrada: dict con `hash` (32 bytes), `T`, `beta`, `esc` (3), `w` (6), `clases` (estrictamente
+def conj(entradas, version: int = CONJ_VERSION) -> bytes:
+    """Sección CONJ (`version` 1: hash de 32 bytes, `clave_conj`; 2: hash de 16 bytes, `hash_esquema2`). Cada entrada: dict con `hash`, `T`, `beta`, `esc` (3), `w` (6), `clases` (estrictamente
     crecientes), `escala` (C,K) y `proto` (C,K,d) int8. Se ordenan por hash."""
     import numpy as np
-    out = [struct.pack("<II", CONJ_VERSION, len(entradas))]
+    if version not in (CONJ_VERSION, CONJ_VERSION2):
+        raise ValueError("CONJ: versión desconocida")
+    ancho = 32 if version == CONJ_VERSION else 16
+    out = [struct.pack("<II", version, len(entradas))]
+    previo = None
     for e in sorted(entradas, key=lambda e: e["hash"]):
+        if previo is not None and previo == e["hash"]:
+            raise ValueError("CONJ: hash repetido")
+        previo = e["hash"]
         proto = np.ascontiguousarray(e["proto"], dtype=np.int8)
         c, k, d = proto.shape
-        if len(e["hash"]) != 32 or len(e["clases"]) != c or len(e["esc"]) != 3 or len(e["w"]) != 6:
+        if len(e["hash"]) != ancho or len(e["clases"]) != c or len(e["esc"]) != 3 or len(e["w"]) != 6:
             raise ValueError("entrada de CONJ mal formada")
         if any(a >= b for a, b in zip(e["clases"], e["clases"][1:])):
             raise ValueError("CONJ: clases no crecientes")
