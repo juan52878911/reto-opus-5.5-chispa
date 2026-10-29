@@ -7,11 +7,16 @@ GO=1.27.1
 curl -fsSL "https://go.dev/dl/go${GO}.linux-amd64.tar.gz" | tar -C "$HOME" -xz && mv "$HOME/go" "$HOME/go-sdk" \
   || echo "aviso: no se pudo instalar Go ${GO}"
 # Módulos de Go del repo (kindling v0.17.0 entre ellos) en la caché: en las VM no hay red.
-for m in go.mod arena/go.mod; do
+for m in go.mod arena/go.mod server/go.mod sdk/go/go.mod; do
   [ -f "$m" ] && (cd "$(dirname "$m")" && GOTOOLCHAIN=local "$HOME/go-sdk/bin/go" mod download) \
     || true
 done
 "$HOME/go-sdk/bin/go" env GOMODCACHE
+# ONNX Runtime para `-tags ort` (server/go.mod usa onnxruntime_go v1.38.0, probado con la 1.31.1); gcc para cgo.
+ORT=1.31.1
+mkdir -p "$HOME/ort" && curl -fsSL "https://github.com/microsoft/onnxruntime/releases/download/v${ORT}/onnxruntime-linux-x64-${ORT}.tgz" \
+  | tar -xz -C "$HOME/ort" --strip-components=1 || echo "aviso: no se pudo bajar ONNX Runtime ${ORT}"
+command -v gcc >/dev/null || { sudo -n apt-get install -y -q gcc >/dev/null 2>&1 || echo "aviso: sin gcc (cgo)"; }
 
 python3 -m venv "$HOME/venv"
 # Sin optimum: su 1.17 no importa con transformers 5 (se exporta con torch.onnx).
