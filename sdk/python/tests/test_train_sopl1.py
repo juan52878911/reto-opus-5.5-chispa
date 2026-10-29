@@ -43,7 +43,8 @@ class TestSOPL1EnTrain(unittest.TestCase):
     def correr(self, salida, **kw):
         kw.setdefault("log", lambda m: None)
         kw.setdefault("l1", self.d / "l1.bin")
-        return entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / salida, usar_go=False, embeber=embeber_falso, **kw)
+        kw.setdefault("embeber", embeber_falso)
+        return entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / salida, usar_go=False, **kw)
 
     def test_sin_soporte_el_fichero_es_el_de_siempre(self):
         inf = self.correr("a.chispa", sin_soporte=True)
@@ -56,9 +57,12 @@ class TestSOPL1EnTrain(unittest.TestCase):
         inf = self.correr("p.chispa")
         self.assertEqual(inf["secciones"][-1], "SOPL1")
         self.assertEqual(inf["soporte"]["lambda_sugerida"], 4.0)
-        # mismo fichero que con --shrinkage-lambda explícito: λ no va en él
+        # mismo fichero que con --shrinkage-lambda explícito salvo l1_lambda_calib de CALIB
         self.correr("q.chispa", shrinkage_lambda=1.0)
-        self.assertEqual((self.d / "p.chispa").read_bytes(), (self.d / "q.chispa").read_bytes())
+        p, q = (formato.leer((self.d / n).read_bytes()) for n in ("p.chispa", "q.chispa"))
+        self.assertEqual({t: v for t, v in p.items() if t != formato.CALIB}, {t: v for t, v in q.items() if t != formato.CALIB})
+        self.assertEqual(json.loads(p[formato.CALIB])["l1_lambda_calib"], 4.0)
+        self.assertEqual(json.loads(q[formato.CALIB])["l1_lambda_calib"], 1.0)
         # sin --l1 o sin ejemplos, el default no escribe nada ni avisa
         logs = []
         inf = self.correr("n.chispa", l1=None, log=logs.append)
@@ -70,12 +74,13 @@ class TestSOPL1EnTrain(unittest.TestCase):
         base = self.correr("a.chispa", sin_soporte=True)
         inf = self.correr("b.chispa", shrinkage_lambda=2.0, log=logs.append)
         self.assertEqual(inf["secciones"][-1], "SOPL1")
-        self.assertTrue(inf["soporte"]["tau_sin_encogimiento"])
-        self.assertTrue(any("sin el encogimiento" in a for a in inf["avisos"]))
+        self.assertFalse(inf["soporte"]["tau_con_encogimiento_l1"])  # usar_go=False: el τ no lo calibró el entrenador
+        self.assertTrue(any("l1_lambda_calib=2" in a for a in inf["avisos"]), inf["avisos"])
         self.assertEqual(inf["soporte"]["k"], {"alta": 4, "baja": 2})  # «vacio» no lo ve L1: no cuenta
         self.assertTrue(any("l1_shrinkage_lambda" in m for m in logs), logs)
         a, b = formato.leer((self.d / "a.chispa").read_bytes()), formato.leer((self.d / "b.chispa").read_bytes())
-        self.assertEqual({t: v for t, v in b.items() if t != formato.SOPL1}, a)  # las demás secciones, byte a byte
+        self.assertEqual({t: v for t, v in b.items() if t not in (formato.SOPL1, formato.CALIB)}, {t: v for t, v in a.items() if t != formato.CALIB})
+        self.assertEqual(json.loads(b[formato.CALIB]), {**json.loads(a[formato.CALIB]), "l1_lambda_calib": 2.0})  # las demás secciones, byte a byte
         sec = formato.leer_sopl1(b[formato.SOPL1])
         e = sec["entradas"][0]
         self.assertEqual((sec["dim"], e["ids"], e["k"].tolist()), (4, ["alta", "baja"], [4, 2]))
@@ -163,3 +168,43 @@ class TestSOPL1EnTrain(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    # R6-2: CALIB lleva el λ de L1 del soporte; los fallos al embeber sin λ explícito degradan a aviso.
+
+    def calib(self, nombre):
+        return json.loads(formato.leer((self.d / nombre).read_bytes())[formato.CALIB])
+
+    def test_sin_soporte_o_lambda_infinito_no_llevan_el_campo(self):
+        self.correr("a.chispa", sin_soporte=True)
+        self.assertNotIn("l1_lambda_calib", self.calib("a.chispa"))
+        self.correr("b.chispa", shrinkage_lambda=float("inf"))
+        self.assertNotIn("l1_lambda_calib", self.calib("b.chispa"))  # json.dumps(inf) no sería JSON válido para Go
+
+    def test_fallo_no_chispaerror_sin_lambda_explicito_degrada_a_aviso(self):
+        for exc in (FileNotFoundError("go"), KeyError("x"), ValueError("reshape"), json.JSONDecodeError("m", "d", 0)):
+            with self.subTest(exc=type(exc).__name__):
+                def roto(textos, exc=exc):
+                    raise exc
+                logs = []
+                inf = self.correr("r.chispa", embeber=roto, log=logs.append)
+                self.assertNotIn("SOPL1", inf["secciones"])
+                self.assertIn("SOPL1", inf["omitidas"])
+                self.assertTrue(any("sin SOPL1" in m for m in logs), logs)
+                self.assertNotIn("l1_lambda_calib", self.calib("r.chispa"))
+
+    def test_fallo_con_lambda_explicito_sigue_abortando(self):
+        def roto(textos):
+            raise FileNotFoundError("go")
+        with self.assertRaises(FileNotFoundError):
+            self.correr("r.chispa", embeber=roto, shrinkage_lambda=2.0)
+
+    def test_si_el_entrenador_calibro_con_encogimiento_y_no_hay_sopl1_se_quita_el_campo_y_avisa(self):
+        from chispa.train import anadir_sopl1
+        sal = self.d / "g.chispa"
+        sal.write_bytes(formato.escribir({formato.META: formato.meta(["urg"], {}, ""), formato.CALIB: formato.calib({}, 0.5, l1_lambda_calib=4.0)}))
+        inf = {"calib": {"l1_lambda_calib": 4.0}}
+        def roto(textos):
+            raise OSError("go")
+        anadir_sopl1(sal, None, [], "l1", 4.0, inf, lambda m: None)  # sin ejemplos: no escribe SOPL1
+        self.assertNotIn("l1_lambda_calib", json.loads(formato.leer(sal.read_bytes())[formato.CALIB]))
+        self.assertTrue(any("descalibrado" in a for a in inf["avisos"]), inf)

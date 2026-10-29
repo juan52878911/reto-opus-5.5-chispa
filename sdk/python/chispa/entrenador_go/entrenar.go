@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -47,6 +48,10 @@ func cosenos(m *l1.Modelo, ops [][]float32, texto string) []float64 {
 	if !m.Embed(texto, msg) {
 		return nil
 	}
+	return cosenosCon(msg, ops)
+}
+
+func cosenosCon(msg []float32, ops [][]float32) []float64 {
 	s := make([]float64, len(ops))
 	for j, o := range ops {
 		for k := range msg {
@@ -134,7 +139,7 @@ func entrenar(p *Plan) (*Informe, error) {
 		if p.Pregunta.Kind == "score" {
 			inf.Omitidas["L1.calib"] = "score: L1 no opina"
 		} else {
-			calibrarL1(m, p, va, &calib, inf)
+			calibrarL1(m, p, exs, va, &calib, inf)
 		}
 		inf.Tiempos["l1"] = time.Since(t).Seconds()
 	}
@@ -225,15 +230,62 @@ func entrenar(p *Plan) (*Informe, error) {
 }
 
 // calibrarL1 ajusta T (choice) o a, b, θ (noul) y el τ de escalate con las similitudes de L1 en la validación.
-func calibrarL1(m *l1.Modelo, p *Plan, va []chispa.Example, calib *chispa3.Calib, inf *Informe) {
+// Con p.L1Lambda el prototipo de cada opción es el de runtime (chispa3.Mezclar con PesoSoporte): el soporte (SOPL1) son todos los
+// ejemplos `exs`, y a cada ejemplo de validación se le quita de su clase (leave-one-out) para no calibrar contra sí mismo.
+func calibrarL1(m *l1.Modelo, p *Plan, exs, va []chispa.Example, calib *chispa3.Calib, inf *Informe) {
 	ops := embebeOpciones(m, p.Pregunta)
+	lam := p.L1Lambda
+	if lam != nil && (math.IsInf(*lam, 0) || math.IsNaN(*lam) || *lam < 0) {
+		lam = nil // λ = ∞ es solo la descripción: lo mismo que sin encogimiento
+	}
+	var suma [][]float64
+	var kc []int
+	if lam != nil {
+		suma, kc = make([][]float64, len(ops)), make([]int, len(ops))
+		for i := range suma {
+			suma[i] = make([]float64, m.Dim())
+		}
+		for _, e := range exs {
+			v, c := make([]float32, m.Dim()), indiceDe(p.Pregunta, e.Label)
+			if c >= 0 && m.Embed(e.Text, v) {
+				for t := range v {
+					suma[c][t] += float64(v[t])
+				}
+				kc[c]++
+			}
+		}
+	}
 	var sims [][]float64
 	var y []int
 	for _, e := range va {
-		if s := cosenos(m, ops, e.Text); s != nil {
-			sims = append(sims, s)
-			y = append(y, indiceDe(p.Pregunta, e.Label))
+		msg := make([]float32, m.Dim())
+		if !m.Embed(e.Text, msg) {
+			continue
 		}
+		c := indiceDe(p.Pregunta, e.Label)
+		pr := ops
+		if lam != nil {
+			pr = make([][]float32, len(ops))
+			for j, o := range ops {
+				pr[j] = o
+				k, s := kc[j], suma[j]
+				if j == c && k > 0 {
+					k, s = k-1, make([]float64, len(suma[j]))
+					for t := range s {
+						s[t] = suma[j][t] - float64(msg[t])
+					}
+				}
+				if w := chispa3.PesoSoporte(k, lam); w > 0 {
+					media := make([]float32, len(s))
+					for t := range s {
+						media[t] = float32(s[t] / float64(k))
+					}
+					pr[j] = chispa3.Mezclar(o, media, w)
+				}
+			}
+		}
+		sims = append(sims, cosenosCon(msg, pr))
+		y = append(y, c)
 	}
 	if len(sims) == 0 {
 		inf.Omitidas["L1.calib"] = "L1 no ve tokens en la validación"
@@ -281,5 +333,6 @@ func calibrarL1(m *l1.Modelo, p *Plan, va []chispa.Example, calib *chispa3.Calib
 		}
 	}
 	inf.L1Valid = float64(n) / float64(len(ok))
+	calib.L1LambdaCalib = lam
 	calib.TauEscalate, inf.L1TauOK = tauEscalate(conf, ok, p.TauObj, 10)
 }

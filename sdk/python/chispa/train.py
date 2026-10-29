@@ -181,6 +181,31 @@ def anadir_tau_l2_esquema_nuevo(salida, tau) -> None:
     salida.write_bytes(formato.escribir(secs))
 
 
+def _ajustar_l1_lambda_calib(secs, lambda_) -> None:
+    """Pone en la CALIB de `secs` el λ de L1 con el que se calibró el τ (finito) o quita el campo (λ infinito = solo descripción = sin encogimiento)."""
+    d = json.loads(secs[formato.CALIB])
+    if lambda_ is None or lambda_ == float("inf"):
+        d.pop("l1_lambda_calib", None)
+    else:
+        d["l1_lambda_calib"] = lambda_
+    secs[formato.CALIB] = json.dumps(d).encode()
+
+
+def _sin_sopl1(salida: Path, motivo: str, inf: dict, log) -> None:
+    """SOPL1 no se escribió: si el entrenador calibró el τ de L1 con encogimiento, el fichero ya no lo tiene y el campo se quita con aviso."""
+    inf.setdefault("omitidas", {})["SOPL1"] = motivo
+    log("AVISO: sin SOPL1: " + motivo)
+    if (inf.get("calib") or {}).get("l1_lambda_calib") is None:
+        return
+    secs = formato.leer(salida.read_bytes())
+    _ajustar_l1_lambda_calib(secs, None)
+    salida.write_bytes(formato.escribir(secs))
+    inf["calib"].pop("l1_lambda_calib")
+    inf.setdefault("avisos", []).append("el τ de L1 se calibró con encogimiento pero SOPL1 no se escribió: τ de L1 descalibrado; "
+                                        "reentrena con --sin-soporte o arregla la causa")
+    log("AVISO: " + inf["avisos"][-1])
+
+
 def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None, normas_ranuras=None, explicito=True) -> None:
     """Reescribe `salida` con la sección SOPL1 (soporte few-shot para el encogimiento del prototipo de L1/L2). Sin `embeber`, los
     embeddings salen de runtime/l1 en Go (hace falta Go y las fuentes); sin eso, avisa y no escribe nada. `explicito=False` (el default,
@@ -188,27 +213,25 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
     salida = Path(salida)
     if not (l1 and ex):
         motivo = "sin --l1" if not l1 else "sin --ejemplos"
-        inf.setdefault("omitidas", {})["SOPL1"] = motivo
-        log(f"AVISO: sin SOPL1: {motivo}")
+        _sin_sopl1(salida, motivo, inf, log)
         return
     with tempfile.TemporaryDirectory(prefix="chispa-sopl1-") as tmp:
         if embeber is None:
             go, fuentes = encontrar_go(), fuentes_go(encontrar_repo(repo))
             if not (go and fuentes):
-                inf.setdefault("omitidas", {})["SOPL1"] = "hace falta Go y las fuentes de runtime/l1 para embeber los ejemplos"
-                log("AVISO: sin SOPL1: " + inf["omitidas"]["SOPL1"])
+                _sin_sopl1(salida, "hace falta Go y las fuentes de runtime/l1 para embeber los ejemplos", inf, log)
                 return
             embeber = lambda textos: embeber_con_go(l1, textos, fuentes, go, Path(tmp))
         try:
             b, ks, dim = seccion_sopl1(q, ex, embeber, normas_ranuras)
-        except ChispaError as e:
+        except Exception as e:  # sin λ explícito, cualquier fallo al embeber (Go roto, salida ilegible, reshape…) es un aviso
             if explicito:
                 raise
-            inf.setdefault("omitidas", {})["SOPL1"] = f"no se pudieron embeber los ejemplos: {str(e).splitlines()[0]}"
-            log("AVISO: sin SOPL1: " + inf["omitidas"]["SOPL1"])
+            _sin_sopl1(salida, f"no se pudieron embeber los ejemplos: {(str(e).splitlines() or [type(e).__name__])[0]}", inf, log)
             return
     secs = formato.leer(salida.read_bytes())
     secs[formato.SOPL1] = b
+    _ajustar_l1_lambda_calib(secs, lambda_)
     tmp_f = salida.with_name(salida.name + ".tmp")
     try:
         tmp_f.write_bytes(formato.escribir(secs))
@@ -218,10 +241,17 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
     inf["bytes"] = salida.stat().st_size
     if "SOPL1" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("SOPL1")
-    inf["soporte"] = {"lambda_sugerida": "inf" if lambda_ == float("inf") else lambda_, "k": ks, "version": (3 if normas_ranuras.get("n") is not None else 2) if normas_ranuras is not None else 1, "dim": dim, "bytes": len(b), "tau_sin_encogimiento": True}
-    inf.setdefault("avisos", []).append("τ de L1/L2c calibrado sin el encogimiento de SOPL1: con l1_shrinkage_lambda/l2_shrinkage_lambda > 0 "
-                                        "la cobertura y precisión prometidas no valen; recalibra con el encogimiento activo")
-    log("AVISO: " + inf["avisos"][-1])
+    inf["soporte"] = {"lambda_sugerida": "inf" if lambda_ == float("inf") else lambda_, "k": ks, "version": (3 if normas_ranuras.get("n") is not None else 2) if normas_ranuras is not None else 1, "dim": dim, "bytes": len(b),
+                      "tau_con_encogimiento_l1": (inf.get("calib") or {}).get("l1_lambda_calib") == lambda_ and lambda_ != float("inf"),
+                      "tau_l2c_sin_encogimiento": True}
+    if lambda_ != float("inf"):
+        inf.setdefault("calib", {})["l1_lambda_calib"] = lambda_
+    if inf["soporte"]["tau_con_encogimiento_l1"]:
+        inf.setdefault("avisos", []).append("el τ de L2c no se calibra con el encogimiento de SOPL1: con l2_shrinkage_lambda > 0 su cobertura y precisión prometidas no valen")
+        log("AVISO: " + inf["avisos"][-1])
+    else:
+        inf.setdefault("avisos", []).append(f"CALIB sin calibrar con el entrenador de Go: l1_lambda_calib={lambda_:g} solo marca el λ que el runtime usa por defecto; el τ no se calibró")
+        log("AVISO: " + inf["avisos"][-1])
     log(f"SOPL1: k por opción {ks}, dim {dim}, {len(b)} bytes; el runtime la usa con l1_shrinkage_lambda (y l2_shrinkage_lambda) = {lambda_:g}"
         + ("; con normas por ranura y n_l2 (v3)" if normas_ranuras is not None else "; sin normas por ranura (v1): L2c usa la media normalizada"))
 
@@ -330,14 +360,16 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         if l2 and Path(l2).is_file():  # con --l2 se sabe ya: falla antes de entrenar
             from .torre import comprobar_dim_l2
             comprobar_dim_l2(formato.leer(Path(l2).read_bytes()), torre["dim"])
-    inf = _entrenar(ejemplos, esquema, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
+    lam = LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda
+    con_soporte = not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos))
+    inf = _entrenar(ejemplos, esquema, salida, lambda_l1=lam if con_soporte and l1 and ejemplos and lam != float("inf") else None, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
                     frac_valid=frac_valid, l0_max_mb=l0_max_mb, usar_go=usar_go, conjunta=conjunta, modelo_l2=modelo_l2,
                     l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,
                     margen=margen, suelo=suelo, tope_tau=tope_tau, log=log)
     normas = inf.pop("_normas_ranuras", None)
-    if not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos)):
+    if con_soporte:
         q, _ = cargar_esquema(esquema, pregunta)
-        anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda,
+        anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, lam,
                      inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
@@ -349,7 +381,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     return inf
 
 
-def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semilla, frac_valid, l0_max_mb, usar_go, conjunta,
+def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, pregunta, semilla, frac_valid, l0_max_mb, usar_go, conjunta,
               modelo_l2, l0tf_f16, l0tf_max_mb, precision_objetivo, validacion, margen, suelo, tope_tau, log) -> dict:
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
@@ -422,7 +454,7 @@ def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semill
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
                 "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "sin_l0": sin_l0, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
-                "conj": conj_ruta, "l0tf": l0tf_ruta, "tau_l2c": (conj_inf or {}).get("tau_l2c"),
+                "conj": conj_ruta, "l0tf": l0tf_ruta, "l1_lambda": lambda_l1, "tau_l2c": (conj_inf or {}).get("tau_l2c"),
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
                 "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"]}}

@@ -70,6 +70,18 @@ def _retry_after(e) -> float | None:
         return None  # fecha HTTP u otra cosa: se trata como ausente
 
 
+def _validar_clave(api_key):
+    """Quita el salto de línea final (clave leída de un fichero) y exige ASCII imprimible sin espacios. El error no incluye la clave."""
+    if not api_key:
+        return None
+    if not isinstance(api_key, str):
+        raise ValueError("api_key debe ser una cadena")
+    api_key = api_key.rstrip("\r\n")
+    if not api_key or not all(33 <= ord(c) <= 126 for c in api_key):
+        raise ValueError("api_key inválida: debe ser ASCII imprimible, sin espacios ni caracteres de control (la clave no se muestra)")
+    return api_key
+
+
 class Chispa:
     """`Chispa("http://127.0.0.1:8090").decidir(estado, [Choice(...), Noul(...), Score(...)])`.
 
@@ -84,7 +96,10 @@ class Chispa:
         self.url = url.rstrip("/")
         self.timeout, self.reintentos, self.espera, self.nonce_auto = timeout, reintentos, espera, nonce_auto
         self._dormir = dormir
-        self.api_key = api_key or None  # clave en claro; viaja como `Authorization: Bearer` solo en /v1/decide
+        self.api_key = _validar_clave(api_key)  # clave en claro; viaja como `Authorization: Bearer` solo en /v1/decide
+
+    def __repr__(self) -> str:
+        return f"Chispa(url={self.url!r}, api_key={'***' if self.api_key else None})"  # nunca la clave
 
     def decidir(self, estado: str, preguntas: Sequence[Pregunta]) -> List[Resultado]:
         """Resultados en el orden de `preguntas`."""
@@ -123,7 +138,12 @@ class Chispa:
             pedida = 0.0
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                    return json.loads(r.read())
+                    crudo = r.read()
+                try:
+                    return json.loads(crudo)
+                except ValueError as e:  # JSON ilegible: el único ValueError que se reintenta
+                    ultimo = repr(e)
+                    continue
             except urllib.error.HTTPError as e:
                 texto = e.read().decode("utf-8", "replace")
                 ra = _retry_after(e)
@@ -134,7 +154,7 @@ class Chispa:
                         pass
                     raise ErrorSolicitud(e.code, texto, retry_after=ra) from None  # str (formato viejo) o dict (tipado)
                 ultimo, pedida = f"HTTP {e.code}", ra or 0.0
-            except (urllib.error.URLError, OSError, ValueError) as e:  # ValueError: JSON ilegible
+            except (urllib.error.URLError, OSError) as e:
                 if _es_timeout_propio(e):
                     raise ErrorTransporte(f"{self.url}{ruta}: {e!r}: sin respuesta en {self.timeout} s (no se reintenta)") from e
                 ultimo = repr(e)

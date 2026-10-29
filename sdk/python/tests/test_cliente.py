@@ -2,6 +2,7 @@ import json
 import threading
 import time
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from chispa import Choice, Chispa, ChispaError, ErrorSolicitud, ErrorTransporte, Noul, Score
@@ -117,6 +118,40 @@ class TestCliente(unittest.TestCase):
         with self.assertRaises(ErrorSolicitud) as cm:
             Chispa(self.f.url, api_key="mala", dormir=lambda s: self.fail("no debe esperar")).decidir("x", [Noul("n", "¿?")])
         self.assertEqual((cm.exception.status, cm.exception.codigo), (401, "unauthorized"))
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_api_key_con_salto_final_se_recorta(self):
+        Chispa(self.f.url, api_key="s3creto\n", dormir=lambda s: None).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(self.f.autorizaciones, ["Bearer s3creto"])
+
+    def test_api_key_invalida_falla_al_construir_sin_mostrar_la_clave(self):
+        for mala in ("cl€ve-secreta", "con espacio", "tab\tsecreta", "a\nb-secreta", " \n"):
+            with self.subTest(mala=mala):
+                with self.assertRaises(ValueError) as cm:
+                    Chispa(self.f.url, api_key=mala)
+                self.assertNotIn("secreta", str(cm.exception))
+                self.assertNotIn(mala.strip() or "zz", str(cm.exception))
+
+    def test_repr_y_errores_no_llevan_la_clave(self):
+        c = Chispa(self.f.url, api_key="s3creto-unico", dormir=lambda s: None, reintentos=1)
+        self.assertNotIn("s3creto-unico", repr(c))
+        self.f.fallos[:] = [503, 503]
+        with self.assertRaises(ErrorTransporte) as cm:
+            c.decidir("x", [Noul("n", "¿?")])
+        self.assertNotIn("s3creto-unico", str(cm.exception))
+
+    def test_valueerror_al_armar_la_peticion_no_se_reintenta_ni_se_traga(self):
+        c = Chispa(self.f.url, dormir=lambda s: self.fail("no debe esperar"))
+        with mock.patch("urllib.request.urlopen", side_effect=ValueError("Invalid header value")) as u:
+            with self.assertRaises(ValueError):
+                c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(u.call_count, 1)
+
+    def test_403_no_se_reintenta(self):
+        self.f.fallos[:] = [403, 403]
+        with self.assertRaises(ErrorSolicitud) as cm:
+            Chispa(self.f.url, api_key="mala", dormir=lambda s: self.fail("no debe esperar")).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(cm.exception.status, 403)
         self.assertEqual(len(self.f.peticiones), 1)
 
     def test_429_no_se_reintenta_y_expone_retry_after(self):
