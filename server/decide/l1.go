@@ -15,8 +15,9 @@ const tDefecto = 0.05
 
 // L1 es el embedding estático (Model2Vec en Go puro): puntúa cada opción por
 // coseno entre el mensaje y «pregunta · opción · descripción». choice: softmax
-// del coseno / T; noul: σ(a·coseno + b) con el umbral θ. score no lo cubre
-// (sin opinión): un coseno no ordena niveles y no hay cabeza calibrada para ello.
+// del coseno / T; noul: σ(a·coseno + b) con el umbral θ; score: el mismo softmax
+// sobre los niveles (en el orden de la pregunta) y la respuesta es la mediana de
+// esa distribución, con confianza P(mediana).
 type L1 struct {
 	m      *l1.Modelo
 	calib  chispa3.Calib
@@ -78,7 +79,7 @@ func coseno(a, b []float32) float64 {
 }
 
 func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
-	if p.Kind == KindScore || len(p.Opciones) == 0 {
+	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
 	msg := make([]float32, l.m.Dim())
@@ -100,7 +101,34 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		}
 		return respuestaNoul(prm.A*s+prm.B, prm.Theta), nil
 	}
+	if p.Kind == KindScore {
+		return respuestaScore(p, sims, l.paramsScore().T), nil
+	}
 	return respuestaSoftmax(p, sims, l.params("choice").T), nil
+}
+
+// paramsScore: la T de «score» si CALIB la trae; si no, la de choice (o la de por defecto).
+func (l *L1) paramsScore() chispa3.ParamsTipo {
+	if p, ok := l.calib.Tipos["score"]; ok && p.T > 0 {
+		return p
+	}
+	return l.params("choice")
+}
+
+// respuestaScore: softmax de coseno/T sobre los niveles (probs por id, como L2) y salida
+// ordinal: answer es el nivel mediano (primero con masa acumulada ≥ 0,5) y conf su probabilidad,
+// así que una distribución repartida entre niveles lejanos baja la confianza y escala.
+func respuestaScore(p Pregunta, sims []float64, T float64) Respuesta {
+	r := respuestaSoftmax(p, sims, T)
+	var acc float64
+	for _, o := range p.Opciones {
+		acc += r.Probs[o.ID]
+		if acc >= 0.5 {
+			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
+			break
+		}
+	}
+	return r
 }
 
 func respuestaNoul(z, theta float64) Respuesta {

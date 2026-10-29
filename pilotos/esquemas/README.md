@@ -18,7 +18,7 @@ PYTHONPATH=sdk/python python -m chispa train --esquema pilotos/esquemas/pqrs.yam
 - Cambia los ejemplos por mensajes reales anonimizados en cuanto los haya ([`datos-y-consentimiento.md`](../datos-y-consentimiento.md)).
 - Los ids de opción (`peticion`, `queja`…) no llevan tildes ni espacios; no los cambies sin cambiar los CSV.
 - Con 5 ejemplos por opción (< 10) `chispa train` no entrena L0 y calibra L1 con esos ejemplos; la calibración es ruidosa ([`docs/02`](../../docs/02-inicio-rapido.md#3-few-shot-k-ejemplos-por-opción)).
-- `pqrs_urgencia` (score): pendiente de producto, ver el comentario del YAML y [`../README.md`](../README.md#pendiente-de-producto).
+- `pqrs_urgencia` (score): L1 ya opina sobre los niveles, ya no escala siempre. Para que decida, escribe una descripción por nivel que diga cómo se reconoce en un mensaje (nivel 1: «puede esperar, sin plazo ni daño»; nivel 5: «riesgo inmediato, plazo legal vencido o tutela»), con vocabulario distinto entre niveles y con los niveles en orden de menor a mayor. Niveles sin descripción o con textos casi iguales no se distinguen y el caso escala. Resto del pendiente de producto: [`../README.md`](../README.md#pendiente-de-producto).
 - `soporte_escalar` es `noul`: sus opciones son exactamente `"true"` y `"false"` (entre comillas en el YAML para que no se lean como booleanos).
 - Verificados en este nodo: los 3 YAML cargan con `cargar_esquema` y los 7 CSV pasan `validar` (cada opción con 5 ejemplos).
   No se entrenó ningún `.chispa`: no hay Go, ni potion en el nodo.

@@ -26,7 +26,9 @@ Lo que hay que saber antes de usarlo:
 - **Las descripciones son la señal.** Opciones parecidas o descripciones vagas bajan la calidad. No hay una medida del efecto: sin medir.
 - **τ sin calibrar.** El `CALIB` del zero-shot usa τ = 0,6; sus probabilidades no están calibradas.
   El ECE en zero-shot: sin medir.
-- **Solo `choice` y `noul`.** L1 no opina en `score`.
+- **`score` en L1 es ordinal por descripciones.** L1 compara el mensaje con «pregunta · nivel · descripción» de cada nivel (en el orden de la pregunta), hace el softmax de cosenos / T
+  y responde con la mediana de esa distribución; `probs` trae un valor por nivel, como L2. Un nivel sin descripción no tiene señal y confunde a L1.
+  Si la masa se reparte entre niveles lejanos, la confianza de la mediana baja de τ y escala. La T es la de `score` en `CALIB` o, si falta, la de `choice`. No es una cabeza CORAL: sin medir la calidad en score zero-shot.
 - **Latencia de L1 por HTTP con el potion real: sin medir.** La de `Embed` sí: 25 µs p50 y 74 µs p99 a 16 tokens, 110 µs y 268 µs a 64
   ([`informe.md`](../model/l1/resultados/2026-10-28/informe.md)).
 - Las cifras de arriba son de tareas en inglés y español con una sola semilla. Colombia, ferretería, PQRS: sin medir.

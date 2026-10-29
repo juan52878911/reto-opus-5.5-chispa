@@ -357,9 +357,6 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 	if c.e == nil {
 		return fallo(errors.New("el fichero no trae la sección L1"))
 	}
-	if p.Kind == "score" { // un coseno no ordena niveles: sin opinión
-		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
-	}
 	msg := make([]float32, c.e.Dim())
 	if !c.e.Embed(texto, msg) {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
@@ -381,7 +378,34 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 		}
 		return salida(noul(prm.A*s+prm.B, prm.Theta))
 	}
+	if p.Kind == "score" {
+		return salida(puntuarNiveles(p, sims, c.tScore()))
+	}
 	return salida(softmax(p, sims, c.params("choice").T))
+}
+
+// tScore: la T de «score» si CALIB la trae; si no, la de choice (como server/decide/l1.go).
+func (c *Chispa) tScore() float64 {
+	if p, ok := c.calib.Tipos["score"]; ok && p.T > 0 {
+		return p.T
+	}
+	return c.params("choice").T
+}
+
+// puntuarNiveles: softmax sobre los niveles en el orden de la pregunta; answer es la mediana
+// (primer nivel con masa acumulada ≥ 0,5) y conf su probabilidad (como server/decide/l1.go).
+func puntuarNiveles(p pregunta, sims []float64, T float64) respuesta {
+	r := softmax(p, sims, T)
+	var acc float64
+	for _, o := range p.Opciones {
+		acc += r.Probs[o.ID]
+		if acc >= 0.5 {
+			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
+			break
+		}
+	}
+	r.Opina = r.Conf > 0
+	return r
 }
 
 func softmax(p pregunta, sims []float64, T float64) respuesta {
