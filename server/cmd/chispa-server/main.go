@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -35,6 +36,9 @@ func main() {
 	maxEnCurso := flag.Int("max-en-curso", 64, "tope de peticiones a /v1/decide en curso a la vez (0 = sin tope); al llenarse responde 503 overloaded con Retry-After")
 	apagado := flag.Duration("apagado", 25*time.Second, "plazo para terminar las peticiones en vuelo tras SIGTERM/SIGINT")
 	abierto := flag.Bool("abierto", false, "permite escuchar fuera de loopback sin api_keys (también vale api_keys_abierto en la config)")
+	adminAddr := flag.String("admin-addr", "", "dirección de escucha aparte para POST /v1/admin/recargar (p. ej. 127.0.0.1:8091); la pública deja de servirla (404). Vacío = comparte -addr")
+	plazoCuerpo := flag.Duration("plazo-cuerpo", 0, "plazo para recibir el cuerpo entero de /v1/decide (0 = 10 s; negativo = sin plazo)")
+	metricasProt := flag.Bool("metricas-protegidas", false, "/metrics exige Authorization: Bearer con una api_key válida (o el admin_token en claro)")
 	hashClave := flag.Bool("hash-clave", false, "lee una clave de la entrada estándar, imprime su SHA-256 (hash_sha256 de api_keys) y sale")
 	flag.Parse()
 	if *hashClave {
@@ -70,9 +74,36 @@ func main() {
 		log.Fatalf("FATAL: %v", err)
 	}
 	srv0 := decide.NuevoServidorDe(inicial, met)
-	srv0.ConRecarga(armar(met), inicial.AdminToken)
+	srv0.ConRecargaDe(armar(met), inicial)
+	srv0.ConPlazoCuerpo(*plazoCuerpo).ConMetricasProtegidas(*metricasProt)
+	adminOn := inicial.AdminToken != "" || inicial.AdminTokenSHA256 != ""
+	if *metricasProt && len(inicial.APIKeys) == 0 && (inicial.AdminTokenSHA256 != "" || !adminOn) {
+		log.Print("AVISO: -metricas-protegidas sin api_keys (y sin admin_token en claro): /metrics responderá 401 siempre")
+	}
+	if adminOn && *adminAddr == "" && !esLoopback(*addr) {
+		log.Printf("AVISO: /v1/admin/recargar comparte el puerto público %s; use -admin-addr 127.0.0.1:<puerto> para separarla", *addr)
+	}
 	apagando := &atomic.Bool{}
-	handler := conLimites(montarHandler(srv0, inicial.AdminToken, *timeout, met), *maxEnCurso, apagando)
+	handler := conLimites(montarHandler(srv0, adminOn, *timeout, met), *maxEnCurso, apagando)
+	handler = conMetricasAdmin(handler, met)
+	var adminSrv *http.Server
+	if adminOn && *adminAddr != "" {
+		if !esLoopback(*adminAddr) {
+			log.Printf("AVISO: -admin-addr %s no es loopback: la ruta de administración queda expuesta", *adminAddr)
+		}
+		aln, err := net.Listen("tcp", *adminAddr)
+		if err != nil {
+			log.Fatalf("FATAL: escuchar la administración en %s: %v", *adminAddr, err)
+		}
+		adminSrv = nuevoHTTPServer(*adminAddr, soloAdmin(handler), *timeout)
+		go func() {
+			if err := adminSrv.Serve(aln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("FATAL: servir la administración en %s: %v", *adminAddr, err)
+			}
+		}()
+		log.Printf("administración en %s", *adminAddr)
+		handler = sinAdmin(handler)
+	}
 	go func() {
 		select {
 		case <-sighup: // llegó durante el arranque: el modelo recién armado ya lo refleja
@@ -105,6 +136,9 @@ func main() {
 	sctx, cancel := context.WithTimeout(context.Background(), *apagado)
 	defer cancel()
 	code := 0
+	if adminSrv != nil {
+		adminSrv.Shutdown(sctx)
+	}
 	if err := srv.Shutdown(sctx); err != nil {
 		log.Printf("apagado: plazo agotado con peticiones en vuelo (%v): se cortan", err)
 		srv.Close()
@@ -318,6 +352,9 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 			cerrar = func() error { return errors.Join(cerrarSesiones(), f.Close()) }
 		}
 	}
+	if l1, ok := capaL1.(interface{ ConCacheBytes(int) *decide.L1 }); ok {
+		l1.ConCacheBytes(cfg.CacheEsquemasMB)
+	}
 	casc, err := decide.NuevaCascadaConTauNuevo(cfg.Capas, []decide.Decisor{l0, capaL1, capaL2, decide.NuevoL3()}, met, cfg.TauL2EsquemaNuevo)
 	if err != nil {
 		if cerrar != nil {
@@ -325,18 +362,18 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 		}
 		return nil, err
 	}
-	return &decide.Armado{Cascada: casc, CacheRespuestas: cfg.CacheRespuestas, Limites: cfg.Limites, APIKeys: cfg.APIKeys, APIKeysAbierto: cfg.APIKeysAbierto, AdminToken: cfg.AdminToken, L0: l0, Cerrar: cerrar}, nil
+	return &decide.Armado{Cascada: casc, CacheRespuestas: cfg.CacheRespuestas, BytesNonces: cfg.CacheRespuestasMB << 20, Limites: cfg.Limites, APIKeys: cfg.APIKeys, APIKeysAbierto: cfg.APIKeysAbierto, AdminToken: cfg.AdminToken, AdminTokenSHA256: cfg.AdminTokenSHA256, L0: l0, Cerrar: cerrar}, nil
 }
 
 // montarHandler envuelve el mux del servidor en el -timeout (503 contado en las métricas), salvo /v1/admin/recargar: una recarga
 // puede tardar más (L1 grande + ORT en disco lento) y cortarla con 503 invita al operador a reintentar y recargar dos veces.
-func montarHandler(srv *decide.Servidor, adminToken string, timeout time.Duration, met *decide.Metricas) http.Handler {
+func montarHandler(srv *decide.Servidor, adminOn bool, timeout time.Duration, met *decide.Metricas) http.Handler {
 	handler := srv.Handler()
 	if timeout <= 0 {
 		return handler
 	}
 	con := decide.ConTimeoutMet(handler, timeout, met)
-	if adminToken == "" {
+	if !adminOn {
 		return con
 	}
 	mux := http.NewServeMux()
@@ -344,6 +381,60 @@ func montarHandler(srv *decide.Servidor, adminToken string, timeout time.Duratio
 	mux.Handle("/", con)
 	return mux
 }
+
+// soloAdmin deja pasar a h solo /v1/admin/recargar (el listener de administración); sinAdmin hace lo contrario en el público.
+func soloAdmin(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/admin/recargar" {
+			http.NotFound(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+func sinAdmin(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/admin/recargar" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			io.WriteString(w, `{"error":{"code":"not_found","message":"ruta /v1/admin/recargar no existe"}}`+"\n")
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+// conMetricasAdmin añade chispa_admin_rechazos_total a la respuesta 200 de GET /metrics (metricas.go no lo emite).
+func conMetricasAdmin(h http.Handler, met *decide.Metricas) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/metrics" || r.Method != http.MethodGet {
+			h.ServeHTTP(w, r)
+			return
+		}
+		rec := &bufResp{h: http.Header{}, code: http.StatusOK}
+		h.ServeHTTP(rec, r)
+		if rec.code == http.StatusOK {
+			met.EscribeAdmin(&rec.buf)
+		}
+		for k, v := range rec.h {
+			w.Header()[k] = v
+		}
+		w.Header().Del("Content-Length")
+		w.WriteHeader(rec.code)
+		w.Write(rec.buf.Bytes())
+	})
+}
+
+type bufResp struct {
+	h    http.Header
+	buf  bytes.Buffer
+	code int
+}
+
+func (b *bufResp) Header() http.Header         { return b.h }
+func (b *bufResp) Write(p []byte) (int, error) { return b.buf.Write(p) }
+func (b *bufResp) WriteHeader(c int)           { b.code = c }
 
 // imprimirHashClave lee la clave (una línea, sin el salto) de r y escribe en w su SHA-256 en hex. Por la entrada estándar
 // para que la clave no quede en el historial del shell ni en la lista de procesos.

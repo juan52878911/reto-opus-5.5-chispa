@@ -33,8 +33,14 @@ Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 **Registros**
 - [ ] stderr recogido (`docker logs` / `journalctl`) y log de arranque conservado. No hay log de peticiones; el servidor no guarda textos.
 
+**Admin y topes**
+- [ ] Token de admin como `admin_token_sha256` (generado con `chispa-server -hash-clave`; el token en claro tiene ≥ 32 bytes y vive en el gestor de secretos). Sin `admin_token` en claro en la config (da `AVISO`).
+- [ ] `-admin-addr 127.0.0.1:<puerto>` si la ruta de admin se usa; `chispa_admin_rechazos_total` vigilado.
+- [ ] `-metricas-protegidas` si `/metrics` es alcanzable desde fuera del servidor de monitorización; `-max-en-curso` y `-plazo-cuerpo` revisados.
+- [ ] `cache_esquemas_mb` + `cache_respuestas_mb` + torres (16 MiB) ≲ un tercio de `-mem`/`GOMEMLIMIT`; `chispa_cache_bytes` visible.
+
 **Actualizar el modelo**
-- [ ] Modelo nuevo con otro nombre; no sobrescribir el abierto. Probado en puerto auxiliar con humo + `chispa evaluar`.
+- [ ] Modelo nuevo con otro nombre; no sobrescribir el abierto ni usar `cp` sobre él (solo `mv`). Probado en puerto auxiliar con humo + `chispa evaluar`.
 - [ ] `mv` atómico del `.chispa` nuevo sobre la ruta de `-modelo` y recarga en caliente (`kill -HUP` o `POST /v1/admin/recargar` con `admin_token`); sin ventana de caída. Un 500 `reload_failed` deja el modelo viejo en servicio.
 - [ ] `chispa_recargas_total{resultado="ok"}` sube y el log dice `modelo N en servicio`; humo después. Si falla, `mv` del `.chispa` anterior y recargar.
 - [ ] Cliente: el 503 `timeout` y el 504 no se reintentan; el resto de 503 sí, con `Retry-After` y backoff.

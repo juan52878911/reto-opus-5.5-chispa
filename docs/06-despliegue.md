@@ -41,15 +41,44 @@ Tras reentrenar (few-shot o `--conjunta`) y sustituir el fichero de `-modelo` (e
 recarga sin reiniciar:
 
 - `kill -HUP <pid de chispa-server>`, o
-- `POST /v1/admin/recargar` con `Authorization: Bearer <token>`, solo si el JSON de `-config` trae `"admin_token": "..."`; sin él la
-  ruta responde 404. Token incorrecto o ausente: 401. Éxito: `{"status":"ok","generation":N}`; fallo: 500 `reload_failed`.
+- `POST /v1/admin/recargar` con `Authorization: Bearer <token>`, solo si el JSON de `-config` trae `"admin_token_sha256"` (o `"admin_token"` en claro, ≥ 32 bytes); sin ellos la
+  ruta responde 404. Token incorrecto o ausente: 401; demasiados intentos: 429. Éxito: `{"status":"ok","generation":N}`; fallo: 500 `reload_failed`.
 
 La recarga relee `-config`, `-modelo` y `-tok`, arma un modelo completo y lo sustituye de golpe. Las peticiones en vuelo
 terminan sobre el modelo viejo (el fichero viejo se cierra cuando acaba la última). Si el `.chispa` nuevo no abre o no valida, se
 queda el viejo, se escribe el error en el log y sube `chispa_recargas_total{resultado="error"}` (`ok` si prospera). Las cachés
 (esquemas, torres al vuelo y nonces) pertenecen al modelo: el nuevo empieza con ellas vacías, así que un nonce de antes no
 devuelve la respuesta del modelo anterior y la primera tanda de esquemas nuevos recalcula sus torres. Los contadores de
-`/metrics` no se reinician. `admin_token` y `-addr` solo se leen al arrancar; `api_keys` sí se relee.
+`/metrics` no se reinician. `-addr`, `-admin-addr` y el hecho de tener ruta de admin solo se leen al arrancar; `api_keys` y el token de
+admin (`admin_token_sha256`/`admin_token`) sí se releen en cada recarga: **rotar el token = cambiar la config y recargar** (con SIGHUP).
+
+**Sustituya el `.chispa` con `mv`, nunca con `cp`.** `cp` escribe en sitio sobre el fichero que el servidor tiene abierto: con `Limites.Mmap`
+(mapeado) el proceso muere con SIGBUS al truncarlo, y con el defecto (lee el fichero al heap) una recarga o un reinicio a mitad de la copia
+lee un fichero a medias. Escriba el nuevo con otro nombre en el mismo directorio y `mv nuevo.chispa modelo.chispa` (el `rename` es atómico;
+el proceso conserva el inodo viejo hasta recargar).
+
+### Admin: token, intentos y listener aparte
+- `admin_token_sha256` (SHA-256 en hex, el mismo que `chispa-server -hash-clave`): recomendado. El token en claro (`admin_token`) se sigue
+  aceptando durante la transición, con `AVISO` en el log, y debe tener **≥ 32 bytes**; no pueden ir los dos a la vez.
+  `printf '%s' "$(head -c 32 /dev/urandom | base64 | tr -d '=+/\n')" | chispa-server -hash-clave` (guarde el token, ponga el hash).
+- Intentos: cubo propio de 1 intento/s (ráfaga de 10). Cada intento gasta una ficha y un acierto la devuelve; con el cubo vacío responde
+  429 `rate_limited` con `Retry-After` sin mirar el token (bajo ataque, el operador también espera unos segundos). Cada 401 o 429 suma a
+  `chispa_admin_rechazos_total`.
+- `-admin-addr 127.0.0.1:8091`: sirve `/v1/admin/recargar` en un listener aparte y el público la deja en 404. Por defecto (vacío) comparte
+  `-addr` como antes, con un `AVISO` si `-addr` no es loopback.
+- Con solo `admin_token_sha256`, `-metricas-protegidas` no acepta el admin en `/metrics` (solo `api_keys`).
+
+## Topes de memoria y de entrada (flags y config)
+| Opción | Defecto | Qué hace |
+|---|---|---|
+| `cache_esquemas_mb` (config) | 0 = 64 MiB | Tope en bytes de la caché de esquemas de L1 (además de `cache_esquemas` entradas) |
+| `cache_respuestas_mb` (config) | 0 = 48 MiB | Tope en bytes de la caché de nonces (además de `cache_respuestas` entradas) |
+| `-max-en-curso N` | 64 | Peticiones a `/v1/decide` a la vez; al llenarse, 503 `overloaded` con `Retry-After` |
+| `-plazo-cuerpo D` | 0 = 10 s | Plazo para recibir el cuerpo entero de `/v1/decide` (negativo = sin plazo) |
+| `-metricas-protegidas` | apagado | `/metrics` exige `Authorization: Bearer` con una `api_key` (o el `admin_token` en claro); sin ninguna, 401 siempre |
+| `-admin-addr` | vacío | Listener aparte de la ruta de admin (arriba) |
+Gauge `chispa_cache_bytes{cache="l1"|"nonces"|"torres"}` en `/metrics`. Los defaults en bytes ya venían de la revisión R7 (hallazgo 7); estas
+claves solo los hacen ajustables, y no cambian el comportamiento si no se tocan. `-timeout`, `-max-conexiones` y `-apagado` siguen como en `-h`.
 
 ## Claves de API
 Por defecto `/v1/decide` está abierto. Para un piloto en casa del cliente, ponga `api_keys` en `-config` ([03-api.md](03-api.md#configuración--config)):
@@ -65,7 +94,7 @@ cada cliente recibe una clave y un límite de tasa propio (`rps` sostenidas, `ra
 3. Rotar: añada la clave nueva con otro `id`, recargue, mueva al cliente y quite la vieja.
 
 La clave en claro no se guarda ni se registra en ningún sitio; ninguna métrica la lleva (solo el `id`). Sin TLS la clave viaja en claro por la red: ponga el servidor detrás de un
-proxy TLS o en la red local. **Sin clave (por diseño):** `/healthz` y `/metrics`. **Con `admin_token`:** `/v1/admin/recargar`.
+proxy TLS o en la red local. **Sin clave (por diseño):** `/healthz` y `/metrics`. **Con `admin_token_sha256`/`admin_token`:** `/v1/admin/recargar` (limitada a 1 intento/s; mejor en `-admin-addr` loopback).
 Los cubos viven en memoria del proceso: con varias réplicas, cada una aplica su propio límite.
 
 ## El tokenizador `-tok`

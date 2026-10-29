@@ -47,3 +47,11 @@ kindling (no está en lo leído). Alternativa a la ruta de Docker: `kling image 
 `. ~/orquestador/herr/env.sh && deploy/kindling/comprobar.sh [modelo.chispa]` compila `chispa-server` y `sondeo`, arranca con
 `entrada.sh`, espera el healthcheck, comprueba que el sondeo falla sin servidor y manda una decisión zero-shot a `/v1/decide`.
 Con `server/testdata/intencion.chispa` (sin L1/L2/TORR) la respuesta correcta es escalar (`layer: escalar`): valida el contrato, no la calidad.
+
+## Flags y claves de la config (R7)
+`entrada.sh` pasa sus argumentos extra a `chispa-server` (`"$@"`), así que los flags nuevos se añaden después de `kling run … --`:
+`-admin-addr 127.0.0.1:8091` (ruta de admin en un listener aparte; dentro de la microVM, solo alcanzable desde ella), `-metricas-protegidas`,
+`-plazo-cuerpo 10s`, `-max-en-curso 64`. Claves nuevas del JSON de `CHISPA_CONFIG`: `admin_token_sha256` (hash de `chispa-server -hash-clave`;
+el `admin_token` en claro pide ≥ 32 bytes y avisa), `cache_esquemas_mb` y `cache_respuestas_mb` (topes en bytes de las cachés; defaults 64 y 48 MiB,
+pensados para `GOMEMLIMIT` 400 MiB / `-mem 512M`). Detalle en [`docs/06-despliegue.md`](../../docs/06-despliegue.md).
+Para cambiar el modelo dentro de la VM: `mv` del `.chispa` nuevo sobre el de `CHISPA_MODELO` y `kill -HUP`; **nunca `cp`** sobre el fichero en uso.
