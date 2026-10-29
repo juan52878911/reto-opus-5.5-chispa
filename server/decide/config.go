@@ -22,6 +22,7 @@ type Config struct {
 	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
 	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
 	Limites         Limites  `json:"limites"`           // topes de entrada de /v1/decide
+	AdminToken      string   `json:"admin_token"`       // si no está vacío, abre POST /v1/admin/recargar con Authorization: Bearer <token>
 	// λ del encogimiento del soporte (sección SOPL1): w = k/(k+λ) mezcla la media de los ejemplos con el prototipo de la
 	// descripción, en L1 y en L2c por separado. Ausente (nil) = ∞ = sin mezcla, el comportamiento de antes. En JSON, un número ≥ 0.
 	L1ShrinkageLambda *float64 `json:"l1_shrinkage_lambda,omitempty"`

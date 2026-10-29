@@ -311,13 +311,13 @@ func TestContratoEndpoints(t *testing.T) {
 	v := cargarSpec(t)
 	_, h := servidorFalso(t, Stub{"L0"})
 	paths := ruta(v.doc, "paths")
-	for _, p := range []string{"/v1/decide", "/healthz", "/metrics"} {
+	for _, p := range []string{"/v1/decide", "/healthz", "/metrics", "/v1/admin/recargar"} {
 		if paths[p] == nil {
 			t.Errorf("%s no está en el OpenAPI", p)
 		}
 	}
-	if len(paths) != 3 {
-		t.Errorf("el OpenAPI declara %d rutas, el servidor sirve 3", len(paths))
+	if len(paths) != 4 { // la cuarta, /v1/admin/recargar, solo existe con admin_token (recarga_test.go)
+		t.Errorf("el OpenAPI declara %d rutas, el servidor sirve 4", len(paths))
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
@@ -341,7 +341,7 @@ func TestContratoEndpoints(t *testing.T) {
 	}
 	want := []string{ErrJSONInvalido, ErrCuerpoGrande, ErrMetodo, ErrNoEncontrado, ErrSinPreguntas, ErrDemasiadasPreg, ErrEstadoLargo,
 		ErrIDFalta, ErrPreguntaFalta, ErrKindFalta, ErrKindInvalido, ErrPocasOpciones, ErrDemasiadasOpc, ErrOpcionesInvalidas,
-		ErrOpcionIDFalta, ErrPreguntaIDDup, ErrOpcionIDDup, ErrCampoLargo}
+		ErrOpcionIDFalta, ErrPreguntaIDDup, ErrOpcionIDDup, ErrCampoLargo, ErrNoAutorizado, ErrRecargaFallida}
 	sort.Strings(enum)
 	sort.Strings(want)
 	if strings.Join(enum, ",") != strings.Join(want, ",") {
@@ -443,8 +443,8 @@ func TestHTTPErroresTipados(t *testing.T) {
 func TestHTTPCompatibilidad(t *testing.T) {
 	srv, h := servidorFalso(t, porPregunta{})
 	srv.ConLimites(Limites{})
-	if srv.lim != LimitesPorDefecto() {
-		t.Fatalf("ConLimites(0) debía dejar los valores por defecto: %+v", srv.lim)
+	if srv.cur.Load().lim != LimitesPorDefecto() {
+		t.Fatalf("ConLimites(0) debía dejar los valores por defecto: %+v", srv.cur.Load().lim)
 	}
 	for _, b := range []string{
 		`{"questions":[{"id":"1","question":"q","kind":"noul"}]}`,

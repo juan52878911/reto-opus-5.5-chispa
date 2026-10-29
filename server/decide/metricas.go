@@ -67,6 +67,8 @@ type Metricas struct {
 	EsquemaNuevoDecididas atomic.Uint64 // las que L2 resolvió con su τ de esquema nuevo (el resto subió o escaló)
 	tauEsquemaNuevo       *float64      // τ propio de L2 para esquemas nuevos, si la cascada lo tiene
 
+	recargas map[string]*atomic.Uint64 // chispa_recargas_total{resultado}, bajo mu
+
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
 }
 
@@ -93,8 +95,18 @@ func (m *Metricas) sube(c func(*Metricas) *atomic.Uint64) {
 	}
 }
 
+// FijaEsquemas apunta la métrica de la caché de esquemas a los contadores del L0 en servicio (cambia con cada recarga).
+func (m *Metricas) FijaEsquemas(hits, misses func() uint64) {
+	m.mu.Lock()
+	m.EsquemaHits, m.EsquemaMisses = hits, misses
+	m.mu.Unlock()
+}
+
+// Recarga cuenta un intento de recarga del modelo: resultado "ok" o "error".
+func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resultado).Add(1) }
+
 func NuevasMetricas() *Metricas {
-	return &Metricas{capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
+	return &Metricas{recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
 		decididas: map[string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}}
 }
 
@@ -176,9 +188,17 @@ func (m *Metricas) Escribe(w io.Writer) {
 	}
 	fmt.Fprintln(w, "# HELP chispa_cache_esquemas_total Aciertos y fallos de la caché de esquemas.")
 	fmt.Fprintln(w, "# TYPE chispa_cache_esquemas_total counter")
-	if m.EsquemaHits != nil {
-		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"acierto\"} %d\n", m.EsquemaHits())
-		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"fallo\"} %d\n", m.EsquemaMisses())
+	m.mu.Lock()
+	hits, misses, tauNuevo := m.EsquemaHits, m.EsquemaMisses, m.tauEsquemaNuevo
+	m.mu.Unlock()
+	if hits != nil {
+		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"acierto\"} %d\n", hits())
+		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"fallo\"} %d\n", misses())
+	}
+	fmt.Fprintln(w, "# HELP chispa_recargas_total Recargas en caliente del .chispa por resultado (ok, error).")
+	fmt.Fprintln(w, "# TYPE chispa_recargas_total counter")
+	for _, r := range []string{"ok", "error"} {
+		fmt.Fprintf(w, "chispa_recargas_total{resultado=%q} %d\n", r, contador(&m.mu, m.recargas, r).Load())
 	}
 	fmt.Fprintln(w, "# HELP chispa_cache_nonce_aciertos_total Respuestas servidas desde la caché de nonces.")
 	fmt.Fprintln(w, "# TYPE chispa_cache_nonce_aciertos_total counter")
@@ -207,10 +227,10 @@ func (m *Metricas) Escribe(w io.Writer) {
 	fmt.Fprintln(w, "# HELP chispa_esquema_nuevo_decididas_total Preguntas de esquema nuevo que L2 resolvió con su τ de esquema nuevo.")
 	fmt.Fprintln(w, "# TYPE chispa_esquema_nuevo_decididas_total counter")
 	fmt.Fprintf(w, "chispa_esquema_nuevo_decididas_total %d\n", m.EsquemaNuevoDecididas.Load())
-	if m.tauEsquemaNuevo != nil {
+	if tauNuevo != nil {
 		fmt.Fprintln(w, "# HELP chispa_esquema_nuevo_tau τ de L2 para esquemas nuevos (solo si la config lo fija).")
 		fmt.Fprintln(w, "# TYPE chispa_esquema_nuevo_tau gauge")
-		fmt.Fprintf(w, "chispa_esquema_nuevo_tau %g\n", *m.tauEsquemaNuevo)
+		fmt.Fprintf(w, "chispa_esquema_nuevo_tau %g\n", *tauNuevo)
 	}
 	fmt.Fprintln(w, "# HELP chispa_timeouts_total Peticiones a /v1/decide cuyo plazo venció.")
 	fmt.Fprintln(w, "# TYPE chispa_timeouts_total counter")

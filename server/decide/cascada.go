@@ -49,7 +49,9 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 	}
 	c := &Cascada{met: met}
 	if met != nil {
+		met.mu.Lock()
 		met.tauEsquemaNuevo = tauNuevo
+		met.mu.Unlock()
 	}
 	for i, d := range ds {
 		if u, ok := d.(UsaMetricas); ok && met != nil {

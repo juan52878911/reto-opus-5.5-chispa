@@ -31,6 +31,21 @@ De [`main.go`](../server/cmd/chispa-server/main.go):
 | `-tok` | `.chispa-tok` de e5; sin él, L2 queda en stub aunque se compile con `ort`, y con `TORR` no hay torres al vuelo (el servidor lo avisa en el log) |
 | `-timeout` | tope de tiempo por petición (30 s por defecto); al pasarlo responde 503 con `{"error":{"code":"timeout"}}`; 0 = sin tope |
 
+## Recarga en caliente del `.chispa`
+Tras reentrenar (few-shot o `--conjunta`) y sustituir el fichero de `-modelo` (escríbelo aparte y renómbralo, `mv` es atómico),
+recarga sin reiniciar:
+
+- `kill -HUP <pid de chispa-server>`, o
+- `POST /v1/admin/recargar` con `Authorization: Bearer <token>`, solo si el JSON de `-config` trae `"admin_token": "..."`; sin él la
+  ruta responde 404. Token incorrecto o ausente: 401. Éxito: `{"status":"ok","generation":N}`; fallo: 500 `reload_failed`.
+
+La recarga relee `-config`, `-modelo` y `-tok`, arma un modelo completo y lo sustituye de golpe. Las peticiones en vuelo
+terminan sobre el modelo viejo (el fichero viejo se cierra cuando acaba la última). Si el `.chispa` nuevo no abre o no valida, se
+queda el viejo, se escribe el error en el log y sube `chispa_recargas_total{resultado="error"}` (`ok` si prospera). Las cachés
+(esquemas, torres al vuelo y nonces) pertenecen al modelo: el nuevo empieza con ellas vacías, así que un nonce de antes no
+devuelve la respuesta del modelo anterior y la primera tanda de esquemas nuevos recalcula sus torres. Los contadores de
+`/metrics` no se reinician. `admin_token` y `-addr` solo se leen al arrancar.
+
 ## El tokenizador `-tok`
 L2 recibe ids de e5. El tokenizador está en Go puro ([`runtime/tok`](../runtime/tok/README.md)) y lee un `.chispa-tok`.
 
@@ -131,6 +146,7 @@ Contadores de lo nuevo (torres al vuelo, esquemas nuevos, nonces y plazos):
 | `chispa_esquema_nuevo_tau` | gauge | τ de L2 para esquemas nuevos; solo aparece si la config lo fija (`tau_l2_esquema_nuevo`) |
 | `chispa_cache_nonce_aciertos_total` | counter | Respuestas repetidas servidas de la caché de nonces |
 | `chispa_timeouts_total` | counter | Peticiones cuyo plazo venció (no cuenta cancelaciones del cliente) |
+| `chispa_recargas_total{resultado}` | counter | Recargas del modelo (SIGHUP o `/v1/admin/recargar`): `ok` o `error` (se queda el modelo anterior) |
 
 Pistas: un `chispa_torres_cache_aciertos_total` bajo frente a `chispa_torres_calculadas_total` pide una caché de torres mayor;
 `chispa_torres_presupuesto_agotado_total` > 0 indica clientes que mandan esquemas con demasiadas opciones; `chispa_timeouts_total`

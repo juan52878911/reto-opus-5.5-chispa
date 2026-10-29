@@ -106,12 +106,62 @@ paths:
       summary: Metricas en formato de texto Prometheus
       responses:
         "200":
-          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) y plazos vencidos (chispa_timeouts_total)
+          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) y recargas del modelo (chispa_recargas_total{resultado="ok"|"error"})
           content:
             text/plain:
               schema:
                 type: string
+  /v1/admin/recargar:
+    post:
+      operationId: recargar
+      summary: Recarga en caliente del modelo (.chispa y config) sin cortar peticiones
+      description: "Solo existe si la config (-config) trae `admin_token`; si no, responde 404 not_found como cualquier ruta desconocida. Relee la config y el `.chispa`, arma un modelo nuevo y lo sustituye atomicamente (lo mismo que SIGHUP). Las peticiones en vuelo terminan sobre el modelo viejo. Las cachés (esquemas, torres, nonces) son del modelo: empiezan vacias con el nuevo, asi que un nonce anterior no devuelve la respuesta de otro modelo. Si el `.chispa` no abre o no valida, se queda el viejo. El propio `admin_token` solo se lee al arrancar. "
+      security:
+        - adminBearer: []
+      responses:
+        "200":
+          description: Modelo nuevo en servicio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  generation:
+                    type: integer
+              examples:
+                ok:
+                  value: {"status":"ok","generation":2}
+        "401":
+          description: Falta la cabecera Authorization Bearer o el token es incorrecto (code unauthorized)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: El servidor no tiene admin_token configurado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "405":
+          description: Metodo distinto de POST
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: La recarga fallo (code reload_failed); sigue el modelo anterior y chispa_recargas_total{resultado="error"} sube
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  securitySchemes:
+    adminBearer:
+      type: http
+      scheme: bearer
   schemas:
     DecideRequest:
       type: object
@@ -227,7 +277,7 @@ components:
           description: Id de la pregunta implicada, cuando se conoce.
     ErrorCode:
       type: string
-      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long]
+      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long, unauthorized, reload_failed]
     Health:
       type: object
       additionalProperties: false

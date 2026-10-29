@@ -11,6 +11,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -44,6 +46,8 @@ const (
 	ErrPreguntaIDDup     = "duplicate_question_id"
 	ErrOpcionIDDup       = "duplicate_option_id"
 	ErrCampoLargo        = "field_too_long"
+	ErrNoAutorizado      = "unauthorized"
+	ErrRecargaFallida    = "reload_failed"
 )
 
 // Limites son los topes de entrada de /v1/decide. Un valor 0 en el JSON de configuración
@@ -73,18 +77,28 @@ func (l Limites) validar() error {
 
 // Servidor expone la cascada por HTTP.
 type Servidor struct {
-	Cascada *Cascada
-	Met     *Metricas
-	nonces  *LRU[[]byte] // nonce+contenido → Resultado serializado
-	lim     Limites
+	Met *Metricas
+	cur atomic.Pointer[vivo] // modelo en servicio: cascada, caché de nonces y límites (ver recarga.go)
+
+	armador    Armador
+	adminToken string
+	recMu      sync.Mutex // serializa Recargar
 }
 
 func NuevoServidor(c *Cascada, met *Metricas, cacheRespuestas int) *Servidor {
-	return &Servidor{Cascada: c, Met: met, nonces: NewLRU[[]byte](cacheRespuestas), lim: LimitesPorDefecto()}
+	s := &Servidor{Met: met}
+	s.cur.Store(s.nuevoVivo(&Armado{Cascada: c, CacheRespuestas: cacheRespuestas, Limites: LimitesPorDefecto()}, 1))
+	return s
 }
 
-// ConLimites cambia los topes de entrada (los campos a 0 se quedan en su valor por defecto).
+// ConLimites cambia los topes de entrada (los campos a 0 se quedan en su valor por defecto). Se llama antes de servir;
+// las recargas traen los suyos en Armado.Limites.
 func (s *Servidor) ConLimites(l Limites) *Servidor {
+	s.cur.Load().lim = normalizaLimites(l)
+	return s
+}
+
+func normalizaLimites(l Limites) Limites {
 	d := LimitesPorDefecto()
 	for _, p := range []struct {
 		dst *int
@@ -95,8 +109,7 @@ func (s *Servidor) ConLimites(l Limites) *Servidor {
 			*p.dst = p.v
 		}
 	}
-	s.lim = d
-	return s
+	return d
 }
 
 func (s *Servidor) Handler() http.Handler {
@@ -110,6 +123,9 @@ func (s *Servidor) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		s.Met.Escribe(w)
 	})
+	if s.adminToken != "" {
+		mux.HandleFunc("/v1/admin/recargar", s.admin)
+	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.fallo(w, http.StatusNotFound, ErrNoEncontrado, "", "ruta %s no existe", r.URL.Path)
 	})
@@ -165,11 +181,13 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		s.fallo(w, http.StatusMethodNotAllowed, ErrMetodo, "", "método %s no permitido: usa POST", r.Method)
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, int64(s.lim.MaxCuerpo)))
+	v := s.adquirir()
+	defer v.soltar()
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, int64(v.lim.MaxCuerpo)))
 	if err != nil {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
-			s.fallo(w, http.StatusRequestEntityTooLarge, ErrCuerpoGrande, "", "cuerpo de más de %d bytes", s.lim.MaxCuerpo)
+			s.fallo(w, http.StatusRequestEntityTooLarge, ErrCuerpoGrande, "", "cuerpo de más de %d bytes", v.lim.MaxCuerpo)
 		} else {
 			s.fallo(w, http.StatusBadRequest, ErrJSONInvalido, "", "no se pudo leer el cuerpo: %v", err)
 		}
@@ -186,7 +204,7 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		s.fallo(w, http.StatusBadRequest, ErrJSONInvalido, "", "JSON no válido: datos tras el objeto")
 		return
 	}
-	preguntas, ea := s.lim.validarPeticion(req)
+	preguntas, ea := v.lim.validarPeticion(req)
 	if ea != nil {
 		s.fallo(w, ea.status, ea.code, ea.qid, "%s", ea.msg)
 		return
@@ -202,20 +220,20 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		if p.Nonce != "" {
 			h := sha256.Sum256([]byte(p.Estado))
 			ck = p.Nonce + "|" + hex.EncodeToString(h[:8]) + "|" + ClaveEsquema(p) + "|" + p.ID
-			if b, ok := s.nonces.Get(ck); ok {
+			if b, ok := v.nonces.Get(ck); ok {
 				s.Met.NonceHits.Add(1)
 				out.Results[i] = b
 				continue
 			}
 		}
-		res := s.Cascada.Decidir(ctx, p)
+		res := v.casc.Decidir(ctx, p)
 		if ctx.Err() != nil {
 			s.cuentaTimeout(ctx)
 			return
 		}
 		b, _ := json.Marshal(res)
 		if ck != "" && !res.Incompleto {
-			s.nonces.Put(ck, b)
+			v.nonces.Put(ck, b)
 		}
 		out.Results[i] = b
 	}
