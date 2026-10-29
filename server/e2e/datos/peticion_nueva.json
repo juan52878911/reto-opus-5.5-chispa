@@ -1,0 +1,4 @@
+{"state":"Necesito respuesta hoy mismo, la obra está detenida por falta de material","questions":[
+{"id":"q1","question":"¿Qué tan urgente es la solicitud del cliente?","kind":"choice","options":[{"id":"alta","description":"necesita respuesta hoy o hay una obra detenida"},{"id":"media","description":"puede esperar un par de días"},{"id":"baja","description":"solo consulta sin fecha"}]},
+{"id":"q2","question":"¿El cliente menciona una obra?","kind":"noul","options":[{"id":"false"},{"id":"true","description":"habla de una obra o construcción"}]},
+{"id":"q3","question":"¿Qué tan molesto está el cliente?","kind":"score","options":[{"id":"1"},{"id":"2"},{"id":"3"}]}]}

@@ -1,0 +1,26 @@
+texto,etiqueta
+"¿Cuánto vale el galón de pintura blanca de tres años?",cotizacion
+"Necesito cotizar 20 láminas de drywall y perfiles",cotizacion
+"¿Tienen disponible taladro percutor de media pulgada?",cotizacion
+"Me pasa el precio por mayor de la varilla de 3/8",cotizacion
+"¿A cómo está el metro de manguera para jardín?",cotizacion
+"Quiero comprar dos cajas de tornillos y que me las envíen a Soacha",pedido
+"Hice un pedido el lunes y todavía no llega",pedido
+"Quiero pagar y recibir en casa las baldosas que cotizamos",pedido
+"¿En qué va mi pedido 4587?",pedido
+"Confirmo la compra de cinco bultos de cemento para mañana",pedido
+"El taladro que compré dejó de funcionar a los tres días",garantia
+"Quiero devolver el martillo, vino con el mango roto",garantia
+"Me llegó una sierra distinta a la que pedí y quiero cambiarla",garantia
+"La garantía de la pulidora aún está vigente, ¿cómo la hago valer?",garantia
+"Compré una escalera y está torcida, necesito el reembolso",garantia
+"¿Qué broca sirve para perforar concreto sin que se parta?",asesoria
+"¿Cuántos bultos de cemento necesito para una placa de 20 metros?",asesoria
+"No sé si usar silicona o sellante para el baño",asesoria
+"¿Qué diferencia hay entre pintura vinilo y esmalte?",asesoria
+"¿Cómo instalo una llave de lavamanos sin cambiar la tubería?",asesoria
+"Necesito la factura electrónica de mi compra del viernes",factura
+"Me pueden mandar el RUT de la ferretería",factura
+"La factura salió a nombre equivocado, hay que corregir el NIT",factura
+"Pido factura a nombre de mi empresa para la compra de ayer",factura
+"No me llegó la factura al correo",factura
