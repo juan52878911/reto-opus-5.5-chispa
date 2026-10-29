@@ -64,19 +64,20 @@ type respuesta struct {
 
 // Chispa es un .chispa v3 abierto.
 type Chispa struct {
-	f       *chispa3.Fichero
-	e       embebedor
-	l0      []modeloL0
-	esq     *chispa3.Esquemas
-	calib   chispa3.Calib
-	tieneL2 bool
-	maxLenQ int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
-	conj    *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
-	tok     *tok.Tokenizador   // tokenizador de e5, o nil
-	torre   *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
-	dyn     map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
-	dynUso  map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
-	dynTic  uint64
+	f           *chispa3.Fichero
+	e           embebedor
+	l0          []modeloL0
+	esq         *chispa3.Esquemas
+	calib       chispa3.Calib
+	tieneL2     bool
+	sinTauNuevo bool               // SinTauEsquemaNuevo(true): TauL2EsquemaNuevo devuelve −1 (L2 usa su τ de siempre)
+	maxLenQ     int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
+	conj        *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
+	tok         *tok.Tokenizador   // tokenizador de e5, o nil
+	torre       *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
+	dyn         map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
+	dynUso      map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
+	dynTic      uint64
 
 	sopl        *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
 	lambdaL1    *float64       // λ del encogimiento del soporte en L1; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
@@ -324,14 +325,26 @@ func (c *Chispa) TauL2c() float64 {
 	return *c.calib.TauL2c
 }
 
-// TauL2EsquemaNuevo es el τ de CALIB para L2 cuando la pregunta no está en ESQUEMAS (torre al vuelo); −1 si el fichero no lo trae
-// (L2 usa entonces TauEscalate, o TauL2c con CONJ). La cascada de Kotlin/Swift decide qué τ aplica.
+// TauL2EsquemaNuevoPorDefecto: τ de L2 para esquemas nuevos cuando CALIB no trae tau_l2_esquema_nuevo. Punto prudente medido sobre
+// tareas no vistas: precisión 0,95 con ~97 % de escalado (el otro punto medido, 0,276, escala ≤ 20 % con precisión ~0,53).
+const TauL2EsquemaNuevoPorDefecto = 0.846
+
+// TauL2EsquemaNuevo es el τ efectivo de L2 cuando la pregunta no está en ESQUEMAS (torre al vuelo): el de CALIB si lo trae y, si no,
+// TauL2EsquemaNuevoPorDefecto (0,846). Devuelve −1 solo tras SinTauEsquemaNuevo(true): sin τ propio, L2 usa TauEscalate (o TauL2c con
+// CONJ). La cascada de Kotlin/Swift lee este valor al construirse, así que SinTauEsquemaNuevo debe llamarse antes.
 func (c *Chispa) TauL2EsquemaNuevo() float64 {
-	if c.calib.TauL2EsquemaNuevo == nil {
+	if c.sinTauNuevo {
 		return -1
+	}
+	if c.calib.TauL2EsquemaNuevo == nil {
+		return TauL2EsquemaNuevoPorDefecto
 	}
 	return *c.calib.TauL2EsquemaNuevo
 }
+
+// SinTauEsquemaNuevo(true) vuelve al comportamiento anterior al default: sin τ propio para esquemas nuevos, ignorando también el de
+// CALIB (como `tau_l2_esquema_nuevo_apagado` en el servidor). Con false se restablece la prioridad CALIB > default.
+func (c *Chispa) SinTauEsquemaNuevo(apagar bool) { c.sinTauNuevo = apagar }
 
 func salida(r respuesta) string {
 	b, _ := json.Marshal(r)

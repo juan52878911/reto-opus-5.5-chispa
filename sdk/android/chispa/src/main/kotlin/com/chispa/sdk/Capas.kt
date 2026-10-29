@@ -13,7 +13,7 @@ interface Motor : AutoCloseable {
     /** `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta. */
     fun tauL2c(): Double = -1.0
 
-    /** `tau_l2_esquema_nuevo` de CALIB (el τ de L2 cuando sus torres salen al vuelo), o −1 si falta. */
+    /** τ efectivo de L2 cuando sus torres salen al vuelo: el de CALIB o, si falta, 0,846 (lo decide el motor Go); −1 = sin τ propio. */
     fun tauL2EsquemaNuevo(): Double = -1.0
 
     /** sha256 hex de la sección de [tipo] (ver [SECCION_L2], [SECCION_TORR]), o "" si el motor no lo sabe o no la hay. */

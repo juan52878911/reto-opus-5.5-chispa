@@ -83,8 +83,8 @@ func TestPrioridadTauL2EsquemaNuevo(t *testing.T) {
 	if v := build(Config{TauL2EsquemaNuevo: &cfgTau}, true, &calibTau); v == nil || *v != 0.9 {
 		t.Errorf("Config manda sobre .chispa: %v", v)
 	}
-	if v := build(Config{}, true, nil); v != nil {
-		t.Errorf("sin ninguno: %v", v)
+	if v := build(Config{}, true, nil); v == nil || *v != TauL2EsquemaNuevoPorDefecto {
+		t.Errorf("sin ninguno debe valer el default 0,846: %v", v)
 	}
 	if v := build(Config{}, false, &calibTau); v == nil || *v != 0.3 {
 		t.Errorf("con -config sin el campo también se toma de CALIB: %v", v)

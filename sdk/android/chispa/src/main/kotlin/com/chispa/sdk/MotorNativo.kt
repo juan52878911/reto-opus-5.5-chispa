@@ -15,6 +15,10 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
     override fun tauEscalate(): Double = go.tauEscalate()
     override fun tauL2c(): Double = go.tauL2c()
     override fun tauL2EsquemaNuevo(): Double = go.tauL2EsquemaNuevo()
+
+    /** `true` = sin τ propio para esquemas nuevos (ni el de CALIB ni 0,846); llamar antes de construir la cascada. */
+    fun sinTauL2EsquemaNuevo(apagar: Boolean) = go.sinTauEsquemaNuevo(apagar)
+
     override fun hashSeccion(tipo: Int): String = go.hashSeccion(tipo.toLong())
     override fun decidirL0(texto: String, preguntaJson: String): String = go.decidirL0(texto, preguntaJson)
     override fun decidirL1(texto: String, preguntaJson: String): String = go.decidir(texto, preguntaJson)

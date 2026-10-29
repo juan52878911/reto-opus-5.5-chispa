@@ -81,7 +81,7 @@ final class Cascada {
         if presentes.contains("L1") { capas.append(CapaConTau(capa: CapaL1(motor: motor), tau: tauCalib ?? TauPorDefecto.l1)) }
         let tauL2c: Double? = motor.tieneConj() && motor.tauL2c() >= 0 ? motor.tauL2c() : nil
         if presentes.contains("L2"), let l2 = l2 {
-            let tauNuevo: Double? = motor.tieneCalib() && motor.tauL2EsquemaNuevo() >= 0 ? motor.tauL2EsquemaNuevo() : nil
+            let tauNuevo: Double? = motor.tauL2EsquemaNuevo() >= 0 ? motor.tauL2EsquemaNuevo() : nil
             capas.append(CapaConTau(capa: l2, tau: tauL2c ?? tauCalib ?? TauPorDefecto.l2, tauEsquemaNuevo: tauNuevo))
         }
         if capas.isEmpty { throw ErrorChispa("el fichero no trae ninguna capa utilizable (capas: \(presentes))") }

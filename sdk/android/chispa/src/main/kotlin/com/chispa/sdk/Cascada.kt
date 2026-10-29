@@ -95,7 +95,7 @@ class Cascada(
             if ("L1" in presentes) capas.add(CapaConTau(CapaL1(motor), tauCalib ?: TauPorDefecto.L1))
             val tauL2c = if (motor.tieneConj()) motor.tauL2c().takeIf { it >= 0 } else null
             if ("L2" in presentes && l2 != null) {
-                val tauNuevo = if (motor.tieneCalib()) motor.tauL2EsquemaNuevo().takeIf { it >= 0 } else null
+                val tauNuevo = motor.tauL2EsquemaNuevo().takeIf { it >= 0 }
                 capas.add(CapaConTau(l2, tauL2c ?: tauCalib ?: TauPorDefecto.L2, tauNuevo))
             }
             if (capas.isEmpty()) throw ErrorChispa("el fichero no trae ninguna capa utilizable (capas: $presentes)")

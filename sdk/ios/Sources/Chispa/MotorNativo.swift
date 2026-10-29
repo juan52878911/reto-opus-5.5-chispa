@@ -36,6 +36,8 @@ final class MotorNativo: Motor {
     func tauEscalate() -> Double { go.tauEscalate() }
     func tauL2c() -> Double { go.tauL2c() }
     func tauL2EsquemaNuevo() -> Double { go.tauL2EsquemaNuevo() }
+    /// `true` = sin τ propio para esquemas nuevos (ni el de CALIB ni 0,846); llamar antes de construir la cascada.
+    func sinTauL2EsquemaNuevo(_ apagar: Bool) { go.sinTauEsquemaNuevo(apagar) }
     func hashSeccion(_ tipo: Int) -> String { go.hashSeccion(tipo) }
     func decidirL0(_ texto: String, _ preguntaJson: String) -> String { go.decidirL0(texto, preguntaJSON: preguntaJson) }
     func decidirL1(_ texto: String, _ preguntaJson: String) -> String { go.decidir(texto, preguntaJSON: preguntaJson) }
