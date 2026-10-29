@@ -81,7 +81,7 @@ func pregL3(kind string, ids ...string) Pregunta {
 func cuentaL3(m *Metricas, r string) uint64 { return contador(&m.mu, m.l3Llamadas, r).Load() }
 
 func TestL3Choice(t *testing.T) {
-	f := &llmFalso{contenido: `{"probs":{"a":6,"b":3,"c":1}}`} // sin normalizar: suma 10
+	f := &llmFalso{contenido: `{"probs":{"a":0.6,"b":0.3,"c":0.1}}`}
 	l, m := nuevoL3Test(t, f.arranca(t), nil)
 	r, err := l.Decidir(context.Background(), pregL3(KindChoice, "a", "b", "c"))
 	if err != nil || r.Answer != "a" || absL3(r.Conf-0.6) > 1e-9 || absL3(r.Probs["b"]-0.3) > 1e-9 {
@@ -127,11 +127,11 @@ func TestL3ScoreMediana(t *testing.T) {
 	}
 }
 
-func TestL3FaltantesValenCero(t *testing.T) {
+func TestL3FaltantesNoOpina(t *testing.T) {
 	f := &llmFalso{contenido: `{"probs":{"a":1}}`}
 	l, _ := nuevoL3Test(t, f.arranca(t), nil)
 	r, _ := l.Decidir(context.Background(), pregL3(KindChoice, "a", "b"))
-	if r.Answer != "a" || r.Probs["b"] != 0 || r.Conf != 1 {
+	if r.Answer != "" || r.Conf != 0 { // R9 #1: faltar no es 0; no se renormaliza
 		t.Fatalf("%+v", r)
 	}
 }
@@ -190,7 +190,7 @@ func TestL3ErrorHTTPNoFiltraTexto(t *testing.T) {
 }
 
 func TestL3PresupuestoPorPeticion(t *testing.T) {
-	f := &llmFalso{contenido: `{"probs":{"a":1}}`}
+	f := &llmFalso{contenido: `{"probs":{"a":1,"b":0}}`}
 	l, m := nuevoL3Test(t, f.arranca(t), func(c *ConfigL3) { c.MaxPorPeticion = 2 })
 	ctx := conPresupuesto(context.Background()) // una petición: todas sus preguntas comparten el tope
 	var ops []float64

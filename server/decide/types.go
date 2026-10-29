@@ -42,6 +42,8 @@ type Respuesta struct {
 	Conf float64
 	// EsquemaNuevo: L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS). Interno: no sale en el JSON.
 	EsquemaNuevo bool
+	// Incompleto: la capa no opinó por una causa pasajera (p. ej. presupuesto de L3 agotado); la cascada no cachea esa escalada.
+	Incompleto bool
 }
 
 // Decisor es una capa de la cascada.
