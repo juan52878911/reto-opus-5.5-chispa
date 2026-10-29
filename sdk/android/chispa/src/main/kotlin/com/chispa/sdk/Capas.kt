@@ -189,27 +189,22 @@ class CapaL2(
     /** Caché negativa: esquema (JSON de la pregunta) → instante hasta el que no se reintenta calcular su torre. */
     private val fallosTorre = HashMap<String, Long>()
 
-    /** Esquemas cuyas torres instaló esta capa al vuelo: el motor ya las tiene cacheadas, pero siguen siendo «esquema nuevo». */
-    private val alVuelo = HashSet<String>()
-
     override fun decidir(texto: String, pregunta: Pregunta): SalidaCapa =
         decidir(texto, pregunta, emptyMap())
 
     override fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa {
         val pj = pregunta.toJson()
-        val nuevo = if (motor.torresL2(pj)) synchronized(alVuelo) { pj in alVuelo } else {
-            if (!torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
-            true
-        }
+        // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
+        if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
         val ids = tokenizador.ids(texto)
         if (ids.isEmpty()) return SalidaCapa.SIN_OPINION
         val s = sesion.ranuras(ids)
         val l0 = previas["L0"]?.probs
         if (!l0.isNullOrEmpty() && motor.tieneConj()) {
             val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConj(pj, l0, s)))
-            if (c.opina) return c.copy(esquemaNuevo = nuevo)
+            if (c.opina) return c
         }
-        return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k)).copy(esquemaNuevo = nuevo)
+        return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
     }
 
     private fun torresAlVuelo(preguntaJson: String): Boolean {
@@ -231,10 +226,6 @@ class CapaL2(
             for (t in torres) for (x in t) b.putFloat(x)
             if (!motor.instalarTorresL2(preguntaJson, b.array(), torres.size)) {
                 throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=$d, n=${torres.size})")
-            }
-            synchronized(alVuelo) {
-                if (alVuelo.size >= MAX_FALLOS_TORRE) alVuelo.clear()
-                alVuelo.add(preguntaJson)
             }
             return true
         } catch (e: Exception) {
