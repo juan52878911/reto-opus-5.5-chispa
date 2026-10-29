@@ -19,6 +19,8 @@ class CapaConTau(
     val tau: Double,
     /** τ de la capa cuando su salida trae [SalidaCapa.esquemaNuevo]; null = el mismo [tau]. */
     val tauEsquemaNuevo: Double? = null,
+    /** τ de la salida de respaldo de L2c (L2 base: `tau_escalate_l2`) cuando [tau] es el `tau_l2c` de la cabeza; null = el mismo [tau]. */
+    val tauRespaldo: Double? = null,
 )
 
 /** τ por defecto de cada capa (los de `ConfigPorDefecto` del servidor). Con CALIB, L1 usa `tau_escalate` y L2 `tau_escalate_l2` (si falta, `tau_escalate`). */
@@ -68,7 +70,11 @@ class Cascada(
             }
             previas[c.capa.nombre] = r
             if (r.confianza > mejor.confianza) mejor = r
-            val tau = if (r.esquemaNuevo && c.tauEsquemaNuevo != null) c.tauEsquemaNuevo else c.tau
+            val tau = when {
+                r.esquemaNuevo && c.tauEsquemaNuevo != null -> c.tauEsquemaNuevo
+                r.respaldo && c.tauRespaldo != null -> c.tauRespaldo
+                else -> c.tau
+            }
             if (r.opina && r.confianza >= tau) {
                 return Respuesta(r.respuesta, r.confianza, r.probs, c.capa.nombre, false, ms(), r.respuestas.orEmpty())
             }
@@ -100,7 +106,8 @@ class Cascada(
             val tauL2c = if (motor.tieneConj()) motor.tauL2c().takeIf { it >= 0 } else null
             if ("L2" in presentes && l2 != null) {
                 val tauNuevo = motor.tauL2EsquemaNuevo().takeIf { it >= 0 }
-                capas.add(CapaConTau(l2, tauL2c ?: tauCalibL2 ?: TauPorDefecto.L2, tauNuevo))
+                // Las respuestas de respaldo de L2c (L2 base, calibrada por tipos_l2) se cortan con tau_escalate_l2, no con tau_l2c.
+                capas.add(CapaConTau(l2, tauL2c ?: tauCalibL2 ?: TauPorDefecto.L2, tauNuevo, tauRespaldo = if (tauL2c != null) tauCalibL2 else null))
             }
             if (capas.isEmpty()) throw ErrorChispa("el fichero no trae ninguna capa utilizable (capas: $presentes)")
             return Cascada(capas, alErrorCapa = alErrorCapa)

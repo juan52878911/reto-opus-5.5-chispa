@@ -8,6 +8,8 @@ struct CapaConTau {
     let tau: Double
     /// τ de la capa cuando su salida trae `esquemaNuevo`; nil = el mismo `tau`.
     var tauEsquemaNuevo: Double? = nil
+    /// τ de la salida de respaldo de L2c (L2 base: `tau_escalate_l2`) cuando `tau` es el `tau_l2c` de la cabeza; nil = el mismo `tau`.
+    var tauRespaldo: Double? = nil
 }
 
 /// τ por defecto de cada capa (los de `ConfigPorDefecto` del servidor). Con CALIB, L1 usa `tau_escalate` y L2 `tau_escalate_l2` (si falta, `tau_escalate`).
@@ -60,7 +62,7 @@ final class Cascada {
             }
             previas[c.capa.nombre] = r
             if r.confianza > mejor.confianza { mejor = r }
-            let tau = (r.esquemaNuevo ? c.tauEsquemaNuevo : nil) ?? c.tau
+            let tau = (r.esquemaNuevo ? c.tauEsquemaNuevo : nil) ?? (r.respaldo ? c.tauRespaldo : nil) ?? c.tau
             if r.opina && r.confianza >= tau {
                 return Respuesta(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs,
                                  capa: c.capa.nombre, escalar: false, ms: ms(), respuestas: r.respuestas ?? [])
@@ -84,7 +86,9 @@ final class Cascada {
         let tauL2c: Double? = motor.tieneConj() && motor.tauL2c() >= 0 ? motor.tauL2c() : nil
         if presentes.contains("L2"), let l2 = l2 {
             let tauNuevo: Double? = motor.tauL2EsquemaNuevo() >= 0 ? motor.tauL2EsquemaNuevo() : nil
-            capas.append(CapaConTau(capa: l2, tau: tauL2c ?? tauCalibL2 ?? TauPorDefecto.l2, tauEsquemaNuevo: tauNuevo))
+            capas.append(CapaConTau(capa: l2, tau: tauL2c ?? tauCalibL2 ?? TauPorDefecto.l2, tauEsquemaNuevo: tauNuevo,
+                                    // las respuestas de respaldo de L2c (L2 base, por tipos_l2) se cortan con tau_escalate_l2, no con tau_l2c
+                                    tauRespaldo: tauL2c != nil ? tauCalibL2 : nil))
         }
         if capas.isEmpty { throw ErrorChispa("el fichero no trae ninguna capa utilizable (capas: \(presentes))") }
         return Cascada(capas, alErrorCapa: alErrorCapa)

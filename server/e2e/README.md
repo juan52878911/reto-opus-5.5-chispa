@@ -40,6 +40,7 @@ sin `LD_LIBRARY_PATH` (ver H1 en [HALLAZGOS.md](HALLAZGOS.md), corregido).
 7. **Servidor B** (`-config`: L1 τ=1 para que decida L2, `tau_l2_esquema_nuevo`, λ) con `datos/peticion_nueva.json` (choice + noul + score,
    esquema que el `.chispa` no trae): alguna decisión con `layer: L2`, `chispa_torres_calculadas_total` ≥ 3, `chispa_esquema_nuevo_decididas_total` ≥ 1,
    2.ª petición con `chispa_torres_cache_aciertos_total` ≥ 3, `chispa_torres_errores_total` = 0.
+7b. **tipos_l2** (H8): `gensint` escribe una CALIB en `l2.chispa` (choice T=0,02, τ=0,37); el e2e comprueba que `chispa train --l2` la pasa a `tipos_l2` y `tau_escalate_l2` (distintos de los de L1) y que L2 da otras probabilidades con ella que sin ella.
 8. 3 SIGHUP con 8 hilos de esquema nuevo (se cierran y reabren las sesiones ORT de L2 y torre): 0 peticiones fallidas, `recargas ok` = 3.
 9. **multi**: zero-shot en el servidor B (`datos/peticion_multi.json`, esquema `datos/temas.yaml`, torres al vuelo): 200, `answers` en el orden de la
    pregunta, `answer` = la activa de mayor p y una `p` en [0,1] por opción (no suman 1). `chispa train --ejemplos datos/ejemplos_multi.csv` (`etiqueta` con `|`,

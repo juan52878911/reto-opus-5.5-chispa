@@ -22,6 +22,10 @@ const (
 	tablaB  = 8
 	prefB   = 16
 	dimL2   = 256
+
+	// CALIB de L2 que escribe gensint: τ (tau_escalate_l2 en el .chispa final) y temperatura de choice (tipos_l2.choice.T).
+	TauL2Sint = 0.37
+	TL2Sint   = 0.02
 )
 
 func fnvB(b []byte) uint64 {
@@ -171,7 +175,13 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	if err := chispa3.Escribir(f, []chispa3.Seccion{{Tipo: chispa3.L2, Datos: onnx}, {Tipo: chispa3.ESQUEMAS, Datos: esq}}); err != nil {
+	// CALIB propia de L2 (el e2e comprueba que `chispa train --l2` la pasa a tipos_l2 y tau_escalate_l2, y que L2 lee esos): T y τ
+	// distintos de los de L1 a propósito, para que usar la CALIB equivocada cambie las probabilidades.
+	calib, err := json.Marshal(chispa3.Calib{TauEscalate: TauL2Sint, Tipos: map[string]chispa3.ParamsTipo{"choice": {T: TL2Sint, Theta: 0.5}}})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := chispa3.Escribir(f, []chispa3.Seccion{{Tipo: chispa3.L2, Datos: onnx}, {Tipo: chispa3.ESQUEMAS, Datos: esq}, {Tipo: chispa3.CALIB, Datos: calib}}); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -65,18 +65,47 @@ func ClaveConj(p Pregunta) [32]byte {
 }
 
 func (l *L2c) DecidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, error) {
-	r, err := l.decidirCon(ctx, p, previas)
-	return l.L2.marcarNuevo(p, r, err)
+	r, _, err := l.DecidirConOrigen(ctx, p, previas)
+	return r, err
 }
 
-func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, error) {
+// DecisorConRespaldo es un decisor que dice si su respuesta es de respaldo: la de otra cabeza (L2 base) con otra
+// calibración que la del τ de la capa. La cascada lo usa para aplicar TauRespaldo a esas respuestas.
+type DecisorConRespaldo interface {
+	DecisorConPrevias
+	DecidirConOrigen(ctx context.Context, p Pregunta, previas Previas) (r Respuesta, respaldo bool, err error)
+	// TauRespaldo es el τ de las respuestas de respaldo y el τ de la cabeza al que sustituye (la capa solo lo aplica si
+	// su τ efectivo es ese: si el operador fijó otro τ en la config, vale para todas las respuestas).
+	TauRespaldo() (tau, tauCabeza float64, ok bool)
+}
+
+// TauRespaldo: las respuestas de L2 base que L2c da cuando no hay cabeza (sin entrada en CONJ, sin probabilidades de L0,
+// dimensión distinta o tipo ≠ choice) están calibradas por tipos_l2 y se cortan con tau_escalate_l2, no con tau_l2c.
+// ok=false si CALIB no trae tau_l2c (entonces ya es el mismo τ).
+func (l *L2c) TauRespaldo() (tau, tauCabeza float64, ok bool) {
+	if l.L2 == nil || l.L2.calib.TauL2c == nil {
+		return 0, 0, false
+	}
+	return l.L2.calib.TauEscalate, *l.L2.calib.TauL2c, true
+}
+
+// DecidirConOrigen es DecidirCon más si la respuesta es de respaldo (la dio L2 base y no la cabeza conjunta).
+func (l *L2c) DecidirConOrigen(ctx context.Context, p Pregunta, previas Previas) (Respuesta, bool, error) {
+	r, respaldo, err := l.decidirCon(ctx, p, previas)
+	r, err = l.L2.marcarNuevo(p, r, err)
+	return r, respaldo, err
+}
+
+func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, bool, error) {
 	if p.Kind != KindChoice || len(p.Opciones) == 0 {
-		return l.L2.Decidir(ctx, p)
+		r, err := l.L2.Decidir(ctx, p)
+		return r, true, err
 	}
 	e, ok := l.buscarConj(p)
 	l0, hay := previas["L0"]
 	if !ok || !hay || len(l0.Probs) == 0 {
-		return l.L2.Decidir(ctx, p)
+		r, err := l.L2.Decidir(ctx, p)
+		return r, true, err
 	}
 	var ts []torreDin // las torres con las que puntuó la fuente de similitudes, si las expone
 	var S [][]float32
@@ -90,15 +119,16 @@ func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 		S, sims, ok, err = l.sim.Similitudes(ctx, p)
 	}
 	if errors.Is(err, errSinPresupuestoTorres) { // como en L2.decidir: falta de presupuesto es Incompleto, no error de capa
-		return Respuesta{Incompleto: true}, nil
+		return Respuesta{Incompleto: true}, false, nil
 	}
 	if err != nil || !ok {
-		return Respuesta{}, err
+		return Respuesta{}, false, err
 	}
 	if len(S) == 0 || len(S[0]) != e.D {
-		return l.L2.Decidir(ctx, p)
+		r, err := l.L2.Decidir(ctx, p)
+		return r, true, err
 	}
-	return cabezaConj(p, e, S, sims, l.mezclarSimproto(p, S, ts), l0.Probs), nil
+	return cabezaConj(p, e, S, sims, l.mezclarSimproto(p, S, ts), l0.Probs), false, nil
 }
 
 // torreDe devuelve la torre de la descripción de la opción: la de ESQUEMAS o, si el esquema es nuevo, la que L2 acaba de

@@ -207,7 +207,8 @@ class CapaL2(
             val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConj(pj, l0, s)))
             if (c.opina) return c
         }
-        return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+        val r = SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+        return if (motor.tieneConj()) r.copy(respaldo = true) else r // con CONJ, esta es L2 base: respaldo de la cabeza
     }
 
     private fun torresAlVuelo(preguntaJson: String): Boolean {

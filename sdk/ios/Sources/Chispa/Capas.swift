@@ -219,7 +219,10 @@ struct CapaL2: Capa {
             let c = try SalidaCapa.desdeJson(motor.cabezaConjunta(try entradaConj(pj, l0, s)))
             if c.opina { return c }
         }
-        return try SalidaCapa.desdeJson(motor.puntuarL2(pj, ranuras: s.aBytes(), k: s.k))
+        let r = try SalidaCapa.desdeJson(motor.puntuarL2(pj, ranuras: s.aBytes(), k: s.k))
+        // con CONJ, esta es L2 base: respaldo de la cabeza
+        return motor.tieneConj() ? SalidaCapa(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs, esquemaNuevo: r.esquemaNuevo,
+                                              respuestas: r.respuestas, respaldo: true) : r
     }
 
     private func torresAlVuelo(_ preguntaJson: String) throws -> Bool {
