@@ -25,7 +25,7 @@ Cada modo añade datos y calidad. Empieza por el primero.
 | Modo | Qué necesitas | Cuándo usarlo | Comando |
 |---|---|---|---|
 | Zero-shot | El esquema, con descripciones | Probar una idea, o una tarea sin datos | `chispa train` sin `--ejemplos` |
-| Few-shot | Pocos ejemplos por opción (k ≥ 1) | Ya tienes unos casos; sin `--conjunta` | `chispa train --ejemplos` |
+| Few-shot | Pocos ejemplos por opción (k ≥ 1) | Ya tienes unos casos; sin `--conjunta`. Opcional: soporte `SOPL1` con `--shrinkage-lambda` | `chispa train --ejemplos` |
 | Con datos del cliente | ≥ 20 ejemplos por opción, un checkpoint de L2 | Quieres la mayor calidad y tienes datos etiquetados | `chispa train --conjunta` |
 
 - Con menos de 10 ejemplos en alguna opción no se entrena L0 y L1 se calibra con todos.
@@ -35,7 +35,7 @@ Cada modo añade datos y calidad. Empieza por el primero.
 
 ## La cascada
 Las capas se prueban en orden y cada una tiene un umbral τ: L0 (lineal sobre el texto, solo si hay ejemplos), L1 (embedding
-estático contra «pregunta · opción · descripción»), L2 (e5 contra una torre por opción) y, si ninguna llega a su τ, escalar.
+estático contra «pregunta · opción · descripción»), L2 (e5-small int8 ONNX contra una torre por opción; la torre de un esquema nuevo se calcula al vuelo si el `.chispa` trae `TORR`) y, si ninguna llega a su τ, escalar.
 Una capa sin modelo o con error cuenta como confianza 0 y la cascada pasa a la siguiente.
 
 ```
@@ -45,13 +45,14 @@ L0 → L1 → L2 → escalar
 | Capa | Qué es | Cuándo contesta |
 |---|---|---|
 | L0 | Clasificador lineal sobre el texto; con `L0TF`, TF-IDF de caracteres. Pide ejemplos | confianza top-1 ≥ τ |
-| L1 | Embedding estático (potion) y coseno con «pregunta · opción · descripción». Sirve esquemas nuevos | confianza top-1 ≥ τ |
+| L1 | Embedding estático (Model2Vec, potion, en Go int8) y coseno con «pregunta · opción · descripción». Sirve esquemas nuevos, también `score` | confianza top-1 ≥ τ |
 | L2 | e5-small (ONNX int8) con ranuras y una torre por opción. Con `CONJ` es L2c, con cabeza conjunta | confianza top-1 ≥ τ |
 | escalar | Ninguna capa llegó a su τ | siempre |
 
-- L1 no opina en `score`.
+- L1 opina en `score` con la mediana de la distribución sobre los niveles (a partir de las descripciones de cada nivel); `noul` y `choice` como siempre ([07](07-rendimiento-y-limites.md#zero-shot)).
 - Para un esquema que solo llega en la petición decide L1; si el `.chispa` trae `TORR` (y el servidor usa `-tags ort` y `-tok`), también L2 con torre al vuelo:
   [08-esquemas-nuevos.md](08-esquemas-nuevos.md).
+- Con pocos ejemplos, `chispa train --shrinkage-lambda` añade la sección `SOPL1` y L1 (y L2c) encogen el prototipo hacia la media de los ejemplos, con peso `k/(k+λ)`; sin ella, no hay mezcla ([04](04-formato-chispa.md#secciones)).
 - L2c y L0TF pertenecen al modo con datos del cliente y a la tarea con la que se entrenó el `.chispa`.
 - L3 existe como capa de la cascada, pero es un stub sin opinión.
 

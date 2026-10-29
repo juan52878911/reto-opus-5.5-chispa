@@ -10,7 +10,9 @@ ninguna tarea de prueba.
 - Un potion exportado con `python runtime/l1/exportar.py` (`potion.chispa-l1`, 155 MB). Sin `--l1` ni `--l2`/`--ckpt`, el zero-shot falla: no habría ninguna capa.
 - Go, para el entrenador de L0 y para compilar `chispa-server`. Sin Go, `chispa train` escribe META + L1 + CALIB y no lleva L0.
 - Solo para el modo avanzado (`--conjunta`): torch y transformers, un checkpoint de L2 y e5.
-- Los comandos de Python se corren con `PYTHONPATH=sdk/python`, o tras `pip install ./sdk/python`.
+- Los comandos de Python se corren con `PYTHONPATH=sdk/python`, o tras instalar el wheel (`pip wheel ./sdk/python --no-deps -w dist/`
+  y `pip install dist/chispa-0.1.0-py3-none-any.whl`; extras `chispa[yaml]`, `chispa[torre]` y `chispa[l2]`, ver [05-sdks.md](05-sdks.md#python)).
+  Con el wheel, `chispa train` entrena L0 con Go ≥ 1.27 en el PATH sin el repositorio (el módulo de kindling debe estar en la caché de Go o haber red).
 
 ## 1. El esquema
 JSON o YAML con `id`, `pregunta`, `tipo` (`choice`, `noul` o `score`) y `opciones` (mapa id → descripción).
@@ -109,6 +111,20 @@ Con 10 o más ejemplos en cada opción entrena también L0.
 La misma petición `curl` del paso 2, contra `ferreteria-fs.chispa`, devuelve la misma forma de respuesta.
 La calibración de L1 con 25 ejemplos es ruidosa: pon aparte unas decenas de casos reales y mide antes de producción.
 
+### Soporte few-shot opcional: `--shrinkage-lambda`
+Con `--l1` y `--ejemplos`, `--shrinkage-lambda λ` escribe además la sección `SOPL1` (por opción: k y la media de los embeddings de L1 de sus ejemplos):
+
+```
+PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema ferreteria.yaml --salida ferreteria-fs.chispa --l1 potion.chispa-l1 --shrinkage-lambda 4
+```
+
+- λ (≥ 0) **no va en el fichero**: es un valor sugerido que queda en el log. El runtime lo lee de `l1_shrinkage_lambda` (y `l2_shrinkage_lambda` para L2c)
+  en el JSON de `-config` del servidor, o de `AbrirConSoporte` en el núcleo móvil. Ausente = ∞ = sin mezcla (peso `k/(k+λ)` = 0).
+- Sin `--shrinkage-lambda` no se escribe nada y el fichero es el de siempre. `inf` tampoco la escribe.
+- El valor 4 del ejemplo es ilustrativo. El mejor λ: sin medir ([08-esquemas-nuevos.md](08-esquemas-nuevos.md#few-shot-con-soporte-opcional)).
+- Servir con λ: un `-config` con `l1_shrinkage_lambda` (p. ej. `{"l1_shrinkage_lambda": 4}`) y `-modelo ferreteria-fs.chispa`. Ojo: con `-config`, los τ
+  los manda la config (por defecto L0 0,8, L1 0,8, L2 0,7, L3 0,6) y no el `tau_escalate` de `CALIB`; copia el `tau_escalate` del `.chispa` a `capas` si lo quieres.
+
 ## 4. Con datos del cliente: `--conjunta` (modo avanzado)
 Con la cabeza conjunta (L0TF + L2c). Necesita train etiquetado de tu tarea: **al menos 20 ejemplos por opción**. Con menos,
 `chispa train` avisa por stderr y cae a few-shot.
@@ -133,7 +149,7 @@ Cada flag está definido en [`sdk/python/chispa/cli.py`](../sdk/python/chispa/cl
 en el log. En este modo, la pregunta y los ids de la petición deben ser los del esquema de entrenamiento: L0 elige modelo por el conjunto de ids,
 y L2 y L2c usan también la pregunta.
 
-Flags del servidor ([`main.go`](../server/cmd/chispa-server/main.go)): `-addr`, `-config`, `-modelo`, `-tok`.
+Flags del servidor ([`main.go`](../server/cmd/chispa-server/main.go)): `-addr`, `-config`, `-modelo`, `-tok`, `-timeout` (30 s por petición, responde 503 con `"code":"timeout"`; 0 = sin tope).
 Sin Go instalado en el servidor, usa la imagen OCI ([06-despliegue.md](06-despliegue.md)).
 
 ## Desde Python
@@ -148,3 +164,13 @@ rs = Chispa("http://127.0.0.1:8090").decidir("Buenas, ¿cuánto vale el bulto de
     [Choice("q1", "¿Qué necesita la persona que escribe a la ferretería?", ops)])
 rs[0].answer, rs[0].probs, rs[0].layer, rs[0].escalate
 ```
+
+## Medir la carga
+Con un servidor en marcha, el generador `carga` pide decisiones y da decisiones/s, p50 y p99 (flags de [`main.go`](../server/cmd/carga/main.go)):
+
+```
+cd server && go run ./cmd/carga -url http://127.0.0.1:8090/v1/decide -textos carga/textos-es-co.txt -c 16 -d 30s -lote 4 -capas -csv
+```
+
+`carga/textos-es-co.txt` trae 2 400 mensajes inventados en español de Colombia. El arnés completo (`carga/correr.sh`) está en
+[06-despliegue.md](06-despliegue.md#carga).

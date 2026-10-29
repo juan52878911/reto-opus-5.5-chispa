@@ -10,7 +10,7 @@ Little endian.
 - Tabla de secciones: tipo, offset, longitud y sha256 de cada una.
 - Datos: las secciones, alineadas a 16 bytes.
 
-Sin tipos repetidos ni desconocidos. El escritor ordena por tipo, así que la salida es determinista.
+Hasta diez secciones (una por tipo), sin tipos repetidos ni desconocidos. El escritor ordena por tipo, así que la salida es determinista.
 El sha256 de una sección se comprueba una vez, al pedir sus bytes. Abrir no lee los datos.
 
 ## Secciones
@@ -46,8 +46,9 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 ## Compatibilidad
 - **v2 se carga.** Un `.chispa` v2 de kindling se abre como un v3 con solo `L0`.
 - **v1 no se carga.** kindling v0.17.0 no la conoce; da `ErrVersion`.
-- **Los ficheros viejos cargan.** `CONJ` y `L0TF` se añadieron al final del enum sin renumerar. Un fichero sin ellas carga igual. (`README` del formato cita `CONJ`; `L0TF` sigue el mismo criterio.)
-- **Un servidor viejo no abre un fichero nuevo.** Los tipos desconocidos se rechazan.
+- **Los ficheros viejos cargan.** `CONJ`, `L0TF`, `TORR` y `SOPL1` se añadieron al final del enum sin renumerar. Un fichero sin ellas carga igual
+  (el README del formato lo comprueba con `TestTORRAusenteEnTestdata` y `TestSOPL1AusenteEnTestdata`).
+- **Un servidor viejo no abre un fichero nuevo.** Los tipos desconocidos se rechazan: un `.chispa` con `TORR` o `SOPL1` pide un servidor que las conozca.
 - **Cambio de pregunta.** Cambia el hash de `ESQUEMAS` y `CONJ`. L2c cae a L2 y L2 no encuentra la torre de esa pregunta: reentrena con la pregunta nueva.
 - Un servidor `chispa-server` admite un solo `-modelo`. Para unir secciones de varios ficheros: `deploy/mkmodelo -unir`
   ([`server/deploy/README.md`](../server/deploy/README.md)).
@@ -56,5 +57,7 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 `FuzzAbrir` y `FuzzL0TF` corrieron sin fallos: ver el log al final de [`format/chispa3/README.md`](../format/chispa3/README.md#log-del-fuzzing).
 
 ## Qué no se probó
+- Una corrida registrada de fuzzing de `TORR` (existen `FuzzDecodificarTORR` y `FuzzAbrirTORR`) y de `SOPL1`: el README del formato solo documenta las de `FuzzAbrir` y `FuzzL0TF`.
+- El límite de secciones: el README del formato dice «6» por defecto, pero el código usa `numTipos-1` (10, el enum de `chispa3.go`); aquí manda el código.
 - Windows y macOS: `mmap_otros.go` es un respaldo con lectura.
 - Una sección `L1` real de 155 MB pasada por `l1.Desde` desde el cargador (la prueba usó una cabecera sintética).
