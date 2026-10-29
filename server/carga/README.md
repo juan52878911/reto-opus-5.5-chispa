@@ -42,22 +42,28 @@ cd server && carga/correr.sh -t carga/textos-es-co.txt                      # me
 carga/correr.sh -O -M /ruta/modelo.chispa -T /ruta/e5.chispa-tok -t carga/textos-es-co.txt -m l1
 go run ./cmd/carga -url http://127.0.0.1:18090/v1/decide -textos carga/textos-es-co.txt -c 16 -d 30s -lote 4 -capas -csv
 ```
-`-lote N` repite N veces la pregunta fija (4 opciones); no sirve para probar esquemas distintos.
+`-lote N` sin `-esquemas` repite N veces la pregunta fija (4 opciones); para esquemas distintos, ver más abajo.
 
-### Mandar los esquemas (hoy: a mano; `cmd/carga` no lo permite aún)
-`construirCuerpos` (`cmd/carga/textos.go`) solo arma la pregunta fija. Para una petición suelta con un lote de `esquemas-carga.json`:
+### Mandar los esquemas (`-esquemas`)
+`cmd/carga` acepta `-esquemas carga/esquemas-carga.json` (valida el fichero contra las reglas de `Question`/`Option` del OpenAPI y falla con mensaje si no casa) y:
+- `-lotes-nombre cinco` (alias `-lote-nombre`): cada petición lleva las preguntas de ese lote; con un nombre inexistente lista los que hay. `-lote` se ignora.
+- sin nombre, `-lote N`: la petición i lleva N preguntas consecutivas del fichero empezando en la i-ésima (circular), así rotan junto con los textos de `-textos`.
+- `decisiones/s` = preguntas decididas por segundo (peticiones × preguntas por petición), además de `peticiones/s`. Con `-capas` se imprime `capas=` y `preguntas=id/capa:n`.
+Sin `-esquemas` el cuerpo y la salida no cambian. `correr.sh -E esquemas-carga.json -L cinco` (o `-L 3` para ventana rotatoria) lo pasa a todas las tandas; la tabla trae `preg/s` y `pet/s`.
+
+Corrida local de humo (testdata, sin modelos, todo acaba en `escalar`; **no vale como cifra del i7**): `resultados/NOTA-esquemas-nodo-b-20261028.md`.
+
+### Receta para el i7 con esquemas
 ```
-python3 - <<'PY' | curl -s -H 'content-type: application/json' --data-binary @- http://127.0.0.1:18090/v1/decide
-import json, random
-d = json.load(open("carga/esquemas-carga.json")); q = {x["id"]: x for x in d["preguntas"]}
-msgs = [l.strip() for l in open("carga/textos-es-co.txt", encoding="utf-8") if l.strip()]
-print(json.dumps({"state": random.choice(msgs), "questions": [q[i] for i in d["lotes"]["cinco"]]}))
-PY
+cd server
+for L in uno tres cinco ocho; do
+  carga/correr.sh -O -M /ruta/modelo.chispa -T /ruta/e5.chispa-tok -t carga/textos-es-co.txt \
+    -E carga/esquemas-carga.json -L $L -m "l1 l2" -c "1 4 16 64" -d 30s -n 3
+done
 ```
-Flag que haría falta (no implementado): `-esquemas carga/esquemas-carga.json -lotes-nombre cinco`, para que `construirCuerpos` use las preguntas del lote nombrado
-(en lugar de la fija y de `-lote`), una petición por mensaje de `-textos`, y `decisiones/s` cuente `len(lote)` por petición. Con `-capas` habría que desglosar
-también por `id` de pregunta (L0/L1/L2 cambian según el tipo y el número de opciones).
+Un informe por lote; compara `preg/s` (lo que importa al cliente) con `pet/s`. Mira también la columna `capas` del CSV: en zero-shot se espera que L0/L1 escalen mucho
+y que L2 (torres al vuelo si el `.chispa` trae TORR) decida; si todo dice `escalar`, el modelo no trae las capas y la cifra no vale. Sin ORT, quitar `-O` (L2 stub).
 
 ### Qué mirar
 L1 debería mostrar su p50/p99 contra la longitud (el coste del tokenizador crece con los bytes del estado): compara `-t textos.txt` (frases cortas) con
-`-t textos-es-co.txt`. Si la latencia no depende de la longitud, basta el fichero pequeño. Sin verificar en este nodo (sin Go): ni `correr.sh` ni `cmd/carga` se ejecutaron con estos ficheros.
+`-t textos-es-co.txt`. Si la latencia no depende de la longitud, basta el fichero pequeño.

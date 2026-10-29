@@ -54,10 +54,11 @@ func construirCuerpos(estados []string, lote int) [][]byte {
 	return out
 }
 
-// contarCapas suma en cn la capa de cada resultado de una respuesta de /v1/decide.
+// contarCapas suma en cn la capa de cada resultado (y, por pregunta, la clave q:<id>/<capa>) de una respuesta de /v1/decide.
 func contarCapas(b []byte, cn map[string]int) {
 	var r struct {
 		Results []struct {
+			ID    string `json:"id"`
 			Layer string `json:"layer"`
 		} `json:"results"`
 	}
@@ -66,13 +67,18 @@ func contarCapas(b []byte, cn map[string]int) {
 	}
 	for _, x := range r.Results {
 		cn[x.Layer]++
+		if x.ID != "" {
+			cn["q:"+x.ID+"/"+x.Layer]++
+		}
 	}
 }
 
 func formatoCapas(cn map[string]int) string {
 	ks := make([]string, 0, len(cn))
 	for k := range cn {
-		ks = append(ks, k)
+		if !strings.HasPrefix(k, "q:") {
+			ks = append(ks, k)
+		}
 	}
 	sort.Strings(ks)
 	parts := make([]string, len(ks))
