@@ -118,7 +118,7 @@ def embeber_con_go(l1: str, textos: List[str], fuentes, go: str, trabajo: Path):
     """Embeddings de L1 de `textos` con el modelo `l1` (.chispa-l1), calculados con runtime/l1 en Go: (E (n,dim) float32, ok (n,) bool)."""
     import numpy as np
     d = trabajo / "embeber_go"
-    d.mkdir()
+    d.mkdir(exist_ok=True)  # se llama más de una vez con el mismo trabajo (p. ej. multi: calibración y SOPL1)
     (d / "main.go").write_text(_EMBEBER_GO)
     shutil.copy(GO_DIR / "go.sum", d / "go.sum")
     mod = (GO_DIR / "go.mod").read_text()
