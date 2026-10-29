@@ -48,6 +48,7 @@ const (
 	ErrPreguntaIDDup     = "duplicate_question_id"
 	ErrOpcionIDDup       = "duplicate_option_id"
 	ErrCampoLargo        = "field_too_long"
+	ErrCaracteres        = "invalid_characters"
 	ErrNoAutorizado      = "unauthorized"
 	ErrRecargaFallida    = "reload_failed"
 	ErrLimitada          = "rate_limited"
@@ -684,7 +685,7 @@ func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
 			return nil, bad(ErrCampoLargo, q.ID, "%s.question: más de %d bytes", at, l.MaxTexto)
 		}
 		if tieneSeparador(q.Question) {
-			return nil, bad(ErrCampoLargo, q.ID, "%s.question: no admite los caracteres de control U+001D–U+001F", at)
+			return nil, bad(ErrCaracteres, q.ID, "%s.question: no admite los caracteres de control U+001D–U+001F", at)
 		}
 		if len(q.Nonce) > l.MaxID {
 			return nil, bad(ErrCampoLargo, q.ID, "%s.nonce: más de %d bytes", at, l.MaxID)
@@ -721,10 +722,10 @@ func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
 				return nil, bad(ErrCampoLargo, q.ID, "%s.options[%d].description: más de %d bytes", at, j, l.MaxTexto)
 			}
 			if tieneSeparador(o.ID) {
-				return nil, bad(ErrOpcionesInvalidas, q.ID, "%s.options[%d].id: no admite los caracteres de control U+001D–U+001F", at, j)
+				return nil, bad(ErrCaracteres, q.ID, "%s.options[%d].id: no admite los caracteres de control U+001D–U+001F", at, j)
 			}
 			if tieneSeparador(o.Description) {
-				return nil, bad(ErrOpcionesInvalidas, q.ID, "%s.options[%d].description: no admite los caracteres de control U+001D–U+001F", at, j)
+				return nil, bad(ErrCaracteres, q.ID, "%s.options[%d].description: no admite los caracteres de control U+001D–U+001F", at, j)
 			}
 			if seen[o.ID] {
 				return nil, bad(ErrOpcionIDDup, q.ID, "%s.options[%d].id: %q repetido", at, j, o.ID)
@@ -738,8 +739,7 @@ func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
 
 // tieneSeparador dice si s trae U+001D–U+001F: HashEsquema2 los usa de separadores sin prefijos de longitud, así que un
 // texto con ellos daría la clave de otro esquema.
-// No hay código propio: el enum de errores está en el OpenAPI y en los SDK (fuera de esta zona); se reutilizan field_too_long
-// (pregunta) e invalid_options (ids y descripciones).
+// Código de error: invalid_characters, el mismo en el servidor, sdk/go y el motor móvil.
 func tieneSeparador(s string) bool { return strings.ContainsAny(s, "\x1d\x1e\x1f") }
 
 // RetryAfterTimeout son los segundos que pide Retry-After en la respuesta de timeout.

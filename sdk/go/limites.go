@@ -2,6 +2,7 @@ package chispa
 
 import (
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -65,6 +66,9 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 		if lon(q.Texto) > l.MaxTexto {
 			return falla("field_too_long", fmt.Sprintf("%s.question: %d bytes, máximo %d", r, lon(q.Texto), l.MaxTexto), q.ID)
 		}
+		if tieneSeparador(q.Texto) {
+			return falla("invalid_characters", r+".question: no admite los caracteres de control U+001D–U+001F", q.ID)
+		}
 		if q.Kind == "" {
 			return falla("missing_kind", r+".kind: obligatorio", q.ID)
 		}
@@ -108,10 +112,19 @@ func (l Limites) validarOpciones(q Pregunta, r string) *ErrorChispa {
 		if vistas[o.ID] {
 			return falla("duplicate_option_id", fmt.Sprintf("%s.id: %q repetido", ro, o.ID), q.ID)
 		}
-		vistas[o.ID] = true
 		if lon(o.Description) > l.MaxTexto {
 			return falla("field_too_long", fmt.Sprintf("%s.description: %d bytes, máximo %d", ro, lon(o.Description), l.MaxTexto), q.ID)
 		}
+		if tieneSeparador(o.ID) {
+			return falla("invalid_characters", ro+".id: no admite los caracteres de control U+001D–U+001F", q.ID)
+		}
+		if tieneSeparador(o.Description) {
+			return falla("invalid_characters", ro+".description: no admite los caracteres de control U+001D–U+001F", q.ID)
+		}
+		vistas[o.ID] = true
 	}
 	return nil
 }
+
+// tieneSeparador dice si s trae U+001D–U+001F, los separadores de HashEsquema2; el servidor los rechaza con invalid_characters.
+func tieneSeparador(s string) bool { return strings.ContainsAny(s, "\x1d\x1e\x1f") }
