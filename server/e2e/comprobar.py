@@ -104,8 +104,8 @@ def cmd_decidir(a):
         print("FALLO " + e)
     if a.multi_con_probs:
         for r in resp["results"]:
-            if r["kind"] == "multi" and (r["escalate"] or len(r["probs"]) < 2):
-                errs.append(f"{r['id']}: multi sin probs por opción (escalate={r['escalate']})")
+            if r["kind"] == "multi" and len(r["probs"]) < 2:
+                errs.append(f"{r['id']}: multi sin probs por opción (escalate={r['escalate']}, capa={r['layer']})")
                 print("FALLO " + errs[-1])
     print(f"HTTP 200, capas {capas}, answers {[r.get('answers', r['answer']) for r in resp['results']]}")
     return 1 if errs else 0
@@ -184,7 +184,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("decidir"); d.add_argument("url"); d.add_argument("peticion"); d.add_argument("--capa")
     d.add_argument("--sin-escalar", action="store_true"); d.add_argument("--esperar-http", type=int, default=200); d.add_argument("--guardar")
-    d.add_argument("--multi-con-probs", action="store_true", help="cada multi debe traer una p por opción (no escalar sin respuesta)")
+    d.add_argument("--multi-con-probs", action="store_true", help="cada multi debe traer una p por opción (también al escalar: es la mejor pista)")
     m = sub.add_parser("metrica"); m.add_argument("url"); m.add_argument("nombre"); m.add_argument("etiqueta", nargs="?")
     m.add_argument("--min", type=float); m.add_argument("--igual", type=float)
     m.add_argument("--base", type=float, help="con --min: exige valor − base ≥ min (aumento desde una lectura previa)")

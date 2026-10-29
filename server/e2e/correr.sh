@@ -167,8 +167,8 @@ for n in zs ms; do
   kill "$PL"; wait "$PL" 2>/dev/null
 done
 # Tres comprobaciones, con margen MARGEN (0,02) para distinguir efecto de ruido de flotantes:
-#  1) ms.chispa trae CALIB «multi» y «multi#<opción>» (a, b y θ);
-#  2) con λ ausente en -config (sin SOPL1 efectivo) las p de ms siguen a σ(a·cos+b) de CALIB multi: logit(p) = a·cos+b con cos∈[-1,1];
+#  1) ms.chispa trae CALIB «multi@<hash del esquema>» y «multi@<hash>#<opción>» (a, b y θ);
+#  2) con λ ausente en -config (sin SOPL1 efectivo) las p de ms siguen a σ(a·cos+b) de CALIB multi@<hash>: logit(p) = a·cos+b con cos∈[-1,1];
 #  3) λ=4 (SOPL1) mueve las p de ms ≥ MARGEN frente a λ ausente, y ms difiere del zero-shot (zs) ≥ MARGEN.
 cat > "$W/cfg_l1_sinl.json" <<JSON
 {"capas":[{"nombre":"L0","tau":0.8},{"nombre":"L1","tau":0.0},{"nombre":"L2","tau":0.5},{"nombre":"L3","tau":0.6}],
@@ -183,9 +183,10 @@ from chispa import formato
 MARGEN = 0.02
 W = '$W'
 cal = json.loads(formato.leer(open(W + '/ms.chispa', 'rb').read())[formato.CALIB])['tipos']
-assert 'multi' in cal and any(k.startswith('multi#') for k in cal), sorted(cal)
-a, b = cal['multi']['a'], cal['multi']['b']
-assert a > 0, cal['multi']
+esq = sorted(k for k in cal if k.startswith('multi@') and '#' not in k)
+assert len(esq) == 1 and any(k.startswith(esq[0] + '#') for k in cal), sorted(cal)
+a, b = cal[esq[0]]['a'], cal[esq[0]]['b']
+assert a > 0, cal[esq[0]]
 p = lambda n: json.load(open(W + '/resp_multi_l1_%s.json' % n))['results'][0]['probs']
 zs, ms, ms0 = p('zs'), p('ms'), p('ms0')
 assert len(ms) == 4 and set(ms) == set(ms0) == set(zs)

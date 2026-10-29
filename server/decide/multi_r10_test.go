@@ -1,6 +1,7 @@
 package decide
 
 import (
+	"context"
 	"math"
 	"testing"
 
@@ -58,5 +59,26 @@ func TestL2MultiSinCalibNoOpina(t *testing.T) {
 	otro := Pregunta{Texto: "otra", Kind: KindMulti, Opciones: p.Opciones}
 	if r := respuestaMultiL2(otro, []float64{5, 5}, c); r.Conf != 0 {
 		t.Fatalf("otro esquema no hereda multi_l2: %+v", r)
+	}
+}
+
+// Una multi escalada devuelve la mejor pista con probs por opción: L1 opina pero no llega a su τ y L2 no opina (sin multi_l2).
+func TestMultiEscaladaDevuelveProbsDeLaMejorPista(t *testing.T) {
+	cfg := ConfigPorDefecto()
+	for i := range cfg.Capas {
+		if cfg.Capas[i].Nombre == "L1" {
+			cfg.Capas[i].Tau = 1
+		}
+	}
+	casc, _ := cascadaTiny(t, calibMulti(), cfg)
+	p := Pregunta{ID: "m", Kind: KindMulti, Texto: "¿Qué temas toca?", Estado: "quiero un reembolso de la factura", Opciones: opsMulti()}
+	res := casc.Decidir(context.Background(), p)
+	if !res.Escalate || res.Layer != CapaEscalar || len(res.Probs) != len(p.Opciones) {
+		t.Fatalf("debía escalar con una p por opción: %+v", res)
+	}
+	for id, x := range res.Probs {
+		if x < 0 || x > 1 {
+			t.Fatalf("%s: p fuera de [0,1]: %v", id, x)
+		}
 	}
 }
