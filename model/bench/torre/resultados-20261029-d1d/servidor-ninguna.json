@@ -1,0 +1,87 @@
+{
+ "esquema_minimo": "minimo-saludo",
+ "chispa": "/opt/chispa/resultados/servidor-ninguna/servidor/minimo.chispa",
+ "train_s": 41.4,
+ "chispa_bytes": 944607570,
+ "cinco": [
+  {
+   "id": "jev:public:easy-intent-00",
+   "esquema": "jev:771450c548",
+   "layer": "L2",
+   "escalate": false,
+   "ms": 40.421,
+   "acierto": true,
+   "error": null
+  },
+  {
+   "id": "jev:public:easy-intent-06",
+   "esquema": "jev:32690feb77",
+   "layer": "L2",
+   "escalate": false,
+   "ms": 34.452,
+   "acierto": false,
+   "error": null
+  },
+  {
+   "id": "jev:public:easy-extraction-00",
+   "esquema": "jev:83b48dfce1",
+   "layer": "escalar",
+   "escalate": true,
+   "ms": 24.579,
+   "acierto": false,
+   "error": null
+  },
+  {
+   "id": "jev:public:easy-extraction-03",
+   "esquema": "jev:c87c0ff672",
+   "layer": "escalar",
+   "escalate": true,
+   "ms": 24.697,
+   "acierto": false,
+   "error": null
+  },
+  {
+   "id": "jev:public:easy-extraction-06",
+   "esquema": "jev:b344617ed4",
+   "layer": "escalar",
+   "escalate": true,
+   "ms": 23.778,
+   "acierto": false,
+   "error": null
+  }
+ ],
+ "cinco_l2": false,
+ "cinco_aciertos": 1,
+ "todos": {
+  "casos": 231,
+  "de": 231,
+  "exactitud_servidor": 0.46320346320346323,
+  "capas": {
+   "L2": 38,
+   "escalar": 193
+  },
+  "exactitud_servidor_por_tipo": {
+   "choice": 0.48201438848920863,
+   "noul": 0.47297297297297297,
+   "score": 0.2777777777777778
+  },
+  "exactitud_python_k0": 0.48484848484848486,
+  "exactitud_python_k0_por_tipo": {
+   "choice": 0.4676258992805755,
+   "noul": 0.5540540540540541,
+   "score": 0.3333333333333333
+  }
+ },
+ "metricas": {
+  "chispa_preguntas_total": 231.0,
+  "chispa_decididas_total{capa=\"L2\"}": 38.0,
+  "chispa_decididas_total{capa=\"escalar\"}": 193.0,
+  "chispa_escalados_total": 193.0,
+  "chispa_torres_calculadas_total": 368.0,
+  "chispa_torres_cache_aciertos_total": 352.0,
+  "chispa_torres_esperas_total": 0.0,
+  "chispa_torres_errores_total": 0.0,
+  "chispa_torres_presupuesto_agotado_total": 0.0
+ },
+ "torres_ok": true
+}

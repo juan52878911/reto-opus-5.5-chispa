@@ -18,8 +18,8 @@ CHISPA_S3=__CHISPA_S3__
 # ./torre/..., TestIgualdadTransformersPasaje · 5 chispa train --torre, chispa-server -tags ort, los 5 esquemas de JevBench y los 231 casos por /v1/decide junto a Python k=0,
 # con /metrics leído tras las peticiones (chispa_torres_calculadas_total > 0 y L2 en las capas, o FALLO) y una pasada con tau_l2_esquema_nuevo · 6 informe.md (OK/FALLO por punto).
 # Al salir (trap) sube log.txt y resultados.tgz y apaga; apagado forzoso a los 75 min.
-# CHISPA_LOCAL=1: prueba en seco sin dnf, pip, ORT ni shutdown, con checkpoint aleatorio y fixtures; sin ORT se omiten (OMITIDO) los pasos de Go
-# con ORT, `train --torre` y el servidor. Con CHISPA_DOS_PAQUETES=1, CHISPA_TRY_REF elige la rama del SDK.
+# CHISPA_LOCAL=1: prueba en seco sin dnf, pip, descargas ni shutdown, con checkpoint aleatorio y fixtures. Con ORT (~/ort o CHISPA_ORT_DIR) y gcc en el nodo
+# recorre TODOS los pasos (Go con ORT, servidor, pasadas, diagnósticos y móvil); sin ellos se omiten (OMITIDO) los pasos de Go con ORT, `train --torre` y el servidor. Con CHISPA_DOS_PAQUETES=1, CHISPA_TRY_REF elige la rama del SDK.
 CKPT_S3=${CHISPA_CKPT_S3:-s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt}
 LOCAL=${CHISPA_LOCAL:-0}
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
@@ -73,6 +73,12 @@ quedan_min() { echo $(( 75 - ($(date +%s) - T0) / 60 )); }
 
 # --- 1. entorno ---------------------------------------------------------------------------------------------------------------
 export HF_HOME="$HOME/hf"; mkdir -p "$HF_HOME"
+# microVM de kindling: torch CPU muere a veces con SIGILL (instrucción ilegal, rc 132) al detectar un ISA que la VM no ejecuta; en seco se limita a AVX2
+[ "$LOCAL" = 1 ] && export ONEDNN_MAX_CPU_ISA=${ONEDNN_MAX_CPU_ISA:-AVX2}
+# --exigir-torres comprueba que L2 contesta algún caso: con pesos aleatorios no pasa, y en seco solo se prueba el cableado de los pasos
+EXIGIR=(--exigir-torres); [ "$LOCAL" = 1 ] && EXIGIR=()
+# reintento de un comando que muere con SIGILL (rc 132); solo en seco (microVM de 4 GB)
+reint() { "$@"; local rc=$?; if [ "$rc" = 132 ] && [ "$LOCAL" = 1 ]; then echo "SIGILL: se repite $*" >&2; "$@"; rc=$?; fi; return $rc; }
 if [ "$LOCAL" != 1 ]; then
   echo "== 1. entorno $(date -u +%T)"
   dnf install -y -q gcc tar gzip git python3.11 python3.11-pip || { fallo "dnf install"; cierre; }
@@ -141,7 +147,7 @@ fi
 # --- 3. torre (una exportación por variante): paridad, tamaño, latencia y metadata_props --------------------------------------------------
 echo "== 3. exportar torre y paridad $(date -u +%T)"
 VARIANTES=${CHISPA_VARIANTES:-ninguna}
-EXPORT_ARGS=${CHISPA_EXPORT_ARGS---sin-poda}   # este exportador no tiene --perfil servidor: torre fp32 («--cuant-torre ninguna») y sin vocabulario podado
+if [ "$LOCAL" = 1 ]; then EXPORT_ARGS=${CHISPA_EXPORT_ARGS-}; else EXPORT_ARGS=${CHISPA_EXPORT_ARGS---sin-poda}; fi   # en seco, vocabulario podado: la VM tiene 4 GB   # este exportador no tiene --perfil servidor: torre fp32 («--cuant-torre ninguna») y sin vocabulario podado
 echo "export: --cuant-torre <variante> $EXPORT_ARGS"
 "$PY" -m model.bench.torre.datos_g7 calib "$RES/calib-torre.jsonl" 2>&1 | tail -1
 for v in $VARIANTES; do
@@ -180,11 +186,14 @@ echo "== 4. Go y ORT $(date -u +%T)"
 TOK=$MODELOS/e5.chispa-tok
 "$PY" -I "$REPO/runtime/tok/exportar.py" "$E5" "$TOK" || { fallo "exportar tokenizador"; cierre; }
 SERV=$BASE/chispa-server
-if [ "$LOCAL" = 1 ]; then
+ORT_DIR=/opt/ort
+# en seco, con ORT (~/ort) y gcc en el nodo se recorren también los pasos de Go reales; sin ellos se omiten
+LOCAL_ORT=0; if [ "$LOCAL" = 1 ] && [ -f "${CHISPA_ORT_DIR:-$HOME/ort}/lib/libonnxruntime.so.${ORT_VERSION}" ] && command -v gcc >/dev/null; then LOCAL_ORT=1; ORT_DIR=${CHISPA_ORT_DIR:-$HOME/ort}; fi
+if [ "$LOCAL" = 1 ] && [ "$LOCAL_ORT" != 1 ]; then
   estado go_test_ort "OMITIDO local (sin ORT)"; estado go_test_tok "OMITIDO local (sin ORT ni CHISPA_TOK del SDK)"
   ( cd "$REPO/server" && go build -o "$SERV" ./cmd/chispa-server ) && estado build_server "OK sin ORT (local)" || estado build_server "FALLO go build"
 else
-  export CGO_ENABLED=1 LD_LIBRARY_PATH=/opt/ort/lib CHISPA_ORT_LIB=/opt/ort/lib/libonnxruntime.so.${ORT_VERSION}
+  export CGO_ENABLED=1 LD_LIBRARY_PATH=$ORT_DIR/lib CHISPA_ORT_LIB=$ORT_DIR/lib/libonnxruntime.so.${ORT_VERSION}
   if [ -f go.work ]; then GODIR=$REPO TORRE_PKG=./server/torre/...; else GODIR=$REPO/server TORRE_PKG=./torre/...; fi
   prueba() {   # prueba clave "go test…": OK solo con algún PASS y ningún SKIP ni FAIL (un test saltado no demuestra nada)
     local k=$1; shift; ( cd "$GODIR" && "$@" ) > "$RES/$k.log" 2>&1; local rc=$?
@@ -201,7 +210,7 @@ cd "$REPO" || cierre
 
 # --- 5. por variante: chispa train --torre, chispa-server y esquemas de JevBench por /v1/decide (los 231 casos, solo en CHISPA_TODOS_VAR) ----
 echo "== 5. servidor $(date -u +%T)"
-if [ "$LOCAL" = 1 ]; then for v in $VARIANTES; do estado "train_torre_$v" "OMITIDO local (sin ORT)"; done
+if [ "$LOCAL" = 1 ] && [ "$LOCAL_ORT" != 1 ]; then for v in $VARIANTES; do estado "train_torre_$v" "OMITIDO local (sin ORT)"; done
 elif [ -x "$SERV" ]; then
   "$PY" -u -m model.evaluacion.jevbench_l2 --ckpt "$CKPT" --jevbench "$JEV" --salida "$RES" --k 0 --device cpu || fallo "jevbench_l2 k=0"
   TODOS_VAR=${CHISPA_TODOS_VAR:-${VARIANTES%% *}}
@@ -211,12 +220,12 @@ elif [ -x "$SERV" ]; then
     MIN=$(( ($(quedan_min) - 30) / 3 )); MIN=${CHISPA_TODOS_MIN:-$MIN}; [ "$MIN" -lt 2 ] && MIN=2   # tres pasadas de 231 casos y el móvil (~20 min)
     TODOS=(); [ "$v" = "$TODOS_VAR" ] && TODOS=(--todos --minutos "$MIN")
     if "$PY" -u -m model.bench.torre.servidor --jevbench "$JEV" --salida "$RES/servidor-$v" --ckpt "$CKPT" --torre "$RES/torre-$v.onnx" --servidor "$SERV" \
-         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" --exigir-torres "${TODOS[@]}" > "$RES/servidor-$v.log" 2>&1; then estado "train_torre_$v" "OK chispa train --torre y servidor"
+         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" "${EXIGIR[@]}" "${TODOS[@]}" > "$RES/servidor-$v.log" 2>&1; then estado "train_torre_$v" "OK chispa train --torre y servidor"
     else tail -20 "$RES/servidor-$v.log"; estado "train_torre_$v" "FALLO ver servidor-$v.log"; fallo "servidor $v sin torres calculadas o error"; fi
     if [ "$TAU" != no ] && [ ${#TODOS[@]} -gt 0 ]; then   # misma torre, tau_l2_esquema_nuevo del barrido (abstención 20 %): cuánto contesta L2
       MIN=$(( $(quedan_min) - 8 )); MIN=${CHISPA_TODOS_MIN:-$MIN}; [ "$MIN" -lt 2 ] && MIN=2
       "$PY" -u -m model.bench.torre.servidor --jevbench "$JEV" --salida "$RES/servidor-$v-tau" --ckpt "$CKPT" --torre "$RES/torre-$v.onnx" --servidor "$SERV" \
-         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" --exigir-torres --tau-nuevo "$TAU" --todos --minutos "$MIN" \
+         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" "${EXIGIR[@]}" --tau-nuevo "$TAU" --todos --minutos "$MIN" \
          > "$RES/servidor-$v-tau.log" 2>&1 && estado "tau_$v" "OK tau_l2_esquema_nuevo=$TAU" || { tail -20 "$RES/servidor-$v-tau.log"; estado "tau_$v" "FALLO ver servidor-$v-tau.log"; fallo "servidor $v tau $TAU"; }
     fi
   done
@@ -232,9 +241,13 @@ elif [ -x "$SERV" ]; then
   pasada() {   # nombre .chispa restantes: los 231 casos por el servidor con este .chispa (sin entrenar otro)
     local m=$(( ($(quedan_min) - 22) / $3 )); [ "$m" -lt 2 ] && m=2; m=${CHISPA_TODOS_MIN:-$m}
     "$PY" -u -m model.bench.torre.servidor --jevbench "$JEV" --salida "$RES/servidor-$1" --ckpt "$CKPT" --torre "$RES/torre-$TODOS_VAR.onnx" --servidor "$SERV" \
-      --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" --exigir-torres --todos --minutos "$m" --chispa "$2" \
+      --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" "${EXIGIR[@]}" --todos --minutos "$m" --chispa "$2" \
       > "$RES/servidor-$1.log" 2>&1 && estado "pasada_$1" "OK" || { tail -10 "$RES/servidor-$1.log"; estado "pasada_$1" "FALLO ver servidor-$1.log"; fallo "pasada $1"; }
   }
+  if [ -f "$BASE_CH" ]; then   # ¿copia chispa train la CALIB global de L2 (tipos_l2) del l2.chispa?
+    "$PY" -u -m model.bench.torre.paridad_servidor tipos-l2 --chispa "$BASE_CH" --ckpt "$CKPT" --jevbench "$JEV" > "$RES/tipos-l2.log" 2>&1 \
+      && estado "tipos_l2" "OK $(tail -1 "$RES/tipos-l2.log")" || estado "tipos_l2" "FALLO $(tail -1 "$RES/tipos-l2.log" | cut -c1-120)"
+  fi
   if [ -f "$BASE_CH" ] && [ -f "$BASE_CAPAS" ]; then
     diagnosticar base "$BASE_CH" "$BASE_CAPAS"
     if "$PY" -u -m model.bench.torre.paridad_servidor reescribir --ckpt "$CKPT" --jevbench "$JEV" --entrada "$BASE_CH" --salida "$RES/calib-global.chispa" --calib-ckpt \
@@ -242,13 +255,14 @@ elif [ -x "$SERV" ]; then
       pasada calib "$RES/calib-global.chispa" 2
       [ -f "$RES/servidor-calib/capas_por_caso.jsonl" ] && diagnosticar calib "$RES/calib-global.chispa" "$RES/servidor-calib/capas_por_caso.jsonl"
     else tail -5 "$RES/reescribir-calib.log"; estado "pasada_calib" "FALLO reescribir CALIB"; fallo "reescribir CALIB"; fi
+    PERFIL_L2=(--perfil servidor); [ "$LOCAL" = 1 ] && PERFIL_L2=(--cuant ninguna --cuant-torre ninguna)   # en seco con poda (4 GB)
     # la consulta de L2 que mete `chispa train --ckpt` es int8 con la poda base: se cambia por la fp32 sin poda del perfil servidor
-    if "$PY" -u -m model.l2.exportar --ckpt "$CKPT" --calib "$RES/calib-score.json" --esquemas "$RES/dev-score.jsonl" --salida "$RES/l2-servidor.chispa" --perfil servidor \
+    if "$PY" -u -m model.l2.exportar --ckpt "$CKPT" --calib "$RES/calib-score.json" --esquemas "$RES/dev-score.jsonl" --salida "$RES/l2-servidor.chispa" "${PERFIL_L2[@]}" \
          > "$RES/exportar-l2-servidor.log" 2>&1 \
        && "$PY" -u -m model.bench.torre.paridad_servidor reescribir --ckpt "$CKPT" --jevbench "$JEV" --entrada "$BASE_CH" --salida "$RES/calib-global-l2fp32.chispa" \
             --calib-ckpt --l2-de "$RES/l2-servidor.chispa" >> "$RES/reescribir-calib.log" 2>&1; then
       rm -f "$RES/l2-servidor.chispa"
-      pasada calib-l2fp32 1
+      pasada calib-l2fp32 "$RES/calib-global-l2fp32.chispa" 1
       [ -f "$RES/servidor-calib-l2fp32/capas_por_caso.jsonl" ] && diagnosticar calib-l2fp32 "$RES/calib-global-l2fp32.chispa" "$RES/servidor-calib-l2fp32/capas_por_caso.jsonl"
     else tail -5 "$RES/exportar-l2-servidor.log"; estado "pasada_calib-l2fp32" "FALLO exportar consulta fp32"; fallo "consulta fp32 sin poda"; fi
   else estado "diag_base" "FALLO sin la pasada base (servidor-$TODOS_VAR)"; fi
@@ -266,7 +280,7 @@ with open(sys.argv[3], 'w', encoding='utf-8') as f:
     for r in cargar_jevbench(sys.argv[2]):
         f.write(json.dumps({k: r[k] for k in ('texto', 'pregunta', 'opciones', 'descripciones')}, ensure_ascii=False) + '\n')" "$REPO" "$JEV" "$RES/comprobacion/jevbench.jsonl"
   # «ampliado»: base + textos de calibración (sin los medidos); «ampliado+eval»: además los textos que mide el banco (la poda corregida: 0 % de <unk>)
-  if "$PY" -u -m model.bench.torre.movil medir "$RES/movil" "${CKPT_ARG[@]}" --ampliar "$RES/ampliar" --comprobacion "$RES/comprobacion" --calib "$RES/calib-torre.jsonl" \
+  if reint "$PY" -u -m model.bench.torre.movil medir "$RES/movil" "${CKPT_ARG[@]}" --ampliar "$RES/ampliar" --comprobacion "$RES/comprobacion" --calib "$RES/calib-torre.jsonl" \
        --variantes fp16 fp32 --vocabularios ampliado ampliado+eval --n-calib 100 --filas "${CHISPA_FILAS:-300}" > "$RES/movil.log" 2>&1; then estado movil "OK $RES/movil/informe.md"
   else tail -15 "$RES/movil.log"; estado movil "FALLO ver movil.log"; fallo "movil"; fi
 else estado movil "OMITIDO CHISPA_MOVIL=no"; fi

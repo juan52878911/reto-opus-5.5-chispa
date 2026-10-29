@@ -518,8 +518,11 @@ def top1_torres(modelo, enc, sess_q, sess_t, filas, lote=64):
             "acuerdo_mitad_margen_alto": float(ok[alto].mean()), "margen_mitad_alta": float(margenes[alto].mean())}
 
 
+# movil: fp16 con la poda ampliada (≈ 89 MB por modelo; top-1 1,00 en esquemas ampliados con --vocab-ampliar y ≈ 0,90 en los que no, por
+# `<unk>`). movil-int8: int8 dinámico, para quien prioriza tamaño (top-1 ≈ 0,87). Ver model/bench/torre/resultados-20261029-d1e/movil.md
 PERFILES = {"servidor": dict(cuant="ninguna", cuant_torre="ninguna", sin_poda=True),
-            "movil": dict(cuant="codificador", cuant_torre="dinamico", sin_poda=False)}
+            "movil": dict(cuant="fp16", cuant_torre="fp16", sin_poda=False),
+            "movil-int8": dict(cuant="codificador", cuant_torre="dinamico", sin_poda=False)}
 
 
 def textos_de(ruta):
@@ -888,7 +891,8 @@ def main(argv=None):
     ap.add_argument("--vocab-podado", default=str(VOCAB_PODADO))
     ap.add_argument("--sin-poda", action="store_true", help="no aplicar el vocabulario podado")
     ap.add_argument("--perfil", choices=sorted(PERFILES), help="servidor = --cuant ninguna --cuant-torre ninguna --sin-poda; "
-                    "movil = int8 dinámico por canal en consulta y torre con la poda ampliada con --vocab-ampliar")
+                    "movil = fp16 en consulta y torre con la poda ampliada con --vocab-ampliar; movil-int8 = lo mismo con int8 dinámico por canal "
+                    "(más pequeño, top-1 ≈ 0,87)")
     ap.add_argument("--vocab-ampliar", nargs="+", action="extend", default=[], metavar="JSONL|TXT|DIR",
                     help="une al vocabulario podado los tokens de estos textos (repetible; un directorio = todos sus jsonl y txt; jsonl con texto/pregunta/opciones/descripciones, o txt)")
     ap.add_argument("--tabla-perfiles", metavar="DIR", help="escribe DIR/LEEME.md con DIR/servidor/paridad.json y DIR/movil/paridad.json (de --medir-torre) y sale")

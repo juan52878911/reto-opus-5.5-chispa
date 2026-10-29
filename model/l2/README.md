@@ -78,3 +78,15 @@ Con los valores por defecto el comportamiento es el de T2.1.
 - `aws/arranque.sh`: `L2_ARGS="--episodios --k-min 4 --k-max 32 --frac-meta 0.5 --frac-zeroshot 0.25"`; con `--episodios` evalúa con
   `--soporte <k-max>`. Las descargas de S3 ya eran por fichero.
 - Dev durante el entrenamiento: sin y con soporte (k = `--k-max`, soporte de los train locales); `mejor.pt` por el segundo.
+
+## Perfiles de exportación (`--perfil`)
+
+| perfil | consulta y torre | vocabulario | MB por modelo | top-1 frente a fp32 |
+|---|---|---|---|---|
+| `servidor` (defecto de `chispa train`) | fp32 | completo | ≈ 472 | 1,00 |
+| `movil` | fp16 | podado y ampliado con `--vocab-ampliar` | ≈ 89 | 1,00 en esquemas ampliados; ≈ 0,90 en los demás |
+| `movil-int8` | int8 dinámico | podado y ampliado | más pequeño | ≈ 0,87 |
+
+- En móvil, `chispa train` amplía el vocabulario con los textos y esquemas del cliente.
+- Un esquema que no estuvo en el entrenamiento pierde precisión, porque sus palabras nuevas son `<unk>`, y escala más.
+- Medidas en `model/bench/torre/resultados-20261029-d1e/movil.md`.

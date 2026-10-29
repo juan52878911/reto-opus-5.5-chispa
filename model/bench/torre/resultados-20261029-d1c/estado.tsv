@@ -1,0 +1,13 @@
+metadata_ninguna	OK dim=256 max_len prefijo='passage: '
+chispa_score	OK ["score4", "score4#1", "score4#2", "score5", "score5#1", "score5#2", "score5#3"]
+go_test_ort	OK 9 PASS
+go_test_tok	OK 1 PASS
+build_server	OK -tags ort
+train_torre_ninguna	OK chispa train --torre y servidor
+tipos_l2	FALLO FALLO tipos_l2 distinto en ['noul', 'score4#1', 'score4#2', 'score4', 'score5#1', 'score5#2', 'score5#3', 'score5']
+diag_base	OK xto_torre): 3 | | score | 18 | 0 | 5 / 5 | 18 | — | — | — | | todos | 78 | 13 | 21 / 21 | 48 | 0.160 | 0.339 | calib: 10
+pasada_calib	OK
+diag_calib	OK el: 10, texto_torre: 3 | | score | 18 | 0 | 5 / 5 | 18 | — | — | — | | todos | 78 | 13 | 21 / 21 | 48 | 0.160 | 0.377 | 
+pasada_calib-l2fp32	OK
+diag_calib-l2fp32	OK el: 10, texto_torre: 3 | | score | 18 | 0 | 5 / 5 | 18 | — | — | — | | todos | 78 | 13 | 21 / 21 | 48 | 0.160 | 0.377 | 
+movil	OK /opt/chispa/resultados/movil/informe.md

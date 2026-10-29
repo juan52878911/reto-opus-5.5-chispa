@@ -74,8 +74,8 @@ class ClavesV2(unittest.TestCase):
 class PerfilesCli(unittest.TestCase):
     def test_perfil_servidor_y_movil(self):
         self.assertEqual(E.PERFILES["servidor"], dict(cuant="ninguna", cuant_torre="ninguna", sin_poda=True))
-        self.assertEqual(E.PERFILES["movil"]["cuant_torre"], "dinamico")
-        self.assertFalse(E.PERFILES["movil"]["sin_poda"])
+        self.assertEqual(E.PERFILES["movil"], dict(cuant="fp16", cuant_torre="fp16", sin_poda=False))
+        self.assertEqual(E.PERFILES["movil-int8"], dict(cuant="codificador", cuant_torre="dinamico", sin_poda=False))
 
     def test_perfil_choca_con_flags(self):
         with self.assertRaises(SystemExit):

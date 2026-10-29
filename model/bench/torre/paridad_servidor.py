@@ -18,6 +18,7 @@ y/o con la sección L2 (consulta ONNX) de otro `.chispa` (`--l2-de`, p. ej. expo
 """
 import argparse
 import itertools
+import gc
 import json
 import math
 import sys
@@ -52,15 +53,25 @@ def calib_del_checkpoint(modelo, filas):
 
 def reescribir(a):
     from chispa import formato
-    secs = formato.leer(Path(a.entrada).read_bytes())
+    # la VM tiene 4 GB y un .chispa completo pesa ~0,5 GB: el modelo se libera antes de leer los .chispa y el de `--l2-de` solo deja su sección L2
+    tipos = None
     if a.calib_ckpt:
         modelo, _ = C.cargar_modelo(a.ckpt, "cpu")
-        filas = cargar_jevbench(a.jevbench)
-        d = json.loads(secs[formato.CALIB])
-        d["tipos"] = calib_del_checkpoint(modelo, filas)   # τ y demás campos del .chispa se conservan: solo cambian a, b, T y θ
-        secs[formato.CALIB] = json.dumps(d).encode()
+        tipos = calib_del_checkpoint(modelo, cargar_jevbench(a.jevbench))   # τ y demás campos del .chispa se conservan: solo cambian a, b, T y θ
+        del modelo
+        gc.collect()
+    l2 = None
     if a.l2_de:
-        secs[formato.L2] = formato.leer(Path(a.l2_de).read_bytes())[formato.L2]
+        l2 = formato.leer(Path(a.l2_de).read_bytes())[formato.L2]
+        gc.collect()
+    secs = formato.leer(Path(a.entrada).read_bytes())
+    if tipos is not None:
+        d = json.loads(secs[formato.CALIB])
+        d["tipos"] = tipos
+        d["tipos_l2"] = tipos   # desde 2b7096a L2 lee tipos_l2 (si existe) y no tipos
+        secs[formato.CALIB] = json.dumps(d).encode()
+    if l2 is not None:
+        secs[formato.L2] = l2
     Path(a.salida).write_bytes(formato.escribir(secs))
     print("escrito %s (calib_ckpt=%s, l2_de=%s)" % (a.salida, bool(a.calib_ckpt), a.l2_de))
     return 0
@@ -102,7 +113,8 @@ CALIB_DEFECTO = {"T": 0.05, "a": 4.0, "b": -2.0, "theta": 0.5}
 
 def probs_calib(tipo, K, sims, tipos):
     """Probabilidades con la sección CALIB (como `decide.L2`): choice softmax(s/T), noul σ(a·s+b), scoreK CORAL con a, b y los incrementos `#j`.
-    Un tipo que falte en CALIB usa los valores por defecto del servidor."""
+    Un tipo que falte en CALIB usa los valores por defecto del servidor (`paramsDe`): choice y noul. Un score sin `scoreK` o sin algún `scoreK#j`
+    no tiene valores por defecto: el servidor no contesta (`L2.score` devuelve Respuesta vacía y escala), y aquí se devuelve None («sin CALIB»)."""
     tipos = {**{"choice": CALIB_DEFECTO, "noul": CALIB_DEFECTO}, **tipos}
     if tipo == "choice":
         z = np.asarray(sims) / tipos["choice"]["T"]
@@ -113,6 +125,8 @@ def probs_calib(tipo, K, sims, tipos):
         pt = 1 / (1 + math.exp(-(p["a"] * sims[0] + p["b"])))
         return np.array([1 - pt, pt])
     clave = "score%d" % K
+    if clave not in tipos or any("%s#%d" % (clave, j) not in tipos for j in range(1, K - 1)):
+        return None
     base, b, sup = tipos[clave], tipos[clave]["b"], []
     for j in range(K - 1):
         if j:
@@ -213,10 +227,18 @@ def diagnosticar(a):
                 s = s_torch(modelo, enc, r, ts) if onnx else s_servidor(srv, r, ts, max_tok if truncado else srv.max_len_q)
                 return probs_calib(tipo, K, s, cal(calib)), s
             p_replay, s_replay = probs()
+            p_py = np.array([py_p[r["id"]]["probs"][o] for o in ops]) if r["id"] in py_p else probs_calib(tipo, K, s_py, py_tipos)
+            if p_replay is None or p_py is None:   # score sin CALIB (ni en el .chispa ni en el checkpoint): el servidor escala; no hay con qué comparar
+                filas_out.append({"id": r["id"], "tipo": tipo, "etiqueta": r["etiqueta"], "capa": srv_p[r["id"]]["layer"], "causa": "sin_calib",
+                                  "consulta": {"texto_igual": True, "tokens_python": len(ids_py), "tokens_servidor": len(ids_srv),
+                                               "tokens_sin_truncar": n_sin_truncar, "truncado_python": n_sin_truncar > max_tok,
+                                               "truncado_servidor": n_sin_truncar > srv.max_len_q},
+                                  "torre": [{"opcion": o, "igual": x == y, "servidor": x, "python": y} for o, x, y in zip(
+                                      (ops if tipo == "choice" else ["true" if tipo == "noul" else max(ops, key=int)]), ts_srv, ts_py)]})
+                continue
             p_srv = [srv_p[r["id"]]["probs"].get(o, 0.0) for o in ops]
             tot = sum(p_srv)
             p_srv = np.array(p_srv) / tot if tot > 0 else None
-            p_py = np.array([py_p[r["id"]]["probs"][o] for o in ops]) if r["id"] in py_p else probs_calib(tipo, K, s_py, py_tipos)
             fila = {"id": r["id"], "tipo": tipo, "etiqueta": r["etiqueta"], "capa": srv_p[r["id"]]["layer"],
                     "consulta": {"texto_igual": True, "tokens_python": len(ids_py), "tokens_servidor": len(ids_srv),
                                  "tokens_sin_truncar": n_sin_truncar, "truncado_python": n_sin_truncar > max_tok,
@@ -268,10 +290,11 @@ def resumen(filas):
         fs = [f for f in filas if t == "todos" or f["tipo"] == t]
         con = [f for f in fs if "elegida" in f]
         dis = [f for f in con if f["causa"]]
+        sin = sum(f.get("causa") == "sin_calib" for f in fs)
         causas = {}
         for f in dis:
             causas[f["causa"]] = causas.get(f["causa"], 0) + 1
-        res[t] = {"casos": len(fs), "escalados": len(fs) - len(con), "discrepan": len(dis), "causas": causas,
+        res[t] = {"casos": len(fs), "escalados": len(fs) - len(con), "sin_calib": sin, "discrepan": len(dis), "causas": causas,
                   "tokens_truncados_python": sum(f["consulta"]["truncado_python"] for f in fs),
                   "tokens_truncados_servidor": sum(f["consulta"]["truncado_servidor"] for f in fs),
                   "texto_torre_distinto": sum(not all(x["igual"] for x in f["torre"]) for f in fs),
@@ -302,6 +325,28 @@ def informe(o):
     return "\n".join(L) + "\n"
 
 
+def comprobar_tipos_l2(a):
+    """¿Trae el `.chispa` `tipos_l2` en CALIB, y coincide con las cabezas del checkpoint? (T, a, b y θ, tolerancia 1e-6)."""
+    from chispa import formato
+    d = json.loads(formato.leer(Path(a.chispa).read_bytes())[formato.CALIB])
+    tl2 = d.get("tipos_l2")
+    if not tl2:
+        print("FALLO: el .chispa no trae tipos_l2 en CALIB (claves: %s)" % sorted(d))
+        return 1
+    modelo, _ = C.cargar_modelo(a.ckpt, "cpu")
+    ref = calib_del_checkpoint(modelo, cargar_jevbench(a.jevbench))
+    malas = []
+    for k, v in ref.items():
+        w = tl2.get(k)
+        if w is None or any(abs(float(w.get(c, 0)) - float(v.get(c, 0))) > 1e-6 for c in ("T", "a", "b", "theta")):
+            malas.append((k, v, w))
+    # τ de L2 y L2c: `chispa train --ckpt` no calibra, así que tau_escalate_l2 es el de su calib_l2.json (TAU_ZERO_SHOT); se informa, no se compara
+    print(json.dumps({"tipos_l2": sorted(tl2), "checkpoint": sorted(ref), "distintas": [m[0] for m in malas],
+                      "tau_escalate_l2": d.get("tau_escalate_l2"), "tau_l2c": d.get("tau_l2c"), "tau_escalate": d.get("tau_escalate")}, ensure_ascii=False))
+    print("OK tipos_l2 idéntico al checkpoint" if not malas else "FALLO tipos_l2 distinto en %s" % [m[0] for m in malas])
+    return 1 if malas else 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -319,7 +364,12 @@ def main(argv=None):
     r.add_argument("--salida", required=True)
     r.add_argument("--calib-ckpt", action="store_true")
     r.add_argument("--l2-de")
+    t = sub.add_parser("tipos-l2", help="comprueba que CALIB.tipos_l2 del .chispa sea la CALIB del checkpoint")
+    for k in ("chispa", "ckpt", "jevbench"):
+        t.add_argument("--" + k, required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "tipos-l2":
+        return comprobar_tipos_l2(a)
     if a.cmd == "reescribir":
         if a.calib_ckpt and not (a.ckpt and a.jevbench):
             ap.error("--calib-ckpt pide --ckpt y --jevbench")
