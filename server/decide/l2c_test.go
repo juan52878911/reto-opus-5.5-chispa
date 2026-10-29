@@ -66,7 +66,7 @@ func TestL2cParidadEnteraConPython(t *testing.T) {
 	e, _ := conj.Buscar(ClaveConj(p))
 	var peor float64
 	for n, c := range fx.Casos {
-		r := cabezaConj(p, e, c.S, c.Sims, c.L0)
+		r := cabezaConj(p, e, c.S, c.Sims, nil, c.L0)
 		for i, o := range p.Opciones {
 			peor = math.Max(peor, math.Abs(r.Probs[o.ID]-c.Probs[i]))
 		}
@@ -98,7 +98,7 @@ func TestL2cParidadConPython(t *testing.T) {
 				t.Errorf("caso %d: simproto[%d] Go %v Python %v", n, i, sp[i], c.Sp[i])
 			}
 		}
-		r := cabezaConj(p, e, c.S, c.Sims, c.L0)
+		r := cabezaConj(p, e, c.S, c.Sims, nil, c.L0)
 		var suma float64
 		for i, o := range p.Opciones {
 			d := math.Abs(r.Probs[o.ID] - c.Probs[i])
@@ -248,7 +248,7 @@ func BenchmarkL2cCabeza(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cabezaConj(p, &e, S, sims, l0)
+		cabezaConj(p, &e, S, sims, nil, l0)
 	}
 }
 

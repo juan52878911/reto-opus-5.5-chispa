@@ -18,7 +18,7 @@ const (
 	torrVersion = 1
 	torrCab     = 16
 	maxTorrDim  = 4096
-	maxTorrLen  = 8192
+	maxTorrLen  = MaxLenTope
 	maxTorrPref = 256
 )
 
@@ -33,7 +33,7 @@ type Torre struct {
 func CodificarTORR(t Torre) ([]byte, error) {
 	if t.Dim <= 0 || t.Dim > maxTorrDim || t.MaxLen <= 0 || t.MaxLen > maxTorrLen ||
 		len(t.Prefijo) > maxTorrPref || !utf8.ValidString(t.Prefijo) || len(t.ONNX) == 0 {
-		return nil, fmt.Errorf("%w: TORR dim=%d max_len=%d prefijo=%d onnx=%d", ErrContenido, t.Dim, t.MaxLen, len(t.Prefijo), len(t.ONNX))
+		return nil, fmt.Errorf("%w: TORR dim=%d max_len=%d (tope %d) prefijo=%d onnx=%d", ErrContenido, t.Dim, t.MaxLen, MaxLenTope, len(t.Prefijo), len(t.ONNX))
 	}
 	b := make([]byte, torrCab, torrCab+len(t.Prefijo)+len(t.ONNX))
 	le := binary.LittleEndian
@@ -56,7 +56,7 @@ func DecodificarTORR(b []byte) (Torre, error) {
 	}
 	dim, ml, np := le.Uint32(b[4:]), le.Uint32(b[8:]), le.Uint32(b[12:])
 	if dim == 0 || dim > maxTorrDim || ml == 0 || ml > maxTorrLen || np > maxTorrPref {
-		return Torre{}, fmt.Errorf("%w: TORR dim=%d max_len=%d prefijo=%d", ErrContenido, dim, ml, np)
+		return Torre{}, fmt.Errorf("%w: TORR dim=%d max_len=%d (tope %d) prefijo=%d", ErrContenido, dim, ml, MaxLenTope, np)
 	}
 	if uint64(len(b)) <= uint64(torrCab)+uint64(np) {
 		return Torre{}, fmt.Errorf("%w: TORR sin ONNX", ErrContenido)

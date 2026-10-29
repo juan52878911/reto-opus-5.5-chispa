@@ -219,7 +219,8 @@ func (f *Fichero) Sopl1() (*Sopl1, error) {
 	return DecodificarSopl1(b)
 }
 
-// PesoSoporte es w = k/(k+λ). lambda nil o infinito ⇒ 0 (sin mezcla: el comportamiento de antes del soporte);
+// PesoSoporte es el peso de los ejemplos w = k/(k+λ) = 1 − λ_c. Equivalencia con model/l2/formula-shrinkage.md: κ ≡ nuestra λ
+// y el peso de la descripción es κ/(κ+n) = LambdaClase. lambda nil o infinito ⇒ 0 (sin mezcla: el comportamiento de antes del soporte);
 // k ≤ 0 ⇒ 0; λ = 0 ⇒ 1.
 func PesoSoporte(k int, lambda *float64) float64 {
 	if lambda == nil || math.IsInf(*lambda, 1) || k <= 0 {
@@ -228,7 +229,8 @@ func PesoSoporte(k int, lambda *float64) float64 {
 	return float64(k) / (float64(k) + *lambda)
 }
 
-// Mezclar devuelve normaliza((1−w)·desc + w·media). Con w = 0 devuelve desc tal cual (sin renormalizar, para no
+// Mezclar devuelve normaliza((1−w)·desc + w·media) = normaliza(λ_c·desc + (1−λ_c)·media), con la media SIN normalizar (como la
+// fórmula de G.8: la normalización va después de mezclar). Con w = 0 devuelve desc tal cual (sin renormalizar, para no
 // mover ni un bit del comportamiento anterior). Si la mezcla es el vector cero, devuelve desc.
 func Mezclar(desc, media []float32, w float64) []float32 {
 	if w <= 0 {
@@ -251,46 +253,93 @@ func Mezclar(desc, media []float32, w float64) []float32 {
 	return out
 }
 
-// MediaSoporteConj es la media de las K ranuras de soporte (prototipos de CONJ) de la clase id, desescalada: el
-// análogo en L2 de la media de ejemplos de L1. ok=false si la entrada no tiene esa clase. Ranuras de escala 0 cuentan
-// como vacías y no entran en la media.
-func (e *EntradaConj) MediaSoporte(id string) (media []float32, ok bool) {
-	c := sort.SearchStrings(e.Clases, id)
-	if c == len(e.Clases) || e.Clases[c] != id {
-		return nil, false
+// LambdaClase es el peso de la descripción λ_c = κ/(κ+n_c) de la fórmula de shrinkage de G.8 (model/l2/formula-shrinkage.md),
+// con κ ≡ la λ de la config (l2_shrinkage_lambda / AbrirConSoporte); PesoSoporte es el peso de los ejemplos, 1−λ_c.
+// κ = 0 ⇒ 0 (solo ejemplos); κ = +∞ ⇒ 1 (solo descripción). kappa nil ⇒ 0.
+func LambdaClase(n int, kappa *float64) float64 {
+	if kappa == nil || n < 0 {
+		return 0
 	}
-	media = make([]float32, e.D)
-	var n int
-	for j := 0; j < e.K; j++ {
-		esc := e.Escala[c*e.K+j]
-		if esc == 0 {
-			continue
-		}
-		n++
-		for t, q := range e.Proto[(c*e.K+j)*e.D : (c*e.K+j+1)*e.D] {
-			media[t] += float32(int8(q)) * esc
-		}
+	if math.IsInf(*kappa, 1) {
+		return 1
 	}
-	if n == 0 {
-		return nil, false
-	}
-	for t := range media {
-		media[t] /= float32(n)
-	}
-	return media, true
+	return *kappa / (*kappa + float64(n))
 }
 
-// MaxSimF es MaxSim para una torre en float32 (la torre mezclada con el soporte): max_k softplus(h·s_k).
-func MaxSimF(S [][]float32, h []float32) float64 {
-	best := math.Inf(-1)
-	for _, s := range S {
-		var d float64
-		for j, q := range h {
-			d += float64(q) * float64(s[j])
+// ProtosMezclados son los prototipos de la clase c de e tras el shrinkage de G.8, K×D contiguos:
+//
+//	Q_k = λ·h + (1−λ)·M_k  (el mismo h en las K ranuras)  ·  P_k = Q_k/‖Q_k‖  (por ranura; si ‖Q_k‖ = 0, queda en 0)
+//
+// h es la torre de la descripción (norma 1) y M_k la ranura k de la clase en CONJ, desescalada. Diferencia conocida con el
+// entrenamiento: allí M_k es la media SIN normalizar de las ranuras de los ejemplos (norma ≤ 1) y CONJ solo guarda su
+// normalizada (norma 1), así que con n ≥ 2 el runtime da a la media algo más de peso del que da modelo.py; con n = 1 coincide.
+// λ = 0 devuelve la media normalizada, es decir, los prototipos de CONJ tal cual.
+func (e *EntradaConj) ProtosMezclados(c int, h []float32, lambda float64) []float32 {
+	out := make([]float32, e.K*e.D)
+	for j := 0; j < e.K; j++ {
+		esc := float64(e.Escala[c*e.K+j])
+		m := e.Proto[(c*e.K+j)*e.D : (c*e.K+j+1)*e.D]
+		q := out[j*e.D : (j+1)*e.D]
+		var n float64
+		for t := range q {
+			v := lambda*float64(h[t]) + (1-lambda)*float64(int8(m[t]))*esc
+			q[t] = float32(v)
+			n += v * v
 		}
-		best = math.Max(best, Softplus(d))
+		if n > 0 {
+			n = 1 / math.Sqrt(n)
+			for t := range q {
+				q[t] = float32(float64(q[t]) * n)
+			}
+		}
 	}
-	return best
+	return out
+}
+
+// simprotoF es simproto(S, P) = mean_k max_k' (S_k · P_k') con P en float32 (K'×D contiguos).
+func simprotoF(S [][]float32, P []float32, d int) float64 {
+	var tot float64
+	for _, s := range S {
+		best := math.Inf(-1)
+		for off := 0; off+d <= len(P); off += d {
+			var x float64
+			for t, v := range P[off : off+d] {
+				x += float64(v) * float64(s[t])
+			}
+			best = math.Max(best, x)
+		}
+		tot += best
+	}
+	return tot / float64(len(S))
+}
+
+// SimprotoMezclado es el simproto de la cabeza de L2c con shrinkage (el que comparten el servidor y el SDK móvil): para cada
+// opción con k > 0 en sop, simproto contra los ProtosMezclados con λ_c = LambdaClase(k, kappa); el resto de opciones lleva el de
+// CONJ sin tocar. La similitud de la opción (sim_opción, el MaxSim de la torre) no cambia: la fórmula solo mezcla los prototipos.
+// Devuelve nil si no hay nada que mezclar (kappa nil, sop nil, ninguna opción con soporte o torre): quien llama usa el de siempre.
+// torre(i) da la torre de la descripción de la opción i (int8 y escala); sin ella esa opción no se mezcla.
+func SimprotoMezclado(e *EntradaConj, sop *EntradaSopl1, kappa *float64, ids []string, S [][]float32,
+	torre func(i int) (vec []byte, escala float32, ok bool)) []float64 {
+	if e == nil || sop == nil || kappa == nil || len(S) == 0 || len(S[0]) != e.D {
+		return nil
+	}
+	var out []float64
+	for i, id := range ids {
+		k, ok := sop.KDe(id)
+		c := sort.SearchStrings(e.Clases, id)
+		if !ok || k <= 0 || c == len(e.Clases) || e.Clases[c] != id {
+			continue
+		}
+		vec, esc, ok := torre(i)
+		if !ok || len(vec) != e.D {
+			continue
+		}
+		if out == nil {
+			out = SimprotoActual(e, S, ids)
+		}
+		out[i] = simprotoF(S, e.ProtosMezclados(c, TorreFloat(vec, esc), LambdaClase(k, kappa)), e.D)
+	}
+	return out
 }
 
 // TorreFloat desescala una torre int8.
@@ -311,34 +360,3 @@ func (e *EntradaSopl1) KDe(id string) (k int, ok bool) {
 	return int(e.K[c]), true
 }
 
-// MezclarSimsL2 es la mezcla de L2 que comparten el servidor (server/decide/l2c.go) y el SDK móvil: recalcula el MaxSim de
-// cada opción con k > 0 contra normaliza((1−w)·torre + w·media de sus ranuras de soporte en CONJ), w = k/(k+λ) con el k de
-// sop (SOPL1). torre(i) da la torre de la descripción de la opción i (int8 y escala). Devuelve sims tal cual (mismo
-// slice) si lambda es nil o ∞, sop es nil o ninguna opción cambia; si no, una copia.
-func MezclarSimsL2(e *EntradaConj, sop *EntradaSopl1, lambda *float64, ids []string, S [][]float32, sims []float64,
-	torre func(i int) (vec []byte, escala float32, ok bool)) []float64 {
-	if e == nil || sop == nil || lambda == nil || len(ids) > len(sims) {
-		return sims
-	}
-	var out []float64
-	for i, id := range ids {
-		k, ok := sop.KDe(id)
-		w := PesoSoporte(k, lambda)
-		if !ok || w == 0 {
-			continue
-		}
-		media, ok := e.MediaSoporte(id)
-		vec, esc, ok2 := torre(i)
-		if !ok || !ok2 || len(media) != len(vec) || len(S) == 0 || len(S[0]) != len(vec) {
-			continue
-		}
-		if out == nil {
-			out = append([]float64(nil), sims...)
-		}
-		out[i] = MaxSimF(S, Mezclar(TorreFloat(vec, esc), media, w))
-	}
-	if out == nil {
-		return sims
-	}
-	return out
-}

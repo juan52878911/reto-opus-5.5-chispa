@@ -45,8 +45,15 @@ func ClaveConj(texto string, ids []string) [32]byte {
 // en su orden. S son las ranuras de L2 con soporte; sims, el MaxSim de L2 por opción; l0, las probabilidades de
 // L0 por id de opción.
 func (e *EntradaConj) ProbsCabeza(ids []string, S [][]float32, sims []float64, l0 map[string]float64) []float64 {
+	return e.ProbsCabezaSp(ids, S, sims, l0, nil)
+}
+
+// ProbsCabezaSp es ProbsCabeza con el simproto ya calculado (SimprotoMezclado); sp nil ⇒ el de CONJ (SimprotoActual).
+func (e *EntradaConj) ProbsCabezaSp(ids []string, S [][]float32, sims []float64, l0 map[string]float64, sp []float64) []float64 {
 	n := len(ids)
-	sp := SimprotoActual(e, S, ids)
+	if sp == nil {
+		sp = SimprotoActual(e, S, ids)
+	}
 	// P_L2 con soporte: softmax((MaxSim + β·simproto) / T).
 	l2 := make([]float64, n)
 	mx := math.Inf(-1)

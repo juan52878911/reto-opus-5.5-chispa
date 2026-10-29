@@ -803,12 +803,13 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 		return sinOpinar
 	}
 	sims := simsL2(ts, S)
+	var sp []float64 // nil ⇒ simproto de CONJ
 	if c.sopl != nil {
 		if sop, ok := c.sopl.Buscar(chispa3.ClaveConj(p.Texto, ids)); ok {
-			sims = chispa3.MezclarSimsL2(e, sop, c.lambdaL2, ids, S, sims, func(i int) ([]byte, float32, bool) { return ts[i].v, ts[i].e, true })
+			sp = chispa3.SimprotoMezclado(e, sop, c.lambdaL2, ids, S, func(i int) ([]byte, float32, bool) { return ts[i].v, ts[i].e, true })
 		}
 	}
-	pr := e.ProbsCabeza(ids, S, sims, in.L0)
+	pr := e.ProbsCabezaSp(ids, S, sims, in.L0, sp)
 	r := respuesta{Ok: true, Probs: make(map[string]float64, len(pr))}
 	for i, id := range ids {
 		r.Probs[id] = pr[i]

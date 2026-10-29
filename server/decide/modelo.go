@@ -14,6 +14,26 @@ import (
 // El Tokenizador que se pasa a ArmarDesde lo puede implementar además de IDs; sin él no se monta la torre.
 type TokenizadorPasaje = torre.Tokenizador
 
+// TokenizadorMaxLen lo implementa el tokenizador cuyo truncado se puede ajustar: ConMaxLen devuelve una copia que trunca la
+// consulta (IDs) a consulta tokens y el pasaje (IDsPasaje) a pasaje. ArmarDesde lo llama con el `chispa.consulta.max_len` del
+// ONNX de L2 y el `max_len` de TORR; un tokenizador que no lo implemente se queda con su truncado (128).
+type TokenizadorMaxLen interface {
+	ConMaxLen(consulta, pasaje int) Tokenizador
+}
+
+// ajustarMaxLen aplica el truncado de los metadatos al tokenizador. Con los dos en el defecto no toca nada.
+func ajustarMaxLen(tok Tokenizador, consulta, pasaje int, avisos *[]string) Tokenizador {
+	if tok == nil || (consulta == chispa3.MaxLenDefecto && pasaje == chispa3.MaxLenDefecto) {
+		return tok
+	}
+	if t, ok := tok.(TokenizadorMaxLen); ok {
+		return t.ConMaxLen(consulta, pasaje)
+	}
+	*avisos = append(*avisos, fmt.Sprintf("el tokenizador no admite truncado ajustable: sigue en %d (los metadatos piden consulta %d, pasaje %d)",
+		chispa3.MaxLenDefecto, consulta, pasaje))
+	return tok
+}
+
 // OpcionArmado ajusta ArmarDesde; sirve para sustituir ORT por piezas falsas en las pruebas.
 type OpcionArmado func(*opcionesArmado)
 
@@ -122,6 +142,17 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 				return mt, fmt.Errorf("sección CONJ: %w", err)
 			}
 		}
+		mq, err := chispa3.MaxLenConsulta(onnx)
+		if err != nil {
+			return mt, fmt.Errorf("sección L2: %w", err)
+		}
+		mp := chispa3.MaxLenDefecto
+		if f.Tiene(chispa3.TORR) {
+			if t, err := f.Torre(); err == nil { // si es ilegible, montarTorres da el error
+				mp = t.MaxLen
+			}
+		}
+		tok = ajustarMaxLen(tok, mq, mp, &mt.Avisos)
 		base, err := montarL2(onnx, esq, calib, tok, op.ses)
 		if err != nil {
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())

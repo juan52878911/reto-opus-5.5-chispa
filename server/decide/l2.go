@@ -14,7 +14,7 @@ import (
 )
 
 // Tokenizador convierte un texto en ids del tokenizador original de e5 (con «query: »
-// delante, tokens especiales y recorte a 128), que es lo que espera el ONNX de L2.
+// delante, tokens especiales y recorte a `chispa.consulta.max_len`, 128 por defecto), que es lo que espera el ONNX de L2.
 type Tokenizador interface {
 	IDs(texto string) []int64
 }

@@ -46,7 +46,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			tk = tokE5{t}
+			tk = decide.NuevoTokenizadorE5(t)
 		}
 		mt, err := decide.ArmarDesde(f, l0, &cfg, *cfgPath == "", tk)
 		if err != nil {
@@ -71,26 +71,4 @@ func main() {
 	srv := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("chispa-server en %s: %d modelos en L0", *addr, l0.NumModelos())
 	log.Fatal(srv.ListenAndServe())
-}
-
-// tokE5 adapta runtime/tok a decide.Tokenizador (ids int64 para el ONNX).
-type tokE5 struct{ t *tok.Tokenizador }
-
-func (e tokE5) IDs(texto string) []int64 {
-	ids := e.t.Tokenizar(texto)
-	out := make([]int64, len(ids))
-	for i, v := range ids {
-		out[i] = int64(v)
-	}
-	return out
-}
-
-// IDsPasaje es el modo «passage: » para la torre de esquemas (decide.TokenizadorPasaje, sección TORR).
-func (e tokE5) IDsPasaje(texto string) []int64 {
-	ids := e.t.TokenizarPasaje(texto)
-	out := make([]int64, len(ids))
-	for i, v := range ids {
-		out[i] = int64(v)
-	}
-	return out
 }

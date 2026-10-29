@@ -1,7 +1,7 @@
 # runtime/tok — tokenizador de multilingual-e5-small en Go
 
 `tok.Abrir("e5.chispa-tok").Tokenizar(texto) []int32` devuelve los ids de `AutoTokenizer(...)("query: " + texto,
-truncation=True, max_length=128)` de `transformers` (con `<s>` y `</s>`), que es lo que hace `model/l2/modelo.py` y lo que espera el ONNX de L2.
+truncation=True, max_length=128)` de `transformers` (128 es el defecto; `TokenizarMax(prefijo, texto, maxLen)` trunca a `maxLen` ≤ `TopeMaxLen` = 512, y el truncado real lo dan los metadatos del modelo: `chispa.consulta.max_len` del ONNX de L2 y `max_len` de TORR) (con `<s>` y `</s>`), que es lo que hace `model/l2/modelo.py` y lo que espera el ONNX de L2.
 
 - **Motor**: el de `runtime/l1` (Viterbi sobre unigram, charsmap de sentencepiece, tabla hash FNV). `l1.DesdeTokenizador` lee un
   `.chispa-tok` (misma cabecera y secciones que el `.chispa-l1` con magia `CHTK` y sin pesos) y activa el modo `xlmr`: Precompiled →
@@ -16,6 +16,6 @@ truncation=True, max_length=128)` de `transformers` (con `<s>` y `</s>`), que es
   `go test -fuzz FuzzTokenizar -fuzztime 2m` comprueba forma, rango de ids y determinismo.
 
 ## Modo «passage: » (torre de esquemas de L2)
-`TokenizarPasaje(texto)` = `TokenizarCon("passage: ", texto)`: mismo pipeline, prefijo de pasaje, truncado a 128. `referencia.py <dir> <salida> --pasaje`
+`TokenizarPasaje(texto)` = `TokenizarCon("passage: ", texto)`: mismo pipeline, prefijo de pasaje, truncado a 128 por defecto. `referencia.py <dir> <salida> --pasaje`
 genera los ids de transformers con ese prefijo (más 9 textos con el formato `pregunta · opción · descripción`, U+00B7 y descripción vacía);
 `testdata/ids_e5_passage.jsonl` (2.324 frases) lo comprueba `TestIgualdadTransformersPasaje`.

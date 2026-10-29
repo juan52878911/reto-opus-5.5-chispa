@@ -82,39 +82,40 @@ func TestL2cSoporteLambdaInfinitoNoCambiaNada(t *testing.T) {
 	}
 }
 
-func TestL2cSoporteMueveLaTorreHaciaLosEjemplos(t *testing.T) {
+// Shrinkage de G.8 sobre los prototipos (κ ≡ λ): la torre de «a», (1,0), y su ranura de CONJ, (0,1), dan con κ=1, n=1 (λ=0,5)
+// P=(√½, √½) y simproto = (0,1)·P = 0,707107 (a mano); «b» (k=0) conserva el de CONJ, 1. sim_opción no se toca.
+func TestL2cSoporteMezclaLosPrototipos(t *testing.T) {
 	l, p, sf := montajeSoporteL2c(t, 1)
-	e, _ := l.conj.Buscar(ClaveConj(p))
-	S := sf.S
-	base := []float64{softplus(0), softplus(1)}
-	// λ=1, k=1 ⇒ w=0,5: la torre de «a», (1,0), y su soporte, (0,1), dan (√2/2, √2/2); «b» (k=0) no cambia.
 	l.ConSoporte(soplDe(t, p, 1), floatPtr(1))
-	got := l.mezclarSims(p, e, S, base, nil)
-	if math.Abs(got[0]-softplus(math.Sqrt2/2)) > 1e-3 || got[1] != base[1] {
-		t.Fatalf("w=0,5: %v (base %v)", got, base)
+	got := l.mezclarSimproto(p, sf.S, nil)
+	if len(got) != 2 || math.Abs(got[0]-math.Sqrt2/2) > 1e-6 || math.Abs(got[1]-1) > 1e-6 {
+		t.Fatalf("κ=1: %v, quería [0,707107 1]", got)
 	}
-	if &got[0] == &base[0] || base[0] != softplus(0) {
-		t.Fatal("no debe mutar los sims de entrada")
+	// κ=0,25 ⇒ λ=0,2 ⇒ Q=(0,2, 0,8), simproto = 0,8/√0,68 = 0,970143.
+	l.ConSoporte(soplDe(t, p, 1), floatPtr(0.25))
+	if g := l.mezclarSimproto(p, sf.S, nil); math.Abs(g[0]-0.970143) > 1e-6 {
+		t.Fatalf("κ=0,25: %v, quería 0,970143", g[0])
 	}
-	// Monótono en w: λ más pequeña, más cerca de los ejemplos (que coinciden con el mensaje).
+	// Monótono: con κ menor el prototipo vuelve a los ejemplos (que coinciden con el mensaje) y el simproto sube hacia 1.
 	prev := got[0]
-	for _, lambda := range []float64{0.25, 0.01} {
-		l.ConSoporte(soplDe(t, p, 1), floatPtr(lambda))
-		g := l.mezclarSims(p, e, S, base, nil)
+	for _, kappa := range []float64{0.25, 0.01} {
+		l.ConSoporte(soplDe(t, p, 1), floatPtr(kappa))
+		g := l.mezclarSimproto(p, sf.S, nil)
 		if g[0] <= prev {
-			t.Fatalf("λ=%v: %v no sube desde %v", lambda, g[0], prev)
+			t.Fatalf("κ=%v: %v no sube desde %v", kappa, g[0], prev)
 		}
 		prev = g[0]
 	}
-	if math.Abs(prev-softplus(1)) > 0.02 {
-		t.Fatalf("con w≈1 el MaxSim de «a» es el de su soporte: %v", prev)
-	}
-	// Y la decisión cambia: sin soporte la cabeza prefiere «b» (sims de la descripción); con w≈1, «a» le alcanza.
+	// La decisión: κ≈0 equivale a no mezclar; κ=1 baja el simproto de «a» y con él P(a).
 	l0 := conL0(map[string]float64{"a": 0.5, "b": 0.5})
 	r0, _ := montarYDecidir(t, nil, l0)
-	r1, _ := montarYDecidir(t, floatPtr(0.01), l0)
-	if !(r1.Probs["a"] > r0.Probs["a"]) {
-		t.Fatalf("P(a) debe subir con el soporte: %v → %v", r0.Probs["a"], r1.Probs["a"])
+	rCero, _ := montarYDecidir(t, floatPtr(0), l0)
+	rUno, _ := montarYDecidir(t, floatPtr(1), l0)
+	if math.Abs(rCero.Probs["a"]-r0.Probs["a"]) > 1e-6 {
+		t.Fatalf("κ=0 debe dar lo mismo que sin mezcla: %v ≠ %v", rCero.Probs["a"], r0.Probs["a"])
+	}
+	if !(rUno.Probs["a"] < r0.Probs["a"]) {
+		t.Fatalf("P(a) debe bajar cuando la descripción pesa: %v → %v", r0.Probs["a"], rUno.Probs["a"])
 	}
 }
 

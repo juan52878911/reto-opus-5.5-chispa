@@ -137,11 +137,10 @@ func (s *simConTorres) similitudesTorres(ctx context.Context, p Pregunta) ([][]f
 func TestR3L2cMezclaConLaTorreQuePuntuo(t *testing.T) {
 	l, p, sf := montajeSoporteL2c(t, 1)
 	l.ConSoporte(soplDe(t, p, 1), floatPtr(1))
-	e, _ := l.conj.Buscar(ClaveConj(p))
 	// Torres al vuelo distintas de las de ESQUEMAS: «a» apunta a (0,1) en lugar de (1,0).
 	ts := []torreDin{{v: []byte{0, 127}, e: 1.0 / 127}, {v: []byte{127, 0}, e: 1.0 / 127}}
-	conESQ := l.mezclarSims(p, e, sf.S, sf.sims, nil)
-	conTs := l.mezclarSims(p, e, sf.S, sf.sims, ts)
+	conESQ := l.mezclarSimproto(p, sf.S, nil)
+	conTs := l.mezclarSimproto(p, sf.S, ts)
 	if math.Abs(conESQ[0]-conTs[0]) < 1e-3 {
 		t.Fatalf("la prueba no distingue torres: %v vs %v", conESQ, conTs)
 	}
@@ -152,7 +151,7 @@ func TestR3L2cMezclaConLaTorreQuePuntuo(t *testing.T) {
 		t.Fatal(err)
 	}
 	r2, _ := l.DecidirCon(context.Background(), p, l0)
-	want := cabezaConj(p, mustConj(t, l, p), sf.S, conTs, l0["L0"].Probs)
+	want := cabezaConj(p, mustConj(t, l, p), sf.S, sf.sims, conTs, l0["L0"].Probs)
 	for id, v := range want.Probs {
 		if r1.Probs[id] != r2.Probs[id] || math.Abs(r1.Probs[id]-v) > 1e-12 {
 			t.Fatalf("p(%s): llamada 1 %v, llamada 2 %v, con la torre que puntuó %v", id, r1.Probs[id], r2.Probs[id], v)

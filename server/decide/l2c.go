@@ -1,6 +1,7 @@
 package decide
 
 import (
+	"math"
 	"context"
 
 	"chispa/format/chispa3"
@@ -28,10 +29,14 @@ type L2c struct {
 	lambda *float64       // λ del encogimiento de L2; nil = ∞ (sin mezcla)
 }
 
-// ConSoporte activa la mezcla en L2: con una pregunta presente en sopl, la torre de cada opción (la de la descripción, de
-// ESQUEMAS o al vuelo) se encoge hacia la media de sus ranuras de soporte en CONJ, p = normaliza((1−w)·torre + w·media),
-// w = k/(k+λ) con el k de SOPL1, y el MaxSim se recalcula con p. lambda nil o +Inf deja L2c como estaba. Antes de usarla.
+// ConSoporte activa el shrinkage de G.8 en L2c (κ ≡ λ; ver chispa3.SimprotoMezclado): con una pregunta presente en sopl, los
+// prototipos de cada opción con k > 0 son Q_j = λ_c·torre + (1−λ_c)·ranura_j de CONJ, λ_c = λ/(λ+k) con el k de SOPL1,
+// normalizados por ranura; solo cambia el simproto (sim_opción, el MaxSim de la torre, queda igual). lambda nil o +Inf deja
+// L2c como estaba (los prototipos de CONJ tal cual, que es κ=0 de la fórmula, no κ=∞). Antes de usarla.
 func (l *L2c) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L2c {
+	if lambda != nil && math.IsInf(*lambda, 0) {
+		lambda = nil
+	}
 	l.sopl, l.lambda = sopl, lambda
 	return l
 }
@@ -87,7 +92,7 @@ func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 	if len(S) == 0 || len(S[0]) != e.D {
 		return l.L2.Decidir(ctx, p)
 	}
-	return cabezaConj(p, e, S, l.mezclarSims(p, e, S, sims, ts), l0.Probs), nil
+	return cabezaConj(p, e, S, sims, l.mezclarSimproto(p, S, ts), l0.Probs), nil
 }
 
 // torreDe devuelve la torre de la descripción de la opción: la de ESQUEMAS o, si el esquema es nuevo, la que L2 acaba de
@@ -107,20 +112,25 @@ func (l *L2c) torreDe(p Pregunta, o Opcion) (vec []byte, escala float32, ok bool
 	return nil, 0, false
 }
 
-// mezclarSims aplica chispa3.MezclarSimsL2 si hay λ y SOPL1 con la pregunta; si no, devuelve sims tal cual: el comportamiento de antes.
-func (l *L2c) mezclarSims(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sims []float64, ts []torreDin) []float64 {
+// mezclarSimproto aplica chispa3.SimprotoMezclado (shrinkage de G.8 sobre los prototipos, κ ≡ λ) si hay λ y SOPL1 con la
+// pregunta; si no, devuelve nil y la cabeza usa el simproto de CONJ: el comportamiento de antes.
+func (l *L2c) mezclarSimproto(p Pregunta, S [][]float32, ts []torreDin) []float64 {
 	if l.sopl == nil || l.lambda == nil {
-		return sims
+		return nil
 	}
 	sop, ok := l.sopl.Buscar(ClaveConj(p))
 	if !ok {
-		return sims
+		return nil
+	}
+	e, ok := l.conj.Buscar(ClaveConj(p))
+	if !ok {
+		return nil
 	}
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
 	}
-	return chispa3.MezclarSimsL2(e, sop, l.lambda, ids, S, sims, func(i int) ([]byte, float32, bool) {
+	return chispa3.SimprotoMezclado(e, sop, l.lambda, ids, S, func(i int) ([]byte, float32, bool) {
 		if len(ts) == len(p.Opciones) { // la misma torre que puntuó: determinista y como en el móvil
 			return ts[i].v, ts[i].e, true
 		}
@@ -129,12 +139,12 @@ func (l *L2c) mezclarSims(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sim
 }
 
 // cabezaConj pone la cabeza de CONJ (chispa3.EntradaConj.ProbsCabeza, compartida con el SDK móvil) en una Respuesta.
-func cabezaConj(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sims []float64, l0 map[string]float64) Respuesta {
+func cabezaConj(p Pregunta, e *chispa3.EntradaConj, S [][]float32, sims, sp []float64, l0 map[string]float64) Respuesta {
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
 	}
-	pr := e.ProbsCabeza(ids, S, sims, l0)
+	pr := e.ProbsCabezaSp(ids, S, sims, l0, sp)
 	r := Respuesta{Probs: make(map[string]float64, len(pr))}
 	for i, id := range ids {
 		r.Probs[id] = pr[i]

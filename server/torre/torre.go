@@ -35,7 +35,7 @@ func ValidarPrefijo(version uint32, prefijo string) error {
 // ErrSinORT: este binario se compiló sin la etiqueta de build «ort».
 var ErrSinORT = errors.New("torre: binario compilado sin la etiqueta ort")
 
-// Tokenizador da los ids de e5 de un texto con el prefijo de pasaje ya puesto (<s>, </s>, truncado a 128).
+// Tokenizador da los ids de e5 de un texto con el prefijo de pasaje ya puesto (<s>, </s>, truncado a max_len de TORR, 128 por defecto).
 // El prefijo forma parte del texto tokenizado: lo antepone el tokenizador, no el llamador.
 type Tokenizador interface {
 	IDsPasaje(texto string) []int64

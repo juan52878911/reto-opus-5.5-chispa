@@ -146,18 +146,140 @@ func TestPesoSoporteYMezclar(t *testing.T) {
 	}
 }
 
-func TestMediaSoporteConj(t *testing.T) {
-	e := &EntradaConj{K: 2, D: 2, Clases: []string{"a", "b"},
-		Escala: []float32{1, 1, 0.5, 0}, Proto: []byte{2, 0, 0, 4, 2, 2, 9, 9}}
-	m, ok := e.MediaSoporte("a")
-	if !ok || m[0] != 1 || m[1] != 2 {
-		t.Fatalf("a: %v %v", m, ok)
+// Casos calculados a mano de la fórmula de shrinkage de G.8 (model/l2/formula-shrinkage.md; κ ≡ λ del runtime):
+//
+//	λ_c = κ/(κ+n) · Q_k = λ_c·h + (1−λ_c)·M_k · P_k = Q_k/‖Q_k‖ · simproto = mean_s max_k (s·P_k)
+func casi(t *testing.T, nombre string, got, want []float64) {
+	t.Helper()
+	for i := range want {
+		if math.Abs(got[i]-want[i]) > 1e-6 {
+			t.Errorf("%s[%d] = %.7f, quería %.7f", nombre, i, got[i], want[i])
+		}
 	}
-	m, ok = e.MediaSoporte("b") // la ranura de escala 0 no entra
-	if !ok || m[0] != 1 || m[1] != 1 {
-		t.Fatalf("b: %v %v", m, ok)
+}
+
+func f64(v []float32) []float64 {
+	o := make([]float64, len(v))
+	for i, x := range v {
+		o[i] = float64(x)
 	}
-	if _, ok := e.MediaSoporte("c"); ok {
-		t.Fatal("c no existe")
+	return o
+}
+
+func TestLambdaClase(t *testing.T) {
+	cuatro, cero, inf := 4.0, 0.0, math.Inf(1)
+	for _, c := range []struct {
+		n     int
+		kappa *float64
+		want  float64
+	}{{1, &cuatro, 0.8}, {32, &cuatro, 4.0 / 36}, {3, &cero, 0}, {3, nil, 0}, {3, &inf, 1}} {
+		if got := LambdaClase(c.n, c.kappa); math.Abs(got-c.want) > 1e-12 {
+			t.Errorf("n=%d κ=%v: %v, quería %v", c.n, c.kappa, got, c.want)
+		}
 	}
+	for _, n := range []int{1, 2, 7} { // 1−λ_c es el peso de los ejemplos de PesoSoporte
+		if math.Abs(1-LambdaClase(n, &cuatro)-PesoSoporte(n, &cuatro)) > 1e-12 {
+			t.Errorf("n=%d: LambdaClase y PesoSoporte no suman 1", n)
+		}
+	}
+}
+
+// L1: la media va SIN normalizar. desc=(0,1,0), media=(0.6,0,0) (norma 0,6, la de dos ejemplos que no coinciden del todo),
+// κ=2, n=2 ⇒ λ=0,5: Q=(0,3, 0,5, 0), ‖Q‖=√0,34 ⇒ P=(0,514496, 0,857493, 0). Si se normalizara la media antes saldría (√½, √½, 0).
+func TestShrinkageL1MediaSinNormalizar(t *testing.T) {
+	dos := 2.0
+	got := Mezclar([]float32{0, 1, 0}, []float32{0.6, 0, 0}, PesoSoporte(2, &dos))
+	casi(t, "n=2 κ=2", f64(got), []float64{0.3 / math.Sqrt(0.34), 0.5 / math.Sqrt(0.34), 0})
+	casi(t, "n=2 κ=2 (valores)", f64(got), []float64{0.514496, 0.857493, 0})
+	// n=1, κ=4 ⇒ λ=0,8: Q=(0,2, 0, 0,8, 0), ‖Q‖=√0,68 ⇒ P=(0,242536, 0, 0,970143, 0).
+	cuatro := 4.0
+	got = Mezclar([]float32{0, 0, 1, 0}, []float32{1, 0, 0, 0}, PesoSoporte(1, &cuatro))
+	casi(t, "n=1 κ=4", f64(got), []float64{0.242536, 0, 0.970143, 0})
+}
+
+func conjProtos(k, d int, escala float32, protos ...[]int8) *EntradaConj {
+	e := &EntradaConj{K: k, D: d, Clases: []string{"a"}}
+	for _, p := range protos {
+		e.Escala = append(e.Escala, escala)
+		for _, q := range p {
+			e.Proto = append(e.Proto, byte(q))
+		}
+	}
+	return e
+}
+
+// L2c, dim 3 y 2 ranuras. h=(1,0,0); ranuras de CONJ (0,1,0) y (0,0,1); κ=4, n=1 ⇒ λ=0,8.
+// Q0=(0,8, 0,2, 0), Q1=(0,8, 0, 0,2), ‖Q‖=√0,68 ⇒ P0=(0,970143, 0,242536, 0), P1=(0,970143, 0, 0,242536).
+// S: s0=(1,0,0) da 0,970143 con las dos ranuras; s1=(0,1,0), max(0,242536, 0). simproto = (0,970143+0,242536)/2 = 0,606339.
+func TestShrinkageL2cDosRanuras(t *testing.T) {
+	e := conjProtos(2, 3, 1, []int8{0, 1, 0}, []int8{0, 0, 1})
+	h := []float32{1, 0, 0}
+	p := e.ProtosMezclados(0, h, 0.8)
+	casi(t, "P", f64(p), []float64{0.970143, 0.242536, 0, 0.970143, 0, 0.242536})
+	S := [][]float32{{1, 0, 0}, {0, 1, 0}}
+	casi(t, "simproto", []float64{simprotoF(S, p, 3)}, []float64{0.606339})
+	// El camino completo (SOPL1 con k=1, κ=4, torre int8 (127,0,0)·1/127).
+	sop := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{1}}
+	cuatro := 4.0
+	got := SimprotoMezclado(e, sop, &cuatro, []string{"a"}, S, func(int) ([]byte, float32, bool) { return []byte{127, 0, 0}, 1.0 / 127, true })
+	casi(t, "SimprotoMezclado", got, []float64{0.606339})
+	// κ=0 ⇒ solo ejemplos: P = ranuras de CONJ; κ=∞ ⇒ solo descripción: P = h en las 2 ranuras.
+	casi(t, "κ=0", f64(e.ProtosMezclados(0, h, 0)), []float64{0, 1, 0, 0, 0, 1})
+	casi(t, "κ=∞", f64(e.ProtosMezclados(0, h, 1)), []float64{1, 0, 0, 1, 0, 0})
+	// Un Q nulo se queda en 0: ranura (−1,0,0) y h=(1,0,0) con λ=0,5.
+	z := conjProtos(1, 3, 1, []int8{-1, 0, 0})
+	casi(t, "Q=0", f64(z.ProtosMezclados(0, h, 0.5)), []float64{0, 0, 0})
+}
+
+// L2c, dim 4 y 2 ranuras de norma 1 (escala 0,1): M0=(0,1,0,0), M1=(0,0,0,6, 0,8); h=(1,0,0,0); κ=1, n=3 ⇒ λ=0,25.
+// Q0=(0,25, 0,75, 0, 0), ‖Q0‖=√0,625 ⇒ P0=(0,316228, 0,948683, 0, 0).
+// Q1=(0,25, 0, 0,45, 0,6), ‖Q1‖²=0,0625+0,2025+0,36=0,625 ⇒ P1=(0,316228, 0, 0,569210, 0,758947).
+func TestShrinkageL2cDim4(t *testing.T) {
+	e := conjProtos(2, 4, 0.1, []int8{0, 10, 0, 0}, []int8{0, 0, 6, 8})
+	p := e.ProtosMezclados(0, []float32{1, 0, 0, 0}, 0.25)
+	casi(t, "P0", f64(p[:4]), []float64{0.316228, 0.948683, 0, 0})
+	casi(t, "P1", f64(p[4:]), []float64{0.316228, 0, 0.569210, 0.758947})
+	// s=(0,0,0,1): solo la ranura 1 puntúa, 0,758947; s=(1,0,0,0): ambas dan 0,316228 ⇒ simproto = 0,537588.
+	S := [][]float32{{0, 0, 0, 1}, {1, 0, 0, 0}}
+	casi(t, "simproto", []float64{simprotoF(S, p, 4)}, []float64{(0.758947 + 0.316228) / 2})
+}
+
+// L2c con las 16 ranuras de G.8: pares M=(0,1,0), impares M=(0,0,1); h=(1,0,0); κ=2, n=2 ⇒ λ=0,5 ⇒ Q=(0,5, 0,5, 0) o (0,5, 0, 0,5),
+// P=(√½, √½, 0) o (√½, 0, √½). Las tres ranuras de consulta (e_y, e_z, e_x) puntúan √½ cada una ⇒ simproto = 0,707107.
+func TestShrinkageL2c16Ranuras(t *testing.T) {
+	var ps [][]int8
+	for j := 0; j < 16; j++ {
+		if j%2 == 0 {
+			ps = append(ps, []int8{0, 1, 0})
+		} else {
+			ps = append(ps, []int8{0, 0, 1})
+		}
+	}
+	e := conjProtos(16, 3, 1, ps...)
+	S := [][]float32{{0, 1, 0}, {0, 0, 1}, {1, 0, 0}}
+	dos := 2.0
+	sop := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{2}}
+	got := SimprotoMezclado(e, sop, &dos, []string{"a"}, S, func(int) ([]byte, float32, bool) { return []byte{2, 0, 0}, 0.5, true })
+	casi(t, "16 ranuras", got, []float64{math.Sqrt2 / 2})
+	p := e.ProtosMezclados(0, []float32{1, 0, 0}, 0.5)
+	if len(p) != 48 {
+		t.Fatalf("16×3 esperado, salió %d", len(p))
+	}
+	casi(t, "ranura 15", f64(p[45:]), []float64{math.Sqrt2 / 2, 0, math.Sqrt2 / 2})
+}
+
+// Sin κ, sin SOPL1, sin k o sin torre no se toca nada (nil: la cabeza usa el simproto de CONJ).
+func TestSimprotoMezcladoSinCambios(t *testing.T) {
+	e := conjProtos(1, 2, 1, []int8{1, 0})
+	S := [][]float32{{1, 0}}
+	tor := func(int) ([]byte, float32, bool) { return []byte{0, 1}, 1, true }
+	sop := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{2}}
+	un, cero := 1.0, 0.0
+	if SimprotoMezclado(e, sop, nil, []string{"a"}, S, tor) != nil || SimprotoMezclado(e, nil, &un, []string{"a"}, S, tor) != nil ||
+		SimprotoMezclado(e, &EntradaSopl1{Ids: []string{"a"}, K: []uint32{0}}, &un, []string{"a"}, S, tor) != nil ||
+		SimprotoMezclado(e, sop, &un, []string{"a"}, S, func(int) ([]byte, float32, bool) { return nil, 0, false }) != nil {
+		t.Fatal("debería devolver nil")
+	}
+	// κ=0 coincide con el simproto de CONJ.
+	casi(t, "κ=0", SimprotoMezclado(e, sop, &cero, []string{"a"}, S, tor), Simproto(e, S, []string{"a"}))
 }

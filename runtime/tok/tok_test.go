@@ -152,3 +152,51 @@ func FuzzTokenizar(f *testing.F) {
 		_ = utf8.ValidString(s)
 	})
 }
+
+// El truncado sale del llamador (metadatos del modelo), no de una constante: con 256 un texto largo se trunca a 256 y no a 128,
+// y los 256 ids empiezan por <s> y acaban en </s>; el prefijo corta igual para consulta y pasaje.
+func TestTokenizarMaxLen(t *testing.T) {
+	tk := abrir(t)
+	largo := strings.Repeat("palabra · ", 900)
+	for _, n := range []int{64, 128, 256, TopeMaxLen} {
+		for _, pref := range []string{Prefijo, PrefijoPasaje} {
+			ids := tk.TokenizarMax(pref, largo, n)
+			if len(ids) != n || ids[0] != 0 || ids[n-1] != 2 {
+				t.Errorf("max_len %d (%q): %d ids, extremos %d/%d", n, pref, len(ids), ids[0], ids[len(ids)-1])
+			}
+			// Es un prefijo del truncado más largo: no cambia nada salvo dónde corta.
+			if n > 3 && !slices.Equal(ids[:n-1], tk.TokenizarMax(pref, largo, TopeMaxLen)[:n-1]) {
+				t.Errorf("max_len %d (%q): los ids no son prefijo de los de 512", n, pref)
+			}
+		}
+	}
+	// Un texto corto no se alarga ni se corta y da lo mismo con cualquier max_len ≥ su longitud.
+	corto := tk.Tokenizar("hola mundo")
+	if !slices.Equal(corto, tk.TokenizarMax(Prefijo, "hola mundo", 256)) {
+		t.Errorf("texto corto distinto con max_len 256")
+	}
+	// El defecto sigue siendo MaxTok.
+	if len(tk.Tokenizar(largo)) != MaxTok || len(tk.TokenizarPasaje(largo)) != MaxTok || len(tk.TokenizarCon(Prefijo, largo)) != MaxTok {
+		t.Errorf("el defecto ya no es %d", MaxTok)
+	}
+	// Fuera de rango se acota (los llamadores validan antes con ComprobarMaxLen).
+	if got := len(tk.TokenizarMax(Prefijo, largo, 10_000)); got != TopeMaxLen {
+		t.Errorf("max_len 10000: %d ids, quería el tope %d", got, TopeMaxLen)
+	}
+	if got := len(tk.TokenizarMax(Prefijo, largo, 0)); got != 3 {
+		t.Errorf("max_len 0: %d ids, quería 3", got)
+	}
+}
+
+func TestComprobarMaxLen(t *testing.T) {
+	for _, n := range []int{3, 128, 256, TopeMaxLen} {
+		if err := ComprobarMaxLen(n); err != nil {
+			t.Errorf("%d: %v", n, err)
+		}
+	}
+	for _, n := range []int{-1, 0, 2, TopeMaxLen + 1, 8192} {
+		if err := ComprobarMaxLen(n); err == nil || !strings.Contains(err.Error(), "fuera de rango") {
+			t.Errorf("%d: %v", n, err)
+		}
+	}
+}
