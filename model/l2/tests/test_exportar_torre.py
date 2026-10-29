@@ -38,6 +38,14 @@ class TorreOnnx(unittest.TestCase):
         self.assertEqual(h.shape, (2, 256))
         np.testing.assert_allclose(np.linalg.norm(h, axis=1), 1.0, atol=1e-5)
 
+    def test_metadata_props_para_chispa_train(self):
+        m = onnx.load(str(self.int8), load_external_data=False)
+        props = {p.key: p.value for p in m.metadata_props}
+        self.assertEqual(props["chispa.torre.dim"], "256")
+        self.assertEqual(props["chispa.torre.max_len"], "128")
+        self.assertEqual(props["chispa.torre.prefijo"], "passage: ")
+        self.assertEqual(texto_opcion({"pregunta": "p", "descripciones": {}}, "o")[:len(props["chispa.torre.prefijo"])], props["chispa.torre.prefijo"])
+
     def test_gelu_exacta_y_torre_en_fp32(self):
         g = onnx.load(str(self.int8), load_external_data=False).graph
         ops = {n.op_type for n in g.node}
