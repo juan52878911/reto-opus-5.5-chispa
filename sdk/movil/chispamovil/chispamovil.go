@@ -66,8 +66,10 @@ type Chispa struct {
 	esq     *chispa3.Esquemas
 	calib   chispa3.Calib
 	tieneL2 bool
-	conj    *chispa3.Conj    // sección CONJ (la cabeza conjunta), o nil
-	tok     *tok.Tokenizador // tokenizador de e5, o nil
+	conj    *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
+	tok     *tok.Tokenizador   // tokenizador de e5, o nil
+	torre   *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
+	dyn     map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -124,6 +126,13 @@ func (c *Chispa) montar() error {
 			return fmt.Errorf("sección L1: %w", err)
 		}
 		c.e = m
+	}
+	if f.Tiene(chispa3.TORR) {
+		t, err := f.Torre()
+		if err != nil {
+			return fmt.Errorf("sección TORR: %w", err)
+		}
+		c.torre = &t
 	}
 	if f.Tiene(chispa3.L2) && f.Tiene(chispa3.ESQUEMAS) {
 		esq, err := f.Esquemas()
@@ -428,7 +437,7 @@ func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
 		for _, o := range p.Opciones {
 			t, ok := buscar([]string{o.ID})
 			if !ok {
-				return nil, errors.New("sin torres para este esquema")
+				return c.torresNuevas(p)
 			}
 			ts = append(ts, t)
 		}
@@ -442,7 +451,7 @@ func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
 		}
 		t, ok := buscar(ids)
 		if !ok {
-			return nil, errors.New("sin torres para este esquema")
+			return c.torresNuevas(p)
 		}
 		ts = []torreL2{t}
 	}

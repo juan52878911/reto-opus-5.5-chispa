@@ -62,6 +62,13 @@ class MotorFalso(
         llamadas.add("CONJ"); ultimoSimsJson = simsJson; return cabeza()
     }
 
+    /** TORR: [onnxDeTorre] no nulo = el fichero la trae; [idsDePasaje] da los ids (int32 LE) de cada texto de torre. */
+    var onnxDeTorre: ByteArray? = null
+    var idsDePasaje: (String) -> ByteArray? = { null }
+    override fun tieneTorre() = onnxDeTorre != null
+    override fun onnxTorre() = onnxDeTorre
+    override fun idsPasaje(texto: String) = idsDePasaje(texto)
+
     override fun tieneTokenizadorE5() = idsE5 != null
     override fun tokenizarE5(texto: String) = idsE5
     override fun close() {

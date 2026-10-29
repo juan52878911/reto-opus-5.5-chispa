@@ -4,8 +4,8 @@ Receta de una sola pasada para quien no ha leído nada más. **El código Swift 
 desarrollo no tiene Swift ni Xcode): espera errores, sobre todo en `MotorNativo.swift` y `SesionOrt.swift`
 (ver «Sitios que probablemente fallen»). Si el mismo paso falla dos veces por la misma causa, para y cuéntalo.
 
-Resultado esperado: `** TEST SUCCEEDED **` con **37 tests** XCTest (CascadaTests 11, ConjTests 6, L2Tests 5, ModelosTests 4,
-ZeroShotTests 11) contra un motor falso. Ninguno necesita un `.chispa` real ni ONNX.
+Resultado esperado: `** TEST SUCCEEDED **` con **42 tests** XCTest (CascadaTests 11, ConjTests 6, L2Tests 5, ModelosTests 4,
+ZeroShotTests 11, TorreDefectoTests 5) contra un motor falso. Ninguno necesita un `.chispa` real ni ONNX.
 
 ## 0. La máquina
 - Instancia `mac2.metal` (Apple Silicon, macOS 13+), con Xcode ≥ 15. Si no está: bajar el `.xip` de Apple (cuenta de
@@ -99,7 +99,9 @@ Todo esto está escrito de memoria. En este orden de probabilidad:
 1. **Nombres de gomobile (`MotorNativo.swift`).** Se esperan: `ChispamovilAbrir(ruta, &error)` → `ChispamovilChispa?`;
    métodos `capas()`, `tieneCalib()`, `tauEscalate()`, `decidirL0(_:preguntaJSON:)`, `decidir(_:preguntaJSON:)`,
    `torresL2(_:)`, `puntuarL2(_:ranuras:k:)`, `extraerL2(_:)` (throws), `tieneConj()`, `cabezaConjunta(_:)`, `tieneTokenizadorE5()`,
-   `cargarTokenizadorE5(_:)` (throws), `tokenizarE5(_:)` → `Data?`, `cerrar()`. Cosas típicas: gomobile escribe `JSON` en
+   `cargarTokenizadorE5(_:)` (throws), `tokenizarE5(_:)` → `Data?`, `cerrar()`; y los de W7: `textosTorreL2(_:)` → `String`,
+   `instalarTorresL2(_:torres:n:)` (`n` es `Int` en Swift; si el header dice `long`, `n: Int64(n)`), `tieneTorre()`, `onnxTorre()` → `Data?`,
+   `idsPasaje(_:)` → `Data?`. Cosas típicas: gomobile escribe `JSON` en
    mayúsculas (`preguntaJSON`); el primer argumento va sin etiqueta; los métodos Go que devuelven solo `error` llegan como
    `throws`, y los que devuelven `(T, error)` como `func m(...) throws -> T` (o `m(_:error:)` según la versión); `int` de
    Go es `Int`, `int64` es `Int64`, `float64` es `Double`; `[]byte` es `Data?`. Arreglo: editar solo `MotorNativo.swift`
@@ -124,6 +126,11 @@ Todo esto está escrito de memoria. En este orden de probabilidad:
    la propiedad `torres`). `ZeroShotTests.swift`: `Codificador` es una clase anidada que conforma un protocolo `public`
    (si molesta, sacarla del `XCTestCase`). `XCTAssertEqual` de `Data?` y de `[String: Double]?` deben compilar; si no, comparar `Array(...)`.
    `ConjTests` espera `ErrorChispa("el motor no tiene el tokenizador de e5")`: si cambias el texto en `TokenizadorMotor`, cámbialo también ahí.
+   Nuevos en W7 que también pueden fallar: `SesionTorreOrt.swift` (mismo API de ORT que `SesionOrt`: `outputNames: ["h"]` →
+   `Set(["h"])` si hace falta; `Data(contentsOf:options:.alwaysMapped)` y `write(to:options:.atomic)`), el cierre
+   `crearSesionTorre` con valor por defecto en `Chispa.montar` y `TorreDefectoTests.swift` (clase `Fijo` declarada dentro de
+   un método de test: si molesta, sacarla al nivel del fichero; `ids(_:)` asume little endian, como Apple).
+   Ni `SesionTorreOrt` ni el camino real de TORR los ejercita ningún test.
 8. **Swift 6 / concurrencia estricta.** El paquete usa `swift-tools-version:5.9`: Xcode 16 compila en modo Swift 5 y no
    debería quejarse. Si aparecen avisos de `Sendable` en `SesionOrt`, son avisos.
 9. **`Package.swift` y la ruta del `binaryTarget`.** `path: "Frameworks/Chispamovil.xcframework"` es relativa a `sdk/ios`;
@@ -131,5 +138,5 @@ Todo esto está escrito de memoria. En este orden de probabilidad:
 
 ## Al terminar
 Anota en `sdk/ios/README.md` (quita el aviso «Escrito sin compilar» solo si el paso 6 pasó) qué cambiaste y con qué
-versiones de Xcode, Go, gomobile y onnxruntime-swift-package-manager. Para el contrato de zero-shot que aún falta en
-`chispamovil` (`textosTorreL2`/`instalarTorresL2`), ver `PARIDAD.md`.
+versiones de Xcode, Go, gomobile y onnxruntime-swift-package-manager. Para el contrato de zero-shot de L2 y el
+codificador de torres por defecto, ver `PARIDAD.md`.

@@ -16,11 +16,13 @@ public final class Chispa {
     private let motor: Motor
     private let cascada: Cascada
     private let sesion: SesionRanuras?
+    private let torreMotor: CodificadorTorreMotor? // vive tanto como Chispa; su sesión de ORT se libera con él
 
-    init(motor: Motor, cascada: Cascada, sesion: SesionRanuras?) {
+    init(motor: Motor, cascada: Cascada, sesion: SesionRanuras?, torreMotor: CodificadorTorreMotor? = nil) {
         self.motor = motor
         self.cascada = cascada
         self.sesion = sesion
+        self.torreMotor = torreMotor
     }
 
     deinit { motor.cerrar() }
@@ -57,15 +59,24 @@ public final class Chispa {
     /// Monta la cascada sobre cualquier `Motor` (los tests usan uno falso). `onnx` da la ruta del ONNX de L2.
     static func montar(motor: Motor, tokenizador: Tokenizador?, onnx: () throws -> String,
                        crearSesion: (String) throws -> SesionRanuras,
-                       codificadorTorres: CodificadorTorre? = nil) throws -> Chispa {
+                       codificadorTorres: CodificadorTorre? = nil,
+                       crearSesionTorre: @escaping (Data) throws -> SesionTorre = { try SesionTorreOrt(onnx: $0) }) throws -> Chispa {
         var sesion: SesionRanuras?
         var l2: Capa?
+        var torreMotor: CodificadorTorreMotor?
         if motor.capas().contains("L2"), let tok = tokenizador {
             let s = try crearSesion(try onnx())
             sesion = s
-            l2 = CapaL2(motor: motor, sesion: s, tokenizador: tok, codificador: codificadorTorres)
+            // Sin codificador de la app, y con TORR en el fichero, las torres al vuelo salen del ONNX de TORR.
+            var enc = codificadorTorres
+            if enc == nil, motor.tieneTorre(), motor.tieneTokenizadorE5() {
+                let t = CodificadorTorreMotor(motor: motor, crearSesion: crearSesionTorre)
+                torreMotor = t
+                enc = t
+            }
+            l2 = CapaL2(motor: motor, sesion: s, tokenizador: tok, codificador: enc)
         }
-        return Chispa(motor: motor, cascada: try Cascada.armar(motor: motor, l2: l2), sesion: sesion)
+        return Chispa(motor: motor, cascada: try Cascada.armar(motor: motor, l2: l2), sesion: sesion, torreMotor: torreMotor)
     }
 
     /// Decide cada pregunta para el `texto` (en orden). Sin conexión: todo ocurre en el dispositivo.

@@ -34,6 +34,13 @@ public protocol Motor: AnyObject {
     /// `textosTorreL2`); el motor las cuantiza y las cachea, así que la siguiente `torresL2` de ese esquema da true sin
     /// volver a calcular. false si no las acepta.
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool
+
+    /// El fichero trae TORR (el ONNX de la torre de opción, para esquemas nuevos).
+    func tieneTorre() -> Bool
+    /// Bytes del ONNX de TORR (entradas `input_ids`/`attention_mask` int64, salida `h` (B,256) float32), o nil sin TORR.
+    func onnxTorre() -> Data?
+    /// Ids de e5 de un texto de torre (prefijo «passage: », recorte de TORR) como int32 little endian, o nil.
+    func idsPasaje(_ texto: String) -> Data?
 }
 
 public extension Motor {
@@ -44,6 +51,9 @@ public extension Motor {
     func tokenizarE5(_ texto: String) -> Data? { nil }
     func textosTorreL2(_ preguntaJson: String) -> [String] { [] }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool { false }
+    func tieneTorre() -> Bool { false }
+    func onnxTorre() -> Data? { nil }
+    func idsPasaje(_ texto: String) -> Data? { nil }
 }
 
 /// Una capa de la cascada. Devuelve `.sinOpinion` si no tiene nada que decir; lanza si falla.
@@ -85,6 +95,43 @@ public protocol Tokenizador {
 /// Solo hace falta para esquemas nuevos cuando el motor no calcula las torres por su cuenta.
 public protocol CodificadorTorre {
     func torre(_ texto: String) throws -> [Float]
+}
+
+/// El ONNX de la torre: ids (un texto de pasaje) → h (d floats).
+public protocol SesionTorre: AnyObject {
+    func embeber(_ ids: [Int64]) throws -> [Float]
+}
+
+/// El `CodificadorTorre` por defecto cuando el `.chispa` trae TORR: ids de `Motor.idsPasaje` y el ONNX de
+/// `Motor.onnxTorre` sobre ONNX Runtime. La sesión (pesada) se abre la primera vez que hace falta una torre.
+final class CodificadorTorreMotor: CodificadorTorre {
+    private let motor: Motor
+    private let crearSesion: (Data) throws -> SesionTorre
+    private var sesion: SesionTorre?
+    private let cerrojo = NSLock()
+
+    init(motor: Motor, crearSesion: @escaping (Data) throws -> SesionTorre) {
+        self.motor = motor
+        self.crearSesion = crearSesion
+    }
+
+    func torre(_ texto: String) throws -> [Float] {
+        guard let d = motor.idsPasaje(texto), !d.isEmpty else {
+            throw ErrorChispa("torre: el motor no tiene tokenizador de e5 o TORR, o el texto no tiene tokens")
+        }
+        let ids: [Int64] = stride(from: 0, to: d.count - 3, by: 4).map { i in
+            let v = UInt32(d[d.startIndex + i]) | UInt32(d[d.startIndex + i + 1]) << 8
+                | UInt32(d[d.startIndex + i + 2]) << 16 | UInt32(d[d.startIndex + i + 3]) << 24
+            return Int64(Int32(bitPattern: v))
+        }
+        cerrojo.lock()
+        defer { cerrojo.unlock() }
+        if sesion == nil {
+            guard let onnx = motor.onnxTorre() else { throw ErrorChispa("el fichero no trae TORR") }
+            sesion = try crearSesion(onnx)
+        }
+        return try sesion!.embeber(ids)
+    }
 }
 
 /// El tokenizador de e5 del propio motor (runtime/tok en Go): no hace falta que la app aporte uno.
