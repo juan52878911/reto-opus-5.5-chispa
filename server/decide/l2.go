@@ -63,6 +63,10 @@ type CodificadorTorreCtx interface {
 // ErrPresupuestoTorres: se agotó el presupuesto global de torres por segundo (L2.ConTorresPorSegundo); L2 no opina.
 var ErrPresupuestoTorres = errors.New("L2: presupuesto de torres por segundo agotado")
 
+// errSinPresupuestoTorres: a la petición ya no le quedan torres nuevas; L2.decidir lo traduce en Respuesta{Incompleto}
+// para que la escalada no se cachee bajo el nonce.
+var errSinPresupuestoTorres = errors.New("L2: presupuesto de torres nuevas de la petición agotado")
+
 // ConTorresPorSegundo fija un tope global de torres calculadas por segundo (cubo con ráfaga de igual tamaño); n <= 0 lo
 // quita. Por encima, L2 no opina (como con el tope por petición) en vez de saturar el único ORT con textos únicos.
 func (l *L2) ConTorresPorSegundo(n float64) *L2 {
@@ -221,7 +225,7 @@ func presupuestoDe(ctx context.Context) *presupuestoTorres {
 }
 
 // torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae, en el orden de OpcionesConsulta.
-// ok=false (sin error) si a la petición (todas sus preguntas juntas, ver conPresupuesto) ya no le quedan torres nuevas por calcular: L2 no opina.
+// errSinPresupuestoTorres si a la petición (todas sus preguntas juntas, ver conPresupuesto) ya no le quedan torres nuevas por calcular: L2 no opina.
 func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bool, err error) {
 	ops := OpcionesConsulta(p)
 	faltan := 0
@@ -235,7 +239,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		if pr.usadas.Add(int64(faltan)) > int64(l.maxNuevas) {
 			pr.usadas.Add(-int64(faltan))
 			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
-			return nil, false, nil
+			return nil, false, errSinPresupuestoTorres
 		}
 	}
 	out := make([]torreDin, len(ops))
@@ -246,7 +250,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(p.Texto, o)); err != nil {
 			if errors.Is(err, ErrPresupuestoTorres) {
 				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
-				return nil, false, nil
+				return nil, false, errSinPresupuestoTorres
 			}
 			return nil, false, err
 		}
@@ -427,6 +431,9 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		return Respuesta{}, nil
 	}
 	_, sims, ok, err := l.Similitudes(ctx, p)
+	if errors.Is(err, errSinPresupuestoTorres) {
+		return Respuesta{Incompleto: true}, nil
+	}
 	if err != nil || !ok {
 		return Respuesta{}, err
 	}

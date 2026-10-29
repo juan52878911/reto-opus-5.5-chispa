@@ -258,7 +258,7 @@ func (l *L3LLM) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	r, ok := interpretarL3(contenido, p)
 	if !ok {
 		l.met.l3Cuenta("invalida")
-		return Respuesta{}, nil
+		return Respuesta{Incompleto: true}, nil
 	}
 	l.met.l3Cuenta("ok")
 	return r, nil
