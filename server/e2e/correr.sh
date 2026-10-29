@@ -138,9 +138,9 @@ $PY -I -c "
 import sys; sys.path.insert(0, '$RAIZ/sdk/python')
 from chispa import formato
 import json
-s = formato.leer(open('$W/ms.chispa','rb').read()); print(sorted(s))
+s = formato.leer(open('$W/ms.chispa','rb').read()); print(sorted(s)); assert formato.SOPL1 in s and formato.CALIB in s
 " 2>&1 | sed 's/^/        /'
-grep -q "sin SOPL1" "$W/train_ms.log" && echo "        (multi sin SOPL1: ver HALLAZGOS.md H2)"
+grep -q "sin SOPL1" "$W/train_ms.log" && fallo "multi few-shot sin SOPL1 (HALLAZGOS.md H2)"
 kill "$PB"; wait "$PB" 2>/dev/null
 cp "$W/ms.chispa" "$W/serv3.chispa"
 URL=http://127.0.0.1:$P2
@@ -153,10 +153,24 @@ for n in ('zs','fs'):
     assert r['kind'] == 'multi' and isinstance(r['answers'], list) and len(r['probs']) == 4, r
     print(n, r['layer'], r['answers'], {k: round(v, 3) for k, v in r['probs'].items()})
 " 2>&1 | sed 's/^/        /' && ok "answers y probs por opción (zero-shot y few-shot)" || fallo "forma de la respuesta multi"
+# La comparación zero-shot/few-shot se hace donde la CALIB de multi y SOPL1 se aplican: L1 (τ=0 para que decida). En L2 ambos usan la CALIB de noul
+# (sin `maxsim_l2` no hay multi_l2) y las probabilidades coinciden por diseño; comparar ahí no prueba nada.
+cat > "$W/cfg_l1.json" <<JSON
+{"capas":[{"nombre":"L0","tau":0.8},{"nombre":"L1","tau":0.0},{"nombre":"L2","tau":0.5},{"nombre":"L3","tau":0.6}],
+ "tau_l2_esquema_nuevo":0.5, "l1_shrinkage_lambda":4, "cache_esquemas":64}
+JSON
+kill "$PC"; wait "$PC" 2>/dev/null
+for n in zs ms; do
+  P3=$((P2 + 1)); arrancar "$P3" "$W/srvL1_$n.log" -modelo "$W/$n.chispa" -config "$W/cfg_l1.json"; PL=$SPID
+  pase "multi en L1 ($n): 200, una p por opción" $CP decidir "http://127.0.0.1:$P3" "$D/peticion_multi.json" --multi-con-probs --capa L1 --guardar "$W/resp_multi_l1_$n.json"
+  kill "$PL"; wait "$PL" 2>/dev/null
+done
 $PY -I -c "
 import json
-a, b = (json.load(open('$W/resp_multi_%s.json' % n))['results'][0]['probs'] for n in ('zs', 'fs'))
-raise SystemExit(0 if a != b else 1)" && ok "few-shot: la CALIB de multi cambia las probabilidades frente al zero-shot" || fallo "few-shot multi igual que zero-shot"
+a, b = (json.load(open('$W/resp_multi_l1_%s.json' % n))['results'][0]['probs'] for n in ('zs', 'ms'))
+raise SystemExit(0 if a != b else 1)" && ok "few-shot: CALIB de multi y SOPL1 cambian las probabilidades de L1 frente al zero-shot" || fallo "few-shot multi igual que zero-shot en L1"
+URL=http://127.0.0.1:$P2
+arrancar "$P2" "$W/srvC2.log" -modelo "$W/serv3.chispa" -config "$W/cfg.json"; PC=$SPID
 $PY -m chispa evaluar --url "$URL" --esquema "$D/temas.yaml" --datos "$D/muestra_multi.csv" --salida "$W/informe_multi" --filas >"$W/evaluar_multi.log" 2>&1
 RC=$?; tail -3 "$W/evaluar_multi.log" | sed 's/^/        /'
 [ $RC -eq 0 ] && ok "evaluar multi rc=0" || fallo "evaluar multi rc=$RC"
