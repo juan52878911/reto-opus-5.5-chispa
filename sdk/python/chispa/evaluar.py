@@ -200,7 +200,7 @@ def metricas_multi(q: Pregunta, filas: List[dict], objetivo: float = 0.95) -> di
     """Métricas multietiqueta. `etiqueta` de cada fila es la lista de opciones activas reales.
     - exactitud (subconjunto): el conjunto predicho es igual al real; sobre todas las filas, una fila sin predicción cuenta como fallo.
     - Hamming, F1 micro/macro y por etiqueta: solo sobre las filas con predicción (`n_con_prediccion`); macro = media de las etiquetas con soporte > 0.
-    - barrido por etiqueta: umbral único sobre la confianza de esa decisión (max(p, 1−p)); cobertura = decisiones aceptadas / n."""
+    - barrido por etiqueta: umbral único sobre la confianza de esa decisión (p si la opción está activa según el servidor, 1−p si no, como en `multiDeProbs`); cobertura = decisiones aceptadas / n."""
     n = len(filas)
     ids = [o.id for o in q.options]
     err = [f for f in filas if f["error"]]
@@ -215,14 +215,14 @@ def metricas_multi(q: Pregunta, filas: List[dict], objetivo: float = 0.95) -> di
         d = _prf(tp, fp, fn)
         d["soporte"] = sum(1 for f in filas if o in f["etiqueta"])
         d["predichas"] = tp + fp
-        # decisión por etiqueta como una fila de `barrido`: real/predicha "1"/"0" y confianza max(p, 1−p)
+        # decisión por etiqueta como una fila de `barrido`: real/predicha "1"/"0" y confianza del servidor (p si activa, 1−p si no)
         sub = []
         for f in filas:
             g = {"etiqueta": "1" if o in f["etiqueta"] else "0", "answer": "", "probs": {}, "error": f["error"], "escalate": False}
             if pred[f["fila"]] is not None and o in f["probs"]:
                 p = f["probs"][o]
                 g["answer"] = "1" if o in pred[f["fila"]] else "0"
-                g["probs"] = {g["answer"]: max(p, 1 - p)}
+                g["probs"] = {g["answer"]: p if g["answer"] == "1" else 1 - p}
             sub.append(g)
         d["barrido"] = barrido(sub, objetivo)
         por[o] = d
@@ -277,7 +277,7 @@ def informe_multi_md(m: dict, fuente: str = "", url: str = "") -> str:
         mj = d["barrido"]["mejor"]
         L.append(f"| {o} | {d['soporte']} | {_f(d['precision'])} | {_f(d['recall'])} | {_f(d['f1'])} | "
                  f"{_p(mj['cobertura']) if mj else 'no alcanzable'} | {_f(mj['umbral'], 3) if mj else 'sin medir'} |")
-    L += ["", "La cobertura por etiqueta es la fracción de la muestra cuya decisión sobre esa etiqueta (activa o no) se acepta con un umbral único sobre max(p, 1−p) y precisión ≥ objetivo."]
+    L += ["", "La cobertura por etiqueta es la fracción de la muestra cuya decisión sobre esa etiqueta (activa o no) se acepta con un umbral único sobre su confianza (p si está activa, 1−p si no) y precisión ≥ objetivo."]
     flojas = [o for o, d in m["por_etiqueta"].items() if d["soporte"] < 30]
     if flojas:
         L += ["", f"Con menos de 30 positivos su F1 no es confiable: {', '.join(flojas)}."]
