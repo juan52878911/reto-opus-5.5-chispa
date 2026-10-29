@@ -166,6 +166,9 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			if conj, err = f.Conj(); err != nil {
 				return mt, fmt.Errorf("sección CONJ: %w", err)
 			}
+			if conj.Version() != esq.Version() {
+				mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: ESQUEMAS v%d y CONJ v%d: sus claves no se mezclan y L2c no encontrará los esquemas de CONJ; reentrene con --conjunta", esq.Version(), conj.Version()))
+			}
 		}
 		mq, err := chispa3.MaxLenConsulta(onnx)
 		if err != nil {

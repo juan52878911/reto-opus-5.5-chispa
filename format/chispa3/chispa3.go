@@ -367,10 +367,19 @@ func todoCero(b []byte) bool {
 }
 
 // Tipos devuelve los tipos presentes, en el orden del fichero.
-func (f *Fichero) Tipos() []Tipo { return append([]Tipo(nil), f.orden...) }
+func (f *Fichero) Tipos() []Tipo {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return append([]Tipo(nil), f.orden...)
+}
 
 // Tiene dice si existe la sección.
-func (f *Fichero) Tiene(t Tipo) bool { _, ok := f.sec[t]; return ok }
+func (f *Fichero) Tiene(t Tipo) bool {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	_, ok := f.sec[t]
+	return ok
+}
 
 // Compat dice si el fichero era un .chispa v1/v2 envuelto.
 func (f *Fichero) Compat() bool { return f.compat }
@@ -400,7 +409,7 @@ func (f *Fichero) Bytes(t Tipo) ([]byte, error) {
 
 // Verificar comprueba el sha256 de todas las secciones.
 func (f *Fichero) Verificar() error {
-	for _, t := range f.orden {
+	for _, t := range f.Tipos() {
 		if _, err := f.Bytes(t); err != nil {
 			return err
 		}
@@ -408,7 +417,8 @@ func (f *Fichero) Verificar() error {
 	return nil
 }
 
-// Close libera el mapa de memoria. Es idempotente.
+// Close libera el mapa de memoria y suelta data, las secciones y su orden para que el GC pueda recoger el
+// fichero aunque alguien conserve el *Fichero. Es idempotente.
 func (f *Fichero) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -416,8 +426,10 @@ func (f *Fichero) Close() error {
 		return nil
 	}
 	f.cerr = true
-	if f.cerrar != nil {
-		return f.cerrar()
+	cerrar := f.cerrar
+	f.cerrar, f.data, f.sec, f.orden = nil, nil, nil, nil
+	if cerrar != nil {
+		return cerrar()
 	}
 	return nil
 }

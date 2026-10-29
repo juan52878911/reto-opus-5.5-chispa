@@ -47,12 +47,14 @@ PUERTO_L0 = 8091
 
 # ---------------------------------------------------------------- lectura del .chispa
 def leer_esquemas(b):
-    """ESQUEMAS → {hash(32 bytes): (vec int8 (d,), escala)}. Disposición de format/chispa3/secciones.go."""
-    dim, n = struct.unpack_from("<II", b, 0)
-    hs, ss, vs = 8, 8 + 32 * n, 8 + 36 * n
+    """ESQUEMAS → {hash: (vec int8 (d,), escala)}. Disposición de format/chispa3/secciones.go: v1 empieza por dim y lleva
+    claves de 32 bytes; v2 por (2<<16 | dim) y claves de 16 bytes (HashEsquema2)."""
+    u, n = struct.unpack_from("<II", b, 0)
+    dim, kb = u & 0xFFFF, (16 if u >> 16 == 2 else 32)
+    hs, ss, vs = 8, 8 + kb * n, 8 + (kb + 4) * n
     esc = np.frombuffer(b, "<f4", n, ss)
     vec = np.frombuffer(b, np.int8, n * dim, vs).reshape(n, dim)
-    return {bytes(b[hs + 32 * i:hs + 32 * i + 32]): (vec[i], float(esc[i])) for i in range(n)}
+    return {bytes(b[hs + kb * i:hs + kb * i + kb]): (vec[i], float(esc[i])) for i in range(n)}
 
 
 def leer_conj(b):

@@ -18,6 +18,11 @@ torre y λ, servidor ORT con `-tok`, torre al vuelo con decisión de L2, recarga
 - Documentación: `docs/02-inicio-rapido.md` y `docs/08-esquemas-nuevos.md` piden `-tags ort` pero no dicen cómo localizar la biblioteca.
 - Sugerencia (no aplicada): bandera `-ort-lib` / `CHISPA_ORT_LIB` en main.go, y un fallo explícito (o una métrica/gauge) cuando hay TORR + `-tok` y L2 queda en stub.
 
+## H2: `chispa train` multi few-shot no escribe SOPL1 (fuera de la zona de esta sesión, sin arreglar)
+- Con `--ejemplos` de un esquema `multi`, `train` avisa «sin SOPL1: no se pudieron embeber los ejemplos: [Errno 17] File exists: …/embeber_go»:
+  `embeber_con_go` (`sdk/python/chispa/train.py`) hace `d.mkdir()` sin `exist_ok` y se llama dos veces con el mismo directorio de trabajo.
+  El `.chispa` sale con CALIB de multi pero sin soporte few-shot para L1; el E2E solo comprueba que las probabilidades cambian frente al zero-shot.
+
 ## Observaciones menores (no son fallos)
 - `chispa train --shrinkage-lambda 4` avisa de que el τ de L1 se calibra sin el encogimiento; el aviso es correcto y está documentado.
 - Con `-config`, el `tau_l2_esquema_nuevo` y los τ de `CALIB` no se usan: hay que repetirlos en el JSON (documentado en `02-inicio-rapido.md`).

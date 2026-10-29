@@ -10,7 +10,10 @@ internal fun registrarErrorCapa(capa: String, e: Throwable) {
     }
 }
 
-/** Una capa con su umbral: se acepta su respuesta si su confianza top-1 es ≥ [tau]. */
+/**
+ * Una capa con su umbral: se acepta su respuesta si su confianza es ≥ [tau]. La confianza ya la calcula el motor por tipo:
+ * la top-1 en choice/noul/score y la de la opción más dudosa en multi (todas las decisiones de la capa deben pasar τ).
+ */
 class CapaConTau(
     val capa: Capa,
     val tau: Double,
@@ -67,10 +70,10 @@ class Cascada(
             if (r.confianza > mejor.confianza) mejor = r
             val tau = if (r.esquemaNuevo && c.tauEsquemaNuevo != null) c.tauEsquemaNuevo else c.tau
             if (r.opina && r.confianza >= tau) {
-                return Respuesta(r.respuesta, r.confianza, r.probs, c.capa.nombre, false, ms())
+                return Respuesta(r.respuesta, r.confianza, r.probs, c.capa.nombre, false, ms(), r.respuestas.orEmpty())
             }
         }
-        return Respuesta(mejor.respuesta, mejor.confianza, mejor.probs, CAPA_ESCALAR, true, ms())
+        return Respuesta(mejor.respuesta, mejor.confianza, mejor.probs, CAPA_ESCALAR, true, ms(), mejor.respuestas.orEmpty())
     }
 
     companion object {

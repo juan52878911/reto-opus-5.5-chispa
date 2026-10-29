@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -286,5 +287,89 @@ func TestSigtermTerminaPeticionEnVuelo(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), "apagado\n") {
 		t.Fatalf("sin «apagado»:\n%s", log)
+	}
+}
+
+// Con el tope lleno de conexiones ociosas, una nueva expulsa a la ociosa más antigua; las activas no se cortan.
+func TestLimitarConexionesExpulsaOciosas(t *testing.T) {
+	const n = 5
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ll := limitarConexiones(ln, n)
+	defer ll.Close()
+	var cli, srv []net.Conn
+	for i := 0; i < n; i++ {
+		c, err := net.Dial("tcp", ln.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		s, err := ll.Accept()
+		if err != nil {
+			t.Fatal(err)
+		}
+		cli, srv = append(cli, c), append(srv, s)
+	}
+	// srv[0] queda activa (petición en curso); srv[1..] ociosas, la 1 la más antigua.
+	for _, s := range srv[1:] {
+		s.(*conLimitada).ociosa(true)
+	}
+	nueva, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nueva.Close()
+	acep := make(chan net.Conn, 1)
+	go func() {
+		if c, err := ll.Accept(); err == nil {
+			acep <- c
+		}
+	}()
+	select {
+	case c := <-acep:
+		defer c.Close()
+	case <-time.After(2 * time.Second):
+		t.Fatal("no expulsó una ociosa para aceptar la nueva")
+	}
+	cli[1].SetReadDeadline(time.Now().Add(time.Second))
+	if _, err := cli[1].Read(make([]byte, 1)); err == nil || errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("la ociosa más antigua debía quedar cerrada: %v", err)
+	}
+	cli[0].SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if _, err := cli[0].Read(make([]byte, 1)); !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("la activa no debía cortarse: %v", err)
+	}
+}
+
+// Si todas están activas no se expulsa a nadie: la nueva espera.
+func TestLimitarConexionesNoCortaActivas(t *testing.T) {
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	ll := limitarConexiones(ln, 1)
+	defer ll.Close()
+	c, _ := net.Dial("tcp", ln.Addr().String())
+	defer c.Close()
+	s, _ := ll.Accept()
+	defer s.Close()
+	got := make(chan struct{})
+	go func() {
+		if c, err := ll.Accept(); err == nil {
+			c.Close()
+			close(got)
+		}
+	}()
+	select {
+	case <-got:
+		t.Fatal("aceptó sobre el tope con la única conexión activa")
+	case <-time.After(150 * time.Millisecond):
+	}
+	s.(*conLimitada).ociosa(true) // pasa a ociosa: se expulsa y la nueva entra
+	n, _ := net.Dial("tcp", ln.Addr().String())
+	defer n.Close()
+	select {
+	case <-got:
+	case <-time.After(2 * time.Second):
+		t.Fatal("no entró la nueva tras quedar ociosa la anterior")
 	}
 }

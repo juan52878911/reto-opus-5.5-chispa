@@ -41,6 +41,11 @@ sin `LD_LIBRARY_PATH` (ver H1 en [HALLAZGOS.md](HALLAZGOS.md), corregido).
    esquema que el `.chispa` no trae): alguna decisión con `layer: L2`, `chispa_torres_calculadas_total` ≥ 3, `chispa_esquema_nuevo_decididas_total` ≥ 1,
    2.ª petición con `chispa_torres_cache_aciertos_total` ≥ 3, `chispa_torres_errores_total` = 0.
 8. 3 SIGHUP con 8 hilos de esquema nuevo (se cierran y reabren las sesiones ORT de L2 y torre): 0 peticiones fallidas, `recargas ok` = 3.
+9. **multi**: zero-shot en el servidor B (`datos/peticion_multi.json`, esquema `datos/temas.yaml`, torres al vuelo): 200, `answers` en el orden de la
+   pregunta, `answer` = la activa de mayor p y una `p` en [0,1] por opción (no suman 1). `chispa train --ejemplos datos/ejemplos_multi.csv` (`etiqueta` con `|`,
+   celda vacía = ninguna) → `ms.chispa`, servido por un servidor C con la misma config: misma forma, y las probabilidades cambian frente al zero-shot (CALIB de multi).
+   `chispa evaluar` con `datos/muestra_multi.csv` → rc 0, `informe_multi.json` (exactitud por subconjunto, F1 micro/macro, Hamming, por etiqueta) e `informe_multi.md`.
+   El train multi few-shot no escribe SOPL1 (H2 en [HALLAZGOS.md](HALLAZGOS.md)).
 
 Comprobado que puede fallar: con `CHISPA_ORT_LIB` apuntando a un fichero vacío, el script sale con 1 (L2 queda en stub y fallan 7 comprobaciones).
 

@@ -1,7 +1,8 @@
 import Foundation
 import os
 
-/// Una capa con su umbral: se acepta su respuesta si su confianza top-1 es ≥ `tau`.
+/// Una capa con su umbral: se acepta su respuesta si su confianza es ≥ `tau`. La confianza ya la calcula el motor por tipo: la top-1
+/// en choice/noul/score y la de la opción más dudosa en multi (todas las decisiones de la capa deben pasar τ).
 struct CapaConTau {
     let capa: Capa
     let tau: Double
@@ -62,11 +63,11 @@ final class Cascada {
             let tau = (r.esquemaNuevo ? c.tauEsquemaNuevo : nil) ?? c.tau
             if r.opina && r.confianza >= tau {
                 return Respuesta(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs,
-                                 capa: c.capa.nombre, escalar: false, ms: ms())
+                                 capa: c.capa.nombre, escalar: false, ms: ms(), respuestas: r.respuestas ?? [])
             }
         }
         return Respuesta(respuesta: mejor.respuesta, confianza: mejor.confianza, probs: mejor.probs,
-                         capa: Cascada.capaEscalar, escalar: true, ms: ms())
+                         capa: Cascada.capaEscalar, escalar: true, ms: ms(), respuestas: mejor.respuestas ?? [])
     }
 
     /// Arma la cascada con las capas del motor (L0 y L1 si el fichero las trae) y L2 si además hay `l2`.

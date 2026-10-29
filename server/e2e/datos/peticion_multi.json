@@ -1,0 +1,2 @@
+{"state":"Necesito el precio del cemento y la factura del pedido, es urgente para hoy","questions":[
+{"id":"t1","question":"¿Qué temas toca el mensaje del cliente de la ferretería?","kind":"multi","options":[{"id":"cotizacion","description":"pide precio o disponibilidad de un producto"},{"id":"pedido","description":"habla de comprar, despachar o del estado de un pedido"},{"id":"factura","description":"habla de factura o de datos de facturación"},{"id":"urgencia","description":"necesita respuesta hoy o tiene una obra detenida"}]}]}

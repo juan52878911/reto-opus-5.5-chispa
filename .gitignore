@@ -7,3 +7,7 @@ __pycache__/
 # binarios de go build
 server/cmd/chispa-server/chispa-server
 server/cmd/carga/carga
+
+# Los fixtures de tests sí se versionan (si no, los tests fallan en un clon limpio)
+!**/testdata/*.chispa
+!**/testdata/**/*.chispa

@@ -37,6 +37,25 @@ def metricas(url):
     return out
 
 
+def forma_multi(qid, ids, r, p):
+    """multi: `answers` = opciones activas en el orden de la pregunta; `answer` = la activa de mayor p ("" si ninguna); una p en [0,1] por opción
+    (no suman 1). Escalado sin respuesta: probs vacías."""
+    errs = []
+    ans = r.get("answers")
+    if not isinstance(ans, list) or [a for a in ans if a not in ids] or ans != [i for i in ids if i in ans]:
+        return [f"{qid}: answers {ans!r} no son opciones activas en el orden {ids}"]
+    if r.get("escalate") and not p:
+        return [f"{qid}: escaló sin respuesta con answers {ans!r} (esperaba []/\"\")"] if ans or r.get("answer") else []
+    if sorted(p) != sorted(ids):
+        return [f"{qid}: probs {sorted(p)} ≠ opciones {sorted(ids)}"]
+    if any(not isinstance(v, (int, float)) or not 0 <= v <= 1 for v in p.values()):
+        errs.append(f"{qid}: probs fuera de [0,1]: {p}")
+    esperada = max(ans, key=lambda a: p[a]) if ans else ""
+    if r.get("answer") != esperada:
+        errs.append(f"{qid}: answer {r.get('answer')!r} ≠ la activa de mayor p {esperada!r}")
+    return errs
+
+
 def forma(resp, peticion):
     """Errores de forma de una respuesta de /v1/decide frente a su petición."""
     errs = []
@@ -50,9 +69,12 @@ def forma(resp, peticion):
             errs.append(f"{q['id']}: id/kind {r.get('id')}/{r.get('kind')}")
         if not isinstance(r.get("escalate"), bool) or not isinstance(r.get("layer"), str) or not isinstance(r.get("ms"), (int, float)):
             errs.append(f"{q['id']}: escalate/layer/ms mal tipados: {r}")
+        p = r.get("probs") or {}
+        if q["kind"] == "multi":
+            errs += forma_multi(q["id"], ids, r, p)
+            continue
         if r.get("answer") not in ids:
             errs.append(f"{q['id']}: answer {r.get('answer')!r} no es una opción {ids}")
-        p = r.get("probs") or {}
         if sorted(p) != sorted(ids):
             errs.append(f"{q['id']}: probs {sorted(p)} ≠ opciones {sorted(ids)}")
         elif abs(sum(p.values()) - 1) > 1e-3:
@@ -80,7 +102,12 @@ def cmd_decidir(a):
         json.dump(resp, open(a.guardar, "w"))
     for e in errs:
         print("FALLO " + e)
-    print(f"HTTP 200, capas {capas}, answers {[r['answer'] for r in resp['results']]}")
+    if a.multi_con_probs:
+        for r in resp["results"]:
+            if r["kind"] == "multi" and (r["escalate"] or len(r["probs"]) < 2):
+                errs.append(f"{r['id']}: multi sin probs por opción (escalate={r['escalate']})")
+                print("FALLO " + errs[-1])
+    print(f"HTTP 200, capas {capas}, answers {[r.get('answers', r['answer']) for r in resp['results']]}")
     return 1 if errs else 0
 
 
@@ -151,6 +178,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("decidir"); d.add_argument("url"); d.add_argument("peticion"); d.add_argument("--capa")
     d.add_argument("--sin-escalar", action="store_true"); d.add_argument("--esperar-http", type=int, default=200); d.add_argument("--guardar")
+    d.add_argument("--multi-con-probs", action="store_true", help="cada multi debe traer una p por opción (no escalar sin respuesta)")
     m = sub.add_parser("metrica"); m.add_argument("url"); m.add_argument("nombre"); m.add_argument("etiqueta", nargs="?")
     m.add_argument("--min", type=float); m.add_argument("--igual", type=float)
     r = sub.add_parser("recarga"); r.add_argument("url"); r.add_argument("peticion"); r.add_argument("--pid", type=int, required=True)

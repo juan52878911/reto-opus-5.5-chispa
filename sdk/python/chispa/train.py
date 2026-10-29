@@ -118,7 +118,7 @@ def embeber_con_go(l1: str, textos: List[str], fuentes, go: str, trabajo: Path):
     """Embeddings de L1 de `textos` con el modelo `l1` (.chispa-l1), calculados con runtime/l1 en Go: (E (n,dim) float32, ok (n,) bool)."""
     import numpy as np
     d = trabajo / "embeber_go"
-    d.mkdir()
+    d.mkdir(exist_ok=True)  # se llama más de una vez con el mismo trabajo (p. ej. multi: calibración y SOPL1)
     (d / "main.go").write_text(_EMBEBER_GO)
     shutil.copy(GO_DIR / "go.sum", d / "go.sum")
     mod = (GO_DIR / "go.mod").read_text()
@@ -456,8 +456,11 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
             t = time.time()
             from . import conjunta as cj
             modelo, enc = modelo_l2 or cj.cargar_ckpt(ckpt, repo)
+            # CONJ con la versión del ESQUEMAS que acaba en el fichero (v2 → HashEsquema2; v1 o ilegible → v1, ficheros viejos)
+            ver_esq = formato.version_esquemas(formato.leer(Path(l2_ch).read_bytes()).get(formato.ESQUEMAS, b""))
+            ver_conj = formato.CONJ_VERSION2 if ver_esq == formato.ESQUEMAS_VERSION2 else formato.CONJ_VERSION
             b, b_l0, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log, l0tf_f16, l0tf_max_mb, precision_objetivo,
-                                               cargar_ejemplos(validacion, q.id) if validacion else None, margen, suelo, tope_tau)
+                                               cargar_ejemplos(validacion, q.id) if validacion else None, margen, suelo, tope_tau, ver_conj)
             conj_inf["s"] = time.time() - t
             conj_ruta, l0tf_ruta = str(tmp / "conj.bin"), str(tmp / "l0tf.bin")
             Path(conj_ruta).write_bytes(b)
