@@ -289,8 +289,10 @@ func (l *limitListener) Accept() (net.Conn, error) {
 			return nil, net.ErrClosed
 		default:
 		}
-		if v := l.expulsarOciosa(); v != nil {
-			v.Close() // libera su hueco en sem
+		if v, hubo := l.expulsarOciosa(); hubo {
+			if v != nil {
+				v.Close() // libera su hueco en sem
+			}
 			continue
 		}
 		select {
@@ -312,11 +314,13 @@ func (l *limitListener) aceptar() (net.Conn, error) {
 	return &conLimitada{Conn: c, l: l}, nil
 }
 
-// expulsarOciosa saca del registro la ociosa más antigua (nil si no hay).
-func (l *limitListener) expulsarOciosa() *conLimitada {
+// antesDeExpulsar es un gancho de pruebas: corre tras elegir la víctima y antes de confirmar que sigue ociosa.
+var antesDeExpulsar func()
+
+// expulsarOciosa elige la ociosa más antigua y la marca expulsada solo si sigue en StateIdle (CAS atómico): si el servidor
+// ya la pasó a activa, no se toca. hubo indica que había candidata (aunque ya no esté ociosa); v es nil si no se expulsó.
+func (l *limitListener) expulsarOciosa() (v *conLimitada, hubo bool) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	var v *conLimitada
 	for c := range l.ocio {
 		if v == nil || c.desde < v.desde {
 			v = c
@@ -325,7 +329,17 @@ func (l *limitListener) expulsarOciosa() *conLimitada {
 	if v != nil {
 		delete(l.ocio, v)
 	}
-	return v
+	l.mu.Unlock()
+	if v == nil {
+		return nil, false
+	}
+	if antesDeExpulsar != nil {
+		antesDeExpulsar()
+	}
+	if !v.estado.CompareAndSwap(estIdle, estExpulsada) {
+		return nil, true
+	}
+	return v, true
 }
 
 func (l *limitListener) Close() error {
@@ -339,11 +353,24 @@ type conLimitada struct {
 	once  sync.Once
 	l     *limitListener
 	desde uint64 // orden en que pasó a ociosa (protegido por l.mu)
+	// estado es la marca de actividad (refleja http.ConnState): solo una conexión en estIdle puede expulsarse.
+	estado atomic.Int32
 }
+
+const (
+	estActiva int32 = iota
+	estIdle
+	estExpulsada
+)
 
 // ociosa marca la conexión como ociosa (candidata a expulsión) o activa.
 func (c *conLimitada) ociosa(si bool) {
 	l := c.l
+	if si {
+		c.estado.CompareAndSwap(estActiva, estIdle)
+	} else {
+		c.estado.CompareAndSwap(estIdle, estActiva)
+	}
 	l.mu.Lock()
 	if si {
 		if l.ocio == nil {
