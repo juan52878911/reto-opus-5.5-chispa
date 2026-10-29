@@ -12,6 +12,8 @@ import (
 const (
 	// Prefijo de e5 para consultas.
 	Prefijo = "query: "
+	// PrefijoPasaje es el de e5 para pasajes: lo usa la torre de esquemas de L2 (model/l2/contrato-torre.md).
+	PrefijoPasaje = "passage: "
 	// MaxTok es el truncado de model/l2/modelo.py (incluye <s> y </s>).
 	MaxTok = 128
 
@@ -44,8 +46,16 @@ func Abrir(ruta string) (*Tokenizador, error) {
 
 // Tokenizar devuelve los ids de «query: »+texto con <s> y </s>, truncado a MaxTok como
 // tokenizer(..., truncation=True, max_length=128).
-func (t *Tokenizador) Tokenizar(texto string) []int32 {
-	cuerpo := t.m.Tokenizar(Prefijo + texto)
+func (t *Tokenizador) Tokenizar(texto string) []int32 { return t.TokenizarCon(Prefijo, texto) }
+
+// TokenizarPasaje es Tokenizar con «passage: » en lugar de «query: » (la torre de esquemas).
+func (t *Tokenizador) TokenizarPasaje(texto string) []int32 {
+	return t.TokenizarCon(PrefijoPasaje, texto)
+}
+
+// TokenizarCon tokeniza prefijo+texto con <s> y </s>, truncado a MaxTok. El prefijo forma parte del texto tokenizado.
+func (t *Tokenizador) TokenizarCon(prefijo, texto string) []int32 {
+	cuerpo := t.m.Tokenizar(prefijo + texto)
 	if len(cuerpo) > MaxTok-2 {
 		cuerpo = cuerpo[:MaxTok-2]
 	}

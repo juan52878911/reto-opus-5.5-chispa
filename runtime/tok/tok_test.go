@@ -71,6 +71,40 @@ func TestIgualdadTransformers(t *testing.T) {
 	comparar(t, abrir(t), casos)
 }
 
+// Modo «passage: » (torre de esquemas de L2) frente a ids de transformers, incluidos textos con « · » (U+00B7).
+func TestIgualdadTransformersPasaje(t *testing.T) {
+	tk := abrir(t)
+	casos := leer(t, "testdata/ids_e5_passage.jsonl")
+	if len(casos) < 2274 {
+		t.Fatalf("solo %d frases", len(casos))
+	}
+	mal := 0
+	for _, c := range casos {
+		if got := tk.TokenizarPasaje(c.Texto); !slices.Equal(got, c.IDs) {
+			mal++
+			if mal <= 8 {
+				t.Errorf("texto %q\n  go : %v\n  py : %v", c.Texto, got, c.IDs)
+			}
+		}
+	}
+	t.Logf("%d frases, %d distintas", len(casos), mal)
+	if mal > 0 {
+		t.Fail()
+	}
+}
+
+// El prefijo de pasaje cambia los ids respecto al de consulta, y TokenizarCon("passage: ", x) = TokenizarPasaje(x).
+func TestPasajeDistintoDeConsulta(t *testing.T) {
+	tk := abrir(t)
+	q, p := tk.Tokenizar("hola · mundo"), tk.TokenizarPasaje("hola · mundo")
+	if slices.Equal(q, p) || !slices.Equal(p, tk.TokenizarCon(PrefijoPasaje, "hola · mundo")) {
+		t.Fatalf("query %v passage %v", q, p)
+	}
+	if got := len(tk.TokenizarPasaje(strings.Repeat("palabra · ", 300))); got != MaxTok {
+		t.Fatalf("truncado a %d", got)
+	}
+}
+
 // Fuzz opcional contra un fichero de `referencia.py <dir> <salida> --fuzz N` (CHISPA_TOK_FUZZ).
 func TestFuzzContraPython(t *testing.T) {
 	ruta := os.Getenv("CHISPA_TOK_FUZZ")

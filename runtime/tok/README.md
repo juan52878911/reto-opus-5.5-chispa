@@ -14,3 +14,8 @@ truncation=True, max_length=128)` de `transformers` (con `<s>` y `</s>`), que es
 - **Pruebas** (`CHISPA_TOK`, por defecto `/tmp/e5.chispa-tok`; se saltan si falta): `go test ./...` compara con `testdata/ids_e5.jsonl`
   (2.274 frases del sondeo + 41 de borde, ids de transformers; 390 KB); `CHISPA_TOK_FUZZ=f.jsonl` con `referencia.py <dir> f.jsonl --fuzz N`;
   `go test -fuzz FuzzTokenizar -fuzztime 2m` comprueba forma, rango de ids y determinismo.
+
+## Modo «passage: » (torre de esquemas de L2)
+`TokenizarPasaje(texto)` = `TokenizarCon("passage: ", texto)`: mismo pipeline, prefijo de pasaje, truncado a 128. `referencia.py <dir> <salida> --pasaje`
+genera los ids de transformers con ese prefijo (más 9 textos con el formato `pregunta · opción · descripción`, U+00B7 y descripción vacía);
+`testdata/ids_e5_passage.jsonl` (2.324 frases) lo comprueba `TestIgualdadTransformersPasaje`.

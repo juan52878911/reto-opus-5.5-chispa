@@ -415,6 +415,8 @@ func FuzzAbrir(f *testing.F) {
 				DecodificarConj(b)
 			case L0TF:
 				DecodificarL0TF(b)
+			case TORR:
+				DecodificarTORR(b)
 			case L1:
 				ValidarL1(b)
 			case L0:
