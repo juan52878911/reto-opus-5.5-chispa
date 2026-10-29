@@ -24,15 +24,15 @@ func calibMulti() chispa3.Calib {
 
 func TestParamsMultiPrioridad(t *testing.T) {
 	c := calibTiny()
-	if p := paramsMulti(c, "multi", "x"); p != c.Tipos["noul"] {
+	if p := paramsMulti(c, "multi", "", "x"); p != c.Tipos["noul"] {
 		t.Fatalf("sin multi cae a noul: %+v", p)
 	}
 	c.Tipos["multi"] = chispa3.ParamsTipo{T: 1, A: 5, B: -1, Theta: 0.4}
 	c.Tipos["multi#x"] = chispa3.ParamsTipo{T: 1, A: 5, B: -1, Theta: 0.9}
-	if p := paramsMulti(c, "multi", "y"); p.Theta != 0.4 {
+	if p := paramsMulti(c, "multi", "", "y"); p.Theta != 0.4 {
 		t.Fatalf("multi: %+v", p)
 	}
-	if p := paramsMulti(c, "multi", "x"); p.Theta != 0.9 {
+	if p := paramsMulti(c, "multi", "", "x"); p.Theta != 0.9 {
 		t.Fatalf("θ por opción: %+v", p)
 	}
 }
@@ -295,18 +295,18 @@ func TestL2MultiNoUsaLaCalibDeL1(t *testing.T) {
 	c := calibTiny()
 	c.Tipos["multi"] = chispa3.ParamsTipo{T: 1, A: 50, B: -1, Theta: 0.01}
 	c.Tipos["multi#a"] = chispa3.ParamsTipo{T: 1, A: 50, B: -1, Theta: 0.01}
-	if p := paramsMulti(c, claveMultiL2, "a"); p != c.Tipos["noul"] {
+	if p := paramsMulti(c, claveMultiL2, "", "a"); p != c.Tipos["noul"] {
 		t.Fatalf("L2 sin multi_l2 debe usar noul: %+v", p)
 	}
 	c.Tipos["multi_l2"] = chispa3.ParamsTipo{T: 1, A: 2, B: -3, Theta: 0.6}
-	if p := paramsMulti(c, claveMultiL2, "a"); p.Theta != 0.6 {
+	if p := paramsMulti(c, claveMultiL2, "", "a"); p.Theta != 0.6 {
 		t.Fatalf("multi_l2: %+v", p)
 	}
 	c.Tipos["multi_l2#a"] = chispa3.ParamsTipo{T: 1, A: 2, B: -3, Theta: 0.8}
-	if p := paramsMulti(c, claveMultiL2, "a"); p.Theta != 0.8 {
+	if p := paramsMulti(c, claveMultiL2, "", "a"); p.Theta != 0.8 {
 		t.Fatalf("multi_l2#id: %+v", p)
 	}
-	if p := paramsMulti(c, claveMultiL1, "a"); p.A != 50 {
+	if p := paramsMulti(c, claveMultiL1, "", "a"); p.A != 50 {
 		t.Fatalf("L1 sigue con multi: %+v", p)
 	}
 }

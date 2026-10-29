@@ -4,9 +4,12 @@ Los ejemplos llevan varias etiquetas separadas por `|` (o ninguna: celda vacía)
 probabilidades suman 1) y no da una probabilidad por opción, así que en multi no opina (el contrato de /v1/decide lo dice). Lo que
 sí se aprende de los ejemplos, en L1/L2:
   - SOPL1: por opción, k y la media de los embeddings de los ejemplos donde está activa (encogimiento del prototipo, como en choice);
-  - CALIB: la sigmoide σ(a·coseno + b) de multi (a y b globales) y un umbral θ por opción (`multi#<id>`) que maximiza F1.
-  - CALIB de L2: `multi_l2` y `multi_l2#<id>` (mismos campos), ajustadas con el MaxSim de L2 (otra escala que el coseno de L1). Solo se
-    escriben si se da `maxsim_l2`; sin ellas el servidor usa en L2 la CALIB de `noul` (nunca la `multi` de L1).
+  - CALIB: la sigmoide σ(a·coseno + b) de multi (a y b globales) y un umbral θ por opción que maximiza F1. Las claves llevan el esquema:
+    `multi@<hex>` y `multi@<hex>#<id>` (hex = HashEsquema2 de la pregunta con sus opciones): valen solo para este esquema. Las claves
+    sin esquema (`multi`, `multi#<id>`) son de ficheros antiguos y el servidor las sigue leyendo si el fichero no trae ninguna con esquema.
+  - CALIB de L2: `multi_l2@<hex>` y `multi_l2@<hex>#<id>` (mismos campos), ajustadas con el MaxSim de L2 (otra escala que el coseno de
+    L1). Solo se escriben si se da `maxsim_l2`. `chispa train` no lo construye en esta instalación (hace falta el tokenizador y la sesión
+    ONNX de L2 con torres al vuelo, que solo existen en Go): sin ellas L2 NO opina en multi y la cascada escala (servidor y móvil).
 Sin ejemplos es zero-shot (como choice): CALIB sin multi y el servidor usa la de noul como aproximación."""
 from __future__ import annotations
 
@@ -22,6 +25,12 @@ from .datos import cargar_ejemplos, validar_multi
 MIN_POS_THETA = 3      # positivos (y negativos) mínimos de una opción para darle un θ propio
 THETA_MIN, THETA_MAX = 0.05, 0.95
 T_MULTI = 0.05         # la «T» de CALIB (no se usa en multi; solo debe ser > 0)
+
+
+def sufijo_esquema(q) -> str:
+    """«@» + HashEsquema2 (pregunta, «multi», opciones con descripción) en hex: el sufijo de las claves de CALIB de multi
+    (`server/decide.ClaveCalibMulti`). Así una opción «si» de otro esquema no hereda el θ ni la a, b de este."""
+    return "@" + formato.hash_esquema2(q.question, "multi", [(o.id, o.description or "") for o in q.options]).hex()
 
 
 def texto_opcion(q, o) -> str:
@@ -78,9 +87,9 @@ def _ajustar_capa(clave, ops, sims, Y) -> Tuple[Dict[str, dict], float, float]:
 
 def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dict]:
     """CALIB.tipos de multi y un informe, de los ejemplos `ex` ([(texto, etiquetas)]) y de `embeber(textos) → (E, ok)` (L1).
-    `multi` lleva a y b globales (θ 0,5) y `multi#<id>` el θ de cada opción con suficientes positivos y negativos (puntuación: coseno de L1).
+    `multi@<hex>` lleva a y b globales (θ 0,5) y `multi@<hex>#<id>` el θ de cada opción con suficientes positivos y negativos (puntuación: coseno de L1).
     Con `maxsim_l2(textos) → (S, ok)` (S (n, K): MaxSim de L2 de cada ejemplo con cada opción, en el orden de la pregunta) se ajusta lo
-    mismo sobre esa puntuación y va en `multi_l2` / `multi_l2#<id>`. Sin variación en las etiquetas (todo activo o todo inactivo) no se
+    mismo sobre esa puntuación y va en `multi_l2@<hex>` / `multi_l2@<hex>#<id>`. Sin variación en las etiquetas (todo activo o todo inactivo) no se
     puede ajustar: devuelve ({}, informe con el motivo)."""
     import numpy as np
     ops = list(q.options)
@@ -94,17 +103,18 @@ def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dic
     if len(Y) == 0 or Y.all() or not Y.any():
         inf["motivo"] = "sin variación: todas las etiquetas iguales (o ningún ejemplo que L1 pueda embeber)"
         return {}, inf
-    tipos, a, b = _ajustar_capa("multi", ops, sims, Y)
-    inf.update(a=a, b=b, thetas={k[6:]: v["theta"] for k, v in tipos.items() if k.startswith("multi#")})
+    tipos, a, b = _ajustar_capa("multi" + sufijo_esquema(q), ops, sims, Y)
+    esq = sufijo_esquema(q)
+    inf.update(a=a, b=b, thetas={k.split("#", 1)[1]: v["theta"] for k, v in tipos.items() if "#" in k})
     if maxsim_l2 is not None:
         S, ok2 = maxsim_l2([t for t, _ in ex])
         S, Y2 = np.asarray(S)[ok2], Y_todo[ok2]
         if len(Y2) == 0 or Y2.all() or not Y2.any():
             inf["motivo_l2"] = "multi_l2: sin variación en los ejemplos que L2 pueda puntuar; L2 usará la CALIB de noul"
         else:
-            t2, a2, b2 = _ajustar_capa("multi_l2", ops, S, Y2)
+            t2, a2, b2 = _ajustar_capa("multi_l2" + esq, ops, S, Y2)
             tipos.update(t2)
-            inf["l2"] = {"a": a2, "b": b2, "thetas": {k[9:]: v["theta"] for k, v in t2.items() if k.startswith("multi_l2#")}}
+            inf["l2"] = {"a": a2, "b": b2, "thetas": {k.split("#", 1)[1]: v["theta"] for k, v in t2.items() if "#" in k}}
     return tipos, inf
 
 
@@ -155,11 +165,13 @@ def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, r
         tipos, cal = calibrar_multi(q, ex, emb, maxsim_l2)
         inf["calib_multi"] = cal
         if maxsim_l2 is None and (l2 or ckpt):
-            inf.setdefault("avisos", []).append("sin `maxsim_l2`: no se calibra multi_l2; L2 usa la CALIB de noul en multi")
+            inf.setdefault("avisos", []).append("sin `multi_l2`: no se puede calibrar el MaxSim de L2 aquí (hace falta el tokenizador y la sesión "
+                                                "ONNX de L2, solo en Go); en multi L2 NO opinará y la cascada escalará (el servidor lo avisa en el log)")
+            inf["omitidas"]["CALIB multi_l2"] = "sin maxsim_l2: L2 no opina en multi"
             log("AVISO: " + inf["avisos"][-1])
         if tipos:
             escribir_calib(salida, tipos)
-            log(f"CALIB multi: a={cal['a']:.3f}, b={cal['b']:.3f}, θ propio en {sorted(cal['thetas']) or 'ninguna opción'}")
+            log(f"CALIB multi: a={cal['a']:.3f}, b={cal['b']:.3f}, θ propio en {sorted(cal['thetas']) or 'ninguna opción'} (claves con el esquema {sufijo_esquema(q)})")
         else:
             inf["omitidas"]["CALIB multi"] = cal["motivo"]
             log("AVISO: " + cal["motivo"] + ": multi usa la CALIB de noul")
@@ -172,8 +184,9 @@ def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, r
                 T._ajustar_l1_lambda_calib(secs, None)
                 salida.write_bytes(formato.escribir(secs))
                 (inf.get("calib") or {}).pop("l1_lambda_calib", None)
-                inf.setdefault("avisos", []).append("CALIB de multi ajustada con los prototipos de la descripción (sin encogimiento): con "
-                                                    "l1_shrinkage_lambda finito en el servidor las probabilidades cambian; λ = inf la reproduce")
+                inf.setdefault("avisos", []).append("SOPL1 escrita pero el servidor la IGNORA por defecto en multi: CALIB no lleva l1_lambda_calib (se "
+                                                    "ajustó con los prototipos de la descripción, sin encogimiento), así que el soporte few-shot solo entra "
+                                                    "si el operador fija l1_shrinkage_lambda; con λ finito las probabilidades cambian y λ = inf reproduce la calibración")
                 log("AVISO: " + inf["avisos"][-1])
             else:
                 inf["omitidas"]["SOPL1"] = "ningún ejemplo con etiquetas"

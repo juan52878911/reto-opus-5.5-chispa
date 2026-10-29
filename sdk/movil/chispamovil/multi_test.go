@@ -129,6 +129,12 @@ func TestMultiL2PrecedenciaParidadConServidor(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if nombre == "sin multi_l2 (noul)" { // R10-5: sin multi_l2 ninguna de las dos opina
+			if want.Conf != 0 || r.Opina || len(r.Probs) != 0 || len(want.Probs) != 0 {
+				t.Fatalf("%s: móvil %+v, servidor %+v", nombre, r, want)
+			}
+			continue
+		}
 		if want.Conf == 0 || strings.Join(r.Answers, ",") != strings.Join(want.Answers, ",") || math.Abs(r.Conf-want.Conf) > 1e-9 || len(r.Probs) != len(want.Probs) {
 			t.Fatalf("%s: móvil %+v, servidor %+v", nombre, r, want)
 		}
@@ -167,5 +173,28 @@ func TestMultiContratoJSON(t *testing.T) {
 	got := leer(t, c.DecidirL0("factura", `{"question":"q","kind":"multi","options":[{"id":"a"},{"id":"b"}]}`))
 	if !got.Ok || got.Opina || len(got.Probs) != 0 {
 		t.Fatalf("L0 en multi: %+v", got)
+	}
+}
+
+// R10-8: la CALIB de multi con esquema solo vale para ese esquema (como server/decide.ClaveCalibMulti); las antiguas siguen valiendo.
+func TestMultiCalibPorEsquemaMovil(t *testing.T) {
+	entrenado := pregunta{Texto: "¿temas?", Kind: "multi", Opciones: []opcion{{ID: "si"}, {ID: "otro"}}}
+	nuevo := pregunta{Texto: "¿urgente?", Kind: "multi", Opciones: []opcion{{ID: "si"}, {ID: "no"}}}
+	e := claveCalibMulti(entrenado)
+	noul := chispa3.ParamsTipo{T: 1, A: 4, B: -2, Theta: 0.5}
+	c := &Chispa{calib: chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{
+		"noul":              noul,
+		"multi" + e:         {T: 1, A: 9, B: -1, Theta: 0.4},
+		"multi" + e + "#si": {T: 1, A: 9, B: -1, Theta: 0.9},
+	}}}
+	if p := c.paramsMultiCapa("multi", e, "si"); p.Theta != 0.9 {
+		t.Fatalf("entrenado: %+v", p)
+	}
+	if p := c.paramsMultiCapa("multi", claveCalibMulti(nuevo), "si"); p != noul {
+		t.Fatalf("esquema nuevo debe caer a noul: %+v", p)
+	}
+	v := &Chispa{calib: chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"noul": noul, "multi#si": {T: 1, A: 5, B: -1, Theta: 0.9}}}}
+	if p := v.paramsMultiCapa("multi", claveCalibMulti(nuevo), "si"); p.Theta != 0.9 {
+		t.Fatalf("CALIB antigua: %+v", p)
 	}
 }
