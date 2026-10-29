@@ -302,6 +302,26 @@ def informe(o):
     return "\n".join(L) + "\n"
 
 
+def comprobar_tipos_l2(a):
+    """¿Trae el `.chispa` `tipos_l2` en CALIB, y coincide con las cabezas del checkpoint? (T, a, b y θ, tolerancia 1e-6)."""
+    from chispa import formato
+    d = json.loads(formato.leer(Path(a.chispa).read_bytes())[formato.CALIB])
+    tl2 = d.get("tipos_l2")
+    if not tl2:
+        print("FALLO: el .chispa no trae tipos_l2 en CALIB (claves: %s)" % sorted(d))
+        return 1
+    modelo, _ = C.cargar_modelo(a.ckpt, "cpu")
+    ref = calib_del_checkpoint(modelo, cargar_jevbench(a.jevbench))
+    malas = []
+    for k, v in ref.items():
+        w = tl2.get(k)
+        if w is None or any(abs(float(w.get(c, 0)) - float(v.get(c, 0))) > 1e-6 for c in ("T", "a", "b", "theta")):
+            malas.append((k, v, w))
+    print(json.dumps({"tipos_l2": sorted(tl2), "checkpoint": sorted(ref), "distintas": [m[0] for m in malas]}, ensure_ascii=False))
+    print("OK tipos_l2 idéntico al checkpoint" if not malas else "FALLO tipos_l2 distinto en %s" % [m[0] for m in malas])
+    return 1 if malas else 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -319,7 +339,12 @@ def main(argv=None):
     r.add_argument("--salida", required=True)
     r.add_argument("--calib-ckpt", action="store_true")
     r.add_argument("--l2-de")
+    t = sub.add_parser("tipos-l2", help="comprueba que CALIB.tipos_l2 del .chispa sea la CALIB del checkpoint")
+    for k in ("chispa", "ckpt", "jevbench"):
+        t.add_argument("--" + k, required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "tipos-l2":
+        return comprobar_tipos_l2(a)
     if a.cmd == "reescribir":
         if a.calib_ckpt and not (a.ckpt and a.jevbench):
             ap.error("--calib-ckpt pide --ckpt y --jevbench")

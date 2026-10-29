@@ -235,6 +235,10 @@ elif [ -x "$SERV" ]; then
       --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" --exigir-torres --todos --minutos "$m" --chispa "$2" \
       > "$RES/servidor-$1.log" 2>&1 && estado "pasada_$1" "OK" || { tail -10 "$RES/servidor-$1.log"; estado "pasada_$1" "FALLO ver servidor-$1.log"; fallo "pasada $1"; }
   }
+  if [ -f "$BASE_CH" ]; then   # ¿copia chispa train la CALIB global de L2 (tipos_l2) del l2.chispa?
+    "$PY" -u -m model.bench.torre.paridad_servidor tipos-l2 --chispa "$BASE_CH" --ckpt "$CKPT" --jevbench "$JEV" > "$RES/tipos-l2.log" 2>&1 \
+      && estado "tipos_l2" "OK $(tail -1 "$RES/tipos-l2.log")" || estado "tipos_l2" "FALLO $(tail -1 "$RES/tipos-l2.log" | cut -c1-120)"
+  fi
   if [ -f "$BASE_CH" ] && [ -f "$BASE_CAPAS" ]; then
     diagnosticar base "$BASE_CH" "$BASE_CAPAS"
     if "$PY" -u -m model.bench.torre.paridad_servidor reescribir --ckpt "$CKPT" --jevbench "$JEV" --entrada "$BASE_CH" --salida "$RES/calib-global.chispa" --calib-ckpt \
