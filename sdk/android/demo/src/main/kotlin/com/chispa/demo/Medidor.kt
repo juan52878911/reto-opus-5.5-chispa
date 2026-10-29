@@ -30,7 +30,7 @@ data class ConfigMedida(
 )
 
 /** Latencias de un escenario, en ms por decisión. */
-class ResultadoEscenario(
+data class ResultadoEscenario(
     val nombre: String,
     val esquema: String,
     val capa: String,
@@ -94,19 +94,21 @@ class Medidor(private val ctx: Context, private val cfg: ConfigMedida = ConfigMe
         val fewShot = esquemaDelModelo(ctx)
         val notas = ArrayList<String>()
 
+        // Cascada captura las excepciones de capa y escala: `decidir` no lanza. Se cuentan con alErrorCapa.
+        val fallosCapa = FallosCapa()
         val resultados = ArrayList<ResultadoEscenario>()
         val motorL1 = MotorNativo.abrir(rutaModelo)
         try {
-            val soloL1 = Cascada(listOf(CapaConTau(CapaL1(motorL1), 0.0)))
+            val soloL1 = Cascada(listOf(CapaConTau(CapaL1(motorL1), 0.0)), alErrorCapa = fallosCapa::anotar)
             var capasVistas = emptyList<String>()
             for ((i, prov) in cfg.proveedores.withIndex()) {
                 if (cancelado()) break
                 val chispa: Chispa = try {
-                    Chispa.abrir(ctx, rutaModelo, rutaTokenizador = rutaTok, proveedorOrt = prov)
+                    Chispa.abrir(ctx, rutaModelo, rutaTokenizador = rutaTok, alErrorCapa = fallosCapa::anotar, proveedorOrt = prov)
                 } catch (e: Exception) {
                     if (rutaTok == null) throw e
                     notas += "tokenizador no utilizable (${e.message}): cascada sin L2"
-                    Chispa.abrir(ctx, rutaModelo, proveedorOrt = prov)
+                    Chispa.abrir(ctx, rutaModelo, alErrorCapa = fallosCapa::anotar, proveedorOrt = prov)
                 }
                 try {
                     val capas = chispa.capas
@@ -118,12 +120,12 @@ class Medidor(private val ctx: Context, private val cfg: ConfigMedida = ConfigMe
                         // L1 solo no usa ORT: se mide una vez, con el primer proveedor
                         if (i == 0) {
                             if (cancelado()) break
-                            resultados += medir("$esquema · L1 solo", esquema, "L1", cfg, progreso, cancelado) {
+                            resultados += medir("$esquema · L1 solo", esquema, "L1", cfg, progreso, cancelado, fallosCapa) {
                                 soloL1.decidir(it, pregunta)
                             }
                         }
                         if (cancelado()) break
-                        resultados += medir("$esquema · $nombreCascada", esquema, nombreCascada, cfg, progreso, cancelado) {
+                        resultados += medir("$esquema · $nombreCascada", esquema, nombreCascada, cfg, progreso, cancelado, fallosCapa) {
                             chispa.decidir(it, listOf(pregunta)).first()
                         }.conProveedor(efectivo, prov.name)
                     }
@@ -261,10 +263,35 @@ class Medidor(private val ctx: Context, private val cfg: ConfigMedida = ConfigMe
             return Pregunta(o.getString("question"), opciones, o.optString("kind", "choice"))
         }
 
-        private fun medir(
+        /** Cuenta los fallos de capa que la `Cascada` se traga (recibe `alErrorCapa`). */
+        class FallosCapa {
+            private val cuenta = java.util.concurrent.atomic.AtomicInteger()
+            @Volatile private var ultimo: String? = null
+            val total: Int get() = cuenta.get()
+            val ultimoMensaje: String? get() = ultimo
+
+            fun anotar(capa: String, e: Throwable) {
+                ultimo = "la capa $capa falló: ${e.message}"
+                cuenta.incrementAndGet()
+                try {
+                    android.util.Log.w("ChispaMedir", ultimo, e)
+                } catch (_: RuntimeException) {
+                }
+            }
+        }
+
+        internal fun medir(
             nombre: String, esquema: String, capa: String, cfg: ConfigMedida,
-            progreso: (String) -> Unit, cancelado: () -> Boolean, decidir: (String) -> Respuesta,
+            progreso: (String) -> Unit, cancelado: () -> Boolean, fallosCapa: FallosCapa = FallosCapa(), decidir: (String) -> Respuesta,
         ): ResultadoEscenario {
+            val fallosAntes = fallosCapa.total
+            // Vuelca los fallos de capa de este escenario en `errores` y `nota`.
+            fun cerrar(r: ResultadoEscenario): ResultadoEscenario {
+                val f = fallosCapa.total - fallosAntes
+                if (f <= 0) return r
+                val aviso = "$f fallos de capa (${fallosCapa.ultimoMensaje}): el escenario puede no medir toda la cascada"
+                return r.copy(errores = r.errores + f, nota = listOfNotNull(r.nota, aviso).joinToString("; "))
+            }
             val textos = Textos.ES
             progreso("$nombre: calentando (${cfg.calentamiento})…")
             // La primera llamada de un esquema nuevo calcula torres (zero-shot): se mide aparte y no entra en los percentiles.
@@ -306,14 +333,14 @@ class Medidor(private val ctx: Context, private val cfg: ConfigMedida = ConfigMe
             }
             val total = (System.nanoTime() - inicio) / 1e9
             if (hechas == 0) {
-                return ResultadoEscenario(nombre, esquema, capa, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, primera, porCapa, errores, nota ?: "cancelado")
+                return ResultadoEscenario(nombre, esquema, capa, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, primera, porCapa, errores, nota ?: "cancelado").let(::cerrar)
             }
             val orden = ms.copyOf(hechas).also { it.sort() }
-            return ResultadoEscenario(
+            return cerrar(ResultadoEscenario(
                 nombre, esquema, capa, hechas,
                 Estadisticas.percentil(orden, 0.50), Estadisticas.percentil(orden, 0.95), Estadisticas.percentil(orden, 0.99),
                 orden.last(), orden.average(), hechas / total, primera, porCapa, errores, nota,
-            )
+            ))
         }
     }
 }

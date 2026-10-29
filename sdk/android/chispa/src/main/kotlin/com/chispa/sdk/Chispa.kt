@@ -119,6 +119,7 @@ class Chispa private constructor(
             if (destino.isFile && destino.length() > 0L) return destino
             try {
                 contexto.assets.open(ruta).use { CacheFicheros.copiarAtomico(it, destino) }
+                CacheFicheros.borrarVersionesViejas(File(contexto.filesDir, "chispa"), version.toString())
             } catch (e: java.io.IOException) {
                 throw ErrorChispa("no existe el asset $ruta ni el fichero: ${e.message}", e)
             }

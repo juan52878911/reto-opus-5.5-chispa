@@ -118,16 +118,26 @@ final class CacheYErroresTests: XCTestCase {
             func torre(_ texto: String) throws -> [Float] { n += 1; throw ErrorChispa("no carga") }
         }
         let enc = Falla()
-        var t = 0.0
+        var t: UInt64 = 0
         let c = CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(), codificador: enc,
-                       ahora: { Date(timeIntervalSince1970: t) })
+                       ahora: { t })
         XCTAssertThrowsError(try c.decidir("x", preguntaNueva))
         XCTAssertEqual(enc.n, 1)
         for _ in 0..<3 { XCTAssertFalse(try c.decidir("x", preguntaNueva).opina) }
         XCTAssertEqual(enc.n, 1) // la negativa cacheada evita más pasadas de la torre
-        t = 61
+        t = 61 * 1_000_000_000
         XCTAssertThrowsError(try c.decidir("x", preguntaNueva))
         XCTAssertEqual(enc.n, 2)
+    }
+
+    /// R2 #10: el reloj por defecto de la caché negativa es monótono (uptime), no `Date`.
+    func testElRelojPorDefectoEsMonotonico() {
+        let c = CapaL2(motor: MotorFalso(), sesion: SesionFalsa(), tokenizador: TokenizadorFalso())
+        let a = c.ahora()
+        let b = c.ahora()
+        XCTAssertGreaterThanOrEqual(b, a)
+        XCTAssertLessThan(b - a, 1_000_000_000)
+        XCTAssertEqual(c.ttlFalloTorreNs, 60 * 1_000_000_000)
     }
 
     func testSiElMotorRechazaLasTorresSeLanzaYSeCacheaLaNegativa() throws {
