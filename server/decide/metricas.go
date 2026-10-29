@@ -61,6 +61,8 @@ type Metricas struct {
 	TorresEsperas       atomic.Uint64 // torres que esperaron a otra petición en vuelo (singleflight) en vez de calcularse
 	TorresErrores       atomic.Uint64 // cálculos de torre fallidos (error o pánico) y esperas que acabaron en error de la calculadora
 	PresupuestoAgotado  atomic.Uint64 // preguntas en las que L2 no opinó porque la petición ya había gastado su tope de torres nuevas
+	MultiL2SinCalib     atomic.Uint64 // preguntas multi en las que L2 no opinó por no traer el .chispa multi_l2 de su esquema
+	MultiCalibAusente   atomic.Uint64 // preguntas multi cuya CALIB trae claves con esquema y ninguna casa (cae a la aproximación de noul)
 	torreLatencia       histo         // duración de cada cálculo de torre
 
 	// Esquema nuevo: preguntas puntuadas por L2 con torres al vuelo.
@@ -287,6 +289,12 @@ func (m *Metricas) Escribe(w io.Writer) {
 	fmt.Fprintln(w, "# HELP chispa_torres_errores_total Cálculos de torre fallidos (error o pánico del codificador).")
 	fmt.Fprintln(w, "# TYPE chispa_torres_errores_total counter")
 	fmt.Fprintf(w, "chispa_torres_errores_total %d\n", m.TorresErrores.Load())
+	fmt.Fprintln(w, "# HELP chispa_multi_l2_sin_calib_total Preguntas multi en las que L2 no opinó por falta de CALIB multi_l2 del esquema.")
+	fmt.Fprintln(w, "# TYPE chispa_multi_l2_sin_calib_total counter")
+	fmt.Fprintf(w, "chispa_multi_l2_sin_calib_total %d\n", m.MultiL2SinCalib.Load())
+	fmt.Fprintln(w, "# HELP chispa_multi_calib_ausente_total Preguntas multi cuya CALIB trae claves multi@<hash> y ninguna casa con la pregunta.")
+	fmt.Fprintln(w, "# TYPE chispa_multi_calib_ausente_total counter")
+	fmt.Fprintf(w, "chispa_multi_calib_ausente_total %d\n", m.MultiCalibAusente.Load()+multiCalibAusenteL1.Load())
 	fmt.Fprintln(w, "# HELP chispa_torres_presupuesto_agotado_total Preguntas en las que L2 no opinó por agotar el tope de torres nuevas de la petición.")
 	fmt.Fprintln(w, "# TYPE chispa_torres_presupuesto_agotado_total counter")
 	fmt.Fprintf(w, "chispa_torres_presupuesto_agotado_total %d\n", m.PresupuestoAgotado.Load())
