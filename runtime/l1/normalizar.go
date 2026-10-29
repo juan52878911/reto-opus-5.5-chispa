@@ -67,6 +67,9 @@ func (n *normalizador) transformar(s string) (string, bool) {
 	if !hay {
 		return "", false
 	}
+	if int(res) > len(n.pool) {
+		return "", false
+	}
 	fin := int(res)
 	for fin < len(n.pool) && n.pool[fin] != 0 {
 		fin++

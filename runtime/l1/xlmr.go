@@ -41,18 +41,8 @@ func DesdeTokenizador(data []byte) (*Modelo, error) {
 	if err := json.Unmarshal(m.sec[secParams], &m.p); err != nil {
 		return nil, fmt.Errorf("l1: params: %w", err)
 	}
-	v := m.vocab
-	switch {
-	case m.p.Modo != modoXLMR || m.p.Metaspace == "":
-		return nil, errors.New("l1: parámetros incoherentes")
-	case m.tablaB < 4 || m.tablaB > 30 || m.prefB < 4 || m.prefB > 40:
-		return nil, errors.New("l1: tamaños de tabla incoherentes")
-	case len(m.sec[secScores]) != 8*v, len(m.sec[secOffsets]) != 4*(v+1),
-		len(m.sec[secHash]) != 4<<m.tablaB, len(m.sec[secPrefijos]) != 1<<(m.prefB-3):
-		return nil, errors.New("l1: tamaños de sección incoherentes")
-	}
-	if int(le.Uint32(m.sec[secOffsets][4*v:])) != len(m.sec[secPiezas]) {
-		return nil, errors.New("l1: offsets de piezas incoherentes")
+	if err := m.validar(true); err != nil {
+		return nil, err
 	}
 	m.unkScore = m.p.MinScore - m.p.UnkPenaliz
 	n, err := nuevoNormalizador(m.sec[secCharsmap], "")
