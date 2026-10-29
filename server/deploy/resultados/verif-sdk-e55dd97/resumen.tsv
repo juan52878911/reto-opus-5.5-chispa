@@ -1,0 +1,16 @@
+gofmt	OK	pass=0	fail=0	skip=0
+vet_server	OK	pass=0	fail=0	skip=0
+race_server	OK	pass=194	fail=0	skip=2
+vet_format_chispa3	OK	pass=0	fail=0	skip=0
+race_format_chispa3	OK	pass=59	fail=0	skip=0
+vet_runtime_l1	OK	pass=0	fail=0	skip=0
+race_runtime_l1	OK	pass=6	fail=0	skip=8
+vet_runtime_tok	OK	pass=0	fail=0	skip=0
+race_runtime_tok	OK	pass=8	fail=0	skip=1
+vet_runtime_torre	OK	pass=0	fail=0	skip=0
+race_runtime_torre	OK	pass=4	fail=0	skip=0
+vet_sdk_go	OK	pass=0	fail=0	skip=0
+race_sdk_go	OK	pass=29	fail=0	skip=0
+ort_server	OK	pass=200	fail=0	skip=3
+python_sdk	OK	pass=0	fail=0	skip=0
+e2e	OK	pass=0	fail=0	skip=0

@@ -1,0 +1,6 @@
+        ok chispa_torres_errores_total = 0 (= 0.0)
+  ok    recargas_total{ok} = 3 y torres sin errores
+        HTTP 200, capas ['escalar', 'L2', 'escalar'], answers ['baja', 'true', '2']
+  ok    tras recargar, L2 con torre al vuelo sigue decidiendo
+
+RESULTADO: OK (todos los pasos pasan)
