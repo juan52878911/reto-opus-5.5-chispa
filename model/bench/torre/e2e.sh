@@ -257,9 +257,16 @@ else for v in $VARIANTES; do estado "train_torre_$v" "FALLO sin binario del serv
 # --- 5c. D1: perfil móvil con la poda corregida (fp16 y fp32): top-1, MB y latencia ---------------------------------------------------
 if [ "${CHISPA_MOVIL:-si}" != no ]; then
   echo "== 5c. móvil $(date -u +%T)"
-  mkdir -p "$RES/ampliar" && cp "$RES/calib-torre.jsonl" "$RES/ampliar/"
+  mkdir -p "$RES/ampliar" "$RES/comprobacion" && cp "$RES/calib-torre.jsonl" "$RES/ampliar/"
+  "$PY" -I -c "
+import json, sys
+sys.path.insert(0, sys.argv[1])
+from model.evaluacion.jevbench import cargar_jevbench
+with open(sys.argv[3], 'w', encoding='utf-8') as f:
+    for r in cargar_jevbench(sys.argv[2]):
+        f.write(json.dumps({k: r[k] for k in ('texto', 'pregunta', 'opciones', 'descripciones')}, ensure_ascii=False) + '\n')" "$REPO" "$JEV" "$RES/comprobacion/jevbench.jsonl"
   # «ampliado»: base + textos de calibración (sin los medidos); «ampliado+eval»: además los textos que mide el banco (la poda corregida: 0 % de <unk>)
-  if "$PY" -u -m model.bench.torre.movil medir "$RES/movil" "${CKPT_ARG[@]}" --ampliar "$RES/ampliar" --comprobacion "$JEV/datasets/public" --calib "$RES/calib-torre.jsonl" \
+  if "$PY" -u -m model.bench.torre.movil medir "$RES/movil" "${CKPT_ARG[@]}" --ampliar "$RES/ampliar" --comprobacion "$RES/comprobacion" --calib "$RES/calib-torre.jsonl" \
        --variantes fp16 fp32 --vocabularios ampliado ampliado+eval --n-calib 100 --filas "${CHISPA_FILAS:-300}" > "$RES/movil.log" 2>&1; then estado movil "OK $RES/movil/informe.md"
   else tail -15 "$RES/movil.log"; estado movil "FALLO ver movil.log"; fallo "movil"; fi
 else estado movil "OMITIDO CHISPA_MOVIL=no"; fi
