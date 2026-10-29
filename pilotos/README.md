@@ -12,6 +12,8 @@ recibe un texto y una pregunta con opciones, y devuelve la opción, sus probabil
 | [`esquemas/`](esquemas) | Plantillas YAML de PQRS, soporte y ventas, con ejemplos de few-shot |
 | [`datos-y-consentimiento.md`](datos-y-consentimiento.md) | Checklist de datos y de consentimiento (habeas data) |
 | [`metrica.md`](metrica.md) | Cómo se mide el piloto y plantilla del informe final |
+| [`operacion.md`](operacion.md) | Runbook: desplegar, configurar, vigilar, actualizar y recuperar `chispa-server` |
+| [`checklist-despliegue.md`](checklist-despliegue.md) | Lista de verificación de una página para el despliegue |
 
 ## Duración: 4 semanas (2 si ya hay datos etiquetados y un servidor listo)
 | Semana | Qué pasa | Entrega |
@@ -62,3 +64,4 @@ Se marcan aquí y **no se prometen** al cliente (cada punto se explica donde apa
 5. **Coste por 1.000 decisiones y latencia con el modelo y el hardware del cliente:** sin medir.
 6. **Español de Colombia, PQRS, EPS, ferretería:** sin medir; las cifras del repo son de benchmarks ([`docs/07`](../docs/07-rendimiento-y-limites.md)).
 7. **Salvaguardas de datos en el producto** (enmascarar datos personales, registro de decisiones): el producto no las trae; las hace el cliente antes de llamar a `/v1/decide`.
+8. **Operación** (detalle en [`operacion.md`](operacion.md)): recarga del modelo en caliente, apagado ordenado, TLS y autenticación, log de acceso, `/readyz` y métricas de memoria. No existen; el cliente reinicia y pone un proxy delante.
