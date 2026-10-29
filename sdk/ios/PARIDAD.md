@@ -80,3 +80,11 @@ exporta y `server/**` queda fuera de la zona); si cambia allí, ese test falla.
 tokenizador de e5; el codificador de la app manda. En iOS `ORTSession` solo abre rutas: los bytes se escriben una vez en
 `temporaryDirectory` (`chispa-torre-<sha256>.onnx`, escritura atómica). Tests con motor y sesión falsos: `TorreDefectoTest.kt` (5) y
 `TorreDefectoTests.swift` (5). Sin ejecutar: no hay JDK ni Swift en el nodo de W7; ORT real no corre en ningún test.
+
+## Validación de la pregunta: motor móvil = servidor (R5 #8)
+
+`chispamovil.leerPregunta` aplica las reglas de `server/decide/http.go` (`validarPeticion`): `kind` obligatorio (vacío → error, ya no
+se toma como `choice`), `question` no vacía y ≤ 4096 bytes, `nonce` ≤ 256 bytes, ids de opción ≤ 256 bytes, `description` ≤ 4096
+bytes (bytes, no runas), 2–256 opciones, ids no vacíos ni repetidos, `noul` solo `false`/`true`. Test: `validar_paridad_test.go`.
+Las apps Kotlin/Swift que armen la pregunta deben mandar siempre `kind`. Diferencia que queda: los topes por petición (cuerpo,
+preguntas, `state`, id de pregunta) no aplican, el motor móvil recibe una sola pregunta sin id ni estado.
