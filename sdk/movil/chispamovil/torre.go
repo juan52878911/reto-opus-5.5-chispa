@@ -85,7 +85,11 @@ func (c *Chispa) IdsPasaje(texto string) []byte {
 
 // aTorre pasa la pregunta al tipo de runtime/torre, dueño de la regla de torres.
 func aTorre(p pregunta) torre.Pregunta {
-	d := torre.Pregunta{Texto: p.Texto, Kind: p.Kind, Opciones: make([]torre.Opcion, len(p.Opciones))}
+	k := p.Kind
+	if k == "multi" { // una torre por opción, como choice (runtime/torre no conoce multi)
+		k = "choice"
+	}
+	d := torre.Pregunta{Texto: p.Texto, Kind: k, Opciones: make([]torre.Opcion, len(p.Opciones))}
 	for i, o := range p.Opciones {
 		d.Opciones[i] = torre.Opcion{ID: o.ID, Description: o.Description}
 	}

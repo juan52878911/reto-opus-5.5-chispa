@@ -687,7 +687,7 @@ func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
 		}
 		ops := q.Options
 		switch q.Kind {
-		case KindChoice, KindScore:
+		case KindChoice, KindScore, KindMulti:
 			if len(ops) < 2 {
 				return nil, bad(ErrPocasOpciones, q.ID, "%s.options: %s necesita al menos 2 opciones", at, q.Kind)
 			}
@@ -698,9 +698,9 @@ func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
 				return nil, bad(ErrOpcionesInvalidas, q.ID, `%s.options: noul solo admite los ids "false" y "true"`, at)
 			}
 		case "":
-			return nil, bad(ErrKindFalta, q.ID, "%s.kind: obligatorio (choice, score o noul)", at)
+			return nil, bad(ErrKindFalta, q.ID, "%s.kind: obligatorio (choice, score, noul o multi)", at)
 		default:
-			return nil, bad(ErrKindInvalido, q.ID, "%s.kind: %q no válido (choice, score o noul)", at, q.Kind)
+			return nil, bad(ErrKindInvalido, q.ID, "%s.kind: %q no válido (choice, score, noul o multi)", at, q.Kind)
 		}
 		if len(ops) > l.MaxOpciones {
 			return nil, bad(ErrDemasiadasOpc, q.ID, "%s.options: máximo %d opciones", at, l.MaxOpciones)

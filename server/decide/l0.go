@@ -105,19 +105,37 @@ func (l *L0) buscar(p Pregunta) *modelo {
 }
 
 func (l *L0) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
+	if p.Kind == KindMulti {
+		return Respuesta{}, nil // el L0 entrenado es multiclase (probs que suman 1): no da una p por opción, no opina en multi
+	}
 	m := l.buscar(p)
 	if m == nil {
 		return Respuesta{}, nil
 	}
 	if m.tf != nil {
-		return respuestaTF(m.tf, p.Estado), nil
+		return ordinal(p, respuestaTF(m.tf, p.Estado)), nil
 	}
 	pred := m.m.PredictFull(chispa.Input{Text: p.Estado}, 0)
 	probs := make(map[string]float64, len(pred.Probs))
 	for _, cp := range pred.Probs {
 		probs[cp.Label] = cp.Prob
 	}
-	return Respuesta{Answer: pred.Label, Probs: probs, Conf: pred.Prob}, nil
+	return ordinal(p, Respuesta{Answer: pred.Label, Probs: probs, Conf: pred.Prob}), nil
+}
+
+// ordinal: en score la respuesta es la mediana de la distribución (como L1, L2 y L3), no el argmax de un clasificador multiclase.
+func ordinal(p Pregunta, r Respuesta) Respuesta {
+	if p.Kind != KindScore || r.Conf == 0 {
+		return r
+	}
+	var acc float64
+	for _, o := range p.Opciones {
+		if acc += r.Probs[o.ID]; acc >= 0.5 {
+			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
+			break
+		}
+	}
+	return r
 }
 
 // respuestaTF: las probabilidades del TF-IDF con regresión logística; la respuesta es el primer máximo, como argmax.

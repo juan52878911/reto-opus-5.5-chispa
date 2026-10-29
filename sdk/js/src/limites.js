@@ -13,7 +13,7 @@ export const LIMITES = Object.freeze({
   maxCuerpo: 1048576,
 });
 
-const KINDS = ["choice", "score", "noul"];
+const KINDS = ["choice", "score", "noul", "multi"];
 const enc = new TextEncoder();
 
 /** Bytes UTF-8 de una cadena. */
@@ -60,7 +60,7 @@ export function validar(estado, preguntas, lim = LIMITES) {
     }
     if (q.kind === undefined || q.kind === "") throw falla("missing_kind", `${r}.kind: obligatorio`, id);
     if (!KINDS.includes(q.kind)) {
-      throw falla("invalid_kind", `${r}.kind: "${q.kind}" no válido (choice, score o noul)`, id);
+      throw falla("invalid_kind", `${r}.kind: "${q.kind}" no válido (choice, score, noul o multi)`, id);
     }
     if (q.nonce !== undefined) {
       texto(q.nonce, `${r}.nonce`, id);

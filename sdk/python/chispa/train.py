@@ -360,6 +360,14 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         if l2 and Path(l2).is_file():  # con --l2 se sabe ya: falla antes de entrenar
             from .torre import comprobar_dim_l2
             comprobar_dim_l2(formato.leer(Path(l2).read_bytes()), torre["dim"])
+    q_tipo, extra_tipo = cargar_esquema(esquema, pregunta)
+    if q_tipo.kind == "multi":  # multietiqueta: su propio flujo (L0 no opina; SOPL1 y CALIB de multi de los ejemplos con «|»)
+        if conjunta:
+            raise ChispaError("--conjunta solo sirve para preguntas choice (esta es multi)")
+        from .multi import entrenar_multi
+        inf = entrenar_multi(ejemplos, q_tipo, extra_tipo, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, shrinkage_lambda=shrinkage_lambda,
+                             sin_soporte=sin_soporte, embeber=embeber, log=log)
+        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log)
     lam = LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda
     con_soporte = not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos))
     inf = _entrenar(ejemplos, esquema, salida, lambda_l1=lam if con_soporte and l1 and ejemplos and lam != float("inf") else None, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
@@ -371,6 +379,11 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         q, _ = cargar_esquema(esquema, pregunta)
         anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, lam,
                      inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
+    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log)
+
+
+def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log) -> dict:
+    """Lo que `entrenar` añade al fichero ya escrito: τ de L2 para esquemas nuevos y la sección TORR."""
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
         log(f"τ de L2 para esquemas nuevos {tau_l2_esquema_nuevo:g} en CALIB (tau_l2_esquema_nuevo)")

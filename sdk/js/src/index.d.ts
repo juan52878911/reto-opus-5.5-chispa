@@ -1,4 +1,4 @@
-export type Kind = "choice" | "score" | "noul";
+export type Kind = "choice" | "score" | "noul" | "multi";
 
 export interface Opcion {
   /** 1..256 bytes UTF-8. En noul, solo "false" y "true". */
@@ -13,7 +13,7 @@ export interface Pregunta {
   /** 1..4096 bytes UTF-8. */
   question: string;
   kind: Kind;
-  /** choice y score: al menos 2. noul: opcional. */
+  /** choice, score y multi: al menos 2. noul: opcional. */
   options?: Opcion[];
   /** Clave de idempotencia (≤ 256 bytes). Si falta o es "", el cliente genera una. */
   nonce?: string;
@@ -24,6 +24,9 @@ export interface Resultado {
   kind: Kind;
   /** Id de la opción elegida, o "" si ninguna capa opinó. */
   answer: string;
+  /** Solo en multi (y siempre en multi): ids de las opciones activas, en el orden de la pregunta; [] si ninguna. `answer` es la activa de mayor probabilidad. */
+  answers?: string[];
+  /** Una probabilidad por opción, en [0,1]: suman 1 en choice, score y noul; en multi cada opción lleva la suya y no suman 1. */
   probs: Record<string, number>;
   /** L0, L1, L2, L3, o "escalar" cuando escalate es true. */
   layer: string;

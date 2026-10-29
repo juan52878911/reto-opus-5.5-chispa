@@ -9,7 +9,11 @@ import "chispa/runtime/torre"
 func TextoTorre(pregunta string, o Opcion) string { return torre.Texto(pregunta, torre.Opcion(o)) }
 
 func aTorre(p Pregunta) torre.Pregunta {
-	return torre.Pregunta{Texto: p.Texto, Kind: p.Kind, Opciones: aOpcionesTorre(p.Opciones)}
+	k := p.Kind
+	if k == KindMulti { // una torre por opción, como choice (runtime/torre no conoce multi)
+		k = KindChoice
+	}
+	return torre.Pregunta{Texto: p.Texto, Kind: k, Opciones: aOpcionesTorre(p.Opciones)}
 }
 
 func aOpcionesTorre(os []Opcion) []torre.Opcion {

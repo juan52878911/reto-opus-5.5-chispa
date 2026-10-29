@@ -76,6 +76,25 @@ test("noul y score en la misma petición, en orden, con nonce propio respetado",
   assert.match(vistas[0].cuerpo.questions[0].nonce, /^[0-9a-f-]{36}$/);
 });
 
+test("multi: envía las opciones y devuelve answers y una probabilidad por opción", async () => {
+  const srv = await falso((req, c, res) =>
+    json(res, 200, {
+      results: c.questions.map((q) => ({
+        id: q.id, kind: q.kind, answer: "cobro", answers: ["cobro", "atencion"],
+        probs: { cobro: 0.93, atencion: 0.81, fraude: 0.07 }, layer: "L1", escalate: false, ms: 0.5,
+      })),
+    }));
+  const [r] = await cliente(srv.url).decidir("me cobraron dos veces y nadie contesta", [
+    { id: "temas", question: "¿Qué temas toca?", kind: "multi", options: [{ id: "cobro", description: "un cobro" }, { id: "atencion" }, { id: "fraude" }] },
+  ]);
+  assert.equal(srv.vistas[0].cuerpo.questions[0].kind, "multi");
+  assert.deepEqual(r.answers, ["cobro", "atencion"]);
+  assert.equal(r.answer, "cobro");
+  assert.equal(Object.keys(r.probs).length, 3);
+  // multi no suma 1: cada opción tiene su propia probabilidad
+  assert.ok(Object.values(r.probs).reduce((a, b) => a + b, 0) > 1);
+});
+
 test("{nonce}: una pregunta lo usa tal cual; varias, nonce:id", async () => {
   const { url, vistas } = await falso(eco());
   const c = cliente(url);
@@ -226,6 +245,10 @@ test("validación local: mismos códigos que el servidor", async () => {
   await caso([q({ options: [{ id: "a" }, { id: "a" }] })], "duplicate_option_id");
   await caso([q(), q()], "duplicate_question_id");
   await caso([{ id: "n", question: "¿?", kind: "noul", options: [{ id: "tal" }] }], "invalid_options");
+  // multi: como choice (≥ 2 opciones con id único)
+  await caso([q({ kind: "multi", options: [{ id: "a" }] })], "too_few_options");
+  await caso([q({ kind: "multi", options: undefined })], "too_few_options");
+  await caso([q({ kind: "multi", options: [{ id: "a" }, { id: "a" }] })], "duplicate_option_id");
 });
 
 test("noul con false/true y sin opciones es válido", async () => {

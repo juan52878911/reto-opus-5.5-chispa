@@ -1,7 +1,7 @@
 {
   "error": {
     "code": "invalid_kind",
-    "message": "questions[0].kind: \"raro\" no válido (choice, score o noul)",
+    "message": "questions[0].kind: \"raro\" no válido (choice, score, noul o multi)",
     "question_id": "1"
   }
 }

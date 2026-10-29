@@ -300,7 +300,7 @@ func (l *L2) similitudesTorres(ctx context.Context, p Pregunta) ([][]float32, []
 	}
 	type vt = torreDin
 	var ts []vt
-	if p.Kind == KindChoice {
+	if p.Kind == KindChoice || p.Kind == KindMulti { // una torre por opción
 		for _, id := range ids {
 			v, e, ok := torre([]string{id})
 			if !ok {
@@ -378,7 +378,7 @@ func (l *L2) simsDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([][]floa
 func (l *L2) esquemaNuevo(p Pregunta) bool {
 	ids := make([]string, 0, len(p.Opciones))
 	switch p.Kind {
-	case KindChoice:
+	case KindChoice, KindMulti:
 		for _, o := range p.Opciones {
 			if _, _, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, []string{o.ID})); !ok {
 				return true
@@ -423,6 +423,8 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	case KindNoul:
 		prm := paramsDe(l.calib, "noul")
 		return respuestaNoul(prm.A*sims[0]+prm.B, prm.Theta), nil
+	case KindMulti:
+		return respuestaMulti(p, sims, l.calib), nil
 	}
 	return l.score(p, sims[0])
 }
@@ -453,6 +455,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 		sup[j] = 1 / (1 + math.Exp(-(base.A*s - b)))
 	}
 	r := Respuesta{Probs: make(map[string]float64, K)}
+	var suma float64
 	for i := 0; i < K; i++ {
 		hi, lo := 1.0, 0.0
 		if i > 0 {
@@ -461,7 +464,12 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 		if i < K-1 {
 			lo = sup[i]
 		}
-		r.Probs[p.Opciones[i].ID] = math.Max(hi-lo, 0)
+		d := math.Max(hi-lo, 0)
+		r.Probs[p.Opciones[i].ID] = d
+		suma += d
+	}
+	for id, d := range r.Probs { // con acumuladas no monótonas las diferencias recortadas suman > 1: se normaliza
+		r.Probs[id] = d / suma
 	}
 	// Mediana CORAL: nivel 1 + número de umbrales con P(y > j) > 0,5 (como L1). Con acumuladas no monótonas, el argmax
 	// de las diferencias podría salir de diferencias negativas recortadas.

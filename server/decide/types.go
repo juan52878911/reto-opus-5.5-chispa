@@ -13,6 +13,7 @@ const (
 	KindChoice = "choice"
 	KindScore  = "score"
 	KindNoul   = "noul"
+	KindMulti  = "multi"
 )
 
 type Opcion struct {
@@ -33,8 +34,12 @@ type Pregunta struct {
 // Respuesta de una capa. Conf es la confianza top-1; 0 significa «sin opinión».
 type Respuesta struct {
 	Answer string
-	Probs  map[string]float64
-	Conf   float64
+	// Answers, solo en multi: las opciones activas (p ≥ θ), en el orden de la pregunta; vacía si ninguna lo está. Answer es la activa de mayor p.
+	Answers []string
+	// Probs: en choice y score suman 1; en noul («true»/«false») también; en multi cada opción lleva su propia probabilidad en [0,1].
+	Probs map[string]float64
+	// Conf: confianza de la decisión; en multi, la de la opción más dudosa (mín. de max(p, 1−p)).
+	Conf float64
 	// EsquemaNuevo: L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS). Interno: no sale en el JSON.
 	EsquemaNuevo bool
 }

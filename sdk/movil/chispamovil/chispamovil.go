@@ -60,6 +60,26 @@ type respuesta struct {
 	Conf   float64            `json:"conf"`
 	Probs  map[string]float64 `json:"probs"`
 	Error  string             `json:"error,omitempty"`
+	// Multi: la respuesta es de una pregunta multi; entonces «answers» sale siempre (las opciones activas, [] si ninguna).
+	Multi   bool     `json:"-"`
+	Answers []string `json:"-"`
+}
+
+// MarshalJSON añade «answers» solo en multi (como Resultado en server/decide).
+func (r respuesta) MarshalJSON() ([]byte, error) {
+	type plano respuesta // sin métodos: evita la recursión
+	out := struct {
+		plano
+		Answers *[]string `json:"answers,omitempty"`
+	}{plano: plano(r)}
+	if r.Multi && r.Opina {
+		a := r.Answers
+		if a == nil {
+			a = []string{}
+		}
+		out.Answers = &a
+	}
+	return json.Marshal(out)
 }
 
 // Chispa es un .chispa v3 abierto.
@@ -378,9 +398,9 @@ func leerPregunta(js string) (pregunta, error) {
 
 func comprobarPregunta(p *pregunta) error {
 	switch p.Kind {
-	case "choice", "noul", "score":
+	case "choice", "noul", "score", "multi":
 	case "":
-		return errors.New("kind: obligatorio (choice, score o noul)")
+		return errors.New("kind: obligatorio (choice, score, noul o multi)")
 	default:
 		return fmt.Errorf("kind no válido: %q", p.Kind)
 	}
@@ -401,7 +421,7 @@ const (
 	maxIDByte    = 256
 )
 
-// validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score con ≥2 opciones, noul solo
+// validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score/multi con ≥2 opciones, noul solo
 // {false,true} (vacío → por defecto), ids de opción no vacíos ni repetidos, y MaxOpciones.
 func validarPregunta(p *pregunta) error {
 	if p.Texto == "" {
@@ -414,7 +434,7 @@ func validarPregunta(p *pregunta) error {
 		return fmt.Errorf("nonce: más de %d bytes", maxIDByte)
 	}
 	switch p.Kind {
-	case "choice", "score":
+	case "choice", "score", "multi":
 		if len(p.Opciones) < 2 {
 			return fmt.Errorf("%s necesita al menos 2 opciones", p.Kind)
 		}
@@ -542,6 +562,9 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 	if p.Kind == "score" {
 		return salida(puntuarNiveles(p, sims, c.tScore()))
 	}
+	if p.Kind == "multi" {
+		return salida(c.multi(p, sims))
+	}
 	return salida(softmax(p, sims, c.params("choice").T))
 }
 
@@ -592,6 +615,42 @@ func softmax(p pregunta, sims []float64, T float64) respuesta {
 	return r
 }
 
+// paramsMulti son (a, b, θ) de una opción de multi: CALIB «multi#<id>», si no «multi» y si no la de «noul» (como server/decide/multi.go).
+func (c *Chispa) paramsMulti(id string) chispa3.ParamsTipo {
+	if p, ok := c.calib.Tipos["multi#"+id]; ok {
+		return p
+	}
+	if p, ok := c.calib.Tipos["multi"]; ok {
+		return p
+	}
+	return c.params("noul")
+}
+
+// multi: cada opción es un sí/no con su σ(a·s + b) y su θ; answers son las activas, probs la p de cada una (no suman 1) y conf la de la
+// opción más dudosa (min de p si activa, 1−p si no), como server/decide.respuestaMulti.
+func (c *Chispa) multi(p pregunta, s []float64) respuesta {
+	r := respuesta{Ok: true, Opina: true, Multi: true, Probs: make(map[string]float64, len(s)), Answers: []string{}, Conf: 1}
+	var top float64
+	for i, o := range p.Opciones {
+		prm := c.paramsMulti(o.ID)
+		pr := 1 / (1 + math.Exp(-(prm.A*s[i] + prm.B)))
+		r.Probs[o.ID] = pr
+		cf := 1 - pr
+		if pr >= prm.Theta {
+			cf = pr
+			r.Answers = append(r.Answers, o.ID)
+			if pr > top {
+				top, r.Answer = pr, o.ID
+			}
+		}
+		r.Conf = math.Min(r.Conf, cf)
+	}
+	if !(r.Conf > 0) {
+		r.Conf = math.SmallestNonzeroFloat64
+	}
+	return r
+}
+
 func noul(z, theta float64) respuesta {
 	pt := 1 / (1 + math.Exp(-z))
 	r := respuesta{Ok: true, Probs: map[string]float64{"true": pt, "false": 1 - pt}}
@@ -622,6 +681,9 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 	if err != nil {
 		return fallo(err)
 	}
+	if p.Kind == "multi" { // L0 es multiclase (probs que suman 1): no da una p por opción, no opina en multi
+		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
+	}
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
@@ -632,16 +694,31 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 			continue
 		}
 		if x.tf != nil {
-			return salida(respuestaTF(x.tf, texto))
+			return salida(ordinal(p, respuestaTF(x.tf, texto)))
 		}
 		pred := x.m.PredictFull(chispa.Input{Text: texto}, 0)
 		probs := make(map[string]float64, len(pred.Probs))
 		for _, cp := range pred.Probs {
 			probs[cp.Label] = cp.Prob
 		}
-		return salida(respuesta{Ok: true, Opina: pred.Prob > 0, Answer: pred.Label, Conf: pred.Prob, Probs: probs})
+		return salida(ordinal(p, respuesta{Ok: true, Opina: pred.Prob > 0, Answer: pred.Label, Conf: pred.Prob, Probs: probs}))
 	}
 	return salida(respuesta{Ok: true, Probs: map[string]float64{}})
+}
+
+// ordinal: en score la respuesta de L0 es la mediana de la distribución (como L1, L2 y server/decide/l0.go), no el argmax.
+func ordinal(p pregunta, r respuesta) respuesta {
+	if p.Kind != "score" || r.Conf == 0 {
+		return r
+	}
+	var acc float64
+	for _, o := range p.Opciones {
+		if acc += r.Probs[o.ID]; acc >= 0.5 {
+			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
+			break
+		}
+	}
+	return r
 }
 
 // respuestaTF: las probabilidades del TF-IDF con regresión logística; la respuesta es el primer máximo, como en
@@ -730,7 +807,7 @@ func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
 	}
 	var ts []torreL2
 	switch p.Kind {
-	case "choice":
+	case "choice", "multi": // una torre por opción
 		for _, o := range p.Opciones {
 			t, ok := buscar([]string{o.ID})
 			if !ok {
@@ -814,6 +891,8 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	case "noul":
 		prm := c.params("noul")
 		return salida(noul(prm.A*sims[0]+prm.B, prm.Theta))
+	case "multi":
+		return salida(c.multi(p, sims))
 	}
 	return salida(c.score(p, sims[0]))
 }
@@ -845,6 +924,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		sup[j] = 1 / (1 + math.Exp(-(base.A*s - b)))
 	}
 	r := respuesta{Ok: true, Probs: make(map[string]float64, K)}
+	var suma float64
 	for i := 0; i < K; i++ {
 		hi, lo := 1.0, 0.0
 		if i > 0 {
@@ -853,7 +933,12 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		if i < K-1 {
 			lo = sup[i]
 		}
-		r.Probs[p.Opciones[i].ID] = math.Max(hi-lo, 0)
+		d := math.Max(hi-lo, 0)
+		r.Probs[p.Opciones[i].ID] = d
+		suma += d
+	}
+	for id, d := range r.Probs { // acumuladas no monótonas: las diferencias recortadas suman > 1; se normaliza (como el servidor)
+		r.Probs[id] = d / suma
 	}
 	// Mediana CORAL: nivel 1 + número de umbrales con P(y > j) > 0,5 (como L1 y el servidor).
 	k := 0

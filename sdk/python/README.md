@@ -51,7 +51,7 @@ Cada fila es una petición, porque `/v1/decide` lleva un solo `state` por petici
 python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chispa [--l1 potion.chispa-l1] [--ckpt DIR | --l2 l2.chispa] [--conjunta]
 ```
 - Ejemplos: CSV (con cabecera) o JSONL, columnas `texto|text` y `etiqueta|label`.
-- Esquema (YAML/JSON): `id`, `pregunta`, `tipo` (`choice|noul|score`), `opciones` (mapa id → descripción, lista de ids o de `{id, descripcion}`),
+- Esquema (YAML/JSON): `id`, `pregunta`, `tipo` (`choice|noul|score|multi`), `opciones` (mapa id → descripción, lista de ids o de `{id, descripcion}`),
   y opcionalmente `licencias` y `dorado` (van a META). Un `.chispa` por pregunta (el servidor elige L0 por el conjunto de etiquetas).
 - Salida (`chispa.entrenar(...)` hace lo mismo y devuelve el informe):
   - **META**, **L0**: lineal de kindling sobre los ejemplos; 80 % entrena y 20 % valida (partición por hash; fija el τ del propio L0).
@@ -78,6 +78,11 @@ python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chisp
 - L0 y la calibración los hace `entrenador_go/` (copiado a un directorio temporal con `replace` hacia el repo; hace falta Go y el repo, o
   `CHISPA_REPO`; offline: `GOFLAGS=-mod=mod GOPROXY=off`). **Sin Go** `chispa train` escribe META + L1 + CALIB por defecto, sin L0, y lo dice
   (`formato.py` es un escritor mínimo; el cargador de Go lo acepta, probado en `tests/test_train.py`).
+
+### Multietiqueta (`tipo: multi`)
+Cada opción es un sí/no independiente; un ejemplo puede llevar varias etiquetas separadas por `|` en el CSV (`texto,etiqueta` → `Me cobraron dos veces y nadie contesta,cobro|atencion`), una lista en el JSONL, o ninguna (celda vacía). Los ids de opción no pueden llevar `|`.
+`chispa train` con ejemplos escribe SOPL1 (k y media de los ejemplos activos de cada opción) y ajusta en `CALIB` la sigmoide `multi` (a, b) y un θ por opción (`multi#<id>`, el que maximiza F1, si hay ≥ 3 positivos y ≥ 3 negativos); necesita `--l1` y Go para embeber. **No entrena L0** (el lineal es multiclase: en `multi` no opina) ni admite `--conjunta`. La calibración usa los prototipos de la descripción, sin encogimiento. `chispa evaluar` aún no mide `multi`.
+`Multi("t", "¿Qué temas toca?", [("cobro", "habla de un cobro"), "atencion"])` crea la pregunta; `Resultado.answers` trae las activas.
 
 ## Punta a punta: intención del sondeo, 50 por clase
 `python sdk/python/e2e/sondeo_intencion.py [--l1 /tmp/potion.chispa-l1]`. El sondeo solo trae 32 por clase: se completan hasta 50 con MASSIVE es
