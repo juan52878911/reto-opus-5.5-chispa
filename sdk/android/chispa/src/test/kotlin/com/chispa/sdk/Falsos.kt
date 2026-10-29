@@ -34,6 +34,18 @@ class MotorFalso(
     var tauConj: Double = -1.0,
     var hashes: Map<Int, String> = emptyMap(),
 ) : Motor {
+    /**
+     * La marca `esquema_nuevo` que el motor real pone en las respuestas de L2: ESQUEMAS no traía las torres. No depende de la caché
+     * de torres al vuelo (que tras instalarlas da `torres = true`); [marcaForzada] no nulo la fija a mano.
+     */
+    var marcaForzada: Boolean? = null
+    private var sinTorresAlInicio: Boolean? = null
+    private fun marcar(js: String): String {
+        val o = JSONObject(js)
+        if (!o.optBoolean("opina", false)) return js
+        return o.put("esquema_nuevo", marcaForzada ?: sinTorresAlInicio ?: !torres).toString()
+    }
+
     /** Qué hace [extraerL2]: escribe en el destino que se le da (por defecto, nada). */
     var alExtraer: (String) -> Unit = {}
     var extracciones = 0
@@ -71,11 +83,12 @@ class MotorFalso(
     override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean {
         llamadas.add("TORRES")
         if (!aceptaTorres) return false
+        if (sinTorresAlInicio == null) sinTorresAlInicio = !this.torres
         torresInstaladas = torres; nInstaladas = n; this.torres = true; return true
     }
 
     override fun puntuarL2(preguntaJson: String, ranuras: ByteArray, k: Int): String {
-        llamadas.add("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
+        llamadas.add("L2"); ultimasRanuras = ranuras; ultimoK = k; return marcar(l2())
     }
 
     override fun extraerL2(destino: String) {
@@ -87,7 +100,7 @@ class MotorFalso(
     override fun hashSeccion(tipo: Int) = hashes[tipo] ?: ""
     override fun tieneConj() = conj
     override fun cabezaConjunta(simsJson: String): String {
-        llamadas.add("CONJ"); ultimoSimsJson = simsJson; return cabeza()
+        llamadas.add("CONJ"); ultimoSimsJson = simsJson; return marcar(cabeza())
     }
 
     /** TORR: [onnxDeTorre] no nulo = el fichero la trae; [idsDePasaje] da los ids (int32 LE) de cada texto de torre. */

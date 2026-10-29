@@ -44,7 +44,7 @@ public struct SalidaCapa: Equatable {
     public let respuesta: String
     public let confianza: Double
     public let probs: [String: Double]
-    /// L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS): la cascada usa `tauL2EsquemaNuevo`.
+    /// L2 puntuó con torres al vuelo (la pregunta no estaba en ESQUEMAS; lo marca el motor, `esquema_nuevo`): la cascada usa `tauL2EsquemaNuevo`.
     public let esquemaNuevo: Bool
     /// Solo en `multi` (el motor manda `answers`): las opciones activas en el orden de la pregunta, vacía si ninguna; nil en los
     /// demás tipos. En `multi`, `respuesta` es la activa más probable o "" y `confianza` es la de la opción más dudosa.
@@ -57,10 +57,6 @@ public struct SalidaCapa: Equatable {
         self.probs = probs
         self.esquemaNuevo = esquemaNuevo
         self.respuestas = respuestas
-    }
-
-    func conEsquemaNuevo(_ nuevo: Bool) -> SalidaCapa {
-        SalidaCapa(respuesta: respuesta, confianza: confianza, probs: probs, esquemaNuevo: nuevo, respuestas: respuestas)
     }
 
     public static let sinOpinion = SalidaCapa(respuesta: "", confianza: 0, probs: [:])
@@ -85,6 +81,7 @@ public struct SalidaCapa: Equatable {
             respuesta: (o["answer"] as? String) ?? "",
             confianza: (o["conf"] as? NSNumber)?.doubleValue ?? 0,
             probs: probs,
+            esquemaNuevo: (o["esquema_nuevo"] as? Bool) ?? false,
             respuestas: (o["answers"] as? [Any])?.compactMap { $0 as? String }
         )
     }

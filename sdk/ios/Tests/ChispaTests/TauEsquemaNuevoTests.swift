@@ -59,6 +59,29 @@ final class TauEsquemaNuevoTests: XCTestCase {
         XCTAssertFalse(try capa(motor(torres: true, tauNuevo: -1)).decidir("x", pregunta).esquemaNuevo)
     }
 
+    /// R9 #4: la marca es la del motor (solo ESQUEMAS), no un conjunto local de la capa.
+    func testLaMarcaEsLaDelMotorYNoUnConjuntoLocal() throws {
+        // Torres ya cacheadas por otra instancia, otro orden de opciones o un conjunto desbordado: la capa no las instaló,
+        // pero el motor dice que ESQUEMAS no trae el esquema → esquema nuevo y τ de esquema nuevo.
+        let m = motor(torres: true, tauNuevo: 0.5)
+        m.marcaForzada = true
+        XCTAssertTrue(try capa(m).decidir("x", pregunta).esquemaNuevo)
+        XCTAssertFalse(try decidir(m).escalar) // 0.7 ≥ τ nuevo 0.5
+        // Y al revés: la capa instaló las torres al vuelo pero el motor dice que están en ESQUEMAS.
+        let n = motor(torres: false, tauNuevo: 0.5)
+        n.marcaForzada = false
+        XCTAssertFalse(try capa(n).decidir("x", pregunta).esquemaNuevo)
+        n.torres = false
+        XCTAssertTrue(try decidir(n).escalar) // 0.7 < τ normal 0.9
+    }
+
+    func testDesdeJsonLeeEsquemaNuevo() throws {
+        let con = #"{"ok":true,"opina":true,"answer":"a","conf":0.7,"probs":{"a":0.7},"esquema_nuevo":true}"#
+        let sin = #"{"ok":true,"opina":true,"answer":"a","conf":0.7,"probs":{"a":0.7}}"#
+        XCTAssertTrue(try SalidaCapa.desdeJson(con).esquemaNuevo)
+        XCTAssertFalse(try SalidaCapa.desdeJson(sin).esquemaNuevo)
+    }
+
     func testLambdaDelSoporteLlegaAlMotor() throws {
         let apagado = try XCTUnwrap(try Chispa.soporteDe(nil, nil))
         XCTAssertEqual(apagado.0, Chispa.lambdaApagado)

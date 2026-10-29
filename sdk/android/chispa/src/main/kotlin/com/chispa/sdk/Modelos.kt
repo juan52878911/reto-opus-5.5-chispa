@@ -28,7 +28,7 @@ data class SalidaCapa(
     val respuesta: String,
     val confianza: Double,
     val probs: Map<String, Double>,
-    /** L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS): la cascada usa `tauL2EsquemaNuevo`. */
+    /** L2 puntuó con torres al vuelo (la pregunta no estaba en ESQUEMAS; lo marca el motor, `esquema_nuevo`): la cascada usa `tauL2EsquemaNuevo`. */
     val esquemaNuevo: Boolean = false,
     /**
      * Solo en `multi` (el motor manda `answers`): las opciones activas en el orden de la pregunta, vacía si ninguna; null en los
@@ -64,7 +64,10 @@ data class SalidaCapa(
             }
             val aj = o.optJSONArray("answers")
             val respuestas = if (aj == null) null else List(aj.length()) { aj.getString(it) }
-            return SalidaCapa(o.optString("answer", ""), o.optDouble("conf", 0.0), probs, respuestas = respuestas)
+            return SalidaCapa(
+                o.optString("answer", ""), o.optDouble("conf", 0.0), probs,
+                esquemaNuevo = o.optBoolean("esquema_nuevo", false), respuestas = respuestas,
+            )
         }
     }
 }

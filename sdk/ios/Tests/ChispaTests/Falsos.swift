@@ -23,6 +23,16 @@ final class MotorFalso: Motor {
     var l1: () -> String = { json(nil) }
     var torres = true
     var l2: () -> String = { json(nil) }
+    /// La marca `esquema_nuevo` que el motor real pone en las respuestas de L2 (ESQUEMAS no traía las torres): no depende de la
+    /// caché de torres al vuelo (tras instalarlas, `torres` da true). `marcaForzada` no nulo la fija a mano.
+    var marcaForzada: Bool?
+    private var sinTorresAlInicio: Bool?
+    private func marcar(_ js: String) -> String {
+        guard var o = (try? JSONSerialization.jsonObject(with: Data(js.utf8))) as? [String: Any],
+              (o["opina"] as? Bool) == true else { return js }
+        o["esquema_nuevo"] = marcaForzada ?? sinTorresAlInicio ?? !torres
+        return String(decoding: try! JSONSerialization.data(withJSONObject: o), as: UTF8.self)
+    }
     var conj = false
     var cabeza: () -> String = { json(nil) }
     var idsE5: Data?
@@ -52,14 +62,14 @@ final class MotorFalso: Motor {
     func decidirL1(_ texto: String, _ preguntaJson: String) -> String { llamadas.append("L1"); return l1() }
     func torresL2(_ preguntaJson: String) -> Bool { torres }
     func puntuarL2(_ preguntaJson: String, ranuras: Data, k: Int) -> String {
-        llamadas.append("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
+        llamadas.append("L2"); ultimasRanuras = ranuras; ultimoK = k; return marcar(l2())
     }
     func extraerL2(a destino: String) throws { extracciones += 1; try alExtraer(destino) }
     func tauL2c() -> Double { tauConj }
     func tauL2EsquemaNuevo() -> Double { tauNuevo }
     func hashSeccion(_ tipo: Int) -> String { hashes[tipo] ?? "" }
     func tieneConj() -> Bool { conj }
-    func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return cabeza() }
+    func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return marcar(cabeza()) }
     /// TORR: `onnxDeTorre` no nulo = el fichero la trae; `idsDePasaje` da los ids (int32 LE) de cada texto de torre.
     var onnxDeTorre: Data?
     var idsDePasaje: (String) -> Data? = { _ in nil }
@@ -72,6 +82,7 @@ final class MotorFalso: Motor {
     func instalarTorresL2(_ preguntaJson: String, torres bytes: Data, n: Int) -> Bool {
         llamadas.append("TORRES")
         if !aceptaTorres { return false }
+        if sinTorresAlInicio == nil { sinTorresAlInicio = !torres }
         torresInstaladas = bytes; nInstaladas = n; torres = true; return true
     }
     func cerrar() { cerrado = true }

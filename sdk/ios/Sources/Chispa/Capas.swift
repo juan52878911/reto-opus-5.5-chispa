@@ -198,8 +198,6 @@ struct CapaL2: Capa {
     var nombre: String { "L2" }
     /// Caché negativa: esquema (JSON de la pregunta) → instante hasta el que no se reintenta calcular su torre.
     private let fallosTorre = FallosTorre()
-    /// Esquemas cuyas torres instaló esta capa al vuelo: el motor ya las tiene cacheadas, pero siguen siendo «esquema nuevo».
-    private let alVuelo = ClavesAlVuelo()
 
     func decidir(_ texto: String, _ pregunta: Pregunta) throws -> SalidaCapa {
         try decidir(texto, pregunta, previas: [:])
@@ -207,21 +205,18 @@ struct CapaL2: Capa {
 
     func decidir(_ texto: String, _ pregunta: Pregunta, previas: [String: SalidaCapa]) throws -> SalidaCapa {
         let pj = pregunta.json()
-        let nuevo: Bool
-        if motor.torresL2(pj) {
-            nuevo = alVuelo.contiene(pj)
-        } else {
+        // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
+        if !motor.torresL2(pj) {
             guard try torresAlVuelo(pj) else { return .sinOpinion }
-            nuevo = true
         }
         let ids = try tokenizador.ids(texto)
         guard !ids.isEmpty else { return .sinOpinion }
         let s = try sesion.ranuras(ids)
         if let l0 = previas["L0"]?.probs, !l0.isEmpty, motor.tieneConj() {
             let c = try SalidaCapa.desdeJson(motor.cabezaConjunta(try entradaConj(pj, l0, s)))
-            if c.opina { return c.conEsquemaNuevo(nuevo) }
+            if c.opina { return c }
         }
-        return try SalidaCapa.desdeJson(motor.puntuarL2(pj, ranuras: s.aBytes(), k: s.k)).conEsquemaNuevo(nuevo)
+        return try SalidaCapa.desdeJson(motor.puntuarL2(pj, ranuras: s.aBytes(), k: s.k))
     }
 
     private func torresAlVuelo(_ preguntaJson: String) throws -> Bool {
@@ -243,7 +238,6 @@ struct CapaL2: Capa {
             guard motor.instalarTorresL2(preguntaJson, torres: bytes, n: torres.count) else {
                 throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=\(d), n=\(torres.count))")
             }
-            alVuelo.anotar(preguntaJson)
             return true
         } catch {
             fallosTorre.anotar(preguntaJson, hasta: ahora() &+ ttlFalloTorreNs)
@@ -259,24 +253,6 @@ struct CapaL2: Capa {
         o["ranuras"] = s.datos.map { Double($0) } // float → double es exacto; Go lo vuelve a float32
         o["k"] = s.k
         return String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self)
-    }
-}
-
-/// Esquemas cuyas torres se instalaron al vuelo (acotado como `FallosTorre`).
-final class ClavesAlVuelo {
-    private var claves = Set<String>()
-    private let cerrojo = NSLock()
-    private let maximo = 256
-
-    func contiene(_ clave: String) -> Bool {
-        cerrojo.lock(); defer { cerrojo.unlock() }
-        return claves.contains(clave)
-    }
-
-    func anotar(_ clave: String) {
-        cerrojo.lock(); defer { cerrojo.unlock() }
-        if claves.count >= maximo { claves.removeAll() }
-        claves.insert(clave)
     }
 }
 
