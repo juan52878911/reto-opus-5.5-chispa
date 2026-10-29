@@ -58,7 +58,7 @@ func TestL2MarcaEsquemaNuevoSoloPorESQUEMAS(t *testing.T) {
 	}
 }
 
-// R9 #5: en L2 multi no valen las cabezas «multi» (cosenos de L1): L2 usa «multi_l2#id» y «multi_l2», y sin ellas no opina.
+// R9 #5: en L2 multi no valen las cabezas «multi» (cosenos de L1): L2 usa «multi_l2#id» y «multi_l2», y sin ellas la de «noul» (como el servidor).
 func TestMultiL2UsaCabezasPropias(t *testing.T) {
 	q := `{"question":"¿Temas?","kind":"multi","options":[{"id":"a"},{"id":"b"},{"id":"c"}]}`
 	c := movilL2(t)
@@ -69,8 +69,12 @@ func TestMultiL2UsaCabezasPropias(t *testing.T) {
 	}
 	l1 := chispa3.ParamsTipo{T: 1, A: 12, B: -3, Theta: 0.5}
 	c.calib.Tipos["multi"], c.calib.Tipos["multi#a"] = l1, l1
-	if r := leer(t, c.PuntuarL2(q, ranuras(ranurasTorre...), 2)); !r.Ok || r.Opina || len(r.Probs) != 0 {
-		t.Fatalf("sin multi_l2 no debe opinar con la cabeza de L1: %+v", r)
+	// sin multi_l2 cae a «noul» (aquí a=0, b=-50 → ninguna activa), nunca a la cabeza de L1 (a=12, b=-3)
+	c.calib.Tipos["noul"] = chispa3.ParamsTipo{T: 1, A: 0, B: -50, Theta: 0.5}
+	if r := leer(t, c.PuntuarL2(q, ranuras(ranurasTorre...), 2)); !r.Ok || !r.Opina || len(r.Probs) != 3 {
+		t.Fatalf("sin multi_l2 debe usar noul: %+v", r)
+	} else if r.Probs["a"] > 1e-9 {
+		t.Fatalf("usó la cabeza de L1: %+v", r)
 	}
 	// a·s+b = +50 → activa; −50 → inactiva (b de ellas sobreescribe por opción)
 	c.calib.Tipos["multi_l2"] = chispa3.ParamsTipo{A: 0, B: 50, Theta: 0.5}
