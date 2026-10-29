@@ -81,7 +81,7 @@ En la página: N (2 000 por defecto), calentamiento (200) y tamaño de lote (50)
 (`latencia-chispa-<fecha>.json`). Deja el fichero en `demo/wasm/resultados/<navegador>-<máquina>.json`
 (esa carpeta no existe aún; créala) y no lo mezcles con otras medidas. Todo es local, sin red.
 
-Qué mide, con textos deterministas (semilla fija) y variados (de ~5 a ~100 palabras) sobre el esquema de la ferretería (5 opciones):
+Qué mide, con textos deterministas (semilla fija) y variados (de ~10 a ~70 palabras) sobre el esquema de la ferretería (5 opciones):
 - **Por decisión**: N llamadas a `decidir`, cada una con `performance.now()` (incluye el cruce JS→wasm y la conversión del
   resultado): p50, p95, p99, mín/máx/media, y decisiones/s sobre el total.
 - **Por lote**: `decidirLote` con lotes de 50, tiempo medido dentro del wasm; p50/p95/p99 del lote y por texto.
