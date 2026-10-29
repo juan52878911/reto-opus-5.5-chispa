@@ -13,4 +13,4 @@ HTTP + validación + cascada vacía, no el de L1/L2. Una sola tanda por punto, n
 | ocho | 4 | 36953 | 4619 | 1.76 |
 | ocho | 16 | 57474 | 7184 | 5.95 |
 
-Detalle y entorno: los `resultados-*-2302*.md/.csv` y `-2306*` de esta misma carpeta (uno por lote).
+Detalle y entorno: los `resultados-*-230200.*` (uno) y `resultados-*-230235.*` (ocho) de esta misma carpeta (uno por lote).
