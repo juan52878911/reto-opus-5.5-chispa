@@ -62,11 +62,6 @@ func TestL2MarcaEsquemaNuevoSoloPorESQUEMAS(t *testing.T) {
 func TestMultiL2UsaCabezasPropias(t *testing.T) {
 	q := `{"question":"¿Temas?","kind":"multi","options":[{"id":"a"},{"id":"b"},{"id":"c"}]}`
 	c := movilL2(t)
-	var textos []string
-	json.Unmarshal([]byte(c.TextosTorreL2(q)), &textos)
-	if !c.InstalarTorresL2(q, torresBytes(textos), len(textos)) {
-		t.Fatal("instalar")
-	}
 	l1 := chispa3.ParamsTipo{T: 1, A: 12, B: -3, Theta: 0.5}
 	c.calib.Tipos["multi"], c.calib.Tipos["multi#a"] = l1, l1
 	// R10-5: sin multi_l2 L2 no opina en multi (ni usa la cabeza de L1 ni la de noul)
@@ -77,6 +72,11 @@ func TestMultiL2UsaCabezasPropias(t *testing.T) {
 	// a·s+b = +50 → activa; −50 → inactiva (b de ellas sobreescribe por opción)
 	c.calib.Tipos["multi_l2"] = chispa3.ParamsTipo{A: 0, B: 50, Theta: 0.5}
 	c.calib.Tipos["multi_l2#b"] = chispa3.ParamsTipo{A: 0, B: -50, Theta: 0.5}
+	var textos []string
+	json.Unmarshal([]byte(c.TextosTorreL2(q)), &textos)
+	if !c.InstalarTorresL2(q, torresBytes(textos), len(textos)) {
+		t.Fatal("instalar")
+	}
 	var r struct {
 		Opina   bool     `json:"opina"`
 		Answers []string `json:"answers"`
