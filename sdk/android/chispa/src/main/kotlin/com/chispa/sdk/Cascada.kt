@@ -20,7 +20,7 @@ object TauPorDefecto {
  * La cascada de `server/decide/cascada.go`: pasa por las capas en orden mientras la confianza top-1 sea < τ (cada capa recibe lo que
  * dijeron las anteriores: L2c usa las probabilidades de L0). Si una
  * falla o no opina, sigue con la siguiente. Si ninguna alcanza su τ, escala: la respuesta es la de mayor confianza
- * vista (pista para quien reciba la escalada) y la capa es la última de la cascada.
+ * vista (pista para quien reciba la escalada) y la capa es [CAPA_ESCALAR], como `CapaEscalar` del servidor.
  */
 class Cascada(private val capas: List<CapaConTau>, private val reloj: () -> Long = System::nanoTime) {
     init {
@@ -44,10 +44,13 @@ class Cascada(private val capas: List<CapaConTau>, private val reloj: () -> Long
                 return Respuesta(r.respuesta, r.confianza, r.probs, c.capa.nombre, false, ms())
             }
         }
-        return Respuesta(mejor.respuesta, mejor.confianza, mejor.probs, capas.last().capa.nombre, true, ms())
+        return Respuesta(mejor.respuesta, mejor.confianza, mejor.probs, CAPA_ESCALAR, true, ms())
     }
 
     companion object {
+        /** La capa de una respuesta escalada (`CapaEscalar` en `server/decide/cascada.go`). */
+        const val CAPA_ESCALAR = "escalar"
+
         /**
          * Arma la cascada con las capas del [motor] (L0 y L1 si el fichero las trae) y L2 si además hay [l2].
          * Con CALIB, el τ de L1 y L2 es su `tau_escalate`.

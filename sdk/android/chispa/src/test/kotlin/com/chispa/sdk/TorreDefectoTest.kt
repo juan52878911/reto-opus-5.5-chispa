@@ -89,8 +89,8 @@ class TorreDefectoTest {
         m.onnxDeTorre = null
         val ch = Chispa.montar(m, { longArrayOf(0, 2) }, { "x.onnx" }, { SesionFalsa() })
         val r = ch.decidir("hola", listOf(PREGUNTA_NUEVA))[0]
-        // Al escalar, la capa es la última de la cascada (L2) aunque no opine: lo que cuenta es que L2 no puntuó.
-        assertFalse(r.capa == "L2" && !r.escalar)
+        assertTrue(r.escalar)
+        assertEquals("escalar", r.capa)
         assertFalse("L2" in m.llamadas)
         assertFalse("TORRES" in m.llamadas)
         assertEquals(0, m.nInstaladas)

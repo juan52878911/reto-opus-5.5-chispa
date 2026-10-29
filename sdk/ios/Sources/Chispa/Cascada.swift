@@ -16,7 +16,7 @@ enum TauPorDefecto {
 /// La cascada de `server/decide/cascada.go`: pasa por las capas en orden mientras la confianza top-1 sea < τ (cada capa recibe lo que
 /// dijeron las anteriores: L2c usa las probabilidades de L0). Si una
 /// falla o no opina, sigue con la siguiente. Si ninguna alcanza su τ, escala: la respuesta es la de mayor confianza
-/// vista (pista para quien reciba la escalada) y la capa es la última de la cascada.
+/// vista (pista para quien reciba la escalada) y la capa es `capaEscalar`, como `CapaEscalar` del servidor.
 final class Cascada {
     private let capas: [CapaConTau]
     private let reloj: () -> UInt64
@@ -26,6 +26,9 @@ final class Cascada {
         self.capas = capas
         self.reloj = reloj
     }
+
+    /// La capa de una respuesta escalada (`CapaEscalar` en `server/decide/cascada.go`).
+    static let capaEscalar = "escalar"
 
     func decidir(_ texto: String, _ pregunta: Pregunta) -> Respuesta {
         let t0 = reloj()
@@ -42,7 +45,7 @@ final class Cascada {
             }
         }
         return Respuesta(respuesta: mejor.respuesta, confianza: mejor.confianza, probs: mejor.probs,
-                         capa: capas[capas.count - 1].capa.nombre, escalar: true, ms: ms())
+                         capa: Cascada.capaEscalar, escalar: true, ms: ms())
     }
 
     /// Arma la cascada con las capas del motor (L0 y L1 si el fichero las trae) y L2 si además hay `l2`.

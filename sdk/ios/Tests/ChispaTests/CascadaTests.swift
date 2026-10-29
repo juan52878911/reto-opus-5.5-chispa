@@ -52,7 +52,7 @@ final class CascadaTests: XCTestCase {
         XCTAssertTrue(r.escalar)
         XCTAssertEqual(r.respuesta, "compra") // la de mayor confianza vista
         XCTAssertEqual(r.confianza, 0.60, accuracy: 1e-12)
-        XCTAssertEqual(r.capa, "L2") // la última de la cascada
+        XCTAssertEqual(r.capa, "escalar") // como CapaEscalar del servidor
     }
 
     func testSiNadieOpinaEscalaSinRespuesta() throws {
@@ -62,7 +62,7 @@ final class CascadaTests: XCTestCase {
         XCTAssertTrue(r.escalar)
         XCTAssertEqual(r.respuesta, "")
         XCTAssertEqual(r.confianza, 0)
-        XCTAssertEqual(r.capa, "L1")
+        XCTAssertEqual(r.capa, "escalar")
     }
 
     func testTauDeCalibParaL1YL2PeroNoL0() throws {
