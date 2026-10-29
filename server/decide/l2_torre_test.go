@@ -139,3 +139,25 @@ func TestTorreCacheIndependienteDelOrden(t *testing.T) {
 		t.Fatal("la clave ignora la descripción")
 	}
 }
+
+// Un .chispa escrito por `chispa train --torre` (zero-shot, ONNX diminuto de dim 256; lo regenera
+// `sdk/python/tests/fixture_torre.py`) monta las torres al vuelo con el tokenizador y el codificador falsos de estos tests.
+func TestArmarDesdeFicheroDeChispaTrainTorre(t *testing.T) {
+	f, err := chispa3.Abrir("../torre/testdata/torre_train.chispa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr, err := f.Torre()
+	if err != nil || tr.Dim != 256 || tr.MaxLen != 128 || tr.Prefijo != "passage: " || len(tr.ONNX) == 0 {
+		t.Fatalf("%+v %v", tr, err)
+	}
+	enc := &codificadorPorTexto{clave: "· alta ·"}
+	mt, err := ArmarDesde(f, NuevoL0(8), &Config{CacheEsquemas: 16}, false, tokFalso{}, ConSesionS(sesionFalsa{[][]float32{{3, 0}}}), ConCodificadorTorre(enc))
+	if err != nil || len(mt.Avisos) != 0 {
+		t.Fatalf("%v %v", err, mt.Avisos)
+	}
+	l2, ok := mt.L2.(*L2)
+	if !ok || l2.torres == nil {
+		t.Fatalf("L2 %T sin torres", mt.L2)
+	}
+}

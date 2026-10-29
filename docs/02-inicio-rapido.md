@@ -61,7 +61,7 @@ esa pregunta. Respuesta (la forma; los valores cambian con tu modelo):
 
 - `probs` trae un valor por opción, y `answer` es una de ellas.
 - Si L1 no llega a τ = 0,6, la respuesta trae `"escalate": true`: `answer` es la mejor pista. Decide tú qué hacer.
-- Con un `.chispa` que trae la sección `TORR` y `chispa-server -tok …` compilado con `-tags ort`, un esquema nuevo lo decide también L2 (torre al vuelo); sin `TORR`, solo L1 ([08-esquemas-nuevos.md](08-esquemas-nuevos.md)). Sin paridad ni cifra medidas del ONNX real de la torre: sin medir.
+- Con un `.chispa` que trae la sección `TORR` y `chispa-server -tok …` compilado con `-tags ort`, un esquema nuevo lo decide también L2 (torre al vuelo); sin `TORR`, solo L1 ([08-esquemas-nuevos.md](08-esquemas-nuevos.md)). `chispa train --torre torre.onnx` (con `--torre-dim`, `--torre-max-len`, `--torre-prefijo` opcionales) añade la sección desde un ONNX que cumpla el contrato. Sin paridad ni cifra medidas del ONNX real de la torre: sin medir.
 - Límite: L1 sin ejemplos es flojo. Cifras en [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md#zero-shot).
 
 ## 3. Few-shot: k ejemplos por opción
@@ -123,6 +123,7 @@ PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema f
 - `--l2`: el `.chispa` con L2 y ESQUEMAS que sale de `python -m model.l2.calibrar` y `python -m model.l2.exportar`.
   Sin `--l2`, `--ckpt` calibra y exporta por ti.
 - `--repo`: la raíz del repositorio. También vale `CHISPA_REPO`.
+- `--torre <onnx>`: añade `TORR` también aquí (y en zero-shot y few-shot); detalle en [08-esquemas-nuevos.md](08-esquemas-nuevos.md).
 - `--conjunta` solo sirve para `choice`. Escribe `CONJ`, `L0TF` y `tau_l2c` en `CALIB`.
 - Topes: `--l0-max-mb` y `--l0tf-max-mb` (48 por defecto). `--precision-objetivo` (0,95) fija el τ de L2c.
 - `--validacion` (CSV/JSONL fuera de `--ejemplos`) fija el τ de L2c sobre esas filas.

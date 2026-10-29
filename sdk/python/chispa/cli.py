@@ -41,6 +41,11 @@ def main(argv=None) -> int:
     t.add_argument("--tope-tau", type=float, default=0.9,
                    help="con --conjunta: tope del τ de L2c, solo si se fija fuera de pliegue (con < 500 filas de validación o sin ellas) (0,9)")
     t.add_argument("--l0tf-f16", action="store_true", help="con --conjunta: coeficientes de L0TF en f16 en vez de f32")
+    t.add_argument("--torre", help="ONNX de la torre de esquemas de L2 (contrato: input_ids/attention_mask int64, h float32 (B, dim), opset ≥ 17): "
+                   "añade la sección TORR, con la que el servidor y el móvil calculan la torre al vuelo. Combina con zero-shot, few-shot y --conjunta")
+    t.add_argument("--torre-dim", type=int, help="con --torre: dim de h (por defecto de los metadatos del ONNX o de la forma de h)")
+    t.add_argument("--torre-max-len", type=int, help="con --torre: tokens máximos del pasaje (metadatos del ONNX o 128)")
+    t.add_argument("--torre-prefijo", help="con --torre: prefijo del pasaje (metadatos del ONNX o «passage: »)")
     d = sub.add_parser("decide", help="una pregunta contra un servidor")
     d.add_argument("--url", required=True)
     d.add_argument("--estado", required=True)
@@ -55,6 +60,7 @@ def main(argv=None) -> int:
                      pregunta=a.pregunta, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
+                     torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo,
                      log=lambda m: print(m, file=sys.stderr))
         else:
             q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
