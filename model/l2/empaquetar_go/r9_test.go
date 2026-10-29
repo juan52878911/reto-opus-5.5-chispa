@@ -72,9 +72,12 @@ func TestR9MultiElServidorEncuentraCadaClave(t *testing.T) {
 	// y L2 opina en multi (Conf > 0) con esas claves, sin torres al vuelo
 	s := make([]float32, 256)
 	s[0] = 1
-	l := decide.NuevoL2Con(sesionFalsa{[][]float32{s}}, esq, chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"multi": {A: 1, Theta: 0.5}}}, tokFalso{})
 	ops := []decide.Opcion{{ID: "precio", Description: "Cuánto cuesta."}, {ID: "envio"}, {ID: "garantia", Description: "Cobertura."}}
-	r, err := l.Decidir(context.Background(), decide.Pregunta{Texto: "¿Qué temas toca?", Kind: decide.KindMulti, Opciones: ops})
+	preg := decide.Pregunta{Texto: "¿Qué temas toca?", Kind: decide.KindMulti, Opciones: ops}
+	// L2 solo opina con la CALIB «multi_l2» del esquema (ver multi_test.go)
+	calib := chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"multi_l2" + decide.ClaveCalibMulti(preg): {A: 1, Theta: 0.5}}}
+	l := decide.NuevoL2Con(sesionFalsa{[][]float32{s}}, esq, calib, tokFalso{})
+	r, err := l.Decidir(context.Background(), preg)
 	if err != nil || r.Conf == 0 || len(r.Probs) != 3 {
 		t.Fatalf("multi sin opinión: %+v %v", r, err)
 	}

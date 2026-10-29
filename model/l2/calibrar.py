@@ -33,7 +33,7 @@ MIN_FILAS = 20  # por debajo, o con una sola clase, no se ajusta: se conserva la
 # ---------------------------------------------------------------- similitudes crudas
 @torch.no_grad()
 def simil(modelo, enc, filas, lote=64):
-    """Por fila, s: (n_opciones,) en choice y (1,) en noul/score; mismas entradas que `ModeloL2.forward`."""
+    """Por fila, s: (n_opciones,) en choice y multi y (1,) en noul/score; mismas entradas que `ModeloL2.forward`."""
     dev = modelo.ranuras.q.device
     out = []
     for i in range(0, len(filas), lote):
@@ -42,7 +42,7 @@ def simil(modelo, enc, filas, lote=64):
         S = modelo.ranuras(H.to(dev), m.to(dev))
         textos, pos, ixs = [], {}, []
         for r in fs:
-            ts = [texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r)]
+            ts = [texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] in ("choice", "multi") else [texto_consulta(r)]
             ix = []
             for t in ts:
                 if t not in pos:
@@ -196,7 +196,15 @@ def _tipo_tarea(filas):
 
 # ---------------------------------------------------------------- calibración completa
 def calibrar(modelo, enc, filas, lote=64):
-    """Devuelve el informe completo (ver `main`). `filas`: dev con `texto`, `tipo`, `tarea`, `opciones`, `etiqueta`."""
+    """Devuelve el informe completo (ver `main`). `filas`: dev con `texto`, `tipo`, `tarea`, `opciones`, `etiqueta`.
+    Las filas multi no tienen cabeza propia: van aparte a `multi_l2` (ver `calibrar_multi_l2`)."""
+    multi = [r for r in filas if r["tipo"] == "multi"]
+    inf = _calibrar(modelo, enc, [r for r in filas if r["tipo"] != "multi"], lote)
+    inf["multi_l2"] = calibrar_multi_l2(modelo, enc, multi, lote)
+    return inf
+
+
+def _calibrar(modelo, enc, filas, lote=64):
     for r in filas:
         modelo.asegurar_cabeza(clave_cabeza(r))
     ss = simil(modelo, enc, filas, lote)
@@ -247,6 +255,50 @@ def calibrar(modelo, enc, filas, lote=64):
             "global": {"n": len(filas), "cobertura": cob, "precision_cubierta": prec, "auroc_escalate": auroc(conf, ok)}}
 
 
+# ---------------------------------------------------------------- multi: CALIB «multi_l2» por esquema
+def _sdk():
+    """`chispa.formato` y `chispa.multi` del SDK (el hash del esquema y el ajuste de a, b, θ son los de `chispa train`)."""
+    sdk = str(Path(__file__).resolve().parents[2] / "sdk" / "python")
+    if sdk not in sys.path:
+        sys.path.insert(0, sdk)
+    from chispa import formato, multi
+    return formato, multi
+
+
+def sufijo_multi(fila):
+    """«@» + HashEsquema2 (pregunta, «multi», todas las opciones con su descripción) en hex minúsculas: `decide.ClaveCalibMulti`."""
+    formato, _ = _sdk()
+    desc = fila.get("descripciones", {})
+    return "@" + formato.hash_esquema2(fila["pregunta"], "multi", [(o, desc.get(o, "")) for o in fila["opciones"]]).hex()
+
+
+def etiquetas_multi(v):
+    """Etiquetas activas de una fila multi: lista, o cadena «a|b» (vacía = ninguna), como en `chispa train`."""
+    if isinstance(v, (list, tuple)):
+        return {str(x) for x in v}
+    return {x.strip() for x in str(v or "").split("|") if x.strip()}
+
+
+def calibrar_multi_l2(modelo, enc, filas, lote=64):
+    """{"multi_l2@<hex>[#<id>]": {T, a, b, theta}} de las filas multi con `etiqueta`, un esquema (pregunta, opciones, descripciones) cada vez:
+    a, b globales del esquema sobre el MaxSim de L2 de cada opción (σ(a·s + b)) y un θ por opción con positivos y negativos suficientes.
+    Los esquemas sin variación en las etiquetas no se ajustan (L2 no opina en ellos). {} sin filas multi."""
+    _, M_ = _sdk()
+    grupos = defaultdict(list)
+    for r in filas:
+        if r["tipo"] == "multi" and "etiqueta" in r:
+            grupos[sufijo_multi(r)].append(r)
+    tipos = {}
+    for esq, rs in sorted(grupos.items()):
+        S = np.array([s.numpy() for s in simil(modelo, enc, rs, lote)], dtype=np.float64)  # (n, K): MaxSim con la torre de cada opción
+        Y = np.array([[o in etiquetas_multi(r["etiqueta"]) for o in rs[0]["opciones"]] for r in rs])
+        if Y.all() or not Y.any():
+            continue
+        ops = [type("O", (), {"id": o}) for o in rs[0]["opciones"]]
+        tipos.update(M_._ajustar_capa("multi_l2" + esq, ops, S, Y)[0])
+    return tipos
+
+
 def cabeza_params(clave, d):
     """Parámetros de `probs_de` a partir de un registro de `tipos`/`tareas`."""
     return {"T": d["T"]} if clave == "choice" else {"a": d["a"], "b": d["b"]}
@@ -265,6 +317,7 @@ def a_calib_chispa(informe):
         elif clave == "noul":
             base["b"] = float(d["b"])
         tipos[clave] = base
+    tipos.update({k: {c: float(v) for c, v in d.items()} for k, d in informe.get("multi_l2", {}).items()})
     return {"tipos": tipos, "tau_escalate": float(informe["tau_escalate"])}
 
 
