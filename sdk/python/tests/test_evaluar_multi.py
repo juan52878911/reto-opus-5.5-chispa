@@ -16,6 +16,10 @@ TABLA = {
     "tres": ({"a": 0.1, "b": 0.2, "c": 0.3}, "L2", False),    # real ninguna: exacta con []
     "cuatro": ({}, "escalar", True),                          # real b|c: escala sin probs, sin predicción
 }
+# θ propio por opción: las activas no son las de p ≥ 0,5 (answers explícito)
+ACTIVAS = {"t1": ["a"], "t2": [], "t3": ["a"]}
+TABLA.update({"t1": ({"a": 0.3, "b": 0.1, "c": 0.1}, "L1", False), "t2": ({"a": 0.1, "b": 0.1, "c": 0.1}, "L1", False),
+              "t3": ({"a": 0.25, "b": 0.1, "c": 0.1}, "L1", False)})
 CSV = "texto,etiqueta\nuno,a|b\ndos,a\ntres,\ncuatro,b|c\n"
 ESQ = {"id": "t", "pregunta": "¿Temas?", "tipo": "multi", "opciones": {"a": "x", "b": "y", "c": "z"}}
 
@@ -35,7 +39,7 @@ class Servidor:
                 outer.pedidas.append(q["kind"])
                 probs, capa, esc = TABLA[req["state"]]
                 ops = [o["id"] for o in q["options"]]
-                act = [o for o in ops if probs.get(o, 0) >= 0.5]
+                act = ACTIVAS[req["state"]] if req["state"] in ACTIVAS else [o for o in ops if probs.get(o, 0) >= 0.5]
                 r = {"id": q["id"], "kind": "multi", "answer": max(act, key=probs.get) if act else "", "answers": act, "probs": probs,
                      "layer": capa, "escalate": esc, "ms": 0.5}
                 b = json.dumps({"results": [r]}).encode()
@@ -92,6 +96,13 @@ class TestEvaluarMulti(unittest.TestCase):
         self.assertAlmostEqual(c["mejor"]["cobertura"], 0.25)        # solo la de conf. 0,9: las de 0,7 empatan y una falla
         self.assertAlmostEqual(c["mejor"]["umbral"], 0.9)
         self.assertFalse(evaluar(self.s.url, self.esq, self.f("d2.csv", "texto,etiqueta\ndos,b\n"), objetivo=0.95)["metricas"]["por_etiqueta"]["b"]["barrido"]["alcanzable"])
+
+    def test_barrido_usa_confianza_del_servidor(self):
+        # a: p 0,3 activa y bien (conf 0,3), p 0,1 inactiva y bien (0,9), p 0,25 activa y mal (0,25); con max(p, 1−p) serían 0,7/0,9/0,75
+        d = self.f("t.csv", "texto,etiqueta\nt1,a\nt2,\nt3,\n")
+        b = evaluar(self.s.url, self.esq, d, objetivo=0.95)["metricas"]["por_etiqueta"]["a"]["barrido"]
+        self.assertAlmostEqual(b["mejor"]["umbral"], 0.3)
+        self.assertAlmostEqual(b["mejor"]["cobertura"], 2 / 3)
 
     def test_informe_y_cli(self):
         r = evaluar(self.s.url, self.esq, self.f("d.csv", CSV))
