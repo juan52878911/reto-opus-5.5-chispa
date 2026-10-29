@@ -157,12 +157,20 @@ class TestCabeza(unittest.TestCase):
             (Pregunta("a", "q", "choice", [Opcion("x")]), "al menos 2"),
             (Pregunta("a", "q", "choice", [Opcion("x"), Opcion("x")]), "repetidos"),
             (Pregunta("a", "q", "noul", [Opcion("si"), Opcion("no")]), "false"),
-            (Pregunta("a", "q", "score", [Opcion("1"), Opcion("3")]), "en orden"),
+            (Pregunta("a", "q", "choice", [Opcion("x"), Opcion("")]), r"options\[1\]\.id"),
+            (Pregunta("a", "q" * 5000, "noul"), "question"),
+            (Pregunta("a" * 300, "q", "noul"), "id"),
+            (Pregunta("a", "q", "choice", [Opcion(str(i)) for i in range(300)]), "máximo"),
             (Pregunta("", "q", "noul"), "id"),
         ]
         for p, msg in casos:
             with self.subTest(msg), self.assertRaisesRegex(ErrPregunta, msg):
                 self.cab.decidir_lote(self.v, [qs()[1], p])
+
+    def test_score_con_ids_libres(self):
+        # /v1/decide acepta cualquier id único en score: audio no debe exigir "1"…"K"
+        for ids in (["bajo", "medio", "alto"], ["1", "3"]):
+            Pregunta("a", "q", "score", [Opcion(i) for i in ids]).validar()
 
     def test_ids_repetidos_en_lote(self):
         with self.assertRaises(ErrPregunta):

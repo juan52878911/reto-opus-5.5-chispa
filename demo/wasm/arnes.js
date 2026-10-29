@@ -73,6 +73,8 @@
 
   async function correrArnes(api, opc) {
     const o = Object.assign({ n: 2000, calentamiento: 200, lote: 50, semilla: 12345, pregunta: PREGUNTA_FERRETERIA, progreso: null }, opc);
+    if (!Number.isInteger(o.n) || o.n < 1) throw new Error("n debe ser un entero ≥ 1");
+    if (!Number.isInteger(o.lote) || o.lote < 1) throw new Error("lote debe ser un entero ≥ 1");
     const preguntaJSON = typeof o.pregunta === "string" ? o.pregunta : JSON.stringify(o.pregunta);
     const ahora = api.ahora || (() => performance.now());
     const textos = generarTextos(o.n, o.semilla);

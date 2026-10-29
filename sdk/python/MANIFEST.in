@@ -1,0 +1,2 @@
+recursive-include chispa/entrenador_go *.go go.mod go.sum
+global-exclude *_test.go

@@ -30,4 +30,4 @@ chispa = "chispa.cli:main"
 packages = ["chispa"]
 
 [tool.setuptools.package-data]
-chispa = ["entrenador_go/*.go", "entrenador_go/go.mod", "entrenador_go/go.sum", "entrenador_go/vendor/*/*"]
+chispa = ["entrenador_go/main.go", "entrenador_go/entrenar.go", "entrenador_go/evaluar.go", "entrenador_go/calib.go", "entrenador_go/plan.go", "entrenador_go/util.go", "entrenador_go/go.mod", "entrenador_go/go.sum", "entrenador_go/vendor/*/*"]
