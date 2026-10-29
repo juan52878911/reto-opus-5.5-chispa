@@ -122,9 +122,9 @@ test("503 sin recuperación: tras agotar los reintentos lanza el último error",
   assert.equal(vistas.length, 2);
 });
 
-test("500 persistente: se reintenta (como Python) y al agotar lanza el último error", async () => {
-  const { url, vistas } = await falso((req, c, res) => json(res, 500, { error: { code: "x", message: "y" } }));
-  await assert.rejects(cliente(url).decidir("x", [ferreteria]), { status: 500 });
+test("503 persistente: se reintenta y al agotar lanza el último error", async () => {
+  const { url, vistas } = await falso((req, c, res) => json(res, 503, { error: { code: "x", message: "y" } }));
+  await assert.rejects(cliente(url).decidir("x", [ferreteria]), { status: 503 });
   assert.equal(vistas.length, 4);
 });
 
@@ -343,28 +343,46 @@ test("R5-3: 'timeout' es un CodigoServidor en index.d.ts", async () => {
   assert.match(bloque, /"timeout"/);
 });
 
-test("R5-6: 429, 500 y 502 se reintentan como en Python; 400 no", async () => {
-  for (const st of [429, 500, 502]) {
-    const { url, vistas } = await falso((req, c, res, n) => (n === 1 ? json(res, st, { error: { code: "x", message: "y" } }) : eco({ a: 1 })(req, c, res)));
-    const { c } = conEsperas(url);
-    const [r] = await c.decidir("x", [ferreteria]);
-    assert.equal(r.answer, "a");
-    assert.equal(vistas.length, 2, `status ${st}`);
+test("R5-6: 401, 429, 500 y 502 no se reintentan (docs/05-sdks.md); el 503 sí", async () => {
+  for (const st of [401, 429, 500, 502]) {
+    const { url, vistas } = await falso((req, c, res) => json(res, st, { error: { code: "x", message: "y" } }));
+    const { c, esperas } = conEsperas(url);
+    await assert.rejects(c.decidir("x", [ferreteria]), { status: st });
+    assert.equal(vistas.length, 1, `status ${st}`);
+    assert.deepEqual(esperas, []);
   }
-  const { url, vistas } = await falso((req, c, res) => json(res, 400, { error: { code: "invalid_json", message: "y" } }));
-  await assert.rejects(conEsperas(url).c.decidir("x", [ferreteria]), { status: 400 });
+  const { url, vistas } = await falso((req, c, res, n) => (n === 1 ? json(res, 503, { error: { code: "x", message: "y" } }) : eco({ a: 1 })(req, c, res)));
+  await conEsperas(url).c.decidir("x", [ferreteria]);
+  assert.equal(vistas.length, 2);
+});
+
+test("apiKey: Authorization Bearer en /v1/decide (salud no la envía); sin apiKey no hay cabecera", async () => {
+  const auths = [];
+  const { url } = await falso((req, c, res) => { auths.push([req.url, req.headers.authorization]); return eco({ a: 1 })(req, c, res); });
+  const con = new ChispaCliente({ url, apiKey: "s3creto" });
+  await con.decidir("x", [ferreteria]);
+  assert.equal(await con.salud(), true);
+  await new ChispaCliente({ url }).decidir("x", [ferreteria]);
+  assert.deepEqual(auths, [["/v1/decide", "Bearer s3creto"], ["/v1/decide", undefined]]);
+});
+
+test("401: ErrorChispa unauthorized, un solo intento", async () => {
+  const { url, vistas } = await falso((req, c, res) => json(res, 401, { error: { code: "unauthorized", message: "clave de API ausente o incorrecta" } }));
+  await assert.rejects(conEsperas(url).c.decidir("x", [ferreteria]), { status: 401, codigo: "unauthorized" });
   assert.equal(vistas.length, 1);
 });
 
-test("R5-6: Retry-After en un 429 manda sobre el backoff", async () => {
-  const { url } = await falso((req, c, res, n) => {
-    if (n > 1) return eco({ a: 1 })(req, c, res);
-    res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "2" });
-    res.end(JSON.stringify({ error: { code: "rate", message: "x" } }));
-  });
-  const { c, esperas } = conEsperas(url);
-  await c.decidir("x", [ferreteria]);
-  assert.deepEqual(esperas, [2000]);
+test("429 rate_limited: no se reintenta y retryAfterMs trae la espera (tope 30 s)", async () => {
+  for (const [ra, ms] of [["7", 7000], ["999", 30000], [undefined, undefined]]) {
+    const { url, vistas } = await falso((req, c, res) => {
+      res.writeHead(429, { "Content-Type": "application/json", ...(ra ? { "Retry-After": ra } : {}) });
+      res.end(JSON.stringify({ error: { code: "rate_limited", message: "x" } }));
+    });
+    const { c, esperas } = conEsperas(url);
+    await assert.rejects(c.decidir("x", [ferreteria]), { status: 429, codigo: "rate_limited", retryAfterMs: ms });
+    assert.equal(vistas.length, 1);
+    assert.deepEqual(esperas, []);
+  }
 });
 
 test("R5-6: 200 con cuerpo no JSON se reintenta como en Python", async () => {

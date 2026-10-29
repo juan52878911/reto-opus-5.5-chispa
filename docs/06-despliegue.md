@@ -31,6 +31,7 @@ De [`main.go`](../server/cmd/chispa-server/main.go):
 | `-modelo` | un `.chispa` v3 (o v2) del que armar las capas |
 | `-config` | JSON con capas, τ, modelos y cachés ([03-api.md](03-api.md#configuración--config)) |
 | `-tok` | `.chispa-tok` de e5; sin él, L2 queda en stub aunque se compile con `ort`, y con `TORR` no hay torres al vuelo (el servidor lo avisa en el log) |
+| `-hash-clave` | lee una clave de la entrada estándar, imprime su SHA-256 (el `hash_sha256` de `api_keys`) y sale sin arrancar el servidor; ver [Claves de API](#claves-de-api) |
 | `-timeout` | tope de tiempo por petición (30 s por defecto); al pasarlo responde 503 con `{"error":{"code":"timeout"}}`; 0 = sin tope |
 
 ## Recarga en caliente del `.chispa`
@@ -46,7 +47,24 @@ terminan sobre el modelo viejo (el fichero viejo se cierra cuando acaba la últi
 queda el viejo, se escribe el error en el log y sube `chispa_recargas_total{resultado="error"}` (`ok` si prospera). Las cachés
 (esquemas, torres al vuelo y nonces) pertenecen al modelo: el nuevo empieza con ellas vacías, así que un nonce de antes no
 devuelve la respuesta del modelo anterior y la primera tanda de esquemas nuevos recalcula sus torres. Los contadores de
-`/metrics` no se reinician. `admin_token` y `-addr` solo se leen al arrancar.
+`/metrics` no se reinician. `admin_token` y `-addr` solo se leen al arrancar; `api_keys` sí se relee.
+
+## Claves de API
+Por defecto `/v1/decide` está abierto. Para un piloto en casa del cliente, ponga `api_keys` en `-config` ([03-api.md](03-api.md#configuración--config)):
+cada cliente recibe una clave y un límite de tasa propio (`rps` sostenidas, `rafaga` de golpe), y el servidor responde 401 `unauthorized` o 429 `rate_limited` con `Retry-After`.
+
+1. Genere una clave larga y aleatoria y guárdela donde guarde secretos; el servidor solo necesita su hash:
+   ```
+   CLAVE=$(head -c 32 /dev/urandom | base64 | tr -d '=+/\n')
+   printf '%s' "$CLAVE" | chispa-server -hash-clave      # imprime los 64 hex
+   ```
+   `-hash-clave` lee la clave de la entrada estándar (así no queda en el historial del shell ni en `ps`) y sale. Un salto de línea final se ignora, así que `echo` también sirve.
+2. Pegue el hash en `api_keys` (`{"id":"piloto-banco","hash_sha256":"…","rps":20,"rafaga":40}`) y recargue (SIGHUP) o reinicie. Entregue la clave en claro al cliente, que la manda como `Authorization: Bearer <clave>` (SDK: `api_key` en Python, `apiKey` en JS).
+3. Rotar: añada la clave nueva con otro `id`, recargue, mueva al cliente y quite la vieja.
+
+La clave en claro no se guarda ni se registra en ningún sitio; ninguna métrica la lleva (solo el `id`). Sin TLS la clave viaja en claro por la red: ponga el servidor detrás de un
+proxy TLS o en la red local. **Sin clave (por diseño):** `/healthz` y `/metrics`. **Con `admin_token`:** `/v1/admin/recargar`.
+Los cubos viven en memoria del proceso: con varias réplicas, cada una aplica su propio límite.
 
 ## El tokenizador `-tok`
 L2 recibe ids de e5. El tokenizador está en Go puro ([`runtime/tok`](../runtime/tok/README.md)) y lee un `.chispa-tok`.
@@ -137,6 +155,8 @@ Contadores de lo nuevo (torres al vuelo, esquemas nuevos, nonces y plazos):
 
 | Métrica | Tipo | Qué cuenta |
 |---|---|---|
+| `chispa_auth_rechazos_total` | counter | 401 de `/v1/decide` por clave ausente o mala (solo con `api_keys`) |
+| `chispa_clave_peticiones_total{clave,resultado}` | counter | Peticiones por id de clave y resultado (`ok`, `limitada`) |
 | `chispa_torres_calculadas_total` | counter | Torres de opción calculadas al vuelo (esquema que el `.chispa` no trae; hace falta la sección TORR) |
 | `chispa_torres_cache_aciertos_total` | counter | Torres servidas de la caché de torres |
 | `chispa_torres_esperas_total` | counter | Torres que esperaron a otra petición que ya las calculaba (singleflight) |

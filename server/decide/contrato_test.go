@@ -341,7 +341,7 @@ func TestContratoEndpoints(t *testing.T) {
 	}
 	want := []string{ErrJSONInvalido, ErrCuerpoGrande, ErrMetodo, ErrNoEncontrado, ErrSinPreguntas, ErrDemasiadasPreg, ErrEstadoLargo,
 		ErrIDFalta, ErrPreguntaFalta, ErrKindFalta, ErrKindInvalido, ErrPocasOpciones, ErrDemasiadasOpc, ErrOpcionesInvalidas,
-		ErrOpcionIDFalta, ErrPreguntaIDDup, ErrOpcionIDDup, ErrCampoLargo, ErrNoAutorizado, ErrRecargaFallida,
+		ErrOpcionIDFalta, ErrPreguntaIDDup, ErrOpcionIDDup, ErrCampoLargo, ErrNoAutorizado, ErrLimitada, ErrRecargaFallida,
 		"timeout"} // http.go (ConTimeoutMet) lo escribe literal, sin constante
 	sort.Strings(enum)
 	sort.Strings(want)

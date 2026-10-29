@@ -71,7 +71,8 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
   "cache_torres": 16384, "max_torres_nuevas": 64,
   "limites": {"max_cuerpo": 1048576, "max_preguntas": 256, "max_opciones": 256, "max_estado": 262144, "max_texto": 4096, "max_id": 256},
   "l1_shrinkage_lambda": 5.0,
-  "tau_l2_esquema_nuevo": 0.7
+  "tau_l2_esquema_nuevo": 0.7,
+  "api_keys": [{"id": "piloto-banco", "hash_sha256": "<64 hex de chispa-server -hash-clave>", "rps": 20, "rafaga": 40}]
 }
 ```
 (Los valores son los por defecto salvo `l1_shrinkage_lambda` y `tau_l2_esquema_nuevo`, que se ponen solo si se usan; el 5.0 de arriba es un ejemplo, no una recomendación.)
@@ -83,6 +84,7 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 | `cache_esquemas`, `cache_respuestas` | LRU de esquemas y de nonces (≥ 1) | Fragmentados en 16: tamaño aproximado |
 | `cache_torres`, `max_torres_nuevas` | Torres al vuelo de L2 (0 = por defecto 16 384 / 64); por encima del tope por petición, L2 no opina | Solo con `-tags ort`, `-tok` y sección `TORR` |
 | `l1_shrinkage_lambda`, `l2_shrinkage_lambda` | λ ≥ 0 del encogimiento del soporte (sección `SOPL1`); ausente = ∞ = sin mezcla | Solo few-shot con `SOPL1`. Un λ inválido es error de arranque |
+| `api_keys` | Claves de API de `/v1/decide` con límite de tasa por clave (`rps`, `rafaga`). Ausente = abierto. Solo el hash SHA-256 en el fichero: `printf '%s' "$CLAVE" \| chispa-server -hash-clave` ([`docs/06`](../docs/06-despliegue.md#claves-de-api)) | **Recomendada en el piloto.** `/healthz` y `/metrics` nunca piden clave: no los exponga fuera de la red de operación. Se relee al recargar (rotación sin reinicio); `id` único; una clave en claro o un hash mal formado falla la config |
 | `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, se toma de `CALIB`, haya o no `-config` (calibrado contra el τ base de `CALIB`, no el de la config) |
 
 El `-timeout` es un flag, no una clave de la config. Al vencer, responde 503 `timeout` con `Retry-After: 5` (`chispa_timeouts_total` lo cuenta).
@@ -107,6 +109,7 @@ Los buckets de latencia son fijos: 10 µs, 50 µs, 0,1 ms, 0,5 ms, 1 ms, 5 ms, 1
 | `chispa_torres_cache_aciertos_total` vs `chispa_torres_calculadas_total` | Pocos aciertos → caché de torres pequeña (`cache_torres`) | Aciertos < calculadas de forma sostenida |
 | `chispa_torre_latencia_segundos` | Duración de cada cálculo de torre | p99 en subida junto con `chispa_timeouts_total` |
 | `chispa_cache_esquemas_total{resultado}` | Fallos de caché de esquemas | Muchos fallos → `cache_esquemas` pequeña o esquemas que cambian por petición |
+| `chispa_clave_peticiones_total{clave,resultado}`, `chispa_auth_rechazos_total` | Con `api_keys`: tráfico por cliente, 429 (`limitada`) y 401 | `limitada` sostenido (cliente mal dimensionado) o 401 en subida (clave caducada o sondeo) |
 | `chispa_cache_nonce_aciertos_total` | Reintentos idempotentes servidos | Informativo |
 
 `/healthz` devuelve `{"status":"ok"}`: solo dice que el proceso responde, **no** qué capas hay cargadas. No lo use como único criterio de salud; combínelo con la prueba de humo (§7)
@@ -126,7 +129,7 @@ El historial de uso sale de `/metrics`. **Pendiente de producto:** log de acceso
 Docker: `docker logs chispa`; systemd: `journalctl -u chispa`. Guarde al menos el log de arranque: es la única pista de que L2 quedó en stub.
 
 ## 6. Actualizar el modelo, la config y el binario
-**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `admin_token` y cambiar el binario. Apagado ordenado sigue **pendiente de producto**.
+**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `admin_token` y cambiar el binario (`api_keys` no: se relee). Apagado ordenado sigue **pendiente de producto**.
 
 1. Entrene el nuevo `.chispa` con `chispa train` (ver [`guia-integracion.md`](guia-integracion.md)) y déjelo con otro nombre: `modelo-AAAAMMDD.chispa`. Nunca sobrescriba en sitio el fichero abierto: está mapeado en memoria.
 2. Pruebe el nuevo en otro puerto: `./chispa-server -addr 127.0.0.1:18090 -modelo modelo-AAAAMMDD.chispa …` y pase la prueba de humo (§7) y `chispa evaluar` contra esa URL.
@@ -197,6 +200,8 @@ Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos vece
 |---|---|---|
 | 400 `invalid_json` / `invalid_kind` / `missing_*` / `duplicate_*` | Cuerpo mal formado o campo desconocido | Corregir al cliente; la validación es todo o nada |
 | 400 `too_many_questions` / `too_many_options` / `state_too_long` / `field_too_long` | Pasa un tope de `limites` | Partir la petición, o subir el tope en `-config` y recargar (§6) |
+| 401 `unauthorized` | Con `api_keys`: sin `Authorization: Bearer`, o clave mala (`chispa_auth_rechazos_total`) | Revisar la clave del cliente y que su hash esté en `api_keys` |
+| 429 `rate_limited` | Una clave pasó su `rps`/`rafaga` (`chispa_clave_peticiones_total{clave,resultado="limitada"}`); lleva `Retry-After` | Que el cliente espere `Retry-After`, o subir `rps`/`rafaga` de esa clave y recargar |
 | 404 `not_found` | Ruta mal escrita (solo existen `/v1/decide`, `/healthz`, `/metrics`) | Corregir la URL |
 | 405 `method_not_allowed` | Método ≠ POST en `/v1/decide` | Usar POST |
 | 413 `request_too_large` | Cuerpo > `max_cuerpo` (1 MiB) | Partir o subir `max_cuerpo` |

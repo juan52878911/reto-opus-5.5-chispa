@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,5 +38,19 @@ func TestAdminFueraDelTimeout(t *testing.T) {
 	}
 	if srv.Generacion() != 2 {
 		t.Fatalf("generación %d", srv.Generacion())
+	}
+}
+
+func TestImprimirHashClave(t *testing.T) {
+	var out strings.Builder
+	if err := imprimirHashClave(strings.NewReader("abc\n"), &out); err != nil {
+		t.Fatal(err)
+	}
+	// sha256("abc"), vector estándar.
+	if want := "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\n"; out.String() != want {
+		t.Fatalf("%q", out.String())
+	}
+	if err := imprimirHashClave(strings.NewReader("\n"), &out); err == nil {
+		t.Fatal("clave vacía debía fallar")
 	}
 }

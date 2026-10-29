@@ -69,6 +69,16 @@ En `score`, `answer` depende de la capa que respondió:
 
 En los tres casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
 
+### Clave de API (opcional)
+Si la config trae `api_keys` (ver [Configuración](#configuración--config)), `POST /v1/decide` exige `Authorization: Bearer <clave>` y cada clave tiene
+su propio límite de tasa. Sin `api_keys` la ruta está abierta, como siempre. `/healthz` y `/metrics` **nunca** piden clave (así los
+ven la sonda de vida y Prometheus; el segundo solo lleva ids de clave, no claves ni hashes) y `/v1/admin/recargar` sigue con `admin_token`,
+no con una clave de API (y viceversa).
+
+La clave nunca está en claro en el servidor: la config guarda su SHA-256 y el servidor compara hashes en tiempo constante. Un 401 no dice si
+faltaba la cabecera o si la clave era mala. El límite es un token bucket por clave: `rafaga` peticiones de golpe y `rps` por segundo sostenidas; cada
+petición HTTP gasta un token, tenga las preguntas que tenga. Al agotarse responde 429 con `Retry-After` (segundos enteros, mínimo 1).
+
 ### Errores
 Todo error lleva el mismo cuerpo tipado. `code` es estable y pensado para programas; `message` es para humanos (lleva la ruta del campo) y puede cambiar. `question_id` solo aparece cuando el error es de una pregunta con id.
 
@@ -92,9 +102,11 @@ Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_inv
 | 400 | `invalid_options` | `noul` con opciones distintas de `false` y `true` |
 | 400 | `missing_option_id` / `duplicate_option_id` | opción sin `id` / `id` repetido |
 | 400 | `field_too_long` | `question`, `description`, un `id` o el `nonce` por encima de `max_texto` / `max_id` |
+| 401 | `unauthorized` | solo con `api_keys`: falta `Authorization: Bearer <clave>` o la clave es incorrecta (cabecera `WWW-Authenticate: Bearer`) |
 | 404 | `not_found` | ruta que no existe |
 | 405 | `method_not_allowed` | método distinto de POST en `/v1/decide` (cabecera `Allow: POST`) |
 | 413 | `request_too_large` | cuerpo > `max_cuerpo` |
+| 429 | `rate_limited` | solo con `api_keys`: la clave agotó su `rafaga` y su `rps`. Lleva `Retry-After` (segundos). Los SDK no lo reintentan solos: lanzan el error con la espera pedida |
 | 503 | `timeout` | la petición superó `-timeout` (30 s por defecto). Lleva `Retry-After: 5` y `Content-Type: application/json`. Es sobrecarga: el cliente debe esperar ese plazo antes de reintentar. Los SDK no reintentan este 503 (ni el 504); sí reintentan otro 503 (proxy), esperando al menos `Retry-After` (tope 30 s). El `timeout` del cliente debe ser mayor que `-timeout`: con 35 s por defecto en Python, este 503 llega antes de que el cliente corte |
 
 La validación es todo o nada: una pregunta mala rechaza la petición entera. Un fallo interno de una capa solo salta esa capa
@@ -161,6 +173,8 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_capa_errores_total{capa}` | fallos internos de capa |
 | `chispa_cache_esquemas_total{resultado}` | aciertos y fallos de la caché de esquemas |
 | `chispa_cache_nonce_aciertos_total` | respuestas servidas por nonce |
+| `chispa_auth_rechazos_total` | 401 de `/v1/decide` (clave ausente o mala); con `api_keys` |
+| `chispa_clave_peticiones_total{clave,resultado}` | peticiones por **id** de clave (nunca la clave): `ok` o `limitada` (429) |
 
 Tras una petición válida y una rota, el test de métricas
 ([`decide_test.go`](../server/decide/decide_test.go)) espera líneas como `chispa_peticiones_total{codigo="200"} 1`,
@@ -172,6 +186,16 @@ Tras una petición válida y una rota, el test de métricas
  "modelos": ["testdata/intencion.chispa"], "cache_esquemas": 1024, "cache_respuestas": 4096}
 ```
 El servidor valida la config al arrancar: una clave desconocida o mal escrita (también dentro de `limites`) es un error que nombra la clave, no se ignora.
+
+`api_keys` (opcional): lista de claves de API de `/v1/decide`. Cada una es `{"id","hash_sha256","rps","rafaga"}`:
+
+```json
+"api_keys": [{"id": "piloto-banco", "hash_sha256": "<64 hex>", "rps": 20, "rafaga": 40}]
+```
+`id` (único) es la etiqueta de las métricas; `hash_sha256` es el SHA-256 de la clave en hex (se genera con `chispa-server -hash-clave`, ver
+[06-despliegue.md](06-despliegue.md#claves-de-api)); `rps` > 0 y `rafaga` ≥ 0 (0 = `ceil(rps)`). Una clave en claro o un campo desconocido
+dentro de la lista falla el arranque como cualquier clave desconocida. Vacío o ausente = sin autenticación. Se releen en cada recarga (SIGHUP o `/v1/admin/recargar`),
+así que se rotan sin reiniciar; los cubos empiezan llenos tras una recarga.
 
 Con `-modelo` y sin `-config`, el τ de L1 y L2 sale de `CALIB`. Con `-config`, manda la config.
 

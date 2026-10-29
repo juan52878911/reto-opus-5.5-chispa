@@ -48,6 +48,7 @@ const (
 	ErrCampoLargo        = "field_too_long"
 	ErrNoAutorizado      = "unauthorized"
 	ErrRecargaFallida    = "reload_failed"
+	ErrLimitada          = "rate_limited"
 )
 
 // Limites son los topes de entrada de /v1/decide. Un valor 0 en el JSON de configuración
@@ -114,7 +115,7 @@ func normalizaLimites(l Limites) Limites {
 
 func (s *Servidor) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/decide", s.decide)
+	mux.HandleFunc("/v1/decide", s.conAuth(s.decide))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		io.WriteString(w, `{"status":"ok"}`+"\n")

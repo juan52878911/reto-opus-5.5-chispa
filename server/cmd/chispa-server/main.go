@@ -2,12 +2,16 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,7 +27,14 @@ func main() {
 	rutaTok := flag.String("tok", "", ".chispa-tok de e5 (runtime/tok/exportar.py); sin él, L2 queda en stub")
 	timeout := flag.Duration("timeout", 30*time.Second, "tope de tiempo por petición (cancela su ctx y responde 503 con Retry-After y código timeout); 0 = sin tope")
 	ortLib := flag.String("ort-lib", "", "libonnxruntime.so para L2 y la torre (precede a CHISPA_ORT_LIB y a -ldflags -X …decide.RutaORT; vacío = la del sistema)")
+	hashClave := flag.Bool("hash-clave", false, "lee una clave de la entrada estándar, imprime su SHA-256 (hash_sha256 de api_keys) y sale")
 	flag.Parse()
+	if *hashClave {
+		if err := imprimirHashClave(os.Stdin, os.Stdout); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	rutaORT, origenORT = fijarRutaORT(*ortLib)
 	log.Printf("ORT: ruta %q (%s)", rutaORT, origenORT)
 	armar := func(met *decide.Metricas) decide.Armador {
@@ -122,7 +133,7 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 		}
 		return nil, err
 	}
-	return &decide.Armado{Cascada: casc, CacheRespuestas: cfg.CacheRespuestas, Limites: cfg.Limites, AdminToken: cfg.AdminToken, L0: l0, Cerrar: cerrar}, nil
+	return &decide.Armado{Cascada: casc, CacheRespuestas: cfg.CacheRespuestas, Limites: cfg.Limites, APIKeys: cfg.APIKeys, AdminToken: cfg.AdminToken, L0: l0, Cerrar: cerrar}, nil
 }
 
 // montarHandler envuelve el mux del servidor en el -timeout (503 contado en las métricas), salvo /v1/admin/recargar: una recarga
@@ -140,4 +151,19 @@ func montarHandler(srv *decide.Servidor, adminToken string, timeout time.Duratio
 	mux.Handle("/v1/admin/recargar", handler)
 	mux.Handle("/", con)
 	return mux
+}
+
+// imprimirHashClave lee la clave (una línea, sin el salto) de r y escribe en w su SHA-256 en hex. Por la entrada estándar
+// para que la clave no quede en el historial del shell ni en la lista de procesos.
+func imprimirHashClave(r io.Reader, w io.Writer) error {
+	linea, err := bufio.NewReader(r).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return err
+	}
+	clave := strings.TrimRight(linea, "\r\n")
+	if clave == "" {
+		return fmt.Errorf("-hash-clave: la entrada estándar no trae ninguna clave")
+	}
+	_, err = fmt.Fprintln(w, decide.HashClave(clave))
+	return err
 }
