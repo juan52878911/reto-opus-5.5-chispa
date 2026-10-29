@@ -8,8 +8,8 @@ import json
 import struct
 from typing import Dict
 
-META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR = 1, 2, 3, 4, 5, 6, 7, 8, 9
-TIPOS = (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR)
+META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1 = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+TIPOS = (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1)
 MAGIA = b"\x89CHI\r\n\x1a\n"
 
 
@@ -199,3 +199,76 @@ def leer_torr(b: bytes) -> dict:
     if ver != TORR_VERSION or not 0 < dim <= 4096 or not 0 < ml <= 8192 or n > 256 or len(b) <= 16 + n:
         raise ValueError("TORR inválida")
     return {"dim": dim, "max_len": ml, "prefijo": b[16:16 + n].decode("utf-8"), "onnx": b[16 + n:]}
+
+
+# --- SOPL1 (ver format/chispa3/sopl1.go para la disposición) ---
+SOPL1_VERSION = 1
+
+
+def clave_conj(pregunta: str, ids) -> bytes:
+    """`chispa3.ClaveConj`: HashEsquema de la pregunta y los ids ordenados (la clave de CONJ y de SOPL1)."""
+    return hash_esquema(pregunta, sorted(ids))
+
+
+def cuantizar_media(M):
+    """M (C,d) float → (escala (C,) f32, media (C,d) int8) con escala = máx|x|/127 en float32 y redondeo a par,
+    como `chispa3.CuantizarMedia`. Una fila de ceros lleva escala 0."""
+    import numpy as np
+    M = np.asarray(M, dtype=np.float32)
+    mx = np.abs(M).max(axis=-1)
+    esc = (mx / np.float32(127)).astype(np.float32)
+    seguro = np.where(esc > 0, esc, np.float32(1))
+    q = np.clip(np.rint(M / seguro[:, None]), -127, 127).astype(np.int8)
+    q[esc == 0] = 0
+    return esc, q
+
+
+def sopl1(dim: int, entradas) -> bytes:
+    """Sección SOPL1: soporte few-shot por pregunta (k y media int8 de los embeddings de L1 por opción). Cada entrada:
+    dict con `hash` (32 bytes, `clave_conj`), `ids` (estrictamente crecientes), `k` (C,), `escala` (C,) y `media` (C,dim) int8.
+    Se ordenan por hash."""
+    import numpy as np
+    if not 0 < dim <= 4096:
+        raise ValueError("SOPL1: dim fuera de rango")
+    out = [struct.pack("<III", SOPL1_VERSION, dim, len(entradas))]
+    for e in sorted(entradas, key=lambda e: e["hash"]):
+        media = np.ascontiguousarray(e["media"], dtype=np.int8)
+        c = len(e["ids"])
+        if len(e["hash"]) != 32 or c < 1 or media.shape != (c, dim) or len(e["k"]) != c or len(e["escala"]) != c:
+            raise ValueError("entrada de SOPL1 mal formada")
+        if any(a >= b for a, b in zip(e["ids"], e["ids"][1:])):
+            raise ValueError("SOPL1: ids no crecientes")
+        out.append(e["hash"] + struct.pack("<I", c))
+        for n in e["ids"]:
+            b = n.encode("utf-8")
+            out.append(struct.pack("<H", len(b)) + b)
+        out.append(np.asarray(e["k"], dtype="<u4").tobytes())
+        out.append(np.asarray(e["escala"], dtype="<f4").tobytes())
+        out.append(media.tobytes())
+    return b"".join(out)
+
+
+def leer_sopl1(b: bytes) -> dict:
+    """Inversa de `sopl1` (`chispa3.DecodificarSopl1`): {dim, entradas: [{hash, ids, k, escala, media}]}."""
+    import numpy as np
+    if len(b) < 12:
+        raise ValueError("SOPL1 truncada")
+    ver, dim, n = struct.unpack("<III", b[:12])
+    if ver != SOPL1_VERSION or not 0 < dim <= 4096:
+        raise ValueError("SOPL1 inválida")
+    pos, es = 12, []
+    for _ in range(n):
+        h, c = b[pos:pos + 32], struct.unpack("<I", b[pos + 32:pos + 36])[0]
+        pos += 36
+        ids = []
+        for _ in range(c):
+            ln = struct.unpack("<H", b[pos:pos + 2])[0]
+            ids.append(b[pos + 2:pos + 2 + ln].decode("utf-8"))
+            pos += 2 + ln
+        k = np.frombuffer(b, "<u4", c, pos); pos += 4 * c
+        esc = np.frombuffer(b, "<f4", c, pos); pos += 4 * c
+        media = np.frombuffer(b, np.int8, c * dim, pos).reshape(c, dim); pos += c * dim
+        es.append({"hash": h, "ids": ids, "k": k, "escala": esc, "media": media})
+    if pos != len(b):
+        raise ValueError("SOPL1 con bytes sobrantes")
+    return {"dim": dim, "entradas": es}

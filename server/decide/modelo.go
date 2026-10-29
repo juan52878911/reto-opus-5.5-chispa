@@ -80,6 +80,13 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			}
 		}
 	}
+	var sopl *chispa3.Sopl1
+	if f.Tiene(chispa3.SOPL1) {
+		var err error
+		if sopl, err = f.Sopl1(); err != nil {
+			return mt, fmt.Errorf("sección SOPL1: %w", err)
+		}
+	}
 	if f.Tiene(chispa3.L1) {
 		b, err := f.L1()
 		if err != nil {
@@ -89,7 +96,10 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			return mt, fmt.Errorf("sección L1: %w", err)
 		}
-		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas)
+		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, cfg.L1ShrinkageLambda)
+		if sopl != nil && sopl.Dim() != m.Dim() {
+			mt.Avisos = append(mt.Avisos, fmt.Sprintf("SOPL1 de dimensión %d y L1 de %d: L1 no mezcla el soporte", sopl.Dim(), m.Dim()))
+		}
 	}
 	if f.Tiene(chispa3.L2) && f.Tiene(chispa3.ESQUEMAS) {
 		onnx, err := f.L2()
@@ -117,7 +127,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			}
 			mt.L2 = Decisor(base)
 			if conj != nil {
-				mt.L2 = NuevoL2cCon(base, base, conj)
+				mt.L2 = NuevoL2cCon(base, base, conj).ConSoporte(sopl, cfg.L2ShrinkageLambda)
 			}
 			aplicarTauL2c(cfg, calib, conj != nil, tauDeCalib)
 		}

@@ -76,6 +76,10 @@ type Chispa struct {
 	dynUso  map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
 	dynTic  uint64
 
+	sopl     *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
+	lambdaL1 *float64       // λ del encogimiento del soporte en L1; nil = ∞ (sin mezcla)
+	lambdaL2 *float64       // ídem en L2c
+
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
 }
@@ -88,11 +92,19 @@ type modeloL0 struct {
 
 // Abrir abre un .chispa v3 (comprobando CRC y sha256 de cada sección que use) y monta las capas que tenga.
 func Abrir(ruta string) (*Chispa, error) {
+	return AbrirConSoporte(ruta, math.Inf(1), math.Inf(1))
+}
+
+// AbrirConSoporte es Abrir con el encogimiento del soporte few-shot (sección SOPL1): con k ejemplos en una opción, su
+// prototipo es normaliza((1−w)·descripción + w·media de los ejemplos), w = k/(k+λ), con λ propio en L1 (lambdaL1: Decidir)
+// y en L2c (lambdaL2: CabezaConjunta). +Infinito, un valor negativo o NaN = sin mezcla, el comportamiento de Abrir;
+// 0 = solo los ejemplos. Sin la sección, o con una pregunta que no está en ella, no cambia nada.
+func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
 	f, err := chispa3.Abrir(ruta)
 	if err != nil {
 		return nil, err
 	}
-	c := &Chispa{f: f, cache: map[string][][]float32{}}
+	c := &Chispa{f: f, cache: map[string][][]float32{}, lambdaL1: lambdaDe(lambdaL1), lambdaL2: lambdaDe(lambdaL2)}
 	if err := c.montar(); err != nil {
 		f.Close()
 		return nil, err
@@ -100,8 +112,22 @@ func Abrir(ruta string) (*Chispa, error) {
 	return c, nil
 }
 
+// lambdaDe pasa el λ del puente (float64 plano) al interno: nil (∞) si es infinito, negativo o NaN.
+func lambdaDe(x float64) *float64 {
+	if math.IsInf(x, 0) || math.IsNaN(x) || x < 0 {
+		return nil
+	}
+	return &x
+}
+
 func (c *Chispa) montar() error {
 	f := c.f
+	if f.Tiene(chispa3.SOPL1) {
+		var err error
+		if c.sopl, err = f.Sopl1(); err != nil {
+			return fmt.Errorf("sección SOPL1: %w", err)
+		}
+	}
 	if f.Tiene(chispa3.CALIB) {
 		var err error
 		if c.calib, err = f.Calib(); err != nil {
@@ -324,6 +350,14 @@ func clave(p pregunta) string {
 	return sb.String()
 }
 
+func idsDe(p pregunta) []string {
+	ids := make([]string, len(p.Opciones))
+	for i, o := range p.Opciones {
+		ids[i] = o.ID
+	}
+	return ids
+}
+
 func (c *Chispa) torres(p pregunta) [][]float32 {
 	k := clave(p)
 	c.mu.Lock()
@@ -335,6 +369,10 @@ func (c *Chispa) torres(p pregunta) [][]float32 {
 		c.cache = map[string][][]float32{}
 	}
 	v := make([][]float32, len(p.Opciones))
+	var sop *chispa3.EntradaSopl1
+	if c.sopl != nil && c.lambdaL1 != nil && c.sopl.Dim() == c.e.Dim() {
+		sop, _ = c.sopl.Buscar(chispa3.ClaveConj(p.Texto, idsDe(p)))
+	}
 	for i, o := range p.Opciones {
 		s := []string{p.Texto, o.ID}
 		if o.Description != "" {
@@ -342,6 +380,11 @@ func (c *Chispa) torres(p pregunta) [][]float32 {
 		}
 		v[i] = make([]float32, c.e.Dim())
 		c.e.Embed(strings.Join(s, " · "), v[i])
+		if sop != nil {
+			if k, media, ok := sop.Opcion(o.ID, c.e.Dim()); ok {
+				v[i] = chispa3.Mezclar(v[i], media, chispa3.PesoSoporte(k, c.lambdaL1))
+			}
+		}
 	}
 	c.cache[k] = v
 	return v
@@ -738,7 +781,13 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 	if len(S[0]) != e.D {
 		return sinOpinar
 	}
-	pr := e.ProbsCabeza(ids, S, simsL2(ts, S), in.L0)
+	sims := simsL2(ts, S)
+	if c.sopl != nil {
+		if sop, ok := c.sopl.Buscar(chispa3.ClaveConj(p.Texto, ids)); ok {
+			sims = chispa3.MezclarSimsL2(e, sop, c.lambdaL2, ids, S, sims, func(i int) ([]byte, float32, bool) { return ts[i].v, ts[i].e, true })
+		}
+	}
+	pr := e.ProbsCabeza(ids, S, sims, in.L0)
 	r := respuesta{Ok: true, Probs: make(map[string]float64, len(pr))}
 	for i, id := range ids {
 		r.Probs[id] = pr[i]

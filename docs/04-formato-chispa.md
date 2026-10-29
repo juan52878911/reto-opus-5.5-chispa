@@ -27,6 +27,7 @@ Una sección es opcional. La cascada arma las capas con las que encuentra.
 | 7 | `CONJ` | cabeza conjunta L0 + L2 por esquema: pesos, T, β y prototipos int8 por clase | L2c |
 | 8 | `L0TF` | L0 TF-IDF de caracteres con regresión logística; vocabulario ordenado, coeficientes f32 o f16 | L0, y entrada de L2c |
 | 9 | `TORR` | ONNX de la torre de esquemas (e5 de pasaje + cabeza de torre) con dim, max_len y prefijo | L2 al vuelo |
+| 10 | `SOPL1` | por pregunta y opción: k (ejemplos) y media int8 de sus embeddings de L1 | prototipo encogido en L1 y L2c |
 
 Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 
@@ -40,6 +41,7 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 - **CONJ**: el hash es `HashEsquema(pregunta, ids ordenados)`. La pregunta debe ser la misma que al entrenar. Solo `choice`.
 - **L0TF**: si está, el servidor usa este L0 y no el de la sección `L0`.
 - **TORR**: `u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX` (little endian; [`torr.go`](../format/chispa3/torr.go)). El escritor Python (`formato.torr`) da los mismos bytes: `format/chispa3/testdata/torre.chispa` lo escribe Python y lo lee un test de Go.
+- **SOPL1**: `u32 versión(1) · u32 dim · u32 n` y, por pregunta (hash = `ClaveConj`, como CONJ, ordenado), `u32 C · C×(u16 len · id) · C×u32 k · C×f32 escala · C×dim×int8 media` ([`sopl1.go`](../format/chispa3/sopl1.go)). La media de los embeddings de L1 de los ejemplos de cada opción va en int8 con escala por opción (decisión: 4× menos que f32 y error de cuantización ≤ 0,4 %). El runtime mezcla `p = normaliza((1−w)·p_desc + w·media)` con `w = k/(k+λ)`; λ está en la config (`l1_shrinkage_lambda`, `l2_shrinkage_lambda`; ausente = ∞ = sin mezcla) o en `AbrirConSoporte` del núcleo móvil. En L2c la media sale de las ranuras de soporte de CONJ y el k de esta sección. `chispa train --l1 … --ejemplos … --shrinkage-lambda λ` la escribe (sin la opción no se escribe nada). `formato.sopl1` (Python) da los mismos bytes: `format/chispa3/testdata/soporte.chispa`.
 
 ## Compatibilidad
 - **v2 se carga.** Un `.chispa` v2 de kindling se abre como un v3 con solo `L0`.

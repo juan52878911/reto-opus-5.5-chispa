@@ -3,6 +3,7 @@ package decide
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -21,6 +22,10 @@ type Config struct {
 	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
 	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
 	Limites         Limites  `json:"limites"`           // topes de entrada de /v1/decide
+	// λ del encogimiento del soporte (sección SOPL1): w = k/(k+λ) mezcla la media de los ejemplos con el prototipo de la
+	// descripción, en L1 y en L2c por separado. Ausente (nil) = ∞ = sin mezcla, el comportamiento de antes. En JSON, un número ≥ 0.
+	L1ShrinkageLambda *float64 `json:"l1_shrinkage_lambda,omitempty"`
+	L2ShrinkageLambda *float64 `json:"l2_shrinkage_lambda,omitempty"`
 }
 
 // CacheTorresPorDefecto: una torre cuantizada pesa ~0,3 KB, así que 16384 son pocos MB.
@@ -64,6 +69,11 @@ func (c Config) Validar() error {
 	}
 	if c.CacheTorres < 0 || c.MaxTorresNuevas < 0 {
 		return fmt.Errorf("config: cache_torres y max_torres_nuevas no pueden ser negativos")
+	}
+	for n, v := range map[string]*float64{"l1_shrinkage_lambda": c.L1ShrinkageLambda, "l2_shrinkage_lambda": c.L2ShrinkageLambda} {
+		if v != nil && (math.IsNaN(*v) || *v < 0) {
+			return fmt.Errorf("config: %s debe ser ≥ 0 (ausente = ∞): %v", n, *v)
+		}
 	}
 	return c.Limites.validar()
 }
