@@ -41,9 +41,14 @@ rs[0].answer, rs[0].probs, rs[0].layer, rs[0].escalate
 
 - El esquema viaja en cada llamada a `decidir`: la pregunta, los ids y las descripciones de las opciones. Escribe las descripciones
   con cuidado, porque en zero-shot son lo único que Chispa ve de la tarea. Ejemplo: [02-inicio-rapido.md](02-inicio-rapido.md#desde-python).
-- Reintentos: 3 por defecto, con espera exponencial. El nonce se fija antes del primer intento, así que reintentar es idempotente.
-- `ErrorSolicitud`: 400, 405 o 413. No se reintenta.
-- `ErrorTransporte`: red, 5xx o 429 tras los reintentos.
+- Reintentos (política vigente, definida en `cliente.py`; el cliente JS debe igualarla): 3 por defecto, con espera exponencial
+  (`espera·2^(n-1)`, y al menos `Retry-After` si lo hay, tope 30 s). Se reintentan solo los errores de red y el 503 que no sea
+  `timeout`. No se reintentan: el timeout propio del cliente, el 503 `timeout` del servidor, el 504, ni 429/500/502 ni ningún otro estado.
+- Timeout: 35 s por defecto, mayor que el `-timeout` del servidor (30 s). Si lo baja, manténgalo por encima del `-timeout` del servidor;
+  si no, el cliente corta antes, el servidor cancela sin guardar nada bajo el nonce y la petición nunca termina.
+- El nonce se fija antes del primer intento (un nonce vacío cuenta como ausente y se genera uno), así que reintentar es idempotente.
+- `ErrorSolicitud`: cualquier respuesta HTTP de error no reintentable (400, 405, 413, 429, 500, 502, 504, 503 `timeout`…).
+- `ErrorTransporte`: red o 503 tras agotar los reintentos, timeout propio o cuerpo ilegible.
 - Una pregunta suelta desde la consola: `python -m chispa decide --url … --estado … --pregunta … --opciones a b`
   ([`cli.py`](../sdk/python/chispa/cli.py)).
 - Entrenar (zero-shot, few-shot, `--torre`, `--shrinkage-lambda` y `--conjunta`): [02-inicio-rapido.md](02-inicio-rapido.md).

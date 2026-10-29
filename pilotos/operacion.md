@@ -83,10 +83,10 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 | `cache_esquemas`, `cache_respuestas` | LRU de esquemas y de nonces (≥ 1) | Fragmentados en 16: tamaño aproximado |
 | `cache_torres`, `max_torres_nuevas` | Torres al vuelo de L2 (0 = por defecto 16 384 / 64); por encima del tope por petición, L2 no opina | Solo con `-tags ort`, `-tok` y sección `TORR` |
 | `l1_shrinkage_lambda`, `l2_shrinkage_lambda` | λ ≥ 0 del encogimiento del soporte (sección `SOPL1`); ausente = ∞ = sin mezcla | Solo few-shot con `SOPL1`. Un λ inválido es error de arranque |
-| `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, con `-modelo` y sin `-config` se toma de `CALIB` |
+| `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, se toma de `CALIB`, haya o no `-config` (calibrado contra el τ base de `CALIB`, no el de la config) |
 
 El `-timeout` es un flag, no una clave de la config. Al vencer, responde 503 `timeout` con `Retry-After: 5` (`chispa_timeouts_total` lo cuenta).
-Sin `-timeout` (0) no hay tope. *(Sugerencia: déjelo en 30 s; para el piloto un valor más bajo, p. ej. 5 s, evita que una torre lenta acapare conexiones; los SDK no reintentan este 503; un cliente propio debe respetar `Retry-After`.)*
+Sin `-timeout` (0) no hay tope. *(Sugerencia: déjelo en 30 s; para el piloto un valor más bajo, p. ej. 5 s, evita que una torre lenta acapare conexiones; los SDK no reintentan este 503; un cliente propio debe respetar `Retry-After`.) **El `timeout` del cliente debe ser mayor que `-timeout`**: el SDK Python usa 35 s por defecto (frente a 30 s); si el cliente corta antes, el servidor cancela sin guardar el nonce y cada intento repite la cascada. Con `-timeout 5s`, un cliente de 10 s también cumple.*
 
 **Valide la config antes de reiniciar:** el servidor la valida al arrancar y sale con error si no es válida (`log.Fatal`). Con el modelo en uso, arranque una copia en otro puerto
 (`-addr 127.0.0.1:18090`) y pruebe antes de tocar la de producción.
