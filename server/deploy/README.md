@@ -18,7 +18,10 @@ Hace falta red (descarga ORT de GitHub y `onnxruntime_go` de proxy.golang.org).
 
 ## Usar
 ```
-docker run --rm -p 8090:8090 -v /ruta/modelos:/modelos:ro chispa-server      # sirve /modelos/modelo.chispa
+docker run --rm --stop-timeout 40 -p 8090:8090 -v /ruta/modelos:/modelos:ro -v /ruta/config.json:/etc/chispa/config.json:ro \
+  chispa-server -modelo /modelos/modelo.chispa -config /etc/chispa/config.json   # producción: config con api_keys (cada una con rps > 0)
+docker run --rm --stop-timeout 40 -p 8090:8090 -v /ruta/modelos:/modelos:ro chispa-server -abierto   # SOLO pruebas: sin autenticación
+# La imagen drena con -apagado 35s (>= -timeout 30s): la gracia de parada debe ser >= 40 s (--stop-timeout 40; en Kubernetes terminationGracePeriodSeconds: 40).
 curl -s localhost:8090/healthz
 curl -s localhost:8090/v1/decide -d @server/decide/testdata/choice.req.json
 ```
