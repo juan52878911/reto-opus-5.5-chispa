@@ -24,4 +24,4 @@ git archive "$ref" -- "${rutas[@]}" | tar -xf - -C "$T"
 mkdir -p "$T/gomod-proxy/github.com/juan52878911"
 cp -R "$KIND" "$T/gomod-proxy/github.com/juan52878911/"
 find "$T/gomod-proxy" -name '*.lock' -exec rm -f {} +
-tar -czf - -C "$T" .
+COPYFILE_DISABLE=1 tar -czf - -C "$T" .   # sin ficheros ._* de macOS (AppleDouble)
