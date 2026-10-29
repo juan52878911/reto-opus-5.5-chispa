@@ -110,10 +110,12 @@ Los buckets de latencia son fijos: 10 µs, 50 µs, 0,1 ms, 0,5 ms, 1 ms, 5 ms, 1
 | `chispa_torre_latencia_segundos` | Duración de cada cálculo de torre | p99 en subida junto con `chispa_timeouts_total` |
 | `chispa_cache_esquemas_total{resultado}` | Fallos de caché de esquemas | Muchos fallos → `cache_esquemas` pequeña o esquemas que cambian por petición |
 | `chispa_clave_peticiones_total{clave,resultado}`, `chispa_auth_rechazos_total` | Con `api_keys`: tráfico por cliente, 429 (`limitada`) y 401 | `limitada` sostenido (cliente mal dimensionado) o 401 en subida (clave caducada o sondeo) |
+| `chispa_admin_rechazos_total` | Intentos fallidos o limitados contra `/v1/admin/recargar` | Cualquier subida que no sea un error suyo: alguien sondea la ruta de admin |
+| `chispa_cache_bytes{cache}` | Bytes de las cachés `l1`, `nonces` y `torres` (topes: `cache_esquemas_mb`, `cache_respuestas_mb`) | Pegado al tope y con `rate(chispa_decididas…)` cayendo: suba el tope o la RAM |
 | `chispa_cache_nonce_aciertos_total` | Reintentos idempotentes servidos | Informativo |
 
 `/healthz` devuelve `{"status":"ok"}`: solo dice que el proceso responde, **no** qué capas hay cargadas. No lo use como único criterio de salud; combínelo con la prueba de humo (§7)
-y con `chispa_decididas_total`. **Pendiente de producto:** un `/readyz` que compruebe las capas, y métricas de memoria o de tamaño de caché propias (no están en `/metrics`: mire el proceso con las herramientas del sistema).
+y con `chispa_decididas_total`. **Pendiente de producto:** un `/readyz` que compruebe las capas, (el tamaño de las cachés ya sale en `chispa_cache_bytes`; la memoria del proceso, mírela con las herramientas del sistema).
 
 Línea base: tome las cifras de la semana 1 con tráfico real y sáquelas de ahí; el repo no trae umbrales de operación para tráfico de empresas colombianas.
 
@@ -129,16 +131,16 @@ El historial de uso sale de `/metrics`. **Pendiente de producto:** log de acceso
 Docker: `docker logs chispa`; systemd: `journalctl -u chispa`. Guarde al menos el log de arranque: es la única pista de que L2 quedó en stub.
 
 ## 6. Actualizar el modelo, la config y el binario
-**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `admin_token` y cambiar el binario (`api_keys` no: se relee). Apagado ordenado sigue **pendiente de producto**.
+**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `-admin-addr`, activar la ruta de admin si arrancó sin ella y cambiar el binario (el token de admin se rota recargando) (`api_keys` no: se relee). Apagado ordenado sigue **pendiente de producto**.
 
-1. Entrene el nuevo `.chispa` con `chispa train` (ver [`guia-integracion.md`](guia-integracion.md)) y déjelo con otro nombre: `modelo-AAAAMMDD.chispa`. Nunca sobrescriba en sitio el fichero abierto: está mapeado en memoria.
+1. Entrene el nuevo `.chispa` con `chispa train` (ver [`guia-integracion.md`](guia-integracion.md)) y déjelo con otro nombre: `modelo-AAAAMMDD.chispa`. Nunca sobrescriba en sitio el fichero abierto (**no use `cp` sobre el `.chispa` en uso**: se escribe en sitio: con mmap el servidor cae con SIGBUS y sin él una recarga puede leer el fichero a medias); escriba aparte y `mv`.
 2. Pruebe el nuevo en otro puerto: `./chispa-server -addr 127.0.0.1:18090 -modelo modelo-AAAAMMDD.chispa …` y pase la prueba de humo (§7) y `chispa evaluar` contra esa URL.
 3. Sustitúyalo con un `mv` atómico sobre la ruta de `-modelo` (`mv modelo-AAAAMMDD.chispa modelo.chispa`; o `ln -sfn` sobre el enlace) y recargue:
    - `kill -HUP <pid de chispa-server>`, o
-   - `curl -X POST -H "Authorization: Bearer $TOKEN" $URL/v1/admin/recargar`, solo si la config trae `"admin_token"`. Sin él la ruta da 404; token ausente o incorrecto, 401. Éxito: `{"status":"ok","generation":N}`.
+   - `curl -X POST -H "Authorization: Bearer $TOKEN" $URL/v1/admin/recargar`, solo si la config trae `"admin_token_sha256"` (o `"admin_token"` en claro, ≥ 32 bytes; ver [`docs/06-despliegue.md`](../docs/06-despliegue.md)). Sin ellos la ruta da 404; token ausente o incorrecto, 401; más de ~1 intento/s, 429. Éxito: `{"status":"ok","generation":N}`.
 4. Compruebe el resultado. Si el `.chispa` nuevo no abre o no valida, el POST responde 500 `reload_failed`, el servidor **sigue con el modelo viejo** y el error queda en el log (§5); con SIGHUP no hay respuesta, así que mire el log. `chispa_recargas_total{resultado="ok"|"error"}` cuenta ambos casos. Repita la prueba de humo.
 5. Las peticiones en vuelo terminan sobre el modelo viejo. Las cachés (esquemas, torres y nonces) son del modelo: el nuevo empieza vacío, así que la primera tanda de esquemas recalcula torres. Los contadores de `/metrics` no se reinician.
-6. La recarga relee también `-config` y `-tok`: una config que no valida es un fallo de recarga (el viejo sigue), no impide el servicio. Para un cambio de `-addr` o de `admin_token`, reinicie.
+6. La recarga relee también `-config` y `-tok`: una config que no valida es un fallo de recarga (el viejo sigue), no impide el servicio. Para un cambio de `-addr` o `-admin-addr`, reinicie; el token de admin se rota cambiando `admin_token_sha256` y recargando (con SIGHUP).
 
 El `.chispa` nuevo debe llevar las mismas preguntas y opciones que el cliente manda: L0 elige el modelo por conjunto de ids de opciones (`server/README.md`); si cambia los ids, cambia el comportamiento.
 

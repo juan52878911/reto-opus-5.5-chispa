@@ -39,7 +39,7 @@ func TestAdminFueraDelTimeout(t *testing.T) {
 	}
 	a, _ := armar()
 	srv := decide.NuevoServidorDe(a, met).ConRecarga(armar, "tok")
-	h := montarHandler(srv, "tok", 20*time.Millisecond, met)
+	h := montarHandler(srv, true, 20*time.Millisecond, met)
 	r := httptest.NewRequest(http.MethodPost, "/v1/admin/recargar", nil)
 	r.Header.Set("Authorization", "Bearer tok")
 	w := httptest.NewRecorder()
