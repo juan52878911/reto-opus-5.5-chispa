@@ -1,4 +1,4 @@
-.PHONY: test bench carga
+.PHONY: test bench carga carga-arnes
 export GOFLAGS = -mod=mod
 export GOPROXY = off
 
@@ -14,3 +14,7 @@ serve:
 
 carga:
 	go run ./cmd/carga -c 8 -d 10s
+
+# Arnés reproducible (ver carga/README.md): make -C server carga-arnes ARGS="-d 10s -n 1"
+carga-arnes:
+	carga/correr.sh $(ARGS)
