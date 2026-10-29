@@ -12,9 +12,9 @@ import (
 )
 
 type esperadoCalibReal struct {
-	TauEscalate float64                      `json:"tau_escalate"`
+	TauEscalate float64                       `json:"tau_escalate"`
 	ClavesScore map[string]chispa3.ParamsTipo `json:"claves_score"`
-	TiposTodos  []string                     `json:"tipos_todos"`
+	TiposTodos  []string                      `json:"tipos_todos"`
 }
 
 // coralAMano calcula P(y>j), probs y mediana con la fórmula de a_calib_chispa, sin pasar por el runtime.
