@@ -219,7 +219,7 @@ components:
         description:
           type: string
           x-max-bytes: 4096
-          description: Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion.
+          description: Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion. Ojo: si el modelo trae torres precalculadas (ESQUEMAS/CONJ), se buscan por hash(question, ids de opciones), que NO incluye description ni kind: con la misma pregunta e ids, L2 usa esas torres y no tiene en cuenta una description distinta (ver docs/03-api.md, "Qué identifica a un esquema").
     DecideResponse:
       type: object
       additionalProperties: false
@@ -248,7 +248,7 @@ components:
             type: number
         layer:
           type: string
-          description: Capa que contesto (L0, L1, L2, L3). Vale "escalar" cuando escalate es true, es decir, ninguna capa llego a su tau.
+          description: Capa que contesto de esta API (L0, L1, L2, L3). Vale "escalar" cuando escalate es true, es decir, ninguna capa llego a su tau. El audio (A1) no entra por esta API y no aparece aqui; ver audio/README.md.
         escalate:
           type: boolean
         ms:
@@ -277,7 +277,7 @@ components:
           description: Id de la pregunta implicada, cuando se conoce.
     ErrorCode:
       type: string
-      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long, unauthorized, reload_failed]
+      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long, unauthorized, reload_failed, timeout]
     Health:
       type: object
       additionalProperties: false

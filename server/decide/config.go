@@ -1,6 +1,7 @@
 package decide
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -48,8 +49,15 @@ func CargarConfig(path string) (Config, error) {
 	if err != nil {
 		return c, err
 	}
-	if err := json.Unmarshal(b, &c); err != nil {
+	// Claves desconocidas o mal escritas (también dentro de limites) hacen fallar el arranque: antes se ignoraban y el
+	// servidor arrancaba con los valores por defecto sin avisar.
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&c); err != nil {
 		return c, fmt.Errorf("config %s: %w", path, err)
+	}
+	if dec.More() {
+		return c, fmt.Errorf("config %s: datos tras el objeto JSON", path)
 	}
 	return c, c.Validar()
 }

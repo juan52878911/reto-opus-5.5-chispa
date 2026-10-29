@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -18,7 +19,7 @@ type caso struct {
 func abrir(t testing.TB) *Tokenizador {
 	ruta := os.Getenv("CHISPA_TOK")
 	if ruta == "" {
-		ruta = "/tmp/e5.chispa-tok"
+		ruta = rutaTokPorDefecto()
 	}
 	tk, err := Abrir(ruta)
 	// Solo se salta si no hay fichero y nadie pidió uno: un .chispa-tok que existe y no abre es un fallo, no un salto.
@@ -199,4 +200,15 @@ func TestComprobarMaxLen(t *testing.T) {
 			t.Errorf("%d: %v", n, err)
 		}
 	}
+}
+
+// rutaTokPorDefecto: sin CHISPA_TOK, el .chispa-tok del usuario ($TMPDIR o su caché), nunca un /tmp compartido entre trabajos.
+func rutaTokPorDefecto() string {
+	if d := os.Getenv("TMPDIR"); d != "" {
+		return filepath.Join(d, "e5.chispa-tok")
+	}
+	if d, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(d, "chispa", "e5.chispa-tok")
+	}
+	return "e5.chispa-tok"
 }

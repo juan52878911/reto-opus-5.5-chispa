@@ -24,7 +24,7 @@ func tokE5Real(t *testing.T) *tok.Tokenizador {
 	t.Helper()
 	ruta := os.Getenv("CHISPA_TOK")
 	if ruta == "" {
-		ruta = "/tmp/e5.chispa-tok"
+		ruta = rutaTokPorDefecto()
 	}
 	if _, err := os.Stat(ruta); err != nil && os.Getenv("CHISPA_TOK") == "" {
 		t.Skipf("sin .chispa-tok (CHISPA_TOK): %v", err)
@@ -149,4 +149,15 @@ func TestTokenizadorE5ConMaxLen(t *testing.T) {
 	if chispa3.MaxLenTope != tok.TopeMaxLen || chispa3.MaxLenDefecto != tok.MaxTok {
 		t.Errorf("topes distintos: chispa3 %d/%d, tok %d/%d", chispa3.MaxLenDefecto, chispa3.MaxLenTope, tok.MaxTok, tok.TopeMaxLen)
 	}
+}
+
+// rutaTokPorDefecto: sin CHISPA_TOK, el .chispa-tok del usuario ($TMPDIR o su caché), nunca un /tmp compartido entre trabajos.
+func rutaTokPorDefecto() string {
+	if d := os.Getenv("TMPDIR"); d != "" {
+		return filepath.Join(d, "e5.chispa-tok")
+	}
+	if d, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(d, "chispa", "e5.chispa-tok")
+	}
+	return "e5.chispa-tok"
 }

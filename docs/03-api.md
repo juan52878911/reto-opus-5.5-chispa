@@ -134,6 +134,14 @@ Constantes de [`server/decide/http.go`](../server/decide/http.go):
 | `MaxOpciones` | 256 por pregunta (clinc150 trae 150 clases, 151 con `escalate`) |
 | `MaxEstadoByte` | 256 KiB |
 
+### Qué identifica a un esquema en las cachés
+- **ESQUEMAS/CONJ (torres precalculadas en el `.chispa`)**: clave `HashEsquema(question, ids de opciones)`. **No** entran la `description` de las opciones ni el `kind`. Consecuencias: (a) si llega la misma pregunta con los mismos ids pero otras descripciones, L2 usa las torres precalculadas y no las descripciones nuevas; (b) un `choice` y un `score` con la misma pregunta e ids comparten clave. Para que L2 vea unas descripciones nuevas hay que usar otro texto de pregunta u otros ids. La clave es la del formato `.chispa` v3 y no cambia en esta versión.
+- **Torres al vuelo (sección `TORR`)**: la clave sí incluye la descripción (`HashEsquema(question, [id, description])`, una por opción).
+- **Caché de L1 (embeddings de opciones por esquema)** y **nonce**: ver `cache_esquemas` y `cache_respuestas` más abajo.
+
+## Valores de `layer`
+`L0`, `L1`, `L2`, `L3` y `escalar` (cuando `escalate` es true). El audio (`A1`) no entra por `/v1/decide`; ver `audio/README.md`.
+
 ## `GET /healthz`
 ```
 {"status":"ok"}
@@ -163,6 +171,8 @@ Tras una petición válida y una rota, el test de métricas
 {"capas": [{"nombre":"L0","tau":0.8},{"nombre":"L1","tau":0.8},{"nombre":"L2","tau":0.7},{"nombre":"L3","tau":0.6}],
  "modelos": ["testdata/intencion.chispa"], "cache_esquemas": 1024, "cache_respuestas": 4096}
 ```
+El servidor valida la config al arrancar: una clave desconocida o mal escrita (también dentro de `limites`) es un error que nombra la clave, no se ignora.
+
 Con `-modelo` y sin `-config`, el τ de L1 y L2 sale de `CALIB`. Con `-config`, manda la config.
 
 `tau_l2_esquema_nuevo` (opcional, en [0,1]): τ de L2 solo para las preguntas cuyas torres no están en `ESQUEMAS` y salen al vuelo (sección `TORR`);

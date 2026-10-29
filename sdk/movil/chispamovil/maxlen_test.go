@@ -53,7 +53,7 @@ func idsU32(b []byte) []uint32 {
 func TestMaxLenDeMetadatos(t *testing.T) {
 	ruta := os.Getenv("CHISPA_TOK")
 	if ruta == "" {
-		ruta = "/tmp/e5.chispa-tok"
+		ruta = rutaTokPorDefecto()
 	}
 	if _, err := os.Stat(ruta); err != nil && os.Getenv("CHISPA_TOK") == "" {
 		t.Skipf("sin .chispa-tok: %v", err)
