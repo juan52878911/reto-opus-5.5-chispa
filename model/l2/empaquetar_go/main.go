@@ -2,8 +2,9 @@
 //
 //	go run . --meta meta.json --l2 l2.onnx --esquemas esquemas.json --calib calib.json --salida l2.chispa
 //
-// esquemas.json: {"dim": N, "entradas": [{"pregunta": "...", "opciones": ["..."], "escala": f, "vec": "<base64 de N int8>"}]};
-// el hash de cada entrada lo calcula `chispa3.HashEsquema`, no el llamador.
+// esquemas.json: {"dim": N, "entradas": [{"pregunta": "...", "kind": "choice|noul|score",
+// "opciones": [{"id": "...", "description": "..."}], "escala": f, "vec": "<base64 de N int8>"}]};
+// escribe ESQUEMAS v2 y la clave de cada entrada la calcula `chispa3.HashEsquema2`, no el llamador.
 package main
 
 import (
@@ -17,11 +18,26 @@ import (
 	"chispa/format/chispa3"
 )
 
+type opcionJSON struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+}
+
 type entradaJSON struct {
-	Pregunta string   `json:"pregunta"`
-	Opciones []string `json:"opciones"`
-	Escala   float32  `json:"escala"`
-	Vec      string   `json:"vec"`
+	Pregunta string       `json:"pregunta"`
+	Kind     string       `json:"kind"`
+	Opciones []opcionJSON `json:"opciones"`
+	Escala   float32      `json:"escala"`
+	Vec      string       `json:"vec"`
+}
+
+// clave es la HashEsquema2 de la entrada.
+func (e entradaJSON) clave() [16]byte {
+	ops := make([]chispa3.OpcionClave, len(e.Opciones))
+	for i, o := range e.Opciones {
+		ops[i] = chispa3.OpcionClave{ID: o.ID, Descripcion: o.Description}
+	}
+	return chispa3.HashEsquema2(e.Pregunta, e.Kind, ops)
 }
 
 type esquemasJSON struct {
@@ -36,7 +52,7 @@ func codificarEsquemas(b []byte) ([]byte, error) {
 	if err := d.Decode(&j); err != nil {
 		return nil, fmt.Errorf("esquemas.json: %w", err)
 	}
-	es := make([]chispa3.EntradaEsquema, len(j.Entradas))
+	es := make([]chispa3.EntradaEsquema2, len(j.Entradas))
 	for i, e := range j.Entradas {
 		raw, err := base64.StdEncoding.DecodeString(e.Vec)
 		if err != nil {
@@ -46,9 +62,9 @@ func codificarEsquemas(b []byte) ([]byte, error) {
 		for k, x := range raw {
 			v[k] = int8(x)
 		}
-		es[i] = chispa3.EntradaEsquema{Hash: chispa3.HashEsquema(e.Pregunta, e.Opciones), Escala: e.Escala, Vec: v}
+		es[i] = chispa3.EntradaEsquema2{Hash: e.clave(), Escala: e.Escala, Vec: v}
 	}
-	return chispa3.CodificarEsquemas(j.Dim, es)
+	return chispa3.CodificarEsquemas2(j.Dim, es)
 }
 
 // empaquetar valida cada sección con los decodificadores de chispa3 y escribe el fichero.

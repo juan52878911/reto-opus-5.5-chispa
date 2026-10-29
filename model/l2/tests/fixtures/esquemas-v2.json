@@ -1,0 +1,136 @@
+{
+ "version": 2,
+ "nota": "ESQUEMAS v2 (HashEsquema2, 16 bytes): choice = una entrada por opción (kind choice, [opción]); noul/score = una por pregunta con todas las opciones (kind = tipo). CONJ v2 (solo choice): kind choice con todas las opciones. contrato-torre.md.",
+ "claves": [
+  {
+   "tipo": "choice",
+   "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
+   "opciones": [
+    {
+     "id": "alarma",
+     "description": "Poner una alarma."
+    }
+   ],
+   "hash": "a2c16b0b821a58fad90df5ac30b83c41",
+   "texto_torre": "passage: ¿Qué quiere la persona? · alarma · Poner una alarma."
+  },
+  {
+   "tipo": "choice",
+   "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
+   "opciones": [
+    {
+     "id": "tiempo",
+     "description": "Preguntar por el clima."
+    }
+   ],
+   "hash": "3e44b2476a3c1230b5ebc2a5690184ce",
+   "texto_torre": "passage: ¿Qué quiere la persona? · tiempo · Preguntar por el clima."
+  },
+  {
+   "tipo": "choice",
+   "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
+   "opciones": [
+    {
+     "id": "musica",
+     "description": ""
+    }
+   ],
+   "hash": "e610c6f9c6a6c98b49f20168f3074c80",
+   "texto_torre": "passage: ¿Qué quiere la persona? · musica · "
+  },
+  {
+   "tipo": "choice",
+   "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
+   "opciones": [
+    {
+     "id": "alarma",
+     "description": "Despertar a una hora."
+    }
+   ],
+   "hash": "17220e667108f42c5e47fa29997835c7",
+   "texto_torre": "passage: ¿Qué quiere la persona? · alarma · Despertar a una hora."
+  },
+  {
+   "tipo": "noul",
+   "pregunta": "¿Es spam? ñandú, café",
+   "kind": "noul",
+   "opciones": [
+    {
+     "id": "false",
+     "description": "Mensaje legítimo."
+    },
+    {
+     "id": "true",
+     "description": "Mensaje no deseado."
+    }
+   ],
+   "hash": "f6faddd60548e2b79dd7dee7c7a90769",
+   "texto_torre": "passage: ¿Es spam? ñandú, café · true · Mensaje no deseado."
+  },
+  {
+   "tipo": "score",
+   "pregunta": "Valora la urgencia",
+   "kind": "score",
+   "opciones": [
+    {
+     "id": "1",
+     "description": "Baja"
+    },
+    {
+     "id": "2",
+     "description": "Media"
+    },
+    {
+     "id": "3",
+     "description": "Alta"
+    }
+   ],
+   "hash": "19f84df57e56fc1e03173c61adccda3d",
+   "texto_torre": "passage: Valora la urgencia · 3 · Alta"
+  }
+ ],
+ "conj": [
+  {
+   "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
+   "opciones": [
+    {
+     "id": "alarma",
+     "description": "Poner una alarma."
+    },
+    {
+     "id": "tiempo",
+     "description": "Preguntar por el clima."
+    },
+    {
+     "id": "musica",
+     "description": ""
+    }
+   ],
+   "hash": "673ec16f21461d6ee35050de5b1efbb2"
+  },
+  {
+   "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
+   "opciones": [
+    {
+     "id": "alarma",
+     "description": "Despertar a una hora."
+    },
+    {
+     "id": "tiempo",
+     "description": "Preguntar por el clima."
+    },
+    {
+     "id": "musica",
+     "description": ""
+    }
+   ],
+   "hash": "eaff71e0cf2e0d2edf81c62ff34c8a8d"
+  }
+ ]
+}

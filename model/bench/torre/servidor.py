@@ -2,7 +2,7 @@
 NO están en el .chispa, decididos por /v1/decide.
 
     python -m model.bench.torre.servidor --jevbench RUTA --salida DIR --ckpt mejor.pt --torre torre.onnx --servidor BIN --tok e5.chispa-tok \
-        [--repo RAIZ] [--puerto 8091] [--n-esquemas 5] [--todos] [--minutos 15]
+        [--repo RAIZ] [--ort-lib SO] [--tau-nuevo X] [--exigir-torres] [--puerto 8091] [--n-esquemas 5] [--todos] [--minutos 15]
 
 Escribe DIR/servidor.json: {cinco: [{id, esquema, layer, escalate, acierto}], cinco_l2: bool, todos: {...}|null, train_s, ...}.
 `todos` (231 casos) lleva la exactitud del servidor y la de Python k=0 sobre los mismos ids si existe DIR/pred/l2_k0.jsonl.
@@ -52,15 +52,31 @@ def elegir_cinco(filas, n):
     return sel[:n]
 
 
+def metricas(url):
+    """/metrics (texto Prometheus) → {serie: valor}; las series con etiquetas llevan la etiqueta en la clave."""
+    m = {}
+    for l in urllib.request.urlopen(url + "/metrics", timeout=10).read().decode().splitlines():
+        if l and not l.startswith("#"):
+            k, _, v = l.rpartition(" ")
+            try:
+                m[k] = float(v)
+            except ValueError:
+                pass
+    return {k: v for k, v in m.items() if k.startswith(("chispa_torres_", "chispa_decididas_total", "chispa_escalados_total", "chispa_preguntas_total", "chispa_capa_errores_total"))}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     for k in ("jevbench", "salida", "ckpt", "torre", "servidor", "tok"):
         ap.add_argument("--" + k, required=True)
-    ap.add_argument("--repo", required=True, help="raíz del repo con chispa train (la rama del SDK)")
+    ap.add_argument("--repo", required=True, help="raíz del repo con chispa train (el repo unificado)")
     ap.add_argument("--puerto", type=int, default=8091)
     ap.add_argument("--n-esquemas", type=int, default=5)
     ap.add_argument("--todos", action="store_true", help="además, todos los casos de JevBench por el servidor")
     ap.add_argument("--minutos", type=float, default=15)
+    ap.add_argument("--ort-lib", help="libonnxruntime.so para chispa-server (-ort-lib); vacío = CHISPA_ORT_LIB / la del binario")
+    ap.add_argument("--tau-nuevo", type=float, help="tau_l2_esquema_nuevo: arranca con -config {capas por defecto, tau_l2_esquema_nuevo}")
+    ap.add_argument("--exigir-torres", action="store_true", help="FALLO (código 1) si /metrics no muestra torres calculadas o L2 no decide ningún caso")
     ap.add_argument("--pred", help="predicciones de Python k=0 (por defecto SALIDA/pred/l2_k0.jsonl)")
     a = ap.parse_args(argv)
     sal = Path(a.salida)
@@ -74,7 +90,16 @@ def main(argv=None):
     out["chispa_bytes"] = modelo.stat().st_size
     url = f"http://127.0.0.1:{a.puerto}"
     with open(trabajo / "servidor.log", "w") as log:
-        p = subprocess.Popen([a.servidor, "-addr", f"127.0.0.1:{a.puerto}", "-modelo", str(modelo), "-tok", a.tok], stdout=log, stderr=subprocess.STDOUT)
+        cmd = [a.servidor, "-addr", f"127.0.0.1:{a.puerto}", "-modelo", str(modelo), "-tok", a.tok]
+        if a.ort_lib:
+            cmd += ["-ort-lib", a.ort_lib]
+        if a.tau_nuevo is not None:   # con -config no valen los τ de CALIB: se repiten las capas por defecto (L1 0,8 · L2 0,7 · L3 0,6)
+            cfg = trabajo / "config.json"
+            cfg.write_text(json.dumps({"capas": [{"nombre": "L0", "tau": 0.8}, {"nombre": "L1", "tau": 0.8}, {"nombre": "L2", "tau": 0.7},
+                                                 {"nombre": "L3", "tau": 0.6}], "tau_l2_esquema_nuevo": a.tau_nuevo}))
+            cmd += ["-config", str(cfg)]
+            out["tau_l2_esquema_nuevo"] = a.tau_nuevo
+        p = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
         try:
             for _ in range(120):
                 if p.poll() is not None:
@@ -114,6 +139,12 @@ def main(argv=None):
                     pp = [json.loads(l) for l in py.read_text().splitlines() if l.strip() and json.loads(l)["id"] in ids]
                     todos["exactitud_python_k0"] = CE.evaluar(sub, [{x: q[x] for x in ("id", "probs", "ms")} for q in pp])["global"]["exactitud"]
                 out["todos"] = todos
+                (sal / "capas_por_caso.jsonl").write_text("".join(json.dumps({"id": q["id"], "layer": q["layer"], "escalate": q["escalate"]}) + "\n" for q in preds))
+            m = metricas(url)
+            out["metricas"] = m
+            # comprobación obligatoria: la torre se calculó de verdad y L2 decidió algo (si no, todo salió de L0/L1 o escaló por el τ)
+            l2 = out.get("todos", {}).get("capas", {}).get("L2", 0) if a.todos else sum(c["layer"] == "L2" for c in cinco)
+            out["torres_ok"] = m.get("chispa_torres_calculadas_total", 0) > 0 and l2 > 0
         finally:
             p.terminate()
             try:
@@ -122,6 +153,10 @@ def main(argv=None):
                 p.kill()
     (sal / "servidor.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n")
     print(json.dumps(out, ensure_ascii=False))
+    print("torres_ok =", out.get("torres_ok"))
+    if a.exigir_torres and not out.get("torres_ok"):
+        print("FALLO: chispa_torres_calculadas_total = 0 o L2 no decidió ningún caso", file=sys.stderr)
+        return 1
     return 0
 
 

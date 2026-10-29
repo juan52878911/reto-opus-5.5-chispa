@@ -118,14 +118,15 @@ class Exportacion(unittest.TestCase):
     def test_choques_de_torre(self):
         mal = [dict(self.filas[0]), dict(self.filas[0])]
         mal[1]["descripciones"] = {o: "otra " + o for o in mal[1]["opciones"]}
-        with self.assertRaises(ValueError):
-            E.entradas_torres(self.modelo, self.enc, mal)
+        # v2: la descripción forma parte de la clave, así que dos descripciones distintas son dos torres y no un choque
+        torres = E.entradas_torres(self.modelo, self.enc, mal)
+        self.assertEqual(len(torres), 2 * len(mal[0]["opciones"]))
 
     def test_ida_y_vuelta_con_go(self):
         d = Path(self.dir.name)
         torres = E.entradas_torres(self.modelo, self.enc, self.filas)
         # las torres cuantizadas se parecen a las de punto flotante
-        for p, o, q, esc in torres[:3]:
+        for p, k, o, q, esc in torres[:3]:
             self.assertLessEqual(int(np.abs(q).max()), 127)
             self.assertAlmostEqual(float(np.linalg.norm(q.astype(np.float32) * esc)), 1.0, delta=0.05)
         esp = d / "esperado.json"

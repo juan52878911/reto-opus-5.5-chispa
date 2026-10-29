@@ -2,27 +2,28 @@
 CHISPA_S3=__CHISPA_S3__
 # user-data (≤ 16 KB) de una c6a.xlarge spot (Amazon Linux 2023, x86_64, 4 vCPU, sin GPU), root, con internet y rol con s3:GetObject y
 # s3:PutObject (sin List), sin SSH. G.6/G.7: la torre de L2 (variantes fp32, int8 dinámico y int8 estático) de punta a punta con el checkpoint real.
-# El orquestador sustituye __CHISPA_S3__ y sube dos paquetes (model/bench/torre/empaquetar.sh, git archive):
-#   $CHISPA_S3/codigo-modelo.tgz    esta rama:    bash model/bench/torre/empaquetar.sh <sha> model
-#   $CHISPA_S3/codigo-sdk.tgz   rama del SDK: CHISPA_GOMOD_PROXY=1 bash model/bench/torre/empaquetar.sh claude/chispa-sdk-6773ef \
-#                                                   server runtime format sdk/python go.work     (lleva gomod-proxy/ de kindling)
-# Opcionales: CHISPA_CKPT_S3 (por defecto el de l2-20261028b), CHISPA_JEV_REF, CHISPA_TODOS_MIN (minutos máx. de los 231 casos).
-# Opcionales además: CHISPA_VARIANTES (por defecto «ninguna dinamico estatico»), CHISPA_TODOS_VAR (variante con los 231 casos, por defecto estatico).
+# El orquestador sustituye __CHISPA_S3__ y sube UN paquete de la rama unificada (modelo, servidor, runtime, formato y SDK, con el proxy de módulos de kindling):
+#   $CHISPA_S3/codigo.tgz    CHISPA_GOMOD_PROXY=1 bash model/bench/torre/empaquetar.sh <sha> model server runtime format sdk
+# (sin rutas, empaquetar.sh usa justo esas). Modo antiguo de dos ramas (codigo-modelo.tgz + codigo-sdk.tgz): CHISPA_DOS_PAQUETES=1.
+# Opcionales: CHISPA_CKPT_S3 (por defecto el de G.8 corrida 2, max_tok 256 dentro del checkpoint), CHISPA_JEV_REF, CHISPA_TODOS_MIN (minutos máx. de los 231 casos),
+# CHISPA_EXPORT_ARGS (por defecto «--sin-poda»: el exportador de esta base no tiene `--perfil servidor`; si lo tiene, «--perfil servidor» y CHISPA_VARIANTES=ninguna),
+# CHISPA_VARIANTES (por defecto «ninguna»: --cuant-torre ninguna), CHISPA_TODOS_VAR (variante con los 231 casos, por defecto la primera), CHISPA_TAU_NUEVO (por defecto 0,276:
+# segunda pasada con tau_l2_esquema_nuevo; «no» la omite), CHISPA_ORT_VERSION (por defecto 1.31.1).
 # Pasos: 1 Go, gcc, ORT, Python+torch CPU · 2 paquetes (se funden en un árbol), checkpoint, e5, massive-es, JevBench · 3 exporta consulta y torre
 # (paridad: coseno de h y top-1 de choice en 300 filas, con poda y sin <unk>) y comprueba las metadata_props · 4 SDK: go test -tags ort
-# ./server/torre/..., TestIgualdadTransformersPasaje · 5 chispa train --torre, chispa-server -tags ort, 5 esquemas de JevBench por /v1/decide y,
-# si cabe, los 231 junto a Python k=0 · 6 informe.md (OK/FALLO por punto). `go get onnxruntime_go` solo toca el server/go.mod de la instancia.
+# ./torre/..., TestIgualdadTransformersPasaje · 5 chispa train --torre, chispa-server -tags ort, los 5 esquemas de JevBench y los 231 casos por /v1/decide junto a Python k=0,
+# con /metrics leído tras las peticiones (chispa_torres_calculadas_total > 0 y L2 en las capas, o FALLO) y una pasada con tau_l2_esquema_nuevo · 6 informe.md (OK/FALLO por punto).
 # Al salir (trap) sube log.txt y resultados.tgz y apaga; apagado forzoso a los 75 min.
 # CHISPA_LOCAL=1: prueba en seco sin dnf, pip, ORT ni shutdown, con checkpoint aleatorio y fixtures; sin ORT se omiten (OMITIDO) los pasos de Go
-# con ORT, `train --torre` y el servidor. CHISPA_TRY_REF (por defecto HEAD en local, claude/chispa-sdk-6773ef si no) elige la rama del SDK.
-CKPT_S3=${CHISPA_CKPT_S3:-s3://chispa-pruebas-879381269751/l2-20261028b/ckpt/mejor.pt}
+# con ORT, `train --torre` y el servidor. Con CHISPA_DOS_PAQUETES=1, CHISPA_TRY_REF elige la rama del SDK.
+CKPT_S3=${CHISPA_CKPT_S3:-s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt}
 LOCAL=${CHISPA_LOCAL:-0}
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
 if [ "$LOCAL" = 1 ]; then [ "${CHISPA_S3#__}" != "$CHISPA_S3" ] && CHISPA_S3=s3://local/torre; else shutdown -h +75; fi
 set -uo pipefail
 export HOME="${HOME:-/root}"
 T0=$(date +%s)
-GO_VERSION=1.27.1; ORT_VERSION=1.22.0; ORT_GO_VERSION=v1.19.0; PUERTO=8091
+GO_VERSION=1.27.1; ORT_VERSION=${CHISPA_ORT_VERSION:-1.31.1}; PUERTO=8091
 if [ "$LOCAL" = 1 ]; then BASE=/tmp/chispa-torre; else BASE=/opt/chispa; fi
 mkdir -p "$BASE"
 exec > >(tee -a "$BASE/log.txt") 2>&1
@@ -90,17 +91,20 @@ export GOTOOLCHAIN=local GOFLAGS=-mod=mod GONOSUMDB='github.com/juan52878911/*'
 echo "== 2. código y datos $(date -u +%T)"
 if [ "$LOCAL" = 1 ]; then   # en seco los empaqueta el propio script (SDK: por defecto el HEAD, que ya trae server/ y runtime/)
   d=/tmp/chispa/s3/${CHISPA_S3#s3://}; mkdir -p "$d"
-  bash "$AQUI/empaquetar.sh" HEAD model > "$d/codigo-modelo.tgz" || { fallo "empaquetar modelo"; cierre; }
-  CHISPA_GOMOD_PROXY=1 bash "$AQUI/empaquetar.sh" "${CHISPA_TRY_REF:-HEAD}" server runtime format sdk/python go.work > "$d/codigo-sdk.tgz" \
-    || { fallo "empaquetar sdk"; cierre; }
+  if [ "${CHISPA_DOS_PAQUETES:-0}" = 1 ]; then
+    bash "$AQUI/empaquetar.sh" HEAD model > "$d/codigo-modelo.tgz" || { fallo "empaquetar modelo"; cierre; }
+    CHISPA_GOMOD_PROXY=1 bash "$AQUI/empaquetar.sh" "${CHISPA_TRY_REF:-HEAD}" server runtime format sdk > "$d/codigo-sdk.tgz" || { fallo "empaquetar sdk"; cierre; }
+  else CHISPA_GOMOD_PROXY=1 bash "$AQUI/empaquetar.sh" HEAD > "$d/codigo.tgz" || { fallo "empaquetar"; cierre; }
+  fi
 fi
+if [ "${CHISPA_DOS_PAQUETES:-0}" = 1 ]; then PAQUETES="codigo-modelo codigo-sdk"; else PAQUETES=codigo; fi
 rm -rf "$REPO" "$JEV" "$MODELOS"; mkdir -p "$REPO" "$MODELOS"
-for p in modelo sdk; do   # un paquete a medias no se acepta: hasta 45 min de reintentos (el orquestador los sube tras lanzar)
+for p in $PAQUETES; do   # un paquete a medias no se acepta: hasta 45 min de reintentos (el orquestador los sube tras lanzar)
   for _ in $(seq 1 90); do
-    s3cp "$CHISPA_S3/codigo-$p.tgz" "$BASE/codigo-$p.tgz" 2>/dev/null && tar -tzf "$BASE/codigo-$p.tgz" >/dev/null 2>&1 && break
-    rm -f "$BASE/codigo-$p.tgz"; [ "$LOCAL" = 1 ] && break; sleep 30
+    s3cp "$CHISPA_S3/$p.tgz" "$BASE/$p.tgz" 2>/dev/null && tar -tzf "$BASE/$p.tgz" >/dev/null 2>&1 && break
+    rm -f "$BASE/$p.tgz"; [ "$LOCAL" = 1 ] && break; sleep 30
   done
-  tar -xzf "$BASE/codigo-$p.tgz" -C "$REPO" || { fallo "no llegó un codigo-$p.tgz válido"; cierre; }
+  tar -xzf "$BASE/$p.tgz" -C "$REPO" || { fallo "no llegó un $p.tgz válido"; cierre; }
 done
 cd "$REPO" || { fallo "sin repo"; cierre; }
 export PYTHONPATH=$REPO:$REPO/sdk/python
@@ -132,17 +136,22 @@ fi
 
 # --- 3. torre (una exportación por variante): paridad, tamaño, latencia y metadata_props --------------------------------------------------
 echo "== 3. exportar torre y paridad $(date -u +%T)"
-VARIANTES=${CHISPA_VARIANTES:-ninguna dinamico estatico}
+VARIANTES=${CHISPA_VARIANTES:-ninguna}
+EXPORT_ARGS=${CHISPA_EXPORT_ARGS---sin-poda}   # este exportador no tiene --perfil servidor: torre fp32 («--cuant-torre ninguna») y sin vocabulario podado
+echo "export: --cuant-torre <variante> $EXPORT_ARGS"
 "$PY" -m model.bench.torre.datos_g7 calib "$RES/calib-torre.jsonl" 2>&1 | tail -1
 for v in $VARIANTES; do
   TORRE=$RES/torre-$v.onnx
-  if "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" "${CKPT_ARG[@]}" --cuant-torre "$v" --calib-torre "$RES/calib-torre.jsonl" --n-calib 500 \
-       --medir-torre "$RES/paridad-$v" > "$RES/exportar-torre-$v.log" 2>&1; then tail -3 "$RES/exportar-torre-$v.log"   # su LEEME.md habla de pesos aleatorios: solo vale paridad.json
+  if "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" "${CKPT_ARG[@]}" $EXPORT_ARGS --cuant-torre "$v" --calib-torre "$RES/calib-torre.jsonl" --n-calib 500 \
+       --medir-torre "$RES/paridad-$v" > "$RES/exportar-torre-$v.log" 2>&1 \
+     || { echo "exportar con --medir-torre falló (sin poda cabe justo en memoria); se repite sin medir la paridad"; fallo "paridad-$v no medida"
+          "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" "${CKPT_ARG[@]}" $EXPORT_ARGS --cuant-torre "$v" --calib-torre "$RES/calib-torre.jsonl" --n-calib 500 \
+            >> "$RES/exportar-torre-$v.log" 2>&1; }; then tail -3 "$RES/exportar-torre-$v.log"   # su LEEME.md habla de pesos aleatorios: solo vale paridad.json
   else tail -20 "$RES/exportar-torre-$v.log"; fallo "exportar --torre-onnx $v"; estado "metadata_$v" "FALLO no se exportó"; continue; fi
   "$PY" -I -c "
-import json, onnx, sys
+import json, onnx, os, sys
 p = {x.key: x.value for x in onnx.load(sys.argv[1], load_external_data=False).metadata_props}
-esp = {'chispa.torre.dim': '256', 'chispa.torre.max_len': str(json.load(open(sys.argv[2]))['max_len']), 'chispa.torre.prefijo': 'passage: '}
+esp = {'chispa.torre.dim': '256', 'chispa.torre.max_len': str(json.load(open(sys.argv[2]))['max_len'] if os.path.exists(sys.argv[2]) else p.get('chispa.torre.max_len')), 'chispa.torre.prefijo': 'passage: '}
 mal = {k: p.get(k) for k in esp if p.get(k) != esp[k]}
 print(p); sys.exit('metadata_props mal: %r' % mal if mal else 0)" "$TORRE" "$RES/paridad-$v/paridad.json" \
     && estado "metadata_$v" "OK dim=256 max_len prefijo='passage: '" || estado "metadata_$v" "FALLO ver log"
@@ -173,7 +182,6 @@ if [ "$LOCAL" = 1 ]; then
 else
   export CGO_ENABLED=1 LD_LIBRARY_PATH=/opt/ort/lib CHISPA_ORT_LIB=/opt/ort/lib/libonnxruntime.so.${ORT_VERSION}
   if [ -f go.work ]; then GODIR=$REPO TORRE_PKG=./server/torre/...; else GODIR=$REPO/server TORRE_PKG=./torre/...; fi
-  ( cd "$REPO/server" && go get github.com/yalue/onnxruntime_go@$ORT_GO_VERSION ) || fallo "go get onnxruntime_go"   # solo el go.mod de la instancia
   prueba() {   # prueba clave "go test…": OK solo con algún PASS y ningún SKIP ni FAIL (un test saltado no demuestra nada)
     local k=$1; shift; ( cd "$GODIR" && "$@" ) > "$RES/$k.log" 2>&1; local rc=$?
     local p s; p=$(grep -c -- '^--- PASS\|^    --- PASS' "$RES/$k.log"); s=$(grep -c -- '--- SKIP' "$RES/$k.log")
@@ -192,14 +200,21 @@ echo "== 5. servidor $(date -u +%T)"
 if [ "$LOCAL" = 1 ]; then for v in $VARIANTES; do estado "train_torre_$v" "OMITIDO local (sin ORT)"; done
 elif [ -x "$SERV" ]; then
   "$PY" -u -m model.evaluacion.jevbench_l2 --ckpt "$CKPT" --jevbench "$JEV" --salida "$RES" --k 0 --device cpu || fallo "jevbench_l2 k=0"
-  TODOS_VAR=${CHISPA_TODOS_VAR:-estatico}
+  TODOS_VAR=${CHISPA_TODOS_VAR:-${VARIANTES%% *}}
+  TAU=${CHISPA_TAU_NUEVO:-0.276}
   for v in $VARIANTES; do
     [ -f "$RES/torre-$v.onnx" ] || { estado "train_torre_$v" "FALLO sin torre exportada"; continue; }
-    MIN=$(( $(quedan_min) - 10 )); MIN=${CHISPA_TODOS_MIN:-$MIN}; [ "$MIN" -lt 2 ] && MIN=2
+    MIN=$(( ($(quedan_min) - 12) / 2 )); MIN=${CHISPA_TODOS_MIN:-$MIN}; [ "$MIN" -lt 2 ] && MIN=2
     TODOS=(); [ "$v" = "$TODOS_VAR" ] && TODOS=(--todos --minutos "$MIN")
     if "$PY" -u -m model.bench.torre.servidor --jevbench "$JEV" --salida "$RES/servidor-$v" --ckpt "$CKPT" --torre "$RES/torre-$v.onnx" --servidor "$SERV" \
-         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" "${TODOS[@]}" > "$RES/servidor-$v.log" 2>&1; then estado "train_torre_$v" "OK chispa train --torre y servidor"
-    else tail -20 "$RES/servidor-$v.log"; estado "train_torre_$v" "FALLO ver servidor-$v.log"; fi
+         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" --exigir-torres "${TODOS[@]}" > "$RES/servidor-$v.log" 2>&1; then estado "train_torre_$v" "OK chispa train --torre y servidor"
+    else tail -20 "$RES/servidor-$v.log"; estado "train_torre_$v" "FALLO ver servidor-$v.log"; fallo "servidor $v sin torres calculadas o error"; fi
+    if [ "$TAU" != no ] && [ ${#TODOS[@]} -gt 0 ]; then   # misma torre, tau_l2_esquema_nuevo del barrido (abstención 20 %): cuánto contesta L2
+      MIN=$(( $(quedan_min) - 8 )); MIN=${CHISPA_TODOS_MIN:-$MIN}; [ "$MIN" -lt 2 ] && MIN=2
+      "$PY" -u -m model.bench.torre.servidor --jevbench "$JEV" --salida "$RES/servidor-$v-tau" --ckpt "$CKPT" --torre "$RES/torre-$v.onnx" --servidor "$SERV" \
+         --tok "$TOK" --repo "$REPO" --puerto $PUERTO --pred "$RES/pred/l2_k0.jsonl" --ort-lib "$CHISPA_ORT_LIB" --exigir-torres --tau-nuevo "$TAU" --todos --minutos "$MIN" \
+         > "$RES/servidor-$v-tau.log" 2>&1 && estado "tau_$v" "OK tau_l2_esquema_nuevo=$TAU" || { tail -20 "$RES/servidor-$v-tau.log"; estado "tau_$v" "FALLO ver servidor-$v-tau.log"; fallo "servidor $v tau $TAU"; }
+    fi
   done
 else for v in $VARIANTES; do estado "train_torre_$v" "FALLO sin binario del servidor"; done; fi
 
