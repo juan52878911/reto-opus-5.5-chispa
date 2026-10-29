@@ -8,7 +8,8 @@ import json
 import struct
 from typing import Dict
 
-META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF = 1, 2, 3, 4, 5, 6, 7, 8
+META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR = 1, 2, 3, 4, 5, 6, 7, 8, 9
+TIPOS = (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR)
 MAGIA = b"\x89CHI\r\n\x1a\n"
 
 
@@ -78,6 +79,8 @@ def leer(datos: bytes) -> Dict[int, bytes]:
         b = datos[base + off:base + off + ln]
         if hashlib.sha256(b).digest() != tabla[56 * i + 24:56 * i + 56]:
             raise ValueError("sha256 de sección incorrecto")
+        if t not in TIPOS:
+            raise ValueError(f"tipo de sección {t} desconocido")
         out[t] = b
     return out
 
@@ -163,3 +166,25 @@ def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
     out.append(b"".join(bs))
     out.append(coef.tobytes())
     return b"".join(out)
+
+
+# --- TORR (ver format/chispa3/torr.go para la disposición) ---
+TORR_VERSION = 1
+
+
+def torr(onnx: bytes, dim: int = 256, max_len: int = 128, prefijo: str = "passage: ") -> bytes:
+    """Sección TORR: u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX (`chispa3.CodificarTORR`)."""
+    p = prefijo.encode("utf-8")
+    if not 0 < dim <= 4096 or not 0 < max_len <= 8192 or len(p) > 256 or not onnx:
+        raise ValueError("TORR mal formada")
+    return struct.pack("<IIII", TORR_VERSION, dim, max_len, len(p)) + p + onnx
+
+
+def leer_torr(b: bytes) -> dict:
+    """Inversa de `torr` (`chispa3.DecodificarTORR`): {dim, max_len, prefijo, onnx}."""
+    if len(b) < 16:
+        raise ValueError("TORR truncada")
+    ver, dim, ml, n = struct.unpack("<IIII", b[:16])
+    if ver != TORR_VERSION or not 0 < dim <= 4096 or not 0 < ml <= 8192 or n > 256 or len(b) <= 16 + n:
+        raise ValueError("TORR inválida")
+    return {"dim": dim, "max_len": ml, "prefijo": b[16:16 + n].decode("utf-8"), "onnx": b[16 + n:]}

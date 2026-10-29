@@ -11,7 +11,7 @@ son **benchmarks**: pruebas de que cada modo funciona, no el objetivo del produc
 | Zero-shot (L1) | macro-F1 medio en 5 tareas, con potion | 0,455 | [`informe.md`](../model/l1/resultados/2026-10-28/informe.md) |
 | Zero-shot (L1) | macro-F1 en massive y clinc150, con potion | 0,406 y 0,445 | [`informe.md`](../model/l1/resultados/2026-10-28/informe.md) |
 | Zero-shot (L1) | macro-F1 medio con el L1 propio de 256 dim | 0,353 | [`informe.md`](../model/l1/resultados/2026-10-28/informe.md) |
-| Zero-shot (L2, torre al vuelo) | **(en desarrollo)** | sin medir | [08](08-esquemas-nuevos.md) |
+| Zero-shot (L2, torre al vuelo) | cableado (`TORR` + `-tags ort` + `-tok`); sin paridad del ONNX real | sin medir | [08](08-esquemas-nuevos.md) |
 | Few-shot | prototipos de L1 con 32 ejemplos por clase, macro-F1 medio en 5 tareas | 0,654 con potion | [`informe.md`](../model/l1/resultados/2026-10-28/informe.md) |
 | Few-shot | L0 con 50 ejemplos por clase en un sondeo de 13 clases | 0,821 (L0), 0,762 (cascada L0 → L1, lo escalado cuenta como fallo) | [`sdk/python/README.md`](../sdk/python/README.md#punta-a-punta-intención-del-sondeo-50-por-clase) |
 | Few-shot con k = 5 por opción | `chispa train` sin `--conjunta` | sin medir | — |
@@ -21,8 +21,8 @@ son **benchmarks**: pruebas de que cada modo funciona, no el objetivo del produc
 Lo que hay que saber antes de usarlo:
 - **Es flojo.** Con potion, el macro-F1 medio es 0,455 en cinco tareas. En clinc150 (150 clases) es 0,445 y en massive 0,406
   ([`informe.md`](../model/l1/resultados/2026-10-28/informe.md)). Pasa de 0,45 a 0,65 al dar 32 ejemplos por clase.
-- **Hoy decide L1.** Un esquema que llega en la petición, sin `.chispa` propio, lo decide L1. L2 con torre al vuelo
-  está **(en desarrollo)**; no hay cifra de L2 en tareas no vistas: sin medir ([08](08-esquemas-nuevos.md)).
+- **Decide L1; L2 solo con `TORR`.** Un esquema que llega en la petición, sin `.chispa` propio, lo decide L1. Si el `.chispa` trae `TORR`, L2 calcula la torre al vuelo
+  (requiere `-tags ort` y `-tok`); no hay cifra de L2 en tareas no vistas: sin medir ([08](08-esquemas-nuevos.md)).
 - **Las descripciones son la señal.** Opciones parecidas o descripciones vagas bajan la calidad. No hay una medida del efecto: sin medir.
 - **τ sin calibrar.** El `CALIB` del zero-shot usa τ = 0,6; sus probabilidades no están calibradas.
   El ECE en zero-shot: sin medir.

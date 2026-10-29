@@ -61,8 +61,7 @@ esa pregunta. Respuesta (la forma; los valores cambian con tu modelo):
 
 - `probs` trae un valor por opción, y `answer` es una de ellas.
 - Si L1 no llega a τ = 0,6, la respuesta trae `"escalate": true`: `answer` es la mejor pista. Decide tú qué hacer.
-- Hoy un esquema nuevo lo decide **solo L1**. L2 con torre al vuelo está **(en desarrollo)**
-  ([08-esquemas-nuevos.md](08-esquemas-nuevos.md)).
+- Con un `.chispa` que trae la sección `TORR` y `chispa-server -tok …` compilado con `-tags ort`, un esquema nuevo lo decide también L2 (torre al vuelo); sin `TORR`, solo L1 ([08-esquemas-nuevos.md](08-esquemas-nuevos.md)). Sin paridad ni cifra medidas del ONNX real de la torre: sin medir.
 - Límite: L1 sin ejemplos es flojo. Cifras en [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md#zero-shot).
 
 ## 3. Few-shot: k ejemplos por opción

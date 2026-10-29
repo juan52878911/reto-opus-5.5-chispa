@@ -26,7 +26,7 @@ Ejemplo real: [`choice.req.json`](../server/decide/testdata/choice.req.json).
 Los campos desconocidos dan 400.
 
 **El esquema viaja en la petición.** `question`, `kind` y las `options` con su `description` son el esquema completo; el servidor
-no exige un `.chispa` entrenado para él. Un esquema nuevo lo decide hoy L1 y L2 con torre al vuelo está **(en desarrollo)**
+no exige un `.chispa` entrenado para él. Un esquema nuevo lo decide L1 y, si el `.chispa` trae `TORR` y el servidor se compiló con `-tags ort` y corre con `-tok`, también L2 con torre al vuelo
 ([08-esquemas-nuevos.md](08-esquemas-nuevos.md)). Las `description` importan: en zero-shot son lo único que Chispa ve de tu tarea.
 Ejemplo completo con un esquema inventado: [02-inicio-rapido.md](02-inicio-rapido.md#2-zero-shot-sin-ejemplos). Con L0 y L2c
 (modo con datos del cliente), `question` y los ids deben ser los del entrenamiento.
