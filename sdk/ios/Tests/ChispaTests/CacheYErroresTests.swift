@@ -84,7 +84,17 @@ final class CacheYErroresTests: XCTestCase {
     }
 
     func testL2cUsaTauL2cSiEsMayorOIgualACero() throws {
-        XCTAssertTrue(try l2c(tauConj: 0.9).escalar) // 0.7 < 0.9: el servidor también escala
+        // La respuesta tiene que salir de la cabeza conjunta (hace falta L0 en `previas`): la L2 base de respaldo se corta
+        // con tau_escalate_l2 (H7), no con tau_l2c.
+        let m = MotorFalso()
+        m.presentes = ["L0", "L2"]; m.calib = true; m.tau = 0.6; m.conj = true; m.tauConj = 0.9
+        m.l0 = { json("compra", 0.5, ["compra": 0.5]) }
+        m.cabeza = { json("compra", 0.7, ["compra": 0.7]) }
+        m.l2 = { json("compra", 0.7, ["compra": 0.7]) }
+        let l2 = CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [1]))
+        let r = try Cascada.armar(motor: m, l2: l2).decidir("x", pregunta)
+        XCTAssertTrue(m.llamadas.contains("CONJ"))
+        XCTAssertTrue(r.escalar) // cabeza 0.7 < tau_l2c 0.9: el servidor también escala
     }
 
     func testL2UsaTauEscalateL2YL1ConservaTauEscalate() throws {

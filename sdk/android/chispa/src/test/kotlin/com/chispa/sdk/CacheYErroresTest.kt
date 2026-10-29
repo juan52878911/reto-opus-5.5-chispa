@@ -98,13 +98,18 @@ class CacheYErroresTest {
 
     @Test
     fun l2cUsaTauL2cSiEsMayorOIgualACero() {
+        // La respuesta tiene que salir de la cabeza conjunta (hace falta L0 en `previas`): la L2 base de respaldo se corta
+        // con tau_escalate_l2 (H7), no con tau_l2c.
         val m = MotorFalso(
-            presentes = listOf("L2"), calib = true, tau = 0.6, conj = true, tauConj = 0.9,
+            presentes = listOf("L0", "L2"), calib = true, tau = 0.6, conj = true, tauConj = 0.9,
+            l0 = { json("compra", 0.5, "compra" to 0.5) },
+            cabeza = { json("compra", 0.7, "compra" to 0.7) },
             l2 = { json("compra", 0.7, "compra" to 0.7) },
         )
         val c = Cascada.armar(m, CapaL2(m, SesionFalsa(), { longArrayOf(1) }))
         val r = c.decidir("x", PREGUNTA)
-        assertTrue(r.escalar) // 0.7 < 0.9: el servidor también escala
+        assertTrue("CONJ" in m.llamadas)
+        assertTrue(r.escalar) // cabeza 0.7 < tau_l2c 0.9: el servidor también escala
     }
 
     @Test
