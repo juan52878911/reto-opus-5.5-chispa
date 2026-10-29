@@ -1,6 +1,7 @@
 package decide
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -106,6 +107,47 @@ func (c *cubo) toma(ahora time.Time) (bool, int) {
 	return false, espera
 }
 
+// cobra descuenta n tokens sin comprobar: el cubo puede quedar en deuda, y mientras lo esté toma() rechaza.
+func (c *cubo) cobra(n int, ahora time.Time) {
+	if n <= 0 {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if d := ahora.Sub(c.ultimo).Seconds(); d > 0 {
+		c.tokens = math.Min(c.cap, c.tokens+d*c.rps)
+		c.ultimo = ahora
+	}
+	c.tokens -= float64(n)
+}
+
+// cobroClave es lo que conAuth deja en el ctx para cobrar el coste (preguntas) de la petición a la clave que la hizo.
+type cobroClave struct {
+	k     *claveViva
+	ahora func() time.Time
+}
+
+type ctxCobro struct{}
+
+func cobroDe(ctx context.Context) *cobroClave {
+	c, _ := ctx.Value(ctxCobro{}).(*cobroClave)
+	return c
+}
+
+func (c *cobroClave) cobra(n int) {
+	if c != nil {
+		c.k.cubo.cobra(n, c.ahora())
+	}
+}
+
+// id es el id de la clave autenticada ("" si /v1/decide está abierto).
+func (c *cobroClave) id() string {
+	if c == nil {
+		return ""
+	}
+	return c.k.id
+}
+
 type claveViva struct {
 	id   string
 	hash [sha256.Size]byte
@@ -206,6 +248,6 @@ func (s *Servidor) conAuth(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		s.Met.Clave(k.id, "ok")
-		h(w, r)
+		h(w, r.WithContext(context.WithValue(r.Context(), ctxCobro{}, &cobroClave{k: k, ahora: a.ahora})))
 	}
 }
