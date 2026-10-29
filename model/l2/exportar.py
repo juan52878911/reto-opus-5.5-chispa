@@ -669,6 +669,25 @@ def calib_con_multi(modelo, enc, chispa, filas):
     return {**chispa, "tipos": {**chispa["tipos"], **tipos}} if tipos else chispa
 
 
+CABEZAS_L2 = ("choice", "noul", "score2", "score3", "score4", "score5")
+
+
+def calib_completa(modelo, chispa):
+    """CALIB de L2 con todas las cabezas (`CABEZAS_L2` y sus `scoreK#j`): las que `chispa` no trae salen del checkpoint (`cabeza_inicial`,
+    θ = 0,5), igual que en `jevbench_l2`; las que trae (de `calibrar` sobre el dev) no se tocan. Así un esquema nuevo de cualquier tipo
+    usa en el servidor los parámetros del checkpoint y no los valores por defecto."""
+    faltan = {}
+    for clave in CABEZAS_L2:
+        if clave not in chispa["tipos"]:
+            modelo.asegurar_cabeza(clave)
+            p = C.cabeza_inicial(modelo, clave)
+            faltan[clave] = {**p, "T": p.get("T", 1.0), "theta": 0.5}
+    if not faltan:
+        return chispa
+    nuevas = C.a_calib_chispa({"tipos": faltan, "tau_escalate": chispa.get("tau_escalate", 0.0)})["tipos"]
+    return {**chispa, "tipos": {**nuevas, **chispa["tipos"]}}
+
+
 def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256),
               cuant="codificador", per_channel=True, ids_calib=None):
     """Todo el camino hasta el `.chispa`. `encoder`: módulo HF (atención eager) del que sale el grafo; `vocab`: dict o None."""
@@ -685,7 +704,7 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     meta_consulta(int8, enc.max_tok)
     torres = entradas_torres(modelo, enc, filas_esq)
     dim = int(torres[0][3].shape[0])
-    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib_con_multi(modelo, enc, calib["chispa"], filas_esq), salida)
+    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib_con_multi(modelo, enc, calib_completa(modelo, calib["chispa"]), filas_esq), salida)
     inf = {"l2_mb": int8.stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "chispa_mb": Path(salida).stat().st_size / 1e6,
            "torres": len(torres), "vocab_podado": bool(vocab), "cuant": cuant, "per_channel": per_channel, "opset": OPSET, "k_ranuras": K_RANURAS}
     sess = sesion(int8)
