@@ -57,3 +57,13 @@ class TestEjemplos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDescripcionNull(unittest.TestCase):
+    def test_descripcion_null_es_vacia(self):
+        from chispa.datos import cargar_esquema
+        import json, tempfile, os
+        p = os.path.join(tempfile.mkdtemp(), "e.json")
+        open(p, "w").write(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a", "descripcion": None}, {"id": "b"}]}))
+        q, _ = cargar_esquema(p)
+        self.assertEqual([(o.id, o.description) for o in q.options], [("a", ""), ("b", "")])

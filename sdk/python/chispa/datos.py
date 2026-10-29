@@ -112,7 +112,7 @@ def cargar_esquema(ruta, pregunta_id: Optional[str] = None) -> Tuple[Pregunta, d
         lista = [Opcion(str(k), str(v or "")) for k, v in ops.items()]
     elif isinstance(ops, list):
         lista = [Opcion(str(o)) if not isinstance(o, dict) else
-                 Opcion(str(o["id"]), str(o.get("descripcion", o.get("description", "")))) for o in ops]
+                 Opcion(str(o["id"]), str(o.get("descripcion", o.get("description")) or "")) for o in ops]
     else:
         raise ChispaError("esquema: «opciones» debe ser un mapa o una lista")
     campos = [("id", d["id"]), ("pregunta", d["pregunta"])]

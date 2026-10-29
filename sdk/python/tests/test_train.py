@@ -318,3 +318,22 @@ class TestModos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCalibL2YaEntrenada(unittest.TestCase):
+    def test_calib_de_l2_prefiere_tipos_l2(self):
+        from chispa import formato
+        from chispa.train import calib_de_l2
+        c = formato.calib({"choice": {"T": 0.05}}, 0.9, tipos_l2={"choice": {"T": 0.7}}, tau_escalate_l2=0.6)
+        r = calib_de_l2({formato.CALIB: c})
+        self.assertEqual(r["tipos_l2"], {"choice": {"T": 0.7}})
+        self.assertEqual(r["tau_escalate_l2"], 0.6)
+
+    def test_aviso_l2_sin_calib(self):
+        from chispa import formato
+        d = Path(tempfile.mkdtemp())
+        (d / "e.json").write_text(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a"}, {"id": "b"}]}))
+        (d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"x", formato.ESQUEMAS: b"y"}))
+        msgs = []
+        entrenar(None, d / "e.json", d / "o.chispa", l2=str(d / "l2.chispa"), log=msgs.append)
+        self.assertTrue(any("--l2 sin CALIB" in m for m in msgs))

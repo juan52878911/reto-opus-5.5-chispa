@@ -287,16 +287,18 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 
 def calib_de_l2(secciones) -> dict:
-    """Campos de CALIB del `.chispa` final que salen de la CALIB de un `l2.chispa` (`secciones` = `formato.leer`): `tipos_l2` (sus `tipos`, con
-    `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate_l2` (su `tau_escalate`) y `tau_l2c`. Sin CALIB (o sin cada campo) no devuelve la clave."""
+    """Campos de CALIB del `.chispa` final que salen de la CALIB de un `l2.chispa` (`secciones` = `formato.leer`): `tipos_l2` (sus `tipos_l2` si ya los trae, si no sus `tipos`, con
+    `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate_l2` (su `tau_escalate_l2` o, si no, `tau_escalate`) y `tau_l2c`. Sin CALIB (o sin cada campo) no devuelve la clave."""
     if formato.CALIB not in secciones:
         return {}
     d = json.loads(secciones[formato.CALIB])
     r = {}
-    if isinstance(d.get("tipos"), dict):
-        r["tipos_l2"] = d["tipos"]
-    if d.get("tau_escalate") is not None:
-        r["tau_escalate_l2"] = d["tau_escalate"]
+    tipos = d.get("tipos_l2", d.get("tipos"))
+    if isinstance(tipos, dict):
+        r["tipos_l2"] = tipos
+    tau = d.get("tau_escalate_l2", d.get("tau_escalate"))
+    if tau is not None:
+        r["tau_escalate_l2"] = tau
     if d.get("tau_l2c") is not None:
         r["tau_l2c"] = d["tau_l2c"]
     return r
@@ -340,7 +342,10 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
             if t_ not in sec:
                 raise ChispaError(f"--l2: falta la sección {n}")
             secs[t_] = sec[t_]
-        secs[formato.CALIB] = json.dumps({**json.loads(secs[formato.CALIB]), **calib_de_l2(sec)}).encode()
+        c2 = calib_de_l2(sec)
+        if "tipos_l2" not in c2 and "tau_escalate_l2" not in c2:
+            log("AVISO: --l2 sin CALIB: L2 usará la CALIB de L1")
+        secs[formato.CALIB] = json.dumps({**json.loads(secs[formato.CALIB]), **c2}).encode()
     else:
         omitidas["L2"] = omitidas["ESQUEMAS"] = "sin --l2/--ckpt"
     salida.write_bytes(formato.escribir(secs))
