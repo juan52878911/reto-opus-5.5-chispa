@@ -30,8 +30,20 @@ def texto_opcion(fila, opcion):
 
 
 def texto_consulta(fila):
-    """Torre de las cabezas noul y score: la pregunta con la última opción («true», o el nivel máximo)."""
-    return texto_opcion(fila, fila["opciones"][-1])
+    """Torre de las cabezas noul y score: la pregunta con la opción «true» (noul) o el nivel máximo (score), sea cual sea el orden.
+
+    Mismo criterio que `exportar.opcion_consulta`. Otros tipos: la última opción."""
+    ops = fila["opciones"]
+    if fila["tipo"] == "noul":
+        if "true" not in ops:
+            raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
+        return texto_opcion(fila, "true")
+    if fila["tipo"] == "score":
+        try:
+            return texto_opcion(fila, max(ops, key=int))
+        except ValueError:
+            raise ValueError("pregunta score con niveles no numéricos: %r" % (ops,))
+    return texto_opcion(fila, ops[-1])
 
 
 def clave_cabeza(fila):
