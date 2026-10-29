@@ -13,8 +13,9 @@ DESCRIPCION = """Chispa: clasificador tipado (choice, score, noul) de bajo coste
 
   chispa train    arma un fichero .chispa en CPU (zero-shot, few-shot o con datos del cliente)
   chispa decide   hace una pregunta a un servidor chispa-server (/v1/decide)
+  chispa evaluar  mide un servidor con una muestra etiquetada del cliente (exactitud, F1, escalado, cobertura, latencia)
 
-Ayuda de cada orden: chispa train --help, chispa decide --help."""
+Ayuda de cada orden: chispa train --help, chispa decide --help, chispa evaluar --help."""
 
 EPILOGO_TRAIN = """\
 Los tres modos (los elige chispa según lo que le pases):
@@ -93,6 +94,22 @@ def main(argv=None) -> int:
     d.add_argument("--tipo", choices=["choice", "noul", "score"], default="choice")
     d.add_argument("--pregunta", required=True, help="el texto de la pregunta")
     d.add_argument("--opciones", nargs="*", default=[], help="choice: ids; score: el número de niveles")
+    e = sub.add_parser("evaluar", help="mide un chispa-server con una muestra etiquetada (informe markdown + JSON)",
+                       description="Manda cada fila (texto, etiqueta) a /v1/decide y calcula las métricas de pilotos/metrica.md: exactitud, F1 macro, "
+                                   "matriz de confusión, escalado, cobertura y precisión de lo aceptado, capas, p50/p99 y, con score, MAE.",
+                       epilog="Ejemplo:\n  chispa evaluar --url http://127.0.0.1:8090 --esquema pqrs.json --datos muestra.csv --precision-objetivo 0.95 --salida informe\n"
+                              "Escribe informe.md e informe.json; sin --salida imprime el markdown. Cada fila es una petición (un state por petición).",
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
+    e.add_argument("--url", required=True, help="base del servidor, p. ej. http://127.0.0.1:8090")
+    e.add_argument("--esquema", required=True, help="el mismo YAML/JSON de chispa train (choice, noul o score)")
+    e.add_argument("--datos", required=True, help="CSV/JSONL con columnas texto|text y etiqueta|label (noul: true/false; score: 1..K)")
+    e.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
+    e.add_argument("--precision-objetivo", type=float, default=0.95, help="precisión a la que se da la cobertura (0,95)")
+    e.add_argument("--concurrencia", type=int, default=4, help="peticiones en vuelo (4)")
+    e.add_argument("--timeout", type=float, default=10.0)
+    e.add_argument("--reintentos", type=int, default=3)
+    e.add_argument("--salida", help="prefijo de salida: escribe PREFIJO.md y PREFIJO.json")
+    e.add_argument("--filas", action="store_true", help="incluye en el JSON la predicción de cada fila")
     a = ap.parse_args(argv)
     try:
         if a.cmd == "train":
@@ -103,6 +120,19 @@ def main(argv=None) -> int:
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
                      torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo,
                      log=lambda m: print(m, file=sys.stderr))
+        elif a.cmd == "evaluar":
+            from .evaluar import evaluar
+            r = evaluar(a.url, a.esquema, a.datos, pregunta=a.pregunta, objetivo=a.precision_objetivo, concurrencia=a.concurrencia,
+                        timeout=a.timeout, reintentos=a.reintentos)
+            if a.salida:
+                out = dict(r["metricas"], **({"filas": r["filas"]} if a.filas else {}))
+                with open(a.salida + ".md", "w", encoding="utf-8") as f:
+                    f.write(r["informe"])
+                with open(a.salida + ".json", "w", encoding="utf-8") as f:
+                    json.dump(out, f, ensure_ascii=False, indent=2)
+                print(f"chispa: {a.salida}.md y {a.salida}.json", file=sys.stderr)
+            else:
+                print(r["informe"], end="")
         else:
             q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
                  "score": lambda: Score("q", a.pregunta, int(a.opciones[0]))}[a.tipo]()

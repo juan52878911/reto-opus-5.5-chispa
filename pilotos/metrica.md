@@ -22,6 +22,12 @@ Se mide con una **muestra etiquetada por el cliente**. Las cifras de `docs/` son
 ## Cómo se mide
 Hay herramientas en el repo, escritas para benchmarks. Lo que se puede usar y sus límites:
 
+**0. Atajo: `chispa evaluar`** (SDK de Python, sin dependencias nuevas). Para `choice`, `noul` y `score` hace los pasos 1 a 4 de una vez, desde un CSV/JSONL con `texto` y `etiqueta` (noul: `true`/`false`; score: `1`…`K`) y el mismo esquema de `chispa train`:
+```
+python -m chispa evaluar --url http://127.0.0.1:8090 --esquema pqrs.json --datos muestra.csv --precision-objetivo 0.95 --salida informe
+```
+Escribe `informe.md` (con la tabla de resultados de la plantilla) e `informe.json` (`--filas` añade cada predicción): exactitud, F1 macro (escala = fallo y mejor respuesta), matriz de confusión, escalado, cobertura y precisión de lo aceptado, distribución por capa, p50/p99 del cliente (y del servidor), MAE en score y, con `--precision-objetivo`, el umbral de confianza único que da esa precisión y su cobertura. Cada fila es una petición (`/v1/decide` lleva un solo `state` por petición); `--concurrencia` las reparte. Un error tipado del esquema (p. ej. `invalid_options`) en la primera petición detiene la medición; los de fila (`state_too_long`) y los de red se cuentan como errores. No mide el coste por 1.000 (paso 5). El umbral sale de la misma muestra que se mide: para fijarlo y medirlo en partes distintas, corra dos veces con dos ficheros. Probado solo con un servidor falso (`sdk/python/tests/test_evaluar.py`): sin correr contra `chispa-server` ni datos del cliente.
+
 **1. Preparar la muestra** en el formato de [`server/deploy/aws/e2e_util.py`](../server/deploy/aws/e2e_util.py): un JSONL por fila, con
 `id`, `texto`, `etiqueta`, `pregunta`, `opciones` (lista de ids) y `descripciones` (mapa id → descripción). Las filas de la muestra deben salir de la anonimización
 ([`datos-y-consentimiento.md`](datos-y-consentimiento.md)). Lo prepara el responsable técnico a mano o con un script propio: **no hay un conversor listo** (pendiente de producto).
@@ -30,7 +36,7 @@ Hay herramientas en el repo, escritas para benchmarks. Lo que se puede usar y su
 ```
 python3 -I server/deploy/aws/e2e_util.py cliente --url http://127.0.0.1:8090 --test muestra.jsonl --salida pred.jsonl
 ```
-Limitación: este cliente manda siempre `kind: "choice"`, así que mide solo preguntas `choice`. Para `noul` y `score` no hay medición lista (pendiente de producto);
+Limitación (se salva con `chispa evaluar`): este cliente manda siempre `kind: "choice"`, así que mide solo preguntas `choice`. Para `noul` y `score` no hay medición lista (pendiente de producto);
 una persona del equipo puede repetir con el cliente de Python ([`sdk/python/README.md`](../sdk/python/README.md)) y el mismo formato de salida.
 
 **3. Calcular la métrica** con [`server/deploy/abstencion/medir.py`](../server/deploy/abstencion/medir.py) (solo biblioteca estándar):
