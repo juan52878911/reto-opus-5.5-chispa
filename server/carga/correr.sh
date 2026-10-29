@@ -88,9 +88,9 @@ echo "Objetivos: l1 ≥ 5000 dec/s con p99 < 20 ms · l2 ≥ 300 dec/s."
 echo
 echo "| modo | c | dec/s | p50 ms | p99 ms | errores | tandas | objetivo |"
 echo "|---|---|---|---|---|---|---|---|"
-awk -F, 'NR>1{k=$1","$2; n[k]++; d[k]+=$4; p5[k]+=$6; if($7>p9[k])p9[k]=$7; e[k]+=$9; if(!(k in ord)){ord[k]=++m; key[m]=k}}
+awk -F, -v stub="$L2STUB" 'NR>1{k=$1","$2; n[k]++; d[k]+=$4; p5[k]+=$6; if($7>p9[k])p9[k]=$7; e[k]+=$9; if(!(k in ord)){ord[k]=++m; key[m]=k}}
  END{for(i=1;i<=m;i++){k=key[i]; split(k,a,","); dd=d[k]/n[k]; ok="-";
-  if(a[1]=="l1") ok=(dd>=5000&&p9[k]<20)?"cumple":"NO cumple"; else if(a[1]=="l2") ok=(dd>=300)?"cumple":"NO cumple";
+  if(a[1]=="l1") ok=(dd>=5000&&p9[k]<20)?"cumple":"NO cumple"; else if(a[1]=="l2") ok=stub?"n/a (L2 stub)":(dd>=300)?"cumple":"NO cumple";
   printf "| %s | %s | %.0f | %.3f | %.3f | %d | %d | %s |\n",a[1],a[2],dd,p5[k]/n[k],p9[k],e[k],n[k],ok}}' "$CSV"
 echo
 echo "Capas que decidieron (última tanda de cada punto) y datos por tanda: ver \`$(basename "$CSV")\`."
