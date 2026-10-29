@@ -1,0 +1,68 @@
+{
+ "ausentes": {},
+ "descartadas": {
+  "tsinst": {
+   "invalidas": 43858,
+   "tarea_abierta": 553183,
+   "tarea_no_comercial": 4254715,
+   "tope_tarea": 1981603
+  }
+ },
+ "descartadas_por_licencia": {
+  "tsinst": {}
+ },
+ "ficheros": [
+  "tsinst/dev-00000.jsonl.gz",
+  "tsinst/test-00000.jsonl.gz",
+  "tsinst/train-00000.jsonl.gz",
+  "tsinst/train-00001.jsonl.gz",
+  "tsinst/train-00002.jsonl.gz",
+  "tsinst/train-00003.jsonl.gz",
+  "tsinst/train-00004.jsonl.gz",
+  "tsinst/train-00005.jsonl.gz",
+  "tsinst/train-00006.jsonl.gz",
+  "tsinst/train-00007.jsonl.gz",
+  "tsinst/train-00008.jsonl.gz"
+ ],
+ "filas_por_fuente": {
+  "tsinst": 826640
+ },
+ "filas_por_fuente_tipo_split": {
+  "tsinst": {
+   "choice": {
+    "dev": 67229,
+    "test": 70019,
+    "train": 689392
+   }
+  }
+ },
+ "filas_por_split": {
+  "dev": 67229,
+  "test": 70019,
+  "train": 689392
+ },
+ "filas_por_tipo": {
+  "choice": 826640
+ },
+ "filas_total": 826640,
+ "fuentes_vacias": [],
+ "info": {
+  "tsinst": {
+   "descartadas_invalidas": 43858,
+   "descartadas_tarea_abierta": 553183,
+   "descartadas_tarea_no_comercial": 4254715,
+   "descartadas_tope_tarea": 1981603,
+   "filas_leidas": 7659999,
+   "sin_datos": false,
+   "tareas_abiertas": 32,
+   "tareas_comerciales_declaradas": 439,
+   "tareas_con_vocabulario": 175
+  }
+ },
+ "segundos": 100.1,
+ "tareas_distintas": 175,
+ "tareas_distintas_por_fuente": {
+  "tsinst": 175
+ },
+ "tope_filas_por_fuente": null
+}
