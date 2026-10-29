@@ -17,7 +17,7 @@ func main() {
 	cfgPath := flag.String("config", "", "JSON de configuración (capas, τ, modelos, cachés)")
 	modelo := flag.String("modelo", "", ".chispa v3 (o v2 envuelto) del que armar L0, L1 y L2 según sus secciones")
 	rutaTok := flag.String("tok", "", ".chispa-tok de e5 (runtime/tok/exportar.py); sin él, L2 queda en stub")
-	timeout := flag.Duration("timeout", 30*time.Second, "tope de tiempo por petición (cancela su ctx y responde 503); 0 = sin tope")
+	timeout := flag.Duration("timeout", 30*time.Second, "tope de tiempo por petición (cancela su ctx y responde 503 con Retry-After y código timeout); 0 = sin tope")
 	flag.Parse()
 	cfg := decide.ConfigPorDefecto()
 	if *cfgPath != "" {
@@ -66,7 +66,7 @@ func main() {
 	}
 	var handler http.Handler = decide.NuevoServidor(casc, met, cfg.CacheRespuestas).ConLimites(cfg.Limites).Handler()
 	if *timeout > 0 {
-		handler = http.TimeoutHandler(handler, *timeout, `{"error":{"code":"timeout","message":"la petición superó el tiempo máximo"}}`)
+		handler = decide.ConTimeout(handler, *timeout)
 	}
 	srv := &http.Server{Addr: *addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("chispa-server en %s: %d modelos en L0", *addr, l0.NumModelos())
