@@ -158,6 +158,18 @@ def seccion_sopl1(q, ex, embeber):
     return b, {i: int(n) for i, n in zip(ids, k)}, dim
 
 
+def anadir_tau_l2_esquema_nuevo(salida, tau) -> None:
+    """Reescribe `salida` con `tau_l2_esquema_nuevo` en CALIB (el τ de L2 cuando las torres de la pregunta salen al vuelo)."""
+    salida = Path(salida)
+    secs = formato.leer(salida.read_bytes())
+    if formato.CALIB not in secs:
+        raise ChispaError("--tau-l2-esquema-nuevo: el fichero no trae CALIB")
+    d = json.loads(secs[formato.CALIB])
+    d["tau_l2_esquema_nuevo"] = tau
+    secs[formato.CALIB] = json.dumps(d).encode()
+    salida.write_bytes(formato.escribir(secs))
+
+
 def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None) -> None:
     """Reescribe `salida` con la sección SOPL1 (soporte few-shot para el encogimiento del prototipo de L1/L2). Sin `embeber`, los
     embeddings salen de runtime/l1 en Go (hace falta Go y las fuentes); sin eso, avisa y no escribe nada."""
@@ -262,7 +274,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
-             shrinkage_lambda=None, embeber=None, log=print) -> dict:
+             shrinkage_lambda=None, embeber=None, tau_l2_esquema_nuevo=None, log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
@@ -277,6 +289,8 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe. `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
     if shrinkage_lambda is not None and (shrinkage_lambda != shrinkage_lambda or shrinkage_lambda < 0):
         raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (∞ = no escribir SOPL1): {shrinkage_lambda}")
+    if tau_l2_esquema_nuevo is not None and not 0 <= tau_l2_esquema_nuevo <= 1:  # también descarta NaN
+        raise ChispaError(f"--tau-l2-esquema-nuevo debe estar en [0,1]: {tau_l2_esquema_nuevo}")
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
         from .torre import validar_torre
         torre = validar_torre(torre, torre_dim, torre_max_len, torre_prefijo, log)
@@ -293,6 +307,9 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         else:
             q, _ = cargar_esquema(esquema, pregunta)
             anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, shrinkage_lambda, inf, log, embeber, repo)
+    if tau_l2_esquema_nuevo is not None:
+        anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
+        log(f"τ de L2 para esquemas nuevos {tau_l2_esquema_nuevo:g} en CALIB (tau_l2_esquema_nuevo)")
     if torre:
         from .torre import anadir_torr
         anadir_torr(salida, torre, inf)

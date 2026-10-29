@@ -60,7 +60,7 @@ func main() {
 		}
 		capaL1, capaL2 = mt.L1, mt.L2
 	}
-	casc, err := decide.NuevaCascada(cfg.Capas, []decide.Decisor{l0, capaL1, capaL2, decide.NuevoL3()}, met)
+	casc, err := decide.NuevaCascadaConTauNuevo(cfg.Capas, []decide.Decisor{l0, capaL1, capaL2, decide.NuevoL3()}, met, cfg.TauL2EsquemaNuevo)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -61,6 +61,9 @@ def main(argv=None) -> int:
                    help="few-shot con --l1: escribe la sección SOPL1 (k y media de los embeddings de L1 de los ejemplos por opción) para que el "
                         "runtime encoja el prototipo hacia ellos, w = k/(k+λ). Sin esta opción no se escribe y el fichero es el de siempre. λ (≥ 0) "
                         "no va en el fichero: se pone en l1_shrinkage_lambda / l2_shrinkage_lambda del servidor o en AbrirConSoporte; aquí es el valor sugerido")
+    t.add_argument("--tau-l2-esquema-nuevo", type=float, default=None, metavar="TAU",
+                   help="escribe tau_l2_esquema_nuevo (en [0,1]) en CALIB: el τ de L2 cuando la pregunta no estaba en ESQUEMAS y la torre sale al vuelo. "
+                        "Sin esta opción no se escribe y L2 usa siempre tau_escalate")
     t.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
     t.add_argument("--semilla", type=int, default=1)
     t.add_argument("--frac-valid", type=float, default=0.2)
@@ -115,7 +118,7 @@ def main(argv=None) -> int:
         if a.cmd == "train":
             from .train import entrenar
             entrenar(a.ejemplos, a.esquema, a.salida, l1=a.l1, ckpt=a.ckpt, l2=a.l2, conjunta=a.conjunta, repo=a.repo,
-                     pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
+                     pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, tau_l2_esquema_nuevo=a.tau_l2_esquema_nuevo, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
                      torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo,

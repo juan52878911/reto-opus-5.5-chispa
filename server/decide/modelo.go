@@ -130,6 +130,10 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 				mt.L2 = NuevoL2cCon(base, base, conj).ConSoporte(sopl, cfg.L2ShrinkageLambda)
 			}
 			aplicarTauL2c(cfg, calib, conj != nil, tauDeCalib)
+			if tauDeCalib && cfg.TauL2EsquemaNuevo == nil && calib.TauL2EsquemaNuevo != nil {
+				v := *calib.TauL2EsquemaNuevo
+				cfg.TauL2EsquemaNuevo = &v
+			}
 		}
 	}
 	return mt, nil

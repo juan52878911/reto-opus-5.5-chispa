@@ -139,11 +139,11 @@ func TestR1HashSeccionYTauL2c(t *testing.T) {
 	if c.HashSeccion(int(chispa3.TORR)) != "" {
 		t.Fatal("sección ausente debía dar \"\"")
 	}
-	if c.TauL2c() != -1 {
-		t.Fatalf("sin tau_l2c: %v", c.TauL2c())
+	if c.TauL2c() != -1 || c.TauL2EsquemaNuevo() != -1 {
+		t.Fatalf("sin tau_l2c: %v, %v", c.TauL2c(), c.TauL2EsquemaNuevo())
 	}
-	tau := 0.9
-	calib, _ := chispa3.Calib{TauEscalate: 0.6, TauL2c: &tau, Tipos: map[string]chispa3.ParamsTipo{"choice": {T: 0.1, A: 1, Theta: .5}}}.Codificar()
+	tau, tauNuevo := 0.9, 0.3
+	calib, _ := chispa3.Calib{TauEscalate: 0.6, TauL2c: &tau, TauL2EsquemaNuevo: &tauNuevo, Tipos: map[string]chispa3.ParamsTipo{"choice": {T: 0.1, A: 1, Theta: .5}}}.Codificar()
 	var buf bytes.Buffer
 	if err := chispa3.Escribir(&buf, []chispa3.Seccion{metaYCalib(t)[0], {Tipo: chispa3.CALIB, Datos: calib}}); err != nil {
 		t.Fatal(err)
@@ -155,8 +155,8 @@ func TestR1HashSeccionYTauL2c(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c2.Cerrar()
-	if c2.TauL2c() != 0.9 || c2.TauEscalate() != 0.6 {
-		t.Fatalf("tau_l2c %v", c2.TauL2c())
+	if c2.TauL2c() != 0.9 || c2.TauEscalate() != 0.6 || c2.TauL2EsquemaNuevo() != 0.3 {
+		t.Fatalf("tau_l2c %v, nuevo %v", c2.TauL2c(), c2.TauL2EsquemaNuevo())
 	}
 }
 

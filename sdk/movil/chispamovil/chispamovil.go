@@ -273,6 +273,15 @@ func (c *Chispa) TauL2c() float64 {
 	return *c.calib.TauL2c
 }
 
+// TauL2EsquemaNuevo es el τ de CALIB para L2 cuando la pregunta no está en ESQUEMAS (torre al vuelo); −1 si el fichero no lo trae
+// (L2 usa entonces TauEscalate, o TauL2c con CONJ). La cascada de Kotlin/Swift decide qué τ aplica.
+func (c *Chispa) TauL2EsquemaNuevo() float64 {
+	if c.calib.TauL2EsquemaNuevo == nil {
+		return -1
+	}
+	return *c.calib.TauL2EsquemaNuevo
+}
+
 func salida(r respuesta) string {
 	b, _ := json.Marshal(r)
 	return string(b)

@@ -57,6 +57,11 @@ func ClaveConj(p Pregunta) [32]byte {
 }
 
 func (l *L2c) DecidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, error) {
+	r, err := l.decidirCon(ctx, p, previas)
+	return l.L2.marcarNuevo(p, r, err)
+}
+
+func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Respuesta, error) {
 	if p.Kind != KindChoice || len(p.Opciones) == 0 {
 		return l.L2.Decidir(ctx, p)
 	}

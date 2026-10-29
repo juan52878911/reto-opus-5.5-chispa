@@ -35,6 +35,8 @@ type Respuesta struct {
 	Answer string
 	Probs  map[string]float64
 	Conf   float64
+	// EsquemaNuevo: L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS). Interno: no sale en el JSON.
+	EsquemaNuevo bool
 }
 
 // Decisor es una capa de la cascada.

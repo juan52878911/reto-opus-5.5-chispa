@@ -163,3 +163,7 @@ Tras una petición válida y una rota, el test de métricas
  "modelos": ["testdata/intencion.chispa"], "cache_esquemas": 1024, "cache_respuestas": 4096}
 ```
 Con `-modelo` y sin `-config`, el τ de L1 y L2 sale de `CALIB`. Con `-config`, manda la config.
+
+`tau_l2_esquema_nuevo` (opcional, en [0,1]): τ de L2 solo para las preguntas cuyas torres no están en `ESQUEMAS` y salen al vuelo (sección `TORR`);
+las que L2 conoce siguen con el τ de L2 de siempre. Ausente, no cambia nada. Con `-modelo` y sin `-config`, si falta aquí se toma del campo
+`tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`); si viene en la config, manda la config. Es interno: la respuesta JSON no cambia.

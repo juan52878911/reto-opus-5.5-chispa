@@ -26,6 +26,8 @@ const CapaEscalar = "escalar"
 type capa struct {
 	d   Decisor
 	tau float64
+	// tauNuevo, si no es nil, sustituye a tau cuando la respuesta de la capa trae EsquemaNuevo.
+	tauNuevo *float64
 }
 
 // Cascada pasa por las capas en orden mientras la confianza top-1 sea < τ.
@@ -36,6 +38,12 @@ type Cascada struct {
 
 // NuevaCascada empareja decisores y umbrales por posición y nombre.
 func NuevaCascada(cfg []Capa, ds []Decisor, met *Metricas) (*Cascada, error) {
+	return NuevaCascadaConTauNuevo(cfg, ds, met, nil)
+}
+
+// NuevaCascadaConTauNuevo es NuevaCascada con un τ propio para L2 cuando la pregunta no estaba en ESQUEMAS
+// (tauNuevo nil = el de la capa, como antes).
+func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *float64) (*Cascada, error) {
 	if len(cfg) != len(ds) || len(ds) == 0 {
 		return nil, fmt.Errorf("cascada: %d capas en la config y %d decisores", len(cfg), len(ds))
 	}
@@ -44,7 +52,11 @@ func NuevaCascada(cfg []Capa, ds []Decisor, met *Metricas) (*Cascada, error) {
 		if d.Nombre() != cfg[i].Nombre {
 			return nil, fmt.Errorf("cascada: la capa %d es %s pero la config dice %s", i, d.Nombre(), cfg[i].Nombre)
 		}
-		c.capas = append(c.capas, capa{d, cfg[i].Tau})
+		cp := capa{d: d, tau: cfg[i].Tau}
+		if cfg[i].Nombre == "L2" {
+			cp.tauNuevo = tauNuevo
+		}
+		c.capas = append(c.capas, cp)
 	}
 	return c, nil
 }
@@ -80,7 +92,11 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 		if r.Conf > mejor.Conf {
 			mejor = r
 		}
-		if r.Conf > 0 && r.Conf >= l.tau {
+		tau := l.tau
+		if r.EsquemaNuevo && l.tauNuevo != nil {
+			tau = *l.tauNuevo
+		}
+		if r.Conf > 0 && r.Conf >= tau {
 			res.Answer, res.Probs, res.Layer = r.Answer, r.Probs, l.d.Nombre()
 			c.met.Decidida(res.Layer, false)
 			res.Ms = ms(time.Since(t0))

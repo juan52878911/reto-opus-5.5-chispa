@@ -269,7 +269,42 @@ func (l *L2) simsDe(p Pregunta, ts []torreDin) ([][]float32, []float64, bool, er
 	return S, sims, true, nil
 }
 
+// esquemaNuevo dice si ESQUEMAS no trae las torres de la pregunta (las mismas que busca Similitudes).
+func (l *L2) esquemaNuevo(p Pregunta) bool {
+	ids := make([]string, 0, len(p.Opciones))
+	switch p.Kind {
+	case KindChoice:
+		for _, o := range p.Opciones {
+			if _, _, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, []string{o.ID})); !ok {
+				return true
+			}
+		}
+		return false
+	case KindNoul:
+		ids = []string{"false", "true"}
+	default:
+		for _, o := range p.Opciones {
+			ids = append(ids, o.ID)
+		}
+	}
+	_, _, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, ids))
+	return !ok
+}
+
+// marcarNuevo anota en r si la pregunta venía de torres al vuelo.
+func (l *L2) marcarNuevo(p Pregunta, r Respuesta, err error) (Respuesta, error) {
+	if l != nil && err == nil && r.Conf > 0 {
+		r.EsquemaNuevo = l.esquemaNuevo(p)
+	}
+	return r, err
+}
+
 func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
+	r, err := l.decidir(ctx, p)
+	return l.marcarNuevo(p, r, err)
+}
+
+func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}

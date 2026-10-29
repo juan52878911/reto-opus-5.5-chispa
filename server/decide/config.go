@@ -26,6 +26,9 @@ type Config struct {
 	// descripción, en L1 y en L2c por separado. Ausente (nil) = ∞ = sin mezcla, el comportamiento de antes. En JSON, un número ≥ 0.
 	L1ShrinkageLambda *float64 `json:"l1_shrinkage_lambda,omitempty"`
 	L2ShrinkageLambda *float64 `json:"l2_shrinkage_lambda,omitempty"`
+	// τ de L2 solo para preguntas cuyas torres no estaban en ESQUEMAS (salieron al vuelo). Ausente (nil) = el τ de L2 de siempre.
+	// Si viene aquí, manda sobre el tau_l2_esquema_nuevo de CALIB.
+	TauL2EsquemaNuevo *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
 }
 
 // CacheTorresPorDefecto: una torre cuantizada pesa ~0,3 KB, así que 16384 son pocos MB.
@@ -69,6 +72,9 @@ func (c Config) Validar() error {
 	}
 	if c.CacheTorres < 0 || c.MaxTorresNuevas < 0 {
 		return fmt.Errorf("config: cache_torres y max_torres_nuevas no pueden ser negativos")
+	}
+	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
+		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)
 	}
 	for n, v := range map[string]*float64{"l1_shrinkage_lambda": c.L1ShrinkageLambda, "l2_shrinkage_lambda": c.L2ShrinkageLambda} {
 		if v != nil && (math.IsNaN(*v) || *v < 0) {
