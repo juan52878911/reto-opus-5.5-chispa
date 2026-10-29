@@ -8,7 +8,7 @@
 #   PUERTO          puerto base (18090; se usa también PUERTO+1)
 #   TRABAJO         directorio de trabajo (por defecto un mktemp); MANTENER=1 no lo borra
 #   CC, CGO_ENABLED compilador de cgo para -tags ort (por defecto gcc, o ~/orquestador/herr/zigcc si no hay gcc)
-set -u
+set -u -o pipefail  # sin pipefail, `cmd | sed && ok || fallo` toma el código de sed y nunca falla
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 RAIZ=$(cd "$AQUI/../.." && pwd)
 if ! command -v go >/dev/null 2>&1 && [ -f "$HOME/orquestador/herr/env.sh" ]; then . "$HOME/orquestador/herr/env.sh"; fi
@@ -63,7 +63,7 @@ from chispa import formato
 for n in ('zs','fs'):
     s = formato.leer(open('$W/%s.chispa' % n,'rb').read()); print(n, sorted(s))
     assert formato.TORR in s and formato.L1 in s and formato.L2 in s and formato.ESQUEMAS in s
-assert formato.SOPL1 in formato.leer(open('$W/fs.chispa','rb').read())
+assert formato.SOPL1 in formato.leer(open('$W/fs.chispa','rb').read()), 'fs.chispa sin SOPL1'
 " 2>&1 | sed 's/^/        /' && ok "secciones: TORR, L1, L2, ESQUEMAS (+SOPL1 en few-shot)" || fallo "secciones del .chispa"
 
 arrancar() { # puerto, log, args… → deja el pid en SPID
@@ -102,7 +102,7 @@ RC=$?; tail -3 "$W/evaluar.log" | sed 's/^/        /'
 [ $RC -eq 0 ] && ok "evaluar rc=0" || fallo "evaluar rc=$RC"
 $PY -I -c "
 import json; j=json.load(open('$W/informe.json')); print(sorted(j))
-assert j.get('n', j.get('filas_total', 15)) in (15,) or True
+assert j['n'] == 15 and j['errores'] == 0, (j['n'], j['errores'])
 print({k: j[k] for k in j if k in ('n','exactitud','f1_macro','tasa_escalado','cobertura','precision')})
 " 2>&1 | cut -c1-300 | sed 's/^/        /' && ok "informe.json válido ($(wc -c <"$W/informe.json") bytes)" || fallo "informe.json no válido/ausente"
 [ -s "$W/informe.md" ] && ok "informe.md" || fallo "informe.md ausente"
@@ -130,16 +130,17 @@ pase "recargas_total{ok} = 3 y torres sin errores" bash -c "$CP metrica '$URL' c
 pase "tras recargar, L2 con torre al vuelo sigue decidiendo" $CP decidir "$URL" "$D/peticion_nueva.json" --capa L2
 
 paso "9. multi (multietiqueta): zero-shot en el servidor B y few-shot con chispa train (etiqueta con «|»)"
+TORRES_ANTES=$($CP metrica "$URL" chispa_torres_calculadas_total --valor) || critico "no se pudo leer chispa_torres_calculadas_total"
 pase "zero-shot: 200, answers y una p por opción (esquema nuevo, torre al vuelo)" $CP decidir "$URL" "$D/peticion_multi.json" --multi-con-probs --guardar "$W/resp_multi_zs.json"
-pase "torres al vuelo del multi (≥ 4 más) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --min 7 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
+pase "torres al vuelo del multi (≥ 4 más que antes de la petición) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --base '$TORRES_ANTES' --min 4 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
 $TRAIN --esquema "$D/temas.yaml" --ejemplos "$D/ejemplos_multi.csv" --tau-l2-esquema-nuevo 0.5 --salida "$W/ms.chispa" >"$W/train_ms.log" 2>&1 || { tail -5 "$W/train_ms.log"; critico "train multi few-shot"; }
 grep -iE "multi|SOPL1" "$W/train_ms.log" | cut -c1-160 | sed 's/^/        /'; ok "few-shot multi → ms.chispa"
 $PY -I -c "
 import sys; sys.path.insert(0, '$RAIZ/sdk/python')
 from chispa import formato
 import json
-s = formato.leer(open('$W/ms.chispa','rb').read()); print(sorted(s)); assert formato.SOPL1 in s and formato.CALIB in s
-" 2>&1 | sed 's/^/        /'
+s = formato.leer(open('$W/ms.chispa','rb').read()); print(sorted(s)); assert formato.SOPL1 in s and formato.CALIB in s, 'ms.chispa sin SOPL1 o CALIB'
+" 2>&1 | sed 's/^/        /' && ok "ms.chispa trae SOPL1 y CALIB" || fallo "ms.chispa sin SOPL1 o CALIB"
 grep -q "sin SOPL1" "$W/train_ms.log" && fallo "multi few-shot sin SOPL1 (HALLAZGOS.md H2)"
 kill "$PB"; wait "$PB" 2>/dev/null
 cp "$W/ms.chispa" "$W/serv3.chispa"
@@ -165,10 +166,37 @@ for n in zs ms; do
   pase "multi en L1 ($n): 200, una p por opción" $CP decidir "http://127.0.0.1:$P3" "$D/peticion_multi.json" --multi-con-probs --capa L1 --guardar "$W/resp_multi_l1_$n.json"
   kill "$PL"; wait "$PL" 2>/dev/null
 done
+# Tres comprobaciones, con margen MARGEN (0,02) para distinguir efecto de ruido de flotantes:
+#  1) ms.chispa trae CALIB «multi» y «multi#<opción>» (a, b y θ);
+#  2) con λ ausente en -config (sin SOPL1 efectivo) las p de ms siguen a σ(a·cos+b) de CALIB multi: logit(p) = a·cos+b con cos∈[-1,1];
+#  3) λ=4 (SOPL1) mueve las p de ms ≥ MARGEN frente a λ ausente, y ms difiere del zero-shot (zs) ≥ MARGEN.
+cat > "$W/cfg_l1_sinl.json" <<JSON
+{"capas":[{"nombre":"L0","tau":0.8},{"nombre":"L1","tau":0.0},{"nombre":"L2","tau":0.5},{"nombre":"L3","tau":0.6}],
+ "tau_l2_esquema_nuevo":0.5, "cache_esquemas":64}
+JSON
+P3=$((P2 + 1)); arrancar "$P3" "$W/srvL1_ms_sinl.log" -modelo "$W/ms.chispa" -config "$W/cfg_l1_sinl.json"; PL=$SPID
+pase "multi en L1 (ms, λ ausente): 200, una p por opción" $CP decidir "http://127.0.0.1:$P3" "$D/peticion_multi.json" --multi-con-probs --capa L1 --guardar "$W/resp_multi_l1_ms0.json"
+kill "$PL"; wait "$PL" 2>/dev/null
 $PY -I -c "
-import json
-a, b = (json.load(open('$W/resp_multi_l1_%s.json' % n))['results'][0]['probs'] for n in ('zs', 'ms'))
-raise SystemExit(0 if a != b else 1)" && ok "few-shot: CALIB de multi y SOPL1 cambian las probabilidades de L1 frente al zero-shot" || fallo "few-shot multi igual que zero-shot en L1"
+import sys, json, math; sys.path.insert(0, '$RAIZ/sdk/python')
+from chispa import formato
+MARGEN = 0.02
+W = '$W'
+cal = json.loads(formato.leer(open(W + '/ms.chispa', 'rb').read())[formato.CALIB])['tipos']
+assert 'multi' in cal and any(k.startswith('multi#') for k in cal), sorted(cal)
+a, b = cal['multi']['a'], cal['multi']['b']
+assert a > 0, cal['multi']
+p = lambda n: json.load(open(W + '/resp_multi_l1_%s.json' % n))['results'][0]['probs']
+zs, ms, ms0 = p('zs'), p('ms'), p('ms0')
+assert len(ms) == 4 and set(ms) == set(ms0) == set(zs)
+for k, v in ms0.items():
+    cos = (math.log(v / (1 - v)) - b) / a
+    assert -1.0001 <= cos <= 1.0001, ('p de L1 sin λ no sigue σ(a·cos+b)', k, v, cos)
+d = lambda x, y: max(abs(x[k] - y[k]) for k in x)
+print('a=%.3f b=%.3f  |ms-ms0|=%.3f  |ms-zs|=%.3f' % (a, b, d(ms, ms0), d(ms, zs)))
+assert d(ms, ms0) >= MARGEN, 'λ=4 (SOPL1) no mueve las p de L1'
+assert d(ms, zs) >= MARGEN, 'few-shot igual que zero-shot en L1'
+" 2>&1 | sed 's/^/        /' && ok "few-shot: CALIB multi (σ(a·cos+b)) y SOPL1 mueven las p de L1 ≥ 0,02 frente a λ ausente y a zero-shot" || fallo "comparación zero/few-shot en L1"
 URL=http://127.0.0.1:$P2
 arrancar "$P2" "$W/srvC2.log" -modelo "$W/serv3.chispa" -config "$W/cfg.json"; PC=$SPID
 $PY -m chispa evaluar --url "$URL" --esquema "$D/temas.yaml" --datos "$D/muestra_multi.csv" --salida "$W/informe_multi" --filas >"$W/evaluar_multi.log" 2>&1
