@@ -96,8 +96,14 @@ def maxsim_np(S, hq, esc):
     return float(np.max(np.logaddexp(0.0, d)))
 
 
+# Lo que usa el servidor si CALIB no trae el tipo (`paramsDe` en server/decide/l1.go).
+CALIB_DEFECTO = {"T": 0.05, "a": 4.0, "b": -2.0, "theta": 0.5}
+
+
 def probs_calib(tipo, K, sims, tipos):
-    """Probabilidades con la sección CALIB (como `decide.L2`): choice softmax(s/T), noul σ(a·s+b), scoreK CORAL con a, b y los incrementos `#j`."""
+    """Probabilidades con la sección CALIB (como `decide.L2`): choice softmax(s/T), noul σ(a·s+b), scoreK CORAL con a, b y los incrementos `#j`.
+    Un tipo que falte en CALIB usa los valores por defecto del servidor."""
+    tipos = {**{"choice": CALIB_DEFECTO, "noul": CALIB_DEFECTO}, **tipos}
     if tipo == "choice":
         z = np.asarray(sims) / tipos["choice"]["T"]
         z = np.exp(z - z.max())
