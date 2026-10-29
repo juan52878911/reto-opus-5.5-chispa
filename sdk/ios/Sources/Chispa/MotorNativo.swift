@@ -36,6 +36,17 @@ final class MotorNativo: Motor {
     func extraerL2(a destino: String) throws { try go.extraerL2(destino) }
     func tieneConj() -> Bool { go.tieneConj() }
     func cabezaConjunta(_ simsJson: String) -> String { go.cabezaConjunta(simsJson) }
+    func textosTorreL2(_ preguntaJson: String) -> [String] {
+        guard let d = go.textosTorreL2(preguntaJson).data(using: .utf8),
+              let a = (try? JSONSerialization.jsonObject(with: d)) as? [String] else { return [] }
+        return a
+    }
+    func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool {
+        go.instalarTorresL2(preguntaJson, torres: torres, n: n)
+    }
+    func tieneTorre() -> Bool { go.tieneTorre() }
+    func onnxTorre() -> Data? { go.onnxTorre() }
+    func idsPasaje(_ texto: String) -> Data? { go.idsPasaje(texto) }
     func tieneTokenizadorE5() -> Bool { go.tieneTokenizadorE5() }
     func cargarTokenizadorE5(ruta: String) throws { try go.cargarTokenizadorE5(ruta) }
     func tokenizarE5(_ texto: String) -> Data? { go.tokenizarE5(texto) }

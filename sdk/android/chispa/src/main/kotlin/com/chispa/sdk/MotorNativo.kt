@@ -22,6 +22,17 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
     override fun extraerL2(destino: String) = go.extraerL2(destino)
     override fun tieneConj(): Boolean = go.tieneConj()
     override fun cabezaConjunta(simsJson: String): String = go.cabezaConjunta(simsJson)
+    override fun textosTorreL2(preguntaJson: String): List<String> {
+        val a = JSONArray(go.textosTorreL2(preguntaJson))
+        return List(a.length()) { a.getString(it) }
+    }
+
+    override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean =
+        go.instalarTorresL2(preguntaJson, torres, n.toLong())
+
+    override fun tieneTorre(): Boolean = go.tieneTorre()
+    override fun onnxTorre(): ByteArray? = go.onnxTorre()
+    override fun idsPasaje(texto: String): ByteArray? = go.idsPasaje(texto)
     override fun tieneTokenizadorE5(): Boolean = go.tieneTokenizadorE5()
     override fun cargarTokenizadorE5(ruta: String) = go.cargarTokenizadorE5(ruta)
     override fun tokenizarE5(texto: String): ByteArray? = go.tokenizarE5(texto)

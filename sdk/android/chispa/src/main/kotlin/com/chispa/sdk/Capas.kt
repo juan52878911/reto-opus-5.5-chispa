@@ -40,6 +40,15 @@ interface Motor : AutoCloseable {
      */
     fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean = false
 
+    /** El fichero trae TORR (el ONNX de la torre de opción, para esquemas nuevos). */
+    fun tieneTorre(): Boolean = false
+
+    /** Bytes del ONNX de TORR (entradas `input_ids`/`attention_mask` int64, salida `h` (B,256) float32), o null sin TORR. */
+    fun onnxTorre(): ByteArray? = null
+
+    /** Ids de e5 de un texto de torre (prefijo «passage: », recorte de TORR) como int32 little endian, o null. */
+    fun idsPasaje(texto: String): ByteArray? = null
+
     fun tieneTokenizadorE5(): Boolean = false
     fun cargarTokenizadorE5(ruta: String): Unit = throw UnsupportedOperationException("sin tokenizador")
 
@@ -89,6 +98,41 @@ class TokenizadorMotor(private val motor: Motor) : Tokenizador {
  */
 fun interface CodificadorTorre {
     fun torre(texto: String): FloatArray
+}
+
+/** El ONNX de la torre: ids (un texto de pasaje) → h (d floats). */
+interface SesionTorre : AutoCloseable {
+    fun embeber(ids: LongArray): FloatArray
+}
+
+/**
+ * El [CodificadorTorre] por defecto cuando el `.chispa` trae TORR: ids de [Motor.idsPasaje] y el ONNX de [Motor.onnxTorre]
+ * sobre ONNX Runtime. La sesión (pesada) se abre la primera vez que hace falta una torre.
+ */
+class CodificadorTorreMotor(
+    private val motor: Motor,
+    private val crearSesion: (ByteArray) -> SesionTorre = { SesionTorreOrt(it) },
+) : CodificadorTorre, AutoCloseable {
+    private var sesion: SesionTorre? = null
+
+    @Synchronized
+    override fun torre(texto: String): FloatArray {
+        val b = motor.idsPasaje(texto) ?: throw ErrorChispa("el motor no tiene tokenizador de e5 o TORR")
+        if (b.isEmpty()) throw ErrorChispa("torre: texto sin tokens")
+        val buf = java.nio.ByteBuffer.wrap(b).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val ids = LongArray(b.size / 4) { buf.getInt(4 * it).toLong() }
+        val s = sesion ?: run {
+            val onnx = motor.onnxTorre() ?: throw ErrorChispa("el fichero no trae TORR")
+            crearSesion(onnx).also { sesion = it }
+        }
+        return s.embeber(ids)
+    }
+
+    @Synchronized
+    override fun close() {
+        sesion?.close()
+        sesion = null
+    }
 }
 
 /** El ONNX de L2: ids → S ∈ R^{K×d}, aplanado por filas. */

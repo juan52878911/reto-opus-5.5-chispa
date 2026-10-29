@@ -21,6 +21,7 @@ class Chispa private constructor(
     private val motor: Motor,
     private val cascada: Cascada,
     private val sesion: SesionRanuras?,
+    private val torreOrt: AutoCloseable? = null,
 ) : AutoCloseable {
 
     /** Capas que han quedado montadas, en orden. */
@@ -32,6 +33,7 @@ class Chispa private constructor(
 
     override fun close() {
         sesion?.close()
+        torreOrt?.close()
         motor.close()
     }
 
@@ -69,17 +71,26 @@ class Chispa private constructor(
             onnx: () -> String,
             crearSesion: (String) -> SesionRanuras = { SesionOrt(it) },
             codificadorTorres: CodificadorTorre? = null,
+            crearSesionTorre: (ByteArray) -> SesionTorre = { SesionTorreOrt(it) },
         ): Chispa {
             var sesion: SesionRanuras? = null
             var l2: CapaL2? = null
+            var torreOrt: CodificadorTorreMotor? = null
             if ("L2" in motor.capas() && tokenizador != null) {
                 sesion = crearSesion(onnx())
-                l2 = CapaL2(motor, sesion, tokenizador, codificadorTorres)
+                // Sin codificador de la app, y con TORR en el fichero, las torres al vuelo salen del ONNX de TORR.
+                var enc = codificadorTorres
+                if (enc == null && motor.tieneTorre() && motor.tieneTokenizadorE5()) {
+                    torreOrt = CodificadorTorreMotor(motor, crearSesionTorre)
+                    enc = torreOrt
+                }
+                l2 = CapaL2(motor, sesion, tokenizador, enc)
             }
             try {
-                return Chispa(motor, Cascada.armar(motor, l2), sesion)
+                return Chispa(motor, Cascada.armar(motor, l2), sesion, torreOrt)
             } catch (e: Throwable) {
                 sesion?.close()
+                torreOrt?.close()
                 throw e
             }
         }

@@ -26,7 +26,7 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 | 16 | Errores: `desdeJson` (JSON ilegible, `ok:false` → `ErrorChispa(error)`, sin opinión) | K:Modelos 34 | S:Modelos 59 | igual |
 | 17 | JSON de la pregunta (`question`, `kind`, `options[id,description]`; la descripción vacía se omite) | K:Modelos 15 | S:Modelos 24 | igual |
 | 18 | Zero-shot L1: pregunta con esquema nuevo y descripciones → L0 sin modelo (sin opinión), L1-zs decide | K:Capas 66 | S:Capas 71 | igual (no hay código nuevo: el esquema viaja en `Pregunta`; test `CascadaZeroShot…`) |
-| 19 | Zero-shot L2: torres al vuelo con `CodificadorTorre` la primera vez, el motor las cachea; la segunda no codifica | K:Capas 119-156 | S:Capas 129-167 | arreglado (faltaba en los dos; añadido con tests; necesita soporte de `chispamovil`, ver abajo) |
+| 19 | Zero-shot L2: torres al vuelo con `CodificadorTorre` la primera vez, el motor las cachea; la segunda no codifica | K:Capas 119-156 | S:Capas 129-167 | arreglado (con tests; `chispamovil` ya lo soporta y hay `CodificadorTorre` por defecto con TORR, ver abajo) |
 | 20 | Few-shot: esquema entrenado dentro del `.chispa` (L0/L0TF + ESQUEMAS); no calcula torres | K:Capas 132 | S:Capas 142-144 | igual (test `fewShot…`) |
 | 21 | `Chispa.abrir/montar` aceptan `codificadorTorres` (opcional, por defecto nil: la API existente no cambia) | K:Chispa 43, 66 | S:Chispa 32, 58 | arreglado |
 
@@ -48,12 +48,22 @@ Flujo en `CapaL2.decidir`: `torresL2` false → con codificador, `textosTorreL2`
 `instalarTorresL2` → sigue como siempre (tokeniza, ranuras, CONJ o `puntuarL2`). Un fallo del codificador no cachea nada
 (se reintenta en la siguiente pregunta); L1 se evalúa antes y, si llega a su τ, no se calcula ninguna torre.
 
-### Qué necesita `chispamovil` (no tocado aquí: está fuera de mi zona)
-1. `TextosTorreL2(preguntaJSON string) string` (JSON de `[]string`) y `InstalarTorresL2(preguntaJSON string, torres []byte, n int) bool`;
-   `TorresL2` debe pasar a true con las instaladas. Si prefiere calcular las torres dentro de Go, basta con que
-   `TorresL2` dé true y el SDK no llama a nada.
-2. El codificador de torres no existe en el móvil: `server/decide/l2.go` dice que el ONNX del `.chispa` solo exporta las
-   ranuras S; hace falta un segundo ONNX (e5 de pasaje + cabeza de torre) y `tokenizarE5` con prefijo «passage: ».
-   Cuando exista, se implementa `CodificadorTorre` con ORT (una sesión nueva como `SesionOrt`).
-3. Mientras no exista (1), `MotorNativo` usa los valores por defecto y L2 sigue sin opinar con esquemas nuevos; L1-zs ya
-   funciona con el motor actual (`chispamovil.go` `torres()` cachea por esquema).
+### Lado `chispamovil` (hecho en W7)
+`sdk/movil/chispamovil/torre.go` implementa el contrato; los tests de `torre_test.go` comparan sus textos y su decisión con
+`server/decide` (`NuevoL2Con(...).ConTorres(...)`) sobre choice, noul (con y sin «true») y score (ids numéricos y no).
+La regla de textos (`textoTorre`, `opcionesConsulta`, `claveTorre`, `cuantizarTorre`) está **copiada** de `l2.go` (allí no se
+exporta y `server/**` queda fuera de la zona); si cambia allí, ese test falla.
+- `TextosTorreL2(preguntaJSON) string` (JSON `[]string`; `"[]"` si ya hay torres de ESQUEMAS o instaladas) e
+  `InstalarTorresL2(preguntaJSON, torres []byte, n int) bool` (rechaza `n` ≠ nº de textos, bytes sueltos, `d` ≠ dim de TORR, NaN/Inf).
+  Las torres se cachean una a una por `HashEsquema(pregunta, [opción, descripción])`: las mismas opciones en otro orden
+  siguen en caché; ESQUEMAS manda sobre lo instalado.
+- `TieneTorre`, `OnnxTorre` (bytes del ONNX de TORR; válidos mientras el fichero esté abierto), `DimTorre`,
+  `IdsPasaje(texto)` (int32 LE; antepone «passage: » una sola vez y recorta a `MaxLen` conservando `</s>`, como `server/torre`).
+
+### `CodificadorTorre` por defecto (hecho en W7)
+`CodificadorTorreMotor` (K: `Capas.kt`; S: `Capas.swift`): `idsPasaje` + `onnxTorre` + sesión de ORT (`SesionTorreOrt`; entradas
+`input_ids`/`attention_mask` int64 (1,n), salida `h` (1,256) float32). Sesión perezosa (la primera torre que hace falta).
+`Chispa.montar` lo usa solo si la app no pasó `codificadorTorres`, el fichero trae TORR (`tieneTorre`) y el motor tiene el
+tokenizador de e5; el codificador de la app manda. En iOS `ORTSession` solo abre rutas: los bytes se escriben una vez en
+`temporaryDirectory` (`chispa-torre-<bytes>.onnx`). Tests con motor y sesión falsos: `TorreDefectoTest.kt` (5) y
+`TorreDefectoTests.swift` (5). Sin ejecutar: no hay JDK ni Swift en el nodo de W7; ORT real no corre en ningún test.

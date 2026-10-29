@@ -42,6 +42,12 @@ final class MotorFalso: Motor {
     func extraerL2(a destino: String) throws {}
     func tieneConj() -> Bool { conj }
     func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return cabeza() }
+    /// TORR: `onnxDeTorre` no nulo = el fichero la trae; `idsDePasaje` da los ids (int32 LE) de cada texto de torre.
+    var onnxDeTorre: Data?
+    var idsDePasaje: (String) -> Data? = { _ in nil }
+    func tieneTorre() -> Bool { onnxDeTorre != nil }
+    func onnxTorre() -> Data? { onnxDeTorre }
+    func idsPasaje(_ texto: String) -> Data? { idsDePasaje(texto) }
     func tieneTokenizadorE5() -> Bool { idsE5 != nil }
     func tokenizarE5(_ texto: String) -> Data? { idsE5 }
     func textosTorreL2(_ preguntaJson: String) -> [String] { torres ? [] : textosTorre }
