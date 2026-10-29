@@ -88,3 +88,16 @@ def sib200(hub, licencia="cc-by-sa-4.0"):
             lineas.append('%d\t%s\tEl texto "%d" habla de cosas.' % (i, cats[i % 7], i))
         (carpeta / (nombre + ".tsv")).write_text("\n".join(lineas) + "\n", encoding="utf-8")
     return d
+
+
+def instruct(hub, filas_train, filas_val=()):
+    """tasksource-instruct-v0 inventado: columnas inputs, targets, task."""
+    d = snap(hub, "tasksource/tasksource-instruct-v0")
+    parquet(d / "data" / "train-00000-of-00001.parquet", list(filas_train))
+    if filas_val:
+        parquet(d / "data" / "validation-00000-of-00001.parquet", list(filas_val))
+    return d
+
+
+def fila_inst(i, task="demo/sentimiento", clases=("negativo", "positivo", "neutro")):
+    return {"inputs": "Opinión inventada número %d." % i, "targets": clases[i % len(clases)], "task": task}

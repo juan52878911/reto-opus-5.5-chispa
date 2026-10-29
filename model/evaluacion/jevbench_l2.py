@@ -22,7 +22,7 @@ def _con_tarea_esquema(filas):
     return [dict(r, tarea=r["esquema"], familia=r["tarea"]) for r in filas]
 
 
-def predecir_variante(modelo, enc, filas, k, lote=64):
+def predecir_variante(modelo, enc, filas, k, lote=64, kappa=0.0):
     """[{id, probs, ms, soporte_n}] en el orden de `filas`."""
     import torch
     from model.l2.modelo import prototipos
@@ -32,7 +32,7 @@ def predecir_variante(modelo, enc, filas, k, lote=64):
         protos = None
         if sop:
             with torch.no_grad():
-                protos = {rs[0]["tarea"]: prototipos(modelo, enc, sop)}
+                protos = {rs[0]["tarea"]: prototipos(modelo, enc, sop, kappa=kappa)}
         for i in range(0, len(rs), lote):
             fs = rs[i:i + lote]
             t0 = time.perf_counter()
@@ -61,21 +61,23 @@ def main(argv=None):
     ap.add_argument("--salida", required=True)
     ap.add_argument("--k", type=int, nargs="*", default=[0, 8, 32])
     ap.add_argument("--device", default="cpu")
+    ap.add_argument("--max-tok", type=int, default=0, help="tokens por mensaje (0 = el del checkpoint; sin él, 128)")
+    ap.add_argument("--kappa", type=float, default=0.0, help="shrinkage de los prototipos hacia la torre de la descripción (0 = sin)")
     ap.add_argument("--max-casos", type=int, default=0, help="tope de casos (0 = todos); solo para pruebas en seco")
     a = ap.parse_args(argv)
     from model.l2.evaluar import cargar_modelo
-    from model.l2.modelo import Codificador
+    from model.l2.modelo import MAX_TOK, Codificador
     filas = cargar_jevbench(a.jevbench)
     if a.max_casos:
         filas = filas[:a.max_casos]
     sal = Path(a.salida)
     escribir(sal / "jevbench_filas.jsonl", filas)
     modelo, ck = cargar_modelo(a.ckpt, a.device)
-    enc = Codificador(device=a.device)
+    enc = Codificador(device=a.device, max_tok=a.max_tok or ck.get("max_tok", MAX_TOK))
     enc.cargar_enc(ck.get("enc"))
     for k in a.k:
         t0 = time.time()
-        preds = predecir_variante(modelo, enc, filas, k)
+        preds = predecir_variante(modelo, enc, filas, k, kappa=a.kappa)
         escribir(sal / "pred" / f"l2_k{k}.jsonl", preds)
         res = CE.evaluar(filas, [{x: p[x] for x in ("id", "probs", "ms")} for p in preds])
         print(f"== L2 k={k}: exactitud {res['global']['exactitud']:.4f}, macro-F1 {res['global']['macro_f1']:.4f}, "

@@ -1,6 +1,6 @@
-"""Corre los cuatro conversores de metaentrenamiento y escribe JSONL.gz en trozos de ~100 MB más `resumen.json`.
+"""Corre los conversores de metaentrenamiento y escribe JSONL.gz en trozos de ~100 MB más `resumen.json`.
 
-    python -m model.meta.convertir SALIDA [--solo tsjev,synzs,pawsx,sib200] [--permitir-vacias]
+    python -m model.meta.convertir SALIDA [--solo tsjev,tsinst,synzs,pawsx,sib200] [--permitir-vacias]
 
 Lee las fuentes de `$HF_HOME/hub` (por defecto ~/hf). `CHISPA_LIMITE=N` topa las filas por fuente (prueba en seco; el
 tope queda en el resumen). Sale con 2 si una fuente no tiene datos o no da filas (salvo `--permitir-vacias`).
@@ -11,11 +11,11 @@ import sys
 import time
 from pathlib import Path
 
-from . import pawsx_es, sib200_es, synthetic_zeroshot, tasksource_jev
+from . import pawsx_es, sib200_es, synthetic_zeroshot, tasksource_instruct, tasksource_jev
 from .comun import FuenteAusente, Salida, limite
 
 FUENTES = {
-    "tsjev": tasksource_jev, "synzs": synthetic_zeroshot, "pawsx": pawsx_es, "sib200": sib200_es,
+    "tsjev": tasksource_jev, "tsinst": tasksource_instruct, "synzs": synthetic_zeroshot, "pawsx": pawsx_es, "sib200": sib200_es,
 }
 
 

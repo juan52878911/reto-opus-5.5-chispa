@@ -207,6 +207,34 @@ def submuestrear_meta(raiz, maximo, completos=("tsjev", "tasksource_jev"), semil
     return out, dict(cuentas), cupo
 
 
+def submuestrear_meta_tareas(raiz, maximo, tope_tarea=2000, semilla=0, split="train", fuera=None):
+    """Como `submuestrear_meta`, pero el reparto es por **tarea** (campo `tarea`), no por fuente: cada tarea conserva
+    min(n, tope_tarea) filas y, si el total pasa de `maximo`, el tope baja hasta que cabe (`model.meta.muestreo.cupos`).
+    `fuera(fila) -> bool` quita de entrada las tareas que se dejan fuera (no gastan cupo). Cada tarea conserva exactamente su cupo (las filas de menor hash
+    del id: estable). Devuelve (filas, cuentas por tarea tras quitar las de fuera, cupo por tarea, nº de filas y tareas quitadas)."""
+    from model.meta.muestreo import cupos
+    fs = ficheros(raiz)
+    us, quitadas, tareas_q = defaultdict(list), 0, set()
+    for f in fs:
+        for r in _filas_meta(f, split):
+            if fuera is not None and fuera(r):
+                quitadas += 1
+                tareas_q.add(r["tarea"])
+            else:
+                us[r["tarea"]].append(_u(r["id"], semilla))
+    cuentas = {t: len(u) for t, u in us.items()}
+    cupo = cupos(cuentas, tope_tarea, maximo)
+    umbral = {t: sorted(u)[cupo[t] - 1] if cupo[t] else -1.0 for t, u in us.items()}  # se conservan las `cupo` de menor hash
+    del us
+    out = []
+    for f in fs:
+        for r in _filas_meta(f, split):
+            t = r["tarea"]
+            if t in umbral and _u(r["id"], semilla) <= umbral[t]:
+                out.append(r)
+    return out, cuentas, cupo, {"filas": quitadas, "tareas": len(tareas_q)}
+
+
 def _filas_meta(f, split):
     for r in iterar(f):
         if r["split"] == split and r.get("uso_comercial"):

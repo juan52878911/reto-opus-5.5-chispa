@@ -24,7 +24,7 @@ import torch
 from model.evaluacion import chispa_eval as CE
 
 from . import datos as D
-from .modelo import Codificador, ModeloL2, SoporteEval
+from .modelo import MAX_TOK, Codificador, ModeloL2, SoporteEval
 
 RAIZ = Path(__file__).resolve().parents[2]
 LB = RAIZ / "model" / "lineas_base" / "resultados.json"
@@ -109,6 +109,21 @@ def conjuntos_test(datos=None, liston=None, extra=()):
     return {k: v for k, v in out.items() if v}
 
 
+def filas_fuera(meta, por_tarea=40, splits=("dev", "test"), semilla=0):
+    """Filas dev/test de las tareas de tasksource que se dejaron fuera (`model.meta.muestreo.es_fuera`), como mucho `por_tarea`
+    por tarea (las de menor hash de id: estable). Se evalúan sin soporte: no se conocen más que como zero-shot."""
+    from model.meta.muestreo import es_fuera
+    por = {}
+    for f in D.ficheros(meta):
+        for r in D.iterar(f):
+            if r["split"] in splits and es_fuera(r):
+                por.setdefault(r["tarea"], []).append(r)
+    out = []
+    for t in sorted(por):
+        out += sorted(por[t], key=lambda r: D._u(r["id"], semilla))[:por_tarea]
+    return out
+
+
 def train_por_conjunto(datos=None):
     """{conjunto: filas train} de los conjuntos de T1.7a y de herramientas (T1.4), con las mismas claves que `conjuntos_test`:
     el soporte sale de aquí. La clave es el nombre del fichero de origen (no el campo `tarea`, que massive y clinc150 comparten)."""
@@ -158,17 +173,27 @@ def main(argv=None):
     ap.add_argument("--extra", nargs="*", default=[])
     ap.add_argument("--renombrar", action="store_true", help="evalúa también con las opciones renombradas a A/B/C…")
     ap.add_argument("--soporte", type=int, default=0, help="ejemplos de soporte por clase (0 = sin soporte); 32 = el de T1.7a")
+    ap.add_argument("--max-tok", type=int, default=0, help="tokens por mensaje (0 = el del checkpoint; sin él, 128)")
+    ap.add_argument("--kappa", type=float, default=0.0, help="shrinkage de los prototipos hacia la torre de la descripción (0 = sin)")
+    ap.add_argument("--meta-fuera", help="directorio de meta: añade `tasksource_fuera`, las tareas de tasksource que se dejaron fuera (sin soporte)")
+    ap.add_argument("--max-fuera", type=int, default=40, help="filas por tarea de `tasksource_fuera`")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--max-filas", type=int, default=0, help="tope de filas por conjunto (0 = todas)")
     a = ap.parse_args(argv)
     sal = Path(a.salida)
     (sal / "pred").mkdir(parents=True, exist_ok=True)
     modelo, ck = cargar_modelo(a.ckpt, a.device)
-    enc = Codificador(device=a.device)
+    enc = Codificador(device=a.device, max_tok=a.max_tok or ck.get("max_tok", MAX_TOK))  # el del checkpoint (T2.1b: 128)
     enc.cargar_enc(ck.get("enc"))  # capas de e5 ajustadas en T2.2, si las hay
     res, res_r, res_s = {}, {}, {}
-    sop = SoporteEval(train_por_conjunto(a.datos), a.soporte) if a.soporte else None
-    for nombre, filas in conjuntos_test(a.datos, a.liston, a.extra).items():
+    sop = SoporteEval(train_por_conjunto(a.datos), a.soporte, kappa=a.kappa) if a.soporte else None
+    conjuntos = conjuntos_test(a.datos, a.liston, a.extra)
+    if a.meta_fuera:
+        fuera = filas_fuera(a.meta_fuera, a.max_fuera)
+        if fuera:
+            conjuntos["tasksource_fuera"] = fuera
+        print("tasksource_fuera: %d filas de %d tareas" % (len(fuera), len({r["tarea"] for r in fuera})), flush=True)
+    for nombre, filas in conjuntos.items():
         if a.max_filas:
             filas = filas[:a.max_filas]
         filas = CE.asignar_ids(filas, nombre) if any("id" not in r for r in filas) else filas
@@ -180,7 +205,7 @@ def main(argv=None):
         print("== %s\n%s" % (nombre, CE.tabla(res[nombre])), flush=True)
         if sop:
             (sal / "pred_soporte").mkdir(exist_ok=True)
-            preds_s = predecir(modelo, enc, filas, soporte=sop)
+            preds_s = preds if nombre == "tasksource_fuera" else predecir(modelo, enc, filas, soporte=sop)
             with open(sal / "pred_soporte" / (nombre + ".jsonl"), "w", encoding="utf-8") as f:
                 for p in preds_s:
                     f.write(json.dumps(p, ensure_ascii=False) + "\n")
