@@ -37,6 +37,15 @@ Errores: `ErrorSolicitud` (400/405/413, con `status` y el `{"error"}` del contra
 (red, 5xx o 429 tras los reintentos). El nonce se fija antes del primer intento, así que un reintento es idempotente.
 Probado contra el JSON de `server/README.md` con un servidor falso (`tests/test_cliente.py`) y a mano contra `chispa-server`.
 
+## `chispa evaluar`
+Mide un servidor con una muestra etiquetada del cliente (choice, noul o score); métrica y plantilla en `pilotos/metrica.md`.
+```
+python -m chispa evaluar --url http://127.0.0.1:8090 --esquema esquema.json --datos muestra.csv [--precision-objetivo 0.95] [--concurrencia 4] [--salida informe] [--filas]
+```
+`--datos`: CSV (con cabecera) o JSONL con `texto|text` y `etiqueta|label` (noul: `true`/`false`; score: `1`…`K`). Con `--salida informe` escribe `informe.md` e `informe.json`; sin ella imprime el markdown.
+Da exactitud, F1 macro (escala = fallo y mejor respuesta), matriz de confusión, tasa de escalado, cobertura y precisión de lo aceptado, capas, p50/p99, MAE (score) y la cobertura al umbral de confianza que alcanza la precisión objetivo.
+Cada fila es una petición, porque `/v1/decide` lleva un solo `state` por petición. Probado con un servidor falso (`tests/test_evaluar.py`).
+
 ## `chispa train`
 ```
 python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chispa [--l1 potion.chispa-l1] [--ckpt DIR | --l2 l2.chispa] [--conjunta]
