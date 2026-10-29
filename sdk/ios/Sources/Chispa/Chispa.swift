@@ -35,14 +35,14 @@ public final class Chispa {
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
     /// `lambdaSoporteL1`/`lambdaSoporteL2`: λ del soporte few-shot (mismo nombre y semántica que `l1_shrinkage_lambda`/`l2_shrinkage_lambda`
-    /// del servidor): nil = apagado, 0 = solo ejemplos, `.infinity` = solo descripción.
+    /// del servidor): nil = apagado, 0 = solo ejemplos, `.infinity` = solo descripción; negativo o NaN lanza error.
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
                              coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
                              codificadorTorres: CodificadorTorre? = nil,
                              alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa,
                              lambdaSoporteL1: Double? = nil, lambdaSoporteL2: Double? = nil) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
-        let motor = try MotorNativo.abrir(ruta: ruta, soporte: soporteDe(lambdaSoporteL1, lambdaSoporteL2))
+        let motor = try MotorNativo.abrir(ruta: ruta, soporte: try soporteDe(lambdaSoporteL1, lambdaSoporteL2))
         // `proveedorOrt` manda; sin él, `coreML` (true por defecto) elige entre CoreML y CPU.
         let proveedor = proveedorOrt ?? (coreML ? .coreML : .cpu)
         do {
@@ -68,7 +68,11 @@ public final class Chispa {
 
     /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es apagado (`lambdaApagado`); sin ninguno, nil = `Abrir` de siempre.
     /// 0 = solo ejemplos; `.infinity` = solo descripción (ya no apaga).
-    static func soporteDe(_ l1: Double?, _ l2: Double?) -> (Double, Double)? {
+    /// Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`): el puente usa el negativo como apagado.
+    static func soporteDe(_ l1: Double?, _ l2: Double?) throws -> (Double, Double)? {
+        for (nombre, l) in [("lambdaSoporteL1", l1), ("lambdaSoporteL2", l2)] {
+            if let l = l, l.isNaN || l < 0 { throw ErrorChispa("\(nombre) inválido (\(l)): debe ser nil (apagado) o >= 0") }
+        }
         if l1 == nil && l2 == nil { return nil }
         return (l1 ?? lambdaApagado, l2 ?? lambdaApagado)
     }
