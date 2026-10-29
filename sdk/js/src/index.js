@@ -6,6 +6,14 @@ import { LIMITES, validar, bytes } from "./limites.js";
 export { ErrorChispa, LIMITES, bytes };
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+const TOPE_RETRY_AFTER_MS = 30000; // igual que el cliente Python
+
+/** `Retry-After` en segundos → ms con tope; una fecha HTTP u otra cosa cuenta como ausente (undefined). */
+function retryAfterMs(h) {
+  const v = h?.get?.("Retry-After")?.trim();
+  if (!v || !/^\d+(\.\d+)?$/.test(v)) return undefined;
+  return Math.min(Number(v) * 1000, TOPE_RETRY_AFTER_MS);
+}
 
 /**
  * @typedef {import("./index.d.ts").Pregunta} Pregunta
@@ -18,7 +26,8 @@ export class ChispaCliente {
    *          limites?: Partial<typeof LIMITES>, fetch?: typeof fetch}} [opts]
    * `reintentos`: reintentos extra tras el primer intento (por defecto 2), solo en red, timeout y 503.
    */
-  constructor({ url = "http://127.0.0.1:8090", timeoutMs = 10000, reintentos = 2, esperaMs = 200, limites, fetch: f } = {}) {
+  constructor({ url = "http://127.0.0.1:8090", timeoutMs = 10000, reintentos = 2, esperaMs = 200, limites, fetch: f, dormir: d } = {}) {
+    this._dormir = d ?? dormir;
     this.url = url.replace(/\/+$/, "");
     this.timeoutMs = timeoutMs;
     this.reintentos = reintentos;
@@ -68,7 +77,8 @@ export class ChispaCliente {
     const json = JSON.stringify(cuerpo); // se serializa una vez: todos los intentos envían los mismos bytes y el mismo nonce
     let ultimo;
     for (let i = 0; i <= this.reintentos; i++) {
-      if (i) await dormir(this.esperaMs * 2 ** (i - 1));
+      // backoff exponencial con jitter (×0,5–1); si el servidor pidió Retry-After, se espera al menos eso
+      if (i) await this._dormir(Math.max(this.esperaMs * 2 ** (i - 1) * (0.5 + Math.random() / 2), ultimo?.retryAfterMs ?? 0));
       try {
         return await this._intento(ruta, json);
       } catch (e) {
@@ -113,6 +123,7 @@ export class ChispaCliente {
         mensaje: typeof e === "object" && e ? (e.message ?? "") : typeof e === "string" ? e : texto.slice(0, 200),
         idPregunta: typeof e === "object" ? e?.question_id : undefined,
         status: r.status,
+        retryAfterMs: r.status === 503 ? retryAfterMs(r.headers) : undefined,
       });
     } finally {
       clearTimeout(t);
@@ -120,7 +131,11 @@ export class ChispaCliente {
   }
 }
 
-/** Red y timeout (sin respuesta) y 503. Un 4xx/413/405 o un 200 ilegible no se repite. */
+/**
+ * Red, timeout propio (sin respuesta) y 503 ordinario (con o sin Retry-After). No se repite el `timeout` del servidor
+ * (503 con código `timeout`) ni el 504: es sobrecarga y repetir gasta otra vez la cascada. Tampoco 4xx/413/405 ni un 200 ilegible.
+ */
 function reintentable(e) {
+  if (e.status === 504 || (e.status > 0 && e.codigo === "timeout")) return false;
   return e.codigo === "network_error" || e.codigo === "timeout" || e.status === 503;
 }

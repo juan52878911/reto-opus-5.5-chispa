@@ -238,3 +238,62 @@ test("limites configurables", async () => {
   const c = cliente("http://x", { limites: { maxPreguntas: 1 }, fetch: () => assert.fail("no") });
   await assert.rejects(c.decidir("x", [q({ id: "a" }), q({ id: "b" })]), { codigo: "too_many_questions" });
 });
+
+const conEsperas = (url, o = {}) => {
+  const esperas = [];
+  return { esperas, c: cliente(url, { dormir: async (ms) => void esperas.push(ms), ...o }) };
+};
+const ocupado = (cab, code = "overloaded") => (req, c, res) => {
+  res.writeHead(503, { "Content-Type": "application/json", ...cab });
+  res.end(JSON.stringify({ error: { code, message: "ocupado" } }));
+};
+
+test("503 con Retry-After: espera al menos ese tiempo y reintenta con el mismo nonce", async () => {
+  const { url, vistas } = await falso((req, c, res, n) => (n === 1 ? ocupado({ "Retry-After": "3" })(req, c, res) : eco({ a: 1 })(req, c, res)));
+  const { c, esperas } = conEsperas(url);
+  const [r] = await c.decidir("x", [ferreteria]);
+  assert.equal(r.answer, "a");
+  assert.deepEqual(esperas, [3000]);
+  assert.equal(vistas[0].cuerpo.questions[0].nonce, vistas[1].cuerpo.questions[0].nonce);
+});
+
+test("503 con Retry-After enorme: se topa a 30 s", async () => {
+  const { url } = await falso((req, c, res, n) => (n === 1 ? ocupado({ "Retry-After": "999" })(req, c, res) : eco({ a: 1 })(req, c, res)));
+  const { c, esperas } = conEsperas(url);
+  await c.decidir("x", [ferreteria]);
+  assert.deepEqual(esperas, [30000]);
+});
+
+test("503 sin Retry-After (o con fecha HTTP): solo backoff con jitter", async () => {
+  for (const cab of [{}, { "Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT" }]) {
+    const { url } = await falso((req, c, res, n) => (n === 1 ? ocupado(cab)(req, c, res) : eco({ a: 1 })(req, c, res)));
+    const { c, esperas } = conEsperas(url, { esperaMs: 100 });
+    await c.decidir("x", [ferreteria]);
+    assert.equal(esperas.length, 1);
+    assert.ok(esperas[0] >= 50 && esperas[0] <= 100, String(esperas[0]));
+  }
+});
+
+test("timeout del servidor (503 código timeout con Retry-After) no se reintenta", async () => {
+  const { url, vistas } = await falso(ocupado({ "Retry-After": "5" }, "timeout"));
+  const { c, esperas } = conEsperas(url);
+  await assert.rejects(c.decidir("x", [ferreteria]), { codigo: "timeout", status: 503 });
+  assert.equal(vistas.length, 1);
+  assert.deepEqual(esperas, []);
+});
+
+test("504 no se reintenta", async () => {
+  const { url, vistas } = await falso((req, c, res) => json(res, 504, { error: { code: "gateway_timeout", message: "x" } }));
+  await assert.rejects(cliente(url).decidir("x", [ferreteria]), { status: 504 });
+  assert.equal(vistas.length, 1);
+});
+
+test("error de red: reintenta con el mismo nonce y backoff", async () => {
+  const { url, vistas } = await falso((req, c, res, n) => (n < 3 ? req.socket.destroy() : eco({ a: 1 })(req, c, res)));
+  const { c, esperas } = conEsperas(url, { esperaMs: 100 });
+  await c.decidir("x", [ferreteria]);
+  assert.equal(vistas.length, 3);
+  assert.equal(new Set(vistas.map((v) => v.cuerpo.questions[0].nonce)).size, 1);
+  assert.equal(esperas.length, 2);
+  assert.ok(esperas[1] >= 100 && esperas[1] <= 200);
+});
