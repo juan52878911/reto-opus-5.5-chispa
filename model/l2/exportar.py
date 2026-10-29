@@ -116,24 +116,42 @@ def podar(encoder, vocab):
     return enc, remap
 
 
-def exportar_onnx(env, ruta, vocab_n):
+class EnvolturaTorre(nn.Module):
+    """(ids, máscara) → h (B,256): e5, media ponderada por la máscara, L2, `Torre` (GELU erf) y L2. Contrato: contrato-torre.md.
+    El MLP cuelga de `torre` para que sus nodos se llamen «/torre/…» y queden en fp32 al cuantizar."""
+
+    def __init__(self, encoder, torre, remap=None):
+        super().__init__()
+        self.encoder, self.torre = encoder, torre
+        self.register_buffer("remap", remap if remap is not None else torch.zeros(0, dtype=torch.long), persistent=False)
+
+    def forward(self, input_ids, attention_mask):
+        if self.remap.numel():
+            input_ids = self.remap[input_ids]
+        H = self.encoder(input_ids=input_ids, attention_mask=attention_mask, return_dict=False)[0]
+        m = attention_mask.unsqueeze(-1).to(H.dtype)
+        v = F.normalize((H * m).sum(1) / m.sum(1).clamp(min=1), dim=-1)
+        return self.torre(v)
+
+
+def exportar_onnx(env, ruta, vocab_n, salida="S"):
     env.eval()
     ids = torch.randint(5, vocab_n, (2, 16))
     mask = torch.ones_like(ids)
     mask[1, 10:] = 0
     with torch.no_grad():
-        torch.onnx.export(env, (ids, mask), str(ruta), input_names=["input_ids", "attention_mask"], output_names=["S"],
+        torch.onnx.export(env, (ids, mask), str(ruta), input_names=["input_ids", "attention_mask"], output_names=[salida],
                           opset_version=OPSET, dynamo=False,
-                          dynamic_axes={"input_ids": {0: "b", 1: "s"}, "attention_mask": {0: "b", 1: "s"}, "S": {0: "b"}})
+                          dynamic_axes={"input_ids": {0: "b", 1: "s"}, "attention_mask": {0: "b", 1: "s"}, salida: {0: "b"}})
 
 
 CUANT = ("todo", "codificador", "ninguna")
 PREFIJO_RANURAS = "/ranuras/"
 
 
-def cuantizar(fp32, int8, modo="codificador", per_channel=True):
-    """`todo`: todo el grafo; `codificador`: solo MatMul y Gather (tabla de embeddings) del codificador, con las ranuras
-    (atención y proyecciones) en fp32; `ninguna`: copia el fp32."""
+def cuantizar(fp32, int8, modo="codificador", per_channel=True, prefijo=PREFIJO_RANURAS):
+    """`todo`: todo el grafo; `codificador`: solo MatMul y Gather (tabla de embeddings) del codificador, con los nodos
+    `prefijo` (las ranuras, o la `Torre`) en fp32; `ninguna`: copia el fp32."""
     if modo not in CUANT:
         raise ValueError("cuantización %r desconocida (%s)" % (modo, ", ".join(CUANT)))
     if modo == "ninguna":
@@ -143,11 +161,11 @@ def cuantizar(fp32, int8, modo="codificador", per_channel=True):
     from onnxruntime.quantization import QuantType, quantize_dynamic
     kw = {}
     if modo == "codificador":
-        nodos = [n for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.name.startswith(PREFIJO_RANURAS)]
+        nodos = [n for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.name.startswith(prefijo)]
         # el preprocesado de ORT parte cada Gemm en «<nombre>_MatMul» + Add antes de excluir: hay que excluir también ese nombre
         nombres = [n.name for n in nodos] + [n.name + "_MatMul" for n in nodos if n.op_type == "Gemm"]
         if not nombres:
-            raise RuntimeError("el grafo no tiene nodos %s*: no se pueden dejar las ranuras en fp32" % PREFIJO_RANURAS)
+            raise RuntimeError("el grafo no tiene nodos %s*: no se pueden dejar en fp32" % prefijo)
         kw = {"nodes_to_exclude": nombres, "op_types_to_quantize": ["MatMul", "Gather"]}
     quantize_dynamic(str(fp32), str(int8), weight_type=QuantType.QInt8, per_channel=per_channel, **kw)
 
@@ -159,8 +177,8 @@ def sesion(ruta, hilos=1):
     return ort.InferenceSession(str(ruta), o, providers=["CPUExecutionProvider"])
 
 
-def correr(sess, ids, mask):
-    return sess.run(["S"], {"input_ids": ids.astype(np.int64), "attention_mask": mask.astype(np.int64)})[0]
+def correr(sess, ids, mask, salida="S"):
+    return sess.run([salida], {"input_ids": ids.astype(np.int64), "attention_mask": mask.astype(np.int64)})[0]
 
 
 # ---------------------------------------------------------------- torres
@@ -261,6 +279,159 @@ def latencia(sess, vocab_n, tokens=(16, 64, 256), reps=50, calentar=5):
     return res
 
 
+# ---------------------------------------------------------------- torre ONNX (contrato-torre.md)
+PREFIJO_TORRE = "/torre/"
+SEMILLA_TORRE = 20261029
+
+
+def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="codificador", per_channel=True):
+    """ONNX int8 de la torre: (input_ids, attention_mask) → h. Devuelve {mb, fp32_mb, vocab_n}. Con `vocab` comparte la tabla
+    podada de la consulta (los ids de entrada siguen siendo los del tokenizador original)."""
+    trabajo = Path(trabajo)
+    trabajo.mkdir(parents=True, exist_ok=True)
+    remap = None
+    if vocab:
+        encoder, remap = podar(encoder, vocab)
+    n_vocab = encoder.get_input_embeddings().weight.shape[0] if remap is None else len(remap)
+    fp32 = trabajo / "torre-fp32.onnx"
+    exportar_onnx(EnvolturaTorre(encoder, torre, remap), fp32, n_vocab, "h")
+    cuantizar(fp32, ruta_int8, cuant, per_channel, PREFIJO_TORRE)
+    return {"mb": Path(ruta_int8).stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "vocab_n": n_vocab}
+
+
+def textos_torre(filas, n):
+    """Hasta `n` textos de torre distintos (choice: uno por opción; el resto, el de consulta), en el orden de las filas."""
+    vistos = {}
+    for r in filas:
+        for t in ([texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r)]):
+            vistos.setdefault(t, None)
+    return list(vistos)[:n]
+
+
+def ids_torre(enc, textos, max_tok=128):
+    """Listas de ids sin relleno (tokenizador original de e5; los textos ya llevan «passage: »), truncadas a `max_tok`."""
+    return enc.tok(list(textos), truncation=True, max_length=max_tok)["input_ids"]
+
+
+def correr_torre(sess, ids, lote=32):
+    """h ONNX (n,256) para listas de ids de longitud variable, con relleno y máscara por lote."""
+    out = []
+    for i in range(0, len(ids), lote):
+        b = ids[i:i + lote]
+        T = max(map(len, b))
+        x = np.ones((len(b), T), dtype=np.int64)  # 1 = <pad> de XLM-R
+        m = np.zeros((len(b), T), dtype=np.int64)
+        for j, t in enumerate(b):
+            x[j, :len(t)], m[j, :len(t)] = t, 1
+        out.append(correr(sess, x, m, "h"))
+    return np.concatenate(out)
+
+
+@torch.no_grad()
+def h_torch(modelo, enc, textos):
+    """h de PyTorch fp32 (lo que hoy se precalcula en ESQUEMAS, sin cuantizar)."""
+    return modelo.torre(enc.pasaje(list(textos))).numpy()
+
+
+def cosenos(a, b):
+    a, b = np.asarray(a, np.float64), np.asarray(b, np.float64)
+    return (a * b).sum(1) / (np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1))
+
+
+@torch.no_grad()
+def top1_torres(modelo, enc, sess_q, sess_t, filas, lote=64):
+    """Acuerdo top-1 de las filas choice con S del ONNX de consulta y torres ONNX frente a torres PyTorch fp32.
+    El margen es el hueco entre la mejor opción y la segunda con las torres PyTorch: con pesos aleatorios es minúsculo y el
+    top-1 mide ruido, así que se da también el acuerdo en la mitad de filas con más margen."""
+    filas = [r for r in filas if r["tipo"] == "choice"]
+    textos = list(dict.fromkeys(texto_opcion(r, o) for r in filas for o in r["opciones"]))
+    ref = dict(zip(textos, torch.from_numpy(h_torch(modelo, enc, textos))))
+    got = dict(zip(textos, torch.from_numpy(correr_torre(sess_t, ids_torre(enc, textos)).astype(np.float32))))
+    ok, margenes = [], []
+    for r in filas:
+        b = enc.tok(["query: " + r["texto"]], truncation=True, max_length=enc.max_tok)
+        S = torch.from_numpy(correr(sess_q, np.array(b["input_ids"]), np.array(b["attention_mask"])))
+        sa = maxsim(S, torch.stack([ref[texto_opcion(r, o)] for o in r["opciones"]]))[0]
+        sb = maxsim(S, torch.stack([got[texto_opcion(r, o)] for o in r["opciones"]]))[0]
+        ok.append(int(sa.argmax() == sb.argmax()))
+        margenes.append(float(sa.topk(2).values.diff().abs()))
+    ok, margenes = np.array(ok), np.array(margenes)
+    alto = margenes >= np.median(margenes)
+    return {"acuerdo": float(ok.mean()), "n": len(ok), "margen_medio": float(margenes.mean()), "opciones": len(filas[0]["opciones"]),
+            "acuerdo_mitad_margen_alto": float(ok[alto].mean()), "margen_mitad_alta": float(margenes[alto].mean())}
+
+
+def fraccion_unk_textos(enc, textos, vocab):
+    """Parte de los tokens de `textos` que la poda manda a <unk>."""
+    keep = set(vocab["ids_originales"])
+    ids = [i for t in ids_torre(enc, textos) for i in t]
+    return sum(int(i) not in keep for i in ids) / max(len(ids), 1)
+
+
+def paridad_torre(modelo, enc, sess_t, textos):
+    """Coseno de h ONNX int8 frente a h PyTorch fp32: media, mínimo y p1."""
+    c = cosenos(correr_torre(sess_t, ids_torre(enc, textos)), h_torch(modelo, enc, textos))
+    return {"n": len(textos), "coseno_medio": float(c.mean()), "coseno_min": float(c.min()), "coseno_p1": float(np.percentile(c, 1))}
+
+
+def fixture_torre(modelo, enc, sess_t, textos, ruta, decimales=6):
+    """JSON para probar el runtime de Go sin PyTorch: textos, ids de entrada (sin relleno) y h esperada (fp32 y ONNX int8)."""
+    ids = ids_torre(enc, textos)
+    ruta = Path(ruta)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    redondea = lambda a: [[round(float(x), decimales) for x in f] for f in a]
+    ruta.write_text(json.dumps({
+        "contrato": "model/l2/contrato-torre.md", "max_tok": 128, "pad_id": 1, "dim": int(modelo.torre.mlp[-1].out_features),
+        "nota": "input_ids sin relleno (attention_mask = unos). h_onnx sale del ONNX int8 exportado con el mismo comando; h_fp32 de PyTorch.",
+        "textos": list(textos), "input_ids": ids, "h_fp32": redondea(h_torch(modelo, enc, textos)),
+        "h_onnx": redondea(correr_torre(sess_t, ids))}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+
+
+def modelo_aleatorio(semilla=SEMILLA_TORRE):
+    """ModeloL2 con pesos aleatorios y semilla fija (la fidelidad de la cuantización no depende de que esté entrenado)."""
+    from .modelo import ModeloL2
+    torch.manual_seed(semilla)
+    return ModeloL2().eval()
+
+
+def filas_massive(n, semilla=0, opciones=8):
+    """Filas choice inventadas sobre los mensajes de massive-es (validación): la verdadera más `opciones-1` intenciones al azar."""
+    import gzip
+    import random
+    ruta = next(Path(os.path.expanduser("~/hf/hub")).glob("datasets--mteb--amazon_massive_intent/snapshots/*/validation/es.json.gz"))
+    with gzip.open(ruta, "rt", encoding="utf-8") as f:
+        datos = [json.loads(l) for l in f]
+    rng = random.Random(semilla)
+    clases = sorted({d["label_text"] for d in datos})
+    rng.shuffle(datos)
+    from model.datos.massive import DESCRIPCIONES as desc, PREGUNTA
+    filas = []
+    for i, d in enumerate(datos[:n]):
+        ops = [d["label_text"]] + rng.sample([c for c in clases if c != d["label_text"]], opciones - 1)
+        rng.shuffle(ops)
+        filas.append({"id": "massive:dev:%d" % i, "tarea": "massive", "tipo": "choice", "pregunta": PREGUNTA,
+                      "texto": d["text"], "opciones": ops, "descripciones": {o: desc[o] for o in ops}, "etiqueta": d["label_text"]})
+    return filas
+
+
+PREGUNTAS_GOLDEN = ("¿Qué quiere hacer la persona con su asistente?",
+                    "Clasifica la petición del usuario según la acción que pide.", "¿A qué dominio pertenece la orden?",
+                    "Elige la intención que mejor describe lo que se le pide al asistente de la casa.",
+                    "Decide qué intención expresa el texto.")
+
+
+def textos_golden(n=300):
+    """`n` textos de torre distintos de la tarea massive: cada intención con varias redacciones de la pregunta."""
+    from model.datos.massive import DESCRIPCIONES, PREGUNTA
+    textos = []
+    for q in (PREGUNTA,) + PREGUNTAS_GOLDEN:
+        for c in sorted(DESCRIPCIONES):
+            textos.append(texto_opcion({"pregunta": q, "descripciones": DESCRIPCIONES}, c))
+    if len(textos) < n:
+        raise ValueError("hay %d textos y se piden %d" % (len(textos), n))
+    return textos[:n]
+
+
 # ---------------------------------------------------------------- empaquetado
 def go_bin():
     return shutil.which("go") or os.path.expanduser("~/go-sdk/bin/go")
@@ -326,12 +497,116 @@ def comprobar_paridad(inf, minimo):
                            % (p["acuerdo_top1"], minimo, inf.get("cuant"), p["dif_media"], p["dif_max"]))
 
 
+def main_torre(a, modelo, enc, encoder, vocab):
+    """`--torre-onnx`: exporta, y si se piden, mide la paridad y escribe el fixture."""
+    sal = Path(a.torre_onnx)
+    sal.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as t:
+        import gc
+        inf = {}
+        tg = textos_golden(300) if a.medir_torre else []
+        if a.medir_torre and vocab:  # primero y liberado: separa el efecto de la poda del de la cuantización (la VM tiene 4 GB)
+            inf["tokens_unk"] = fraccion_unk_textos(enc, tg, vocab)
+            sin = Path(t) / "torre-sin-poda-int8.onnx"
+            # poda ampliada con los ids de los textos (sin <unk>): exportar el vocabulario completo no cabe en los 4 GB de la VM
+            amplio = {**vocab, "ids_originales": sorted(set(vocab["ids_originales"]) | {i for x in ids_torre(enc, tg) for i in x})}
+            inf["mb_sin_poda"] = exportar_torre(encoder, modelo.torre, sin, Path(t) / "sp", amplio, a.cuant, a.per_channel)["mb"]
+            s_sin = sesion(sin)
+            inf["h_sin_poda"] = paridad_torre(modelo, enc, s_sin, tg)
+            shutil.rmtree(Path(t) / "sp")
+        inf.update(exportar_torre(encoder, modelo.torre, sal, t, vocab, a.cuant, a.per_channel))
+        inf.update(vocab_podado=bool(vocab), cuant=a.cuant, per_channel=a.per_channel, opset=OPSET)
+        sess = sesion(sal)
+        if a.medir_torre:
+            inf["h"] = paridad_torre(modelo, enc, sess, tg)
+            gc.collect()
+            q_fp32, q_int8 = Path(t) / "l2-fp32.onnx", Path(t) / "l2-int8.onnx"
+            qenc, qremap = podar(encoder, vocab) if vocab else (encoder, None)
+            exportar_onnx(Envoltura(qenc, modelo.ranuras, qremap), q_fp32, len(qremap) if vocab else encoder.get_input_embeddings().weight.shape[0])
+            cuantizar(q_fp32, q_int8, a.cuant, a.per_channel)
+            q_fp32.unlink()
+            s_q, filas_t = sesion(q_int8), filas_massive(300)
+            inf["top1_choice"] = top1_torres(modelo, enc, s_q, sess, filas_t)
+            if vocab:
+                inf["top1_choice_sin_unk"] = top1_torres(modelo, enc, s_q, s_sin, filas_t)
+            inf["consulta_mb"] = q_int8.stat().st_size / 1e6
+            escribir_leeme(inf, a.medir_torre)
+        if a.fixture_torre:
+            tx = textos_golden(300)
+            largo = " ".join(["Elige la intención que mejor describe el mensaje del usuario, con todos sus matices."] * 12)
+            fx = tx[::18][:17] + [texto_opcion({"pregunta": "¿Qué acción pide la persona?", "descripciones": {}}, "alarma_poner"),
+                                   texto_opcion({"pregunta": largo, "descripciones": {"x": "Año nuevo: ¿qué pasó? ñandú, café, 日本"}}, "x"),
+                                   texto_opcion({"pregunta": "¿Es spam?", "descripciones": {"true": "Mensaje no deseado."}}, "true")]
+            fixture_torre(modelo, enc, sess, fx, Path(a.fixture_torre) / "torre.json")
+    print(json.dumps(inf, indent=1))
+    return 0
+
+
+def sin_poda(inf):
+    if "h_sin_poda" not in inf:
+        return ""
+    p = inf["h_sin_poda"]
+    return ("\nPoda frente a cuantización: con el vocabulario podado %.1f %% de los tokens de estos textos caen en `<unk>` y el coseno\n"
+            "baja por eso. Con el mismo vocabulario ampliado con los ids de estos textos (sin `<unk>`; solo cuantización, %.1f MB) el\n"
+            "coseno medio es %.6f y el mínimo %.6f.\n"
+            % (100 * inf["tokens_unk"], inf["mb_sin_poda"], p["coseno_medio"], p["coseno_min"]))
+
+
+def escribir_leeme(inf, dir_):
+    dir_ = Path(dir_)
+    dir_.mkdir(parents=True, exist_ok=True)
+    (dir_ / "paridad.json").write_text(json.dumps(inf, indent=1) + "\n")
+    h, t, u, sp = inf["h"], inf["top1_choice"], inf.get("top1_choice_sin_unk"), inf.get("h_sin_poda")
+    ok = lambda c: "sí" if c else "NO"
+    f = lambda x: ("%.4f" % x).replace(".", ",")
+    filas = ["| coseno medio de `h`, ONNX tal como se exporta (poda) vs PyTorch fp32, %d textos | ≥ 0,999 | %s | %s |"
+             % (h["n"], f(h["coseno_medio"]), ok(h["coseno_medio"] >= 0.999)),
+             "| coseno mínimo / p1 (ídem) | — | %s / %s | — |" % (f(h["coseno_min"]), f(h["coseno_p1"]))]
+    if sp:
+        filas += ["| coseno medio, solo cuantización (vocabulario ampliado, sin `<unk>`) | ≥ 0,999 | %s | %s |"
+                  % (f(sp["coseno_medio"]), ok(sp["coseno_medio"] >= 0.999)),
+                  "| coseno mínimo (ídem) | — | %s | — |" % f(sp["coseno_min"])]
+    filas.append("| top-1 de choice, torres ONNX (poda) vs torres PyTorch, %d filas × %d opciones | ≥ 0,98 | %s | %s |"
+                 % (t["n"], t["opciones"], f(t["acuerdo"]), ok(t["acuerdo"] >= 0.98)))
+    if u:
+        filas.append("| top-1 de choice, solo cuantización (sin `<unk>`) | ≥ 0,98 | %s | %s |" % (f(u["acuerdo"]), ok(u["acuerdo"] >= 0.98)))
+        filas.append("| ídem, mitad de filas con más margen (margen medio %s) | — | %s | — |" % (f(u["margen_mitad_alta"]), f(u["acuerdo_mitad_margen_alto"])))
+    filas.append("| tamaño del ONNX de la torre (vocabulario podado: %s) | ≤ 50 MB | %.1f MB (fp32: %.1f) | %s |"
+                 % ("sí" if inf["vocab_podado"] else "no", inf["mb"], inf["fp32_mb"], ok(inf["mb"] <= 50)))
+    (dir_ / "LEEME.md").write_text("""# Torre de esquemas en ONNX int8: paridad
+
+Generado con `python -m model.l2.exportar --torre-onnx SALIDA --ckpt-aleatorio --medir-torre DIR --fixture-torre DIR`
+(semilla %d). e5 de `~/hf`, **pesos de L2 aleatorios con semilla fija** (aquí no está el checkpoint real): la fidelidad de la
+cuantización de e5 y de la torre no depende de que estén entrenados.
+
+| medida | objetivo | resultado | cumple |
+|---|---|---|---|
+%s
+
+Cuantización: %s, por canal=%s, opset %d, `Torre` en fp32. El ONNX de consulta pesa %.1f MB.
+
+Textos de coseno: tarea massive-es del repo (pregunta real y 6 redacciones × cada intención, con descripciones), en el formato
+del contrato (`passage: pregunta · opción · descripción`). Top-1: 300 mensajes de validación de massive-es, 8 opciones cada
+uno, con las S del ONNX de consulta en los dos lados: solo cambian las torres.
+
+%s
+Top-1 con pesos aleatorios: el margen medio entre la mejor opción y la segunda es %s (softplus·maxsim), así que el acuerdo
+mide en buena parte ruido sobre empates casi exactos y no es extrapolable a un checkpoint entrenado. Hay que repetir la
+medida con el real.
+""" % (SEMILLA_TORRE, "\n".join(filas), inf["cuant"], inf["per_channel"], inf["opset"], inf["consulta_mb"], sin_poda(inf),
+       f(t["margen_medio"])), encoding="utf-8")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--ckpt", required=True)
-    ap.add_argument("--calib", required=True)
-    ap.add_argument("--esquemas", nargs="+", required=True, help="jsonl cuyas preguntas y opciones llevan torre precalculada")
-    ap.add_argument("--salida", required=True)
+    ap.add_argument("--ckpt")
+    ap.add_argument("--calib")
+    ap.add_argument("--esquemas", nargs="+", help="jsonl cuyas preguntas y opciones llevan torre precalculada")
+    ap.add_argument("--salida")
+    ap.add_argument("--torre-onnx", metavar="SALIDA", help="exporta solo el ONNX int8 de la torre (contrato-torre.md) y sale; no pide --calib, --esquemas ni --salida")
+    ap.add_argument("--ckpt-aleatorio", type=int, nargs="?", const=SEMILLA_TORRE, metavar="SEMILLA", help="con --torre-onnx: pesos aleatorios con semilla fija en vez de --ckpt")
+    ap.add_argument("--medir-torre", metavar="DIR", help="con --torre-onnx: mide la paridad (300 textos, top-1 de choice) y escribe DIR/LEEME.md y DIR/paridad.json")
+    ap.add_argument("--fixture-torre", metavar="DIR", help="con --torre-onnx: escribe DIR/torre.json, el fixture de paridad para Go")
     ap.add_argument("--paridad", nargs="*", default=[], help="jsonl de dev para la paridad")
     ap.add_argument("--n-paridad", type=int, default=500)
     ap.add_argument("--vocab-podado", default=str(VOCAB_PODADO))
@@ -342,13 +617,23 @@ def main(argv=None):
     ap.add_argument("--min-top1", type=float, default=MIN_TOP1, help="falla si el acuerdo top-1 con PyTorch queda por debajo")
     ap.add_argument("--trabajo", help="directorio de los ONNX (por defecto, temporal)")
     a = ap.parse_args(argv)
+    if a.torre_onnx:
+        if not (a.ckpt or a.ckpt_aleatorio is not None):
+            ap.error("--torre-onnx pide --ckpt o --ckpt-aleatorio")
+    else:
+        faltan = [f for f in ("ckpt", "calib", "esquemas", "salida") if not getattr(a, f)]
+        if faltan:
+            ap.error("faltan: " + ", ".join("--" + f for f in faltan))
     from transformers import AutoModel
     from .modelo import Codificador
-    modelo, ck = C.cargar_modelo(a.ckpt, "cpu")
+    modelo, ck = (modelo_aleatorio(a.ckpt_aleatorio), None) if a.ckpt is None and a.torre_onnx else C.cargar_modelo(a.ckpt, "cpu")
     enc = Codificador(device="cpu")
     ruta = os.environ.get("CHISPA_E5") or "intfloat/multilingual-e5-small"
     encoder = AutoModel.from_pretrained(ruta, attn_implementation="eager", local_files_only=os.path.exists(os.path.expanduser("~/hf/hub"))).eval()
     encoder.load_state_dict(enc.enc.state_dict())
+    if a.torre_onnx:
+        vocab = None if a.sin_poda else json.loads(Path(a.vocab_podado).read_text())
+        return main_torre(a, modelo, enc, encoder, vocab)
     calib = json.loads(Path(a.calib).read_text(encoding="utf-8"))
     vocab = None if a.sin_poda else json.loads(Path(a.vocab_podado).read_text())
     filas = D.leer(a.esquemas)

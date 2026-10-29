@@ -1,0 +1,40 @@
+{
+ "tokens_unk": 0.07549295774647888,
+ "mb_sin_poda": 46.715802,
+ "h_sin_poda": {
+  "n": 300,
+  "coseno_medio": 0.9997575408335035,
+  "coseno_min": 0.9994542054941309,
+  "coseno_p1": 0.9995916313903168
+ },
+ "mb": 46.711194,
+ "fp32_mb": 173.975666,
+ "vocab_n": 250037,
+ "vocab_podado": true,
+ "cuant": "codificador",
+ "per_channel": true,
+ "opset": 17,
+ "h": {
+  "n": 300,
+  "coseno_medio": 0.998690579940153,
+  "coseno_min": 0.9977800856463822,
+  "coseno_p1": 0.9978820286815702
+ },
+ "top1_choice": {
+  "acuerdo": 0.66,
+  "n": 300,
+  "margen_medio": 0.0009801381826400758,
+  "opciones": 8,
+  "acuerdo_mitad_margen_alto": 0.7866666666666666,
+  "margen_mitad_alta": 0.0016088831424713136
+ },
+ "top1_choice_sin_unk": {
+  "acuerdo": 0.75,
+  "n": 300,
+  "margen_medio": 0.0009801381826400758,
+  "opciones": 8,
+  "acuerdo_mitad_margen_alto": 0.9266666666666666,
+  "margen_mitad_alta": 0.0016088831424713136
+ },
+ "consulta_mb": 48.209339
+}
