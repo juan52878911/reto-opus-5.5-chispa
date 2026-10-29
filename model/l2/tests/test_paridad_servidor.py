@@ -16,11 +16,11 @@ class Paridad(unittest.TestCase):
         self.assertEqual(P.textos_servidor(f), P.textos_python(f))
         self.assertEqual(P.textos_servidor(f)[0], texto_opcion(f, "a"))
 
-    def test_noul_y_score_sin_descripcion_en_la_peticion(self):
-        # la petición de /v1/decide no lleva descripción de «true» ni de los niveles: si la fila de Python la tiene, los textos difieren
+    def test_noul_y_score_con_descripcion_en_la_peticion(self):
+        # desde D1e la petición de /v1/decide lleva las descripciones de «true» y de los niveles: servidor y Python coinciden
         n = fila("noul", ["false", "true"], {"true": "se cumple"})
-        self.assertNotEqual(P.textos_servidor(n), [texto_consulta(n)])
-        self.assertEqual(P.textos_servidor(n), ["passage: ¿Qué? · true · "])
+        self.assertEqual(P.textos_servidor(n), [texto_consulta(n)])
+        self.assertEqual(P.textos_servidor(n), ["passage: ¿Qué? · true · se cumple"])
         n0 = fila("noul", ["false", "true"], {})
         self.assertEqual(P.textos_servidor(n0), [texto_consulta(n0)])
         s = fila("score", ["1", "2", "3"], {})
