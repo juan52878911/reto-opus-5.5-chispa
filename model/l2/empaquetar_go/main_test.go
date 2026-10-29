@@ -20,8 +20,8 @@ func esquemasJ(t *testing.T) []byte {
 		raw[i] = byte(x)
 	}
 	b, err := json.Marshal(esquemasJSON{Dim: 4, Entradas: []entradaJSON{
-		{Pregunta: "¿qué?", Opciones: []string{"a"}, Escala: 0.01, Vec: base64.StdEncoding.EncodeToString(raw)},
-		{Pregunta: "¿qué?", Opciones: []string{"b"}, Escala: 0.02, Vec: base64.StdEncoding.EncodeToString(raw)},
+		{Pregunta: "¿qué?", Kind: "choice", Opciones: []opcionJSON{{"a", "da"}}, Escala: 0.01, Vec: base64.StdEncoding.EncodeToString(raw)},
+		{Pregunta: "¿qué?", Kind: "choice", Opciones: []opcionJSON{{"b", "db"}}, Escala: 0.02, Vec: base64.StdEncoding.EncodeToString(raw)},
 	}})
 	if err != nil {
 		t.Fatal(err)
@@ -51,14 +51,14 @@ func TestIdaYVuelta(t *testing.T) {
 		t.Fatalf("calib %+v %v", c, err)
 	}
 	e, err := f.Esquemas()
-	if err != nil || e.Len() != 2 || e.Dim() != 4 {
+	if err != nil || e.Len() != 2 || e.Dim() != 4 || e.Version() != 2 {
 		t.Fatalf("esquemas %v", err)
 	}
-	vec, esc, ok := e.Buscar(chispa3.HashEsquema("¿qué?", []string{"b"}))
+	vec, esc, ok := e.BuscarEsquema("¿qué?", "choice", []chispa3.OpcionClave{{ID: "b", Descripcion: "db"}})
 	if !ok || esc != 0.02 || int8(vec[0]) != 127 || int8(vec[1]) != -127 {
 		t.Fatalf("buscar: %v %v %v", vec, esc, ok)
 	}
-	if _, _, ok := e.Buscar(chispa3.HashEsquema("¿qué?", []string{"c"})); ok {
+	if _, _, ok := e.BuscarEsquema("¿qué?", "choice", []chispa3.OpcionClave{{ID: "b", Descripcion: "otra"}}); ok {
 		t.Fatal("no debería estar")
 	}
 }
@@ -135,9 +135,48 @@ func TestFicheroDePython(t *testing.T) {
 	}
 	for _, tr := range e.Torres {
 		raw, _ := base64.StdEncoding.DecodeString(tr.Vec)
-		vec, esc, ok := es.Buscar(chispa3.HashEsquema(tr.Pregunta, tr.Opciones))
+		vec, esc, ok := es.Buscar2(tr.clave())
 		if !ok || esc != tr.Escala || string(vec) != string(raw) {
 			t.Fatalf("torre %q %v distinta o ausente", tr.Pregunta, tr.Opciones)
+		}
+	}
+}
+
+// El fixture de Python (CHISPA_FICHERO, CHISPA_FIXTURE_JSON) es ESQUEMAS v2 y cada clave esperada se encuentra con BuscarEsquema.
+func TestFixtureEsquemasV2(t *testing.T) {
+	ruta, esp := os.Getenv("CHISPA_FICHERO"), os.Getenv("CHISPA_FIXTURE_JSON")
+	if ruta == "" || esp == "" {
+		t.Skip("sin CHISPA_FICHERO")
+	}
+	b, err := os.ReadFile(esp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var e struct {
+		Claves []entradaJSON `json:"claves"`
+	}
+	if err := json.Unmarshal(b, &e); err != nil {
+		t.Fatal(err)
+	}
+	f, err := chispa3.Abrir(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := f.Verificar(); err != nil {
+		t.Fatal(err)
+	}
+	es, err := f.Esquemas()
+	if err != nil || es.Version() != 2 || es.Len() != len(e.Claves) {
+		t.Fatalf("esquemas: %v", err)
+	}
+	for _, c := range e.Claves {
+		ops := make([]chispa3.OpcionClave, len(c.Opciones))
+		for i, o := range c.Opciones {
+			ops[i] = chispa3.OpcionClave{ID: o.ID, Descripcion: o.Description}
+		}
+		if _, _, ok := es.BuscarEsquema(c.Pregunta, c.Kind, ops); !ok {
+			t.Errorf("falta %q %s %v", c.Pregunta, c.Kind, c.Opciones)
 		}
 	}
 }
