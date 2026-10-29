@@ -1,0 +1,20 @@
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 5480.52it/s]
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/chispa/repo/model/l2/calibrar.py", line 312, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/opt/chispa/repo/model/l2/calibrar.py", line 303, in main
+    inf = calibrar(modelo, Codificador(device=a.device), filas)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/chispa/repo/model/l2/calibrar.py", line 241, in calibrar
+    c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx], clave)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/chispa/repo/model/l2/calibrar.py", line 241, in <listcomp>
+    c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx], clave)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/chispa/repo/model/l2/calibrar.py", line 76, in probs_de
+    pt = torch.sigmoid(p["a"] * s[0] + p["b"])
+                       ~~~~~~~~~~~~~~^~~~~~~~
+TypeError: unsupported operand type(s) for +: 'Tensor' and 'list'
