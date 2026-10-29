@@ -3,7 +3,9 @@ package chispa3
 import (
 	"math"
 	"math/rand/v2"
+	"runtime"
 	"testing"
+	"weak"
 )
 
 // dot3 y dot3x4 son exactos frente al producto entero ingenuo, también en los extremos (protos −128, S ±127).
@@ -145,4 +147,37 @@ func BenchmarkSimproto150(b *testing.B) {
 			SimprotoRef(&e, S, ops)
 		}
 	})
+}
+
+// Los protos empaquetados viven en el Conj: al soltarlo no queda nada retenido globalmente.
+func TestProtosEmpaquetadosNoFugan(t *testing.T) {
+	b, err := CodificarConj([]EntradaConj{entradaConj("fuga", 2, 2, 4)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var debiles []weak.Pointer[EntradaConj]
+	for i := 0; i < 50; i++ {
+		c, err := DecodificarConj(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e := &c.es[0]
+		a := protosEmpaquetados(e)
+		if a != protosEmpaquetados(e) {
+			t.Fatal("la caché por entrada debe devolver el mismo resultado")
+		}
+		debiles = append(debiles, weak.Make(e))
+	}
+	for i := 0; i < 5; i++ {
+		runtime.GC()
+	}
+	vivos := 0
+	for _, w := range debiles {
+		if w.Value() != nil {
+			vivos++
+		}
+	}
+	if vivos != 0 {
+		t.Fatalf("%d de %d Conj siguen retenidos tras soltarlos", vivos, len(debiles))
+	}
 }
