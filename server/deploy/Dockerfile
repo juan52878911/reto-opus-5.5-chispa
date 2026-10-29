@@ -44,6 +44,13 @@ ARG ORT_VERSION
 COPY --from=build /ort/lib/libonnxruntime.so.${ORT_VERSION} /usr/lib/libonnxruntime.so
 COPY --from=build /out/chispa-server /out/carga /usr/local/bin/
 # Modelo: monta un .chispa en /modelos/modelo.chispa (v3, o v2 solo con L0).
+# Seguro por defecto: sin api_keys el servidor se niega a escuchar en 0.0.0.0 (FATAL sin api_keys). Dos caminos:
+#   producción: monta una config y pásala:  docker run ... chispa-server -modelo /modelos/modelo.chispa -config /etc/chispa/config.json
+#   pruebas:    añade -abierto (sin autenticación en /v1/decide; NUNCA en producción):  docker run ... chispa-server -abierto
+# CMD lleva solo el modelo; los argumentos que pases al `docker run` lo sustituyen, así que repite -modelo si cambias CMD.
+# Parada: SIGTERM drena en vuelo hasta -apagado (35 s, >= -timeout 30 s); la gracia de Docker debe ser >= apagado + 5 s:
+#   docker run --stop-timeout 40 ...   (Kubernetes: terminationGracePeriodSeconds: 40)
+STOPSIGNAL SIGTERM
 EXPOSE 8090
-ENTRYPOINT ["/usr/local/bin/chispa-server", "-addr", "0.0.0.0:8090"]
+ENTRYPOINT ["/usr/local/bin/chispa-server", "-addr", "0.0.0.0:8090", "-apagado", "35s"]
 CMD ["-modelo", "/modelos/modelo.chispa"]

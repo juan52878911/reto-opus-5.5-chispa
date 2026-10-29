@@ -26,6 +26,7 @@ if [ -n "$config" ]; then
   fi
 fi
 set -- "$@"
-[ -n "$config" ] && set -- -config "$config" "$@"
-[ -f "$tok" ] && set -- -tok "$tok" "$@"
-exec /usr/local/bin/chispa-server -addr "0.0.0.0:${CHISPA_PUERTO:-8090}" -modelo "$modelo" "$@"
+[ -z "$config" ] || set -- -config "$config" "$@"
+[ "$abierto" != 1 ] || set -- -abierto "$@"
+[ ! -f "$tok" ] || set -- -tok "$tok" "$@"
+exec /usr/local/bin/chispa-server -addr "0.0.0.0:${CHISPA_PUERTO:-8090}" -modelo "$modelo" -apagado 35s "$@"

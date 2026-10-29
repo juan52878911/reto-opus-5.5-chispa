@@ -31,12 +31,20 @@ fi
 grep -q CHISPA_CONFIG "$T/log-sin" || fallo "entrada.sh no explica que falta CHISPA_CONFIG"
 echo "entrada.sh se niega sin config: OK"
 
+# Regresión H3: con -abierto y con CHISPA_ABIERTO=1 entrada.sh debe pasar -abierto a chispa-server (aquí un sustituto que imprime sus argumentos).
+mkdir "$T/falso"
+printf '#!/bin/sh\necho "$@"\n' >"$T/falso/chispa-server"; chmod +x "$T/falso/chispa-server"
+sed "s#/usr/local/bin/chispa-server#$T/falso/chispa-server#" "$RAIZ/deploy/kindling/entrada.sh" >"$T/falso/entrada.sh"
+CHISPA_TOK=$T/no-hay sh "$T/falso/entrada.sh" -abierto | grep -q -- '-abierto' || fallo "entrada.sh -abierto no se lo pasa a chispa-server"
+CHISPA_ABIERTO=1 CHISPA_TOK=$T/no-hay sh "$T/falso/entrada.sh" | grep -q -- '-abierto' || fallo "entrada.sh CHISPA_ABIERTO=1 no se lo pasa a chispa-server"
+echo "entrada.sh pasa -abierto: OK"
+
 # Config con api_keys en una ruta con espacio y comodín (hallazgo 15); la clave va como Bearer.
 CLAVE=clave-de-prueba
 HASH=$(printf %s "$CLAVE" | sha256sum | cut -d' ' -f1)
 mkdir "$T/dir con espacio *"
 CFG="$T/dir con espacio */config piloto.json"
-printf '{"api_keys":[{"id":"prueba","hash_sha256":"%s"}]}\n' "$HASH" >"$CFG"
+printf '{"api_keys":[{"id":"prueba","hash_sha256":"%s","rps":10}]}\n' "$HASH" >"$CFG"
 CHISPA_PUERTO=$PUERTO CHISPA_MODELO=$MODELO CHISPA_TOK=$T/no-hay CHISPA_CONFIG=$CFG sh "$T/entrada.sh" >"$T/log" 2>&1 &
 PID=$!
 

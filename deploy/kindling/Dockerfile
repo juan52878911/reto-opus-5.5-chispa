@@ -64,6 +64,8 @@ ENV CHISPA_PUERTO=8090 CHISPA_MODELO=/modelos/modelo.chispa CHISPA_TOK=/modelos/
 USER 10001:10001
 VOLUME /modelos
 EXPOSE 8090
+STOPSIGNAL SIGTERM
+# Drenaje: entrada.sh pasa -apagado 35s (>= -timeout 30s); da a Docker >= 40 s (--stop-timeout 40; Kubernetes terminationGracePeriodSeconds: 40).
 ENTRYPOINT ["/usr/local/bin/entrada.sh"]
 
 FROM base AS imagen-cpu
