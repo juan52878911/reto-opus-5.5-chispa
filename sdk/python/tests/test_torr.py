@@ -23,8 +23,16 @@ class TestTORR(unittest.TestCase):
         self.assertEqual(formato.leer_torr(sec[formato.TORR]),
                          {"dim": 256, "max_len": 128, "prefijo": "passage: ", "onnx": ONNX})
 
+    def test_max_len_256_y_tope(self):
+        b = formato.torr(ONNX, max_len=256)
+        self.assertEqual(formato.leer_torr(b)["max_len"], 256)
+        self.assertEqual(formato.leer_torr(formato.torr(ONNX, max_len=512))["max_len"], 512)
+        malo = b[:8] + (513).to_bytes(4, "little") + b[12:]
+        with self.assertRaises(ValueError):
+            formato.leer_torr(malo)
+
     def test_rechaza(self):
-        for kw in ({"onnx": b""}, {"dim": 0}, {"max_len": 9000}, {"prefijo": "x" * 257}):
+        for kw in ({"onnx": b""}, {"dim": 0}, {"max_len": 513}, {"prefijo": "x" * 257}):
             with self.assertRaises(ValueError):
                 formato.torr(**{"onnx": ONNX, **kw})
         with self.assertRaises(ValueError):

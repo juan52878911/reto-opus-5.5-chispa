@@ -173,7 +173,7 @@ def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
 # --- TORR (ver format/chispa3/torr.go para la disposición) ---
 TORR_VERSION = 1
 TORR_PREFIJO_POR_VERSION = {1: "passage: "}  # regla por versión: una versión futura añade su fila
-TORR_MAX_LEN_TOKENIZADOR = 128  # `runtime/tok.MaxTok`: el tokenizador de pasaje trunca ahí
+TORR_MAX_LEN_TOPE = 512  # `chispa3.MaxLenTope` / `runtime/tok.TopeMaxLen`: e5-small tiene 512 posiciones; por encima, error
 
 
 def validar_prefijo_torr(version: int, prefijo: str) -> None:
@@ -188,7 +188,7 @@ def validar_prefijo_torr(version: int, prefijo: str) -> None:
 def torr(onnx: bytes, dim: int = 256, max_len: int = 128, prefijo: str = "passage: ") -> bytes:
     """Sección TORR: u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX (`chispa3.CodificarTORR`)."""
     p = prefijo.encode("utf-8")
-    if not 0 < dim <= 4096 or not 0 < max_len <= 8192 or len(p) > 256 or not onnx:
+    if not 0 < dim <= 4096 or not 0 < max_len <= TORR_MAX_LEN_TOPE or len(p) > 256 or not onnx:
         raise ValueError("TORR mal formada")
     return struct.pack("<IIII", TORR_VERSION, dim, max_len, len(p)) + p + onnx
 
@@ -198,7 +198,7 @@ def leer_torr(b: bytes) -> dict:
     if len(b) < 16:
         raise ValueError("TORR truncada")
     ver, dim, ml, n = struct.unpack("<IIII", b[:16])
-    if ver != TORR_VERSION or not 0 < dim <= 4096 or not 0 < ml <= 8192 or n > 256 or len(b) <= 16 + n:
+    if ver != TORR_VERSION or not 0 < dim <= 4096 or not 0 < ml <= TORR_MAX_LEN_TOPE or n > 256 or len(b) <= 16 + n:
         raise ValueError("TORR inválida")
     return {"dim": dim, "max_len": ml, "prefijo": b[16:16 + n].decode("utf-8"), "onnx": b[16 + n:]}
 

@@ -145,11 +145,17 @@ class TestTorreTrain(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "TORR v2"):
                 formato.validar_prefijo_torr(2, "passage: ")
 
-    def test_max_len_mayor_de_128_se_rechaza(self):
-        with self.assertRaisesRegex(ChispaError, "max_len 256 > 128"):
-            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=256)
-        with self.assertRaisesRegex(ChispaError, "max_len 200 > 128"):
-            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx("m2.onnx", meta={"chispa.torre.max_len": 200}))
+    def test_max_len_hasta_el_tope_de_512(self):
+        # 256 (G.8) por la opción y por los metadatos, y 512 exacto, se aceptan y quedan en TORR; 513 es un error claro.
+        for kw in ({"torre_max_len": 256}, {"torre_max_len": 512}):
+            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), **kw)
+            self.assertEqual(self.torr()["max_len"], kw["torre_max_len"])
+        self.correr(None, l1=self.d / "l1.bin", torre=self.onnx("m2.onnx", meta={"chispa.torre.max_len": 200}))
+        self.assertEqual(self.torr()["max_len"], 200)
+        with self.assertRaisesRegex(ChispaError, "max_len 513 > 512"):
+            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=513)
+        with self.assertRaisesRegex(ChispaError, "max_len 600 > 512"):
+            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx("m3.onnx", meta={"chispa.torre.max_len": 600}))
         self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=128)
 
     def test_dim_de_torre_distinta_de_l2_falla_al_entrenar(self):

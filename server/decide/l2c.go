@@ -1,8 +1,8 @@
 package decide
 
 import (
-	"math"
 	"context"
+	"math"
 
 	"chispa/format/chispa3"
 )

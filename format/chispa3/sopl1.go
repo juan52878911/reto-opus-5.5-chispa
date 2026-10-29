@@ -359,4 +359,3 @@ func (e *EntradaSopl1) KDe(id string) (k int, ok bool) {
 	}
 	return int(e.K[c]), true
 }
-

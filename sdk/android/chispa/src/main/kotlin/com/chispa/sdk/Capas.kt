@@ -91,7 +91,7 @@ class CapaL1(private val motor: Motor) : Capa {
         SalidaCapa.desdeJson(motor.decidirL1(texto, pregunta.toJson()))
 }
 
-/** Convierte un texto en los ids del tokenizador de e5 (con «query: » delante, tokens especiales y recorte a 128). */
+/** Convierte un texto en los ids del tokenizador de e5 (con «query: » delante, tokens especiales y recorte al `max_len` del modelo, 128 por defecto; lo recorta el motor y la app no recorta por su cuenta). */
 fun interface Tokenizador {
     fun ids(texto: String): LongArray
 }

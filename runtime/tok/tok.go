@@ -67,7 +67,9 @@ func (t *Tokenizador) TokenizarPasaje(texto string) []int32 {
 }
 
 // TokenizarCon tokeniza prefijo+texto con <s> y </s>, truncado a MaxTok. El prefijo forma parte del texto tokenizado.
-func (t *Tokenizador) TokenizarCon(prefijo, texto string) []int32 { return t.TokenizarMax(prefijo, texto, MaxTok) }
+func (t *Tokenizador) TokenizarCon(prefijo, texto string) []int32 {
+	return t.TokenizarMax(prefijo, texto, MaxTok)
+}
 
 // TokenizarMax tokeniza prefijo+texto con <s> y </s> y deja a lo sumo maxLen ids (incluidos los dos especiales), como
 // tokenizer(..., truncation=True, max_length=maxLen). maxLen fuera de 3..TopeMaxLen se acota a ese rango: quien abre el modelo

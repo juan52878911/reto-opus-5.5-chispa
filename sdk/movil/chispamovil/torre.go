@@ -20,7 +20,6 @@ import (
 
 const (
 	sepTorre   = " · "
-	idEOS      = 2 // </s> de XLM-R
 	maxDimTorr = 4096
 	maxDin     = 1024 // torres instaladas; al pasarse, se desalojan las menos usadas
 )
@@ -68,17 +67,14 @@ func (c *Chispa) DimTorre() int {
 }
 
 // IdsPasaje devuelve los ids de e5 de un texto de torre (con «passage: » una sola vez, <s> y </s>, truncado a MaxLen de
-// la sección conservando </s>) en int32 little endian, 4 bytes por id. nil sin tokenizador, sin TORR o sin tokens.
+// la sección, que corta el tokenizador conservando </s>) en int32 little endian, 4 bytes por id. nil sin tokenizador, sin TORR o sin tokens.
 func (c *Chispa) IdsPasaje(texto string) []byte {
 	if c.tok == nil || c.torre == nil {
 		return nil
 	}
-	ids := c.tok.TokenizarCon(c.torre.Prefijo, strings.TrimPrefix(texto, c.torre.Prefijo))
+	ids := c.tok.TokenizarMax(c.torre.Prefijo, strings.TrimPrefix(texto, c.torre.Prefijo), c.torre.MaxLen)
 	if len(ids) == 0 {
 		return nil
-	}
-	if ml := c.torre.MaxLen; ml > 0 && len(ids) > ml {
-		ids = append(ids[:ml-1:ml-1], idEOS)
 	}
 	b := make([]byte, 4*len(ids))
 	for i, id := range ids {

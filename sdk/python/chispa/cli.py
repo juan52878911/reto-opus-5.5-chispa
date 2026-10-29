@@ -84,7 +84,7 @@ def main(argv=None) -> int:
     t.add_argument("--torre", help="ONNX de la torre de esquemas de L2 (contrato: input_ids/attention_mask int64, h float32 (B, dim), opset ≥ 17): "
                    "añade la sección TORR, con la que el servidor y el móvil calculan la torre al vuelo. Combina con zero-shot, few-shot y --conjunta")
     t.add_argument("--torre-dim", type=int, help="con --torre: dim de h (por defecto de los metadatos del ONNX o de la forma de h)")
-    t.add_argument("--torre-max-len", type=int, help="con --torre: tokens máximos del pasaje (metadatos del ONNX o 128)")
+    t.add_argument("--torre-max-len", type=int, help="con --torre: tokens máximos del pasaje: los trunca el runtime a este valor (metadatos del ONNX o 128; hasta 512, p. ej. 256 para G.8)")
     t.add_argument("--torre-prefijo", help="con --torre: prefijo del pasaje (metadatos del ONNX o «passage: »)")
     d = sub.add_parser("decide", help="una pregunta contra un servidor chispa-server",
                        description="Hace una pregunta a /v1/decide e imprime el resultado en JSON.",

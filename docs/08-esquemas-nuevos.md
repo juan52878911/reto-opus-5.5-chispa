@@ -24,7 +24,7 @@ PYTHONPATH=sdk/python python -m chispa train --esquema ferreteria.yaml --l2 l2.c
 - Valida el ONNX con `onnx` (se importa solo con `--torre`): entradas exactamente `input_ids` y `attention_mask` int64 de rango 2,
   salida `h` float32 (B, dim), opset ≥ 17. Si `onnxruntime` está, prueba un lote de 2 y exige norma de `h` ≈ 1 (1e-3); si no, avisa y sigue.
 - `dim`, `max_len` y prefijo salen de `metadata_props` del ONNX (`chispa.torre.dim`, `chispa.torre.max_len`, `chispa.torre.prefijo`) y,
-  si faltan, de la forma de `h` (dim) y de los defaults 128 y `"passage: "`. `--torre-dim`, `--torre-max-len` y `--torre-prefijo` mandan;
+  si faltan, de la forma de `h` (dim) y de los defaults 128 y `"passage: "` (`max_len` hasta 512; el runtime trunca el pasaje a ese valor). `--torre-dim`, `--torre-max-len` y `--torre-prefijo` mandan;
   si chocan con los metadatos (o `--torre-dim` con la forma de `h`), error.
 - `TORR` se añade al final, reescribiendo el `.chispa` ya escrito (el entrenador de Go lo escribe entero); las demás secciones no cambian. Sin `--torre`, la salida es la de siempre.
 
@@ -36,11 +36,11 @@ PYTHONPATH=sdk/python python -m chispa train --esquema ferreteria.yaml --l2 l2.c
 
 ## Few-shot con soporte opcional
 Con ejemplos (k por opción) y `--l1`, `chispa train --shrinkage-lambda λ` añade `SOPL1`: k y la media int8 de los embeddings de L1 de los ejemplos de cada opción.
-El runtime mezcla `p = normaliza((1−w)·p_desc + w·media)` con `w = k/(k+λ)`:
+El runtime mezcla `p = normaliza((1−w)·p_desc + w·media)` con `w = k/(k+λ)`. Es la fórmula de G.8 con κ ≡ λ: el peso de la descripción es `κ/(κ+n) = 1−w`, la media va sin normalizar antes de mezclar y κ = 0 es solo ejemplos (detalle y la diferencia de L2c en [04](04-formato-chispa.md)):
 
 - con k pequeño pesa la descripción (zero-shot) y con k grande pesan los ejemplos; λ gobierna la transición;
 - λ vive en el servidor: `l1_shrinkage_lambda` y `l2_shrinkage_lambda` (≥ 0; ausente = ∞ = sin mezcla) en `-config`. En el móvil solo el núcleo Go lo toma (`AbrirConSoporte`); Kotlin y Swift no lo exponen;
-- `SOPL1` es opcional y no cambia nada de lo anterior: sin ella el comportamiento es el de siempre. L2c usa las ranuras de soporte de `CONJ` y el k de esta sección;
+- `SOPL1` es opcional y no cambia nada de lo anterior: sin ella el comportamiento es el de siempre. L2c mezcla `h` (la torre de la descripción) con cada una de las K ranuras de soporte de `CONJ` y normaliza por ranura, con el k de esta sección: cambia el simproto, no el MaxSim de la torre;
 - no se midió el efecto de `SOPL1` ni qué λ conviene: **sin medir**. 4 es un valor de ejemplo, no una recomendación.
 
 ## τ: cuándo escala

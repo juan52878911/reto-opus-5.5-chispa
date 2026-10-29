@@ -69,6 +69,7 @@ type Chispa struct {
 	esq     *chispa3.Esquemas
 	calib   chispa3.Calib
 	tieneL2 bool
+	maxLenQ int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
 	conj    *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
 	tok     *tok.Tokenizador   // tokenizador de e5, o nil
 	torre   *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
@@ -171,6 +172,16 @@ func (c *Chispa) montar() error {
 			return err
 		}
 		c.torre = &t
+	}
+	c.maxLenQ = chispa3.MaxLenDefecto
+	if f.Tiene(chispa3.L2) {
+		onnx, err := f.L2()
+		if err != nil {
+			return fmt.Errorf("sección L2: %w", err)
+		}
+		if c.maxLenQ, err = chispa3.MaxLenConsulta(onnx); err != nil {
+			return fmt.Errorf("sección L2: %w", err)
+		}
 	}
 	if f.Tiene(chispa3.L2) && f.Tiene(chispa3.ESQUEMAS) {
 		esq, err := f.Esquemas()
@@ -569,13 +580,31 @@ func (c *Chispa) CargarTokenizadorE5(ruta string) error {
 // TieneTokenizadorE5 dice si ya se cargó el tokenizador.
 func (c *Chispa) TieneTokenizadorE5() bool { return c.tok != nil }
 
-// TokenizarE5 devuelve los ids de «query: »+texto con <s> y </s> (como runtime/tok, truncado a 128) en int32 little
-// endian, 4 bytes por id: gomobile no puede devolver []int32. Sin tokenizador devuelve nil.
+// MaxLenConsulta es el truncado de la consulta que declara el ONNX de L2 (`chispa.consulta.max_len`; 128 si no lo trae). Lo usa
+// TokenizarE5; Kotlin y Swift no recortan por su cuenta: usan los ids que da el motor.
+func (c *Chispa) MaxLenConsulta() int {
+	if c.maxLenQ <= 0 { // un Chispa que no pasó por montar
+		return chispa3.MaxLenDefecto
+	}
+	return c.maxLenQ
+}
+
+// MaxLenPasaje es el truncado del pasaje de la torre: `max_len` de la sección TORR (128 sin ella).
+func (c *Chispa) MaxLenPasaje() int {
+	if c.torre != nil {
+		return c.torre.MaxLen
+	}
+	return chispa3.MaxLenDefecto
+}
+
+// TokenizarE5 devuelve los ids de «query: »+texto con <s> y </s> (como runtime/tok), truncados a MaxLenConsulta (el metadato del
+// ONNX de L2, 128 por defecto), en int32 little endian, 4 bytes por id: gomobile no puede devolver []int32. Sin tokenizador
+// devuelve nil.
 func (c *Chispa) TokenizarE5(texto string) []byte {
 	if c.tok == nil {
 		return nil
 	}
-	ids := c.tok.Tokenizar(texto)
+	ids := c.tok.TokenizarMax(tok.Prefijo, texto, c.MaxLenConsulta())
 	b := make([]byte, 4*len(ids))
 	for i, id := range ids {
 		binary.LittleEndian.PutUint32(b[4*i:], uint32(id))

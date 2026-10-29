@@ -91,10 +91,10 @@ def validar_torre(ruta, dim=None, max_len=None, prefijo=None, log: Callable[[str
         raise ChispaError(f"--torre: dim {d} choca con la forma de h del ONNX ({dim_forma})")
     if d is None:
         raise ChispaError("--torre: la salida h no tiene dim estática y el ONNX no la declara: pasa --torre-dim")
-    ml = _resolver("max_len", max_len, props, MAX_LEN_DEFECTO, lambda v: _entero(v, "max_len", "los metadatos", 8192))
-    if ml > formato.TORR_MAX_LEN_TOKENIZADOR:
-        raise ChispaError(f"--torre: max_len {ml} > {formato.TORR_MAX_LEN_TOKENIZADOR}: el tokenizador de pasaje trunca a "
-                          f"{formato.TORR_MAX_LEN_TOKENIZADOR} tokens y las torres divergirían de las de entrenamiento")
+    ml = _resolver("max_len", max_len, props, MAX_LEN_DEFECTO, lambda v: _entero(v, "max_len", "los metadatos", 1 << 20))
+    if ml > formato.TORR_MAX_LEN_TOPE:
+        raise ChispaError(f"--torre: max_len {ml} > {formato.TORR_MAX_LEN_TOPE}: es el tope duro del tokenizador de e5 "
+                          f"(el runtime trunca el pasaje a este max_len, que va en la sección TORR)")
     pf = _resolver("prefijo", prefijo, props, PREFIJO_DEFECTO, str)
     try:
         formato.validar_prefijo_torr(formato.TORR_VERSION, pf)
