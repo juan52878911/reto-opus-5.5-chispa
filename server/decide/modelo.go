@@ -3,6 +3,7 @@ package decide
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
@@ -81,10 +82,15 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 	}
 	var sopl *chispa3.Sopl1
-	if f.Tiene(chispa3.SOPL1) {
+	if f.Tiene(chispa3.SOPL1) && (lambdaFinita(cfg.L1ShrinkageLambda) || lambdaFinita(cfg.L2ShrinkageLambda)) {
 		var err error
 		if sopl, err = f.Sopl1(); err != nil {
 			return mt, fmt.Errorf("sección SOPL1: %w", err)
+		}
+	} else if f.Tiene(chispa3.SOPL1) {
+		// Con λ = ∞ en las dos capas el soporte no se usa: una SOPL1 ilegible no impide arrancar.
+		if _, err := f.Sopl1(); err != nil {
+			mt.Avisos = append(mt.Avisos, "SOPL1 inválida, se ignora (el encogimiento está apagado): "+err.Error())
 		}
 	}
 	if f.Tiene(chispa3.L1) {
@@ -130,7 +136,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 				mt.L2 = NuevoL2cCon(base, base, conj).ConSoporte(sopl, cfg.L2ShrinkageLambda)
 			}
 			aplicarTauL2c(cfg, calib, conj != nil, tauDeCalib)
-			if tauDeCalib && cfg.TauL2EsquemaNuevo == nil && calib.TauL2EsquemaNuevo != nil {
+			if cfg.TauL2EsquemaNuevo == nil && calib.TauL2EsquemaNuevo != nil {
 				v := *calib.TauL2EsquemaNuevo
 				cfg.TauL2EsquemaNuevo = &v
 			}
@@ -140,6 +146,9 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 }
 
 // montarL2 monta el L2 base sobre ses, o sobre el ONNX de la sección L2 si ses es nil.
+// lambdaFinita dice si λ activa la mezcla con el soporte (nil y +Inf la apagan).
+func lambdaFinita(l *float64) bool { return l != nil && !math.IsInf(*l, 0) }
+
 func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador, ses SesionS) (*L2, error) {
 	if tok == nil {
 		return nil, ErrSinTokenizador

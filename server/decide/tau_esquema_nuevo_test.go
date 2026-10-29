@@ -86,8 +86,8 @@ func TestPrioridadTauL2EsquemaNuevo(t *testing.T) {
 	if v := build(Config{}, true, nil); v != nil {
 		t.Errorf("sin ninguno: %v", v)
 	}
-	if v := build(Config{}, false, &calibTau); v != nil {
-		t.Errorf("con -config explícita no se toma de CALIB: %v", v)
+	if v := build(Config{}, false, &calibTau); v == nil || *v != 0.3 {
+		t.Errorf("con -config sin el campo también se toma de CALIB: %v", v)
 	}
 	mal := 1.5
 	if err := (Config{Capas: ConfigPorDefecto().Capas, CacheEsquemas: 1, CacheRespuestas: 1, TauL2EsquemaNuevo: &mal}).Validar(); err == nil {

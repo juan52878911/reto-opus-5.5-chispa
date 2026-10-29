@@ -95,6 +95,7 @@ Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_inv
 | 404 | `not_found` | ruta que no existe |
 | 405 | `method_not_allowed` | método distinto de POST en `/v1/decide` (cabecera `Allow: POST`) |
 | 413 | `request_too_large` | cuerpo > `max_cuerpo` |
+| 503 | `timeout` | la petición superó `-timeout` (30 s por defecto). Lleva `Retry-After: 5` y `Content-Type: application/json`. Es sobrecarga: el cliente debe esperar ese plazo antes de reintentar (el SDK Python hoy reintenta los 503 sin leer `Retry-After`) |
 
 La validación es todo o nada: una pregunta mala rechaza la petición entera. Un fallo interno de una capa solo salta esa capa
 (cuenta en `chispa_capa_errores_total`).

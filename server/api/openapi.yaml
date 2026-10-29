@@ -75,6 +75,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: La peticion supero -timeout (codigo de error timeout). Esperar Retry-After antes de reintentar
+          headers:
+            Retry-After:
+              description: Segundos a esperar antes de reintentar
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                timeout:
+                  value: {"error":{"code":"timeout","message":"la petición superó el tiempo máximo"}}
   /healthz:
     get:
       operationId: healthz

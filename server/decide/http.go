@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 // Valores por defecto de los límites (ver Limites).
@@ -305,4 +307,28 @@ func (l Limites) validarPeticion(req peticion) ([]Pregunta, *errAPI) {
 		out[i] = Pregunta{ID: q.ID, Estado: req.State, Texto: q.Question, Kind: q.Kind, Opciones: ops, Nonce: q.Nonce}
 	}
 	return out, nil
+}
+
+// RetryAfterTimeout son los segundos que pide Retry-After en la respuesta de timeout.
+const RetryAfterTimeout = 5
+
+// ConTimeout limita cada petición a d (cancela su ctx). Al vencer responde 503 con
+// Content-Type application/json, Retry-After y el código de error «timeout».
+func ConTimeout(h http.Handler, d time.Duration) http.Handler {
+	cuerpo := `{"error":{"code":"timeout","message":"la petición superó el tiempo máximo"}}`
+	th := http.TimeoutHandler(h, d, cuerpo)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		th.ServeHTTP(&escrituraTimeout{ResponseWriter: w}, r)
+	})
+}
+
+// escrituraTimeout añade las cabeceras de timeout cuando http.TimeoutHandler escribe su 503.
+type escrituraTimeout struct{ http.ResponseWriter }
+
+func (e *escrituraTimeout) WriteHeader(status int) {
+	if status == http.StatusServiceUnavailable {
+		e.Header().Set("Content-Type", "application/json")
+		e.Header().Set("Retry-After", strconv.Itoa(RetryAfterTimeout))
+	}
+	e.ResponseWriter.WriteHeader(status)
 }

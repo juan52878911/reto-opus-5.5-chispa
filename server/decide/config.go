@@ -27,7 +27,7 @@ type Config struct {
 	L1ShrinkageLambda *float64 `json:"l1_shrinkage_lambda,omitempty"`
 	L2ShrinkageLambda *float64 `json:"l2_shrinkage_lambda,omitempty"`
 	// τ de L2 solo para preguntas cuyas torres no estaban en ESQUEMAS (salieron al vuelo). Ausente (nil) = el τ de L2 de siempre.
-	// Si viene aquí, manda sobre el tau_l2_esquema_nuevo de CALIB.
+	// Si viene aquí, manda sobre el tau_l2_esquema_nuevo de CALIB; si no, se usa el de CALIB aunque haya -config.
 	TauL2EsquemaNuevo *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
 }
 
