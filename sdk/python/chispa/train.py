@@ -142,6 +142,9 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
         from .torre import validar_torre
         torre = validar_torre(torre, torre_dim, torre_max_len, torre_prefijo, log)
+        if l2 and Path(l2).is_file():  # con --l2 se sabe ya: falla antes de entrenar
+            from .torre import comprobar_dim_l2
+            comprobar_dim_l2(formato.leer(Path(l2).read_bytes()), torre["dim"])
     inf = _entrenar(ejemplos, esquema, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
                     frac_valid=frac_valid, l0_max_mb=l0_max_mb, usar_go=usar_go, conjunta=conjunta, modelo_l2=modelo_l2,
                     l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,

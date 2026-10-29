@@ -170,6 +170,17 @@ def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
 
 # --- TORR (ver format/chispa3/torr.go para la disposición) ---
 TORR_VERSION = 1
+TORR_PREFIJO_POR_VERSION = {1: "passage: "}  # regla por versión: una versión futura añade su fila
+TORR_MAX_LEN_TOKENIZADOR = 128  # `runtime/tok.MaxTok`: el tokenizador de pasaje trunca ahí
+
+
+def validar_prefijo_torr(version: int, prefijo: str) -> None:
+    """Lanza ValueError si `version` es desconocida o `prefijo` no es el que esa versión exige."""
+    if version not in TORR_PREFIJO_POR_VERSION:
+        raise ValueError(f"TORR v{version}: versión desconocida")
+    esperado = TORR_PREFIJO_POR_VERSION[version]
+    if prefijo != esperado:
+        raise ValueError(f"TORR v{version}: prefijo {prefijo!r} no válido; se espera {esperado!r}")
 
 
 def torr(onnx: bytes, dim: int = 256, max_len: int = 128, prefijo: str = "passage: ") -> bytes:

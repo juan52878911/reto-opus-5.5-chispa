@@ -106,6 +106,32 @@ class TestCliente(unittest.TestCase):
         self.assertIn("kind", cm.exception.mensaje)
         self.assertEqual(len(self.f.peticiones), 1)
 
+    def test_error_tipado_y_formato_viejo(self):
+        from unittest import mock
+        import io
+        import urllib.error
+
+        def http(cuerpo):
+            return urllib.error.HTTPError("http://x", 400, "Bad", {}, io.BytesIO(cuerpo.encode()))
+        c = Chispa("http://x", reintentos=0)
+        tipado = '{"error":{"code":"bad_question","message":"opciones repetidas","question_id":"q1"}}'
+        with mock.patch("urllib.request.urlopen", side_effect=http(tipado)):
+            with self.assertRaises(ErrorSolicitud) as cm:
+                c.decidir("x", [Noul("n", "¿?")])
+        e = cm.exception
+        self.assertEqual((e.status, e.codigo, e.mensaje, e.question_id), (400, "bad_question", "opciones repetidas", "q1"))
+        self.assertIn("opciones repetidas", str(e))
+        with mock.patch("urllib.request.urlopen", side_effect=http('{"error":"texto viejo"}')):
+            with self.assertRaises(ErrorSolicitud) as cm:
+                c.decidir("x", [Noul("n", "¿?")])
+        e = cm.exception
+        self.assertEqual((e.mensaje, e.codigo, e.question_id), ("texto viejo", "", None))
+        with mock.patch("urllib.request.urlopen", side_effect=http("no json")):
+            with self.assertRaises(ErrorSolicitud) as cm:
+                c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(cm.exception.mensaje, "no json")
+        self.assertEqual(ErrorSolicitud(400, {"code": "c", "message": "m"}).mensaje, "m")
+
     def test_servidor_caido(self):
         url = self.f.url
         self.f.cerrar()

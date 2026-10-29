@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import math
+import os
+import struct
 from pathlib import Path
 from typing import Callable
 
@@ -90,7 +92,14 @@ def validar_torre(ruta, dim=None, max_len=None, prefijo=None, log: Callable[[str
     if d is None:
         raise ChispaError("--torre: la salida h no tiene dim estática y el ONNX no la declara: pasa --torre-dim")
     ml = _resolver("max_len", max_len, props, MAX_LEN_DEFECTO, lambda v: _entero(v, "max_len", "los metadatos", 8192))
+    if ml > formato.TORR_MAX_LEN_TOKENIZADOR:
+        raise ChispaError(f"--torre: max_len {ml} > {formato.TORR_MAX_LEN_TOKENIZADOR}: el tokenizador de pasaje trunca a "
+                          f"{formato.TORR_MAX_LEN_TOKENIZADOR} tokens y las torres divergirían de las de entrenamiento")
     pf = _resolver("prefijo", prefijo, props, PREFIJO_DEFECTO, str)
+    try:
+        formato.validar_prefijo_torr(formato.TORR_VERSION, pf)
+    except ValueError as e:
+        raise ChispaError(f"--torre: {e}")
     try:
         formato.torr(datos, d, ml, pf)  # mismas cotas que el lector de Go
     except ValueError:
@@ -121,13 +130,31 @@ def _probar(datos: bytes, dim: int, log) -> None:
             raise ChispaError(f"--torre: h no está normalizada (norma {n:.5f} en la fila {i}, tolerancia 1e-3)")
 
 
+def comprobar_dim_l2(secs: dict, dim: int) -> None:
+    """Si el `.chispa` trae ESQUEMAS (L2), la dim de la torre debe ser la de sus ranuras (u32 inicial de ESQUEMAS)."""
+    esq = secs.get(formato.ESQUEMAS)
+    if esq is None:
+        return
+    if len(esq) < 4:
+        raise ChispaError("--torre: la sección ESQUEMAS está truncada: no se puede comprobar su dim")
+    dim_l2 = struct.unpack("<I", esq[:4])[0]
+    if dim_l2 != dim:
+        raise ChispaError(f"--torre: la dim de la torre ({dim}) no casa con la de L2/ESQUEMAS ({dim_l2})")
+
+
 def anadir_torr(salida, torre: dict, inf: dict) -> None:
     """Reescribe `salida` (.chispa v3) con TORR añadida. Paso común a los tres caminos: el entrenador de Go escribe el fichero
     entero, así que la sección se añade después, conservando las demás byte a byte; actualiza el informe."""
     salida = Path(salida)
     secs = formato.leer(salida.read_bytes())
+    comprobar_dim_l2(secs, torre["dim"])
     secs[formato.TORR] = formato.torr(torre["onnx"], torre["dim"], torre["max_len"], torre["prefijo"])
-    salida.write_bytes(formato.escribir(secs))
+    tmp = salida.with_name(salida.name + ".tmp")  # mismo directorio: os.replace es atómico
+    try:
+        tmp.write_bytes(formato.escribir(secs))
+        os.replace(tmp, salida)
+    finally:
+        tmp.unlink(missing_ok=True)
     inf["bytes"] = salida.stat().st_size
     if "TORR" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("TORR")
