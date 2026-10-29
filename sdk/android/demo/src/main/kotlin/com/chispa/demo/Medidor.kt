@@ -12,6 +12,7 @@ import com.chispa.sdk.ErrorChispa
 import com.chispa.sdk.MotorNativo
 import com.chispa.sdk.Opcion
 import com.chispa.sdk.Pregunta
+import com.chispa.sdk.ProveedorOrt
 import com.chispa.sdk.Respuesta
 import org.json.JSONArray
 import org.json.JSONObject
@@ -24,6 +25,8 @@ data class ConfigMedida(
     val n: Int = 1000,
     val calentamiento: Int = 100,
     val umbralP99Ms: Double = 150.0,
+    /** Proveedores de ORT a medir, uno tras otro (la cascada se reabre con cada uno). */
+    val proveedores: List<ProveedorOrt> = ProveedorOrt.values().toList(),
 )
 
 /** Latencias de un escenario, en ms por decisión. */
@@ -42,6 +45,9 @@ class ResultadoEscenario(
     val porCapa: Map<String, Int>,
     val errores: Int,
     val nota: String?,
+    /** Proveedor con el que quedó la sesión de L2 ("CPU" si el pedido falló; "n/a" sin L2 o en L1 solo). */
+    val proveedor: String = "n/a",
+    val proveedorPedido: String = "n/a",
 ) {
     fun toJson(): JSONObject {
         val capas = JSONObject()
@@ -54,8 +60,14 @@ class ResultadoEscenario(
             .put("primera_llamada_ms", redondear(primeraMs))
             .put("capa_que_respondio", capas)
             .put("errores", errores)
+            .put("proveedor", proveedor).put("proveedor_pedido", proveedorPedido)
             .put("nota", nota ?: JSONObject.NULL)
     }
+
+    fun conProveedor(efectivo: String, pedido: String) = ResultadoEscenario(
+        nombre, esquema, capa, n, p50, p95, p99, max, media, decisionesPorSegundo, primeraMs, porCapa, errores, nota,
+        efectivo, pedido,
+    )
 
     fun linea(): String = String.format(
         Locale.US, "%s: p50 %.1f · p95 %.1f · p99 %.1f ms · %.0f dec/s · capas %s%s", nombre, p50, p95, p99,
@@ -84,39 +96,44 @@ class Medidor(private val ctx: Context, private val cfg: ConfigMedida = ConfigMe
 
         val resultados = ArrayList<ResultadoEscenario>()
         val motorL1 = MotorNativo.abrir(rutaModelo)
-        val chispa: Chispa = try {
-            Chispa.abrir(ctx, rutaModelo, rutaTokenizador = rutaTok)
-        } catch (e: Exception) {
-            if (rutaTok == null) {
-                motorL1.close()
-                throw e
-            }
-            notas += "tokenizador no utilizable (${e.message}): cascada sin L2"
-            try {
-                Chispa.abrir(ctx, rutaModelo)
-            } catch (e2: Exception) {
-                motorL1.close()
-                throw e2
-            }
-        }
         try {
             val soloL1 = Cascada(listOf(CapaConTau(CapaL1(motorL1), 0.0)))
-            val capas = chispa.capas
-            val nombreCascada = "cascada " + capas.joinToString("→")
-            for ((esquema, pregunta) in listOf("zero-shot" to ZERO_SHOT, "few-shot" to fewShot)) {
+            var capasVistas = emptyList<String>()
+            for ((i, prov) in cfg.proveedores.withIndex()) {
                 if (cancelado()) break
-                resultados += medir("$esquema · L1 solo", esquema, "L1", cfg, progreso, cancelado) {
-                    soloL1.decidir(it, pregunta)
+                val chispa: Chispa = try {
+                    Chispa.abrir(ctx, rutaModelo, rutaTokenizador = rutaTok, proveedorOrt = prov)
+                } catch (e: Exception) {
+                    if (rutaTok == null) throw e
+                    notas += "tokenizador no utilizable (${e.message}): cascada sin L2"
+                    Chispa.abrir(ctx, rutaModelo, proveedorOrt = prov)
                 }
-                if (cancelado()) break
-                resultados += medir("$esquema · $nombreCascada", esquema, nombreCascada, cfg, progreso, cancelado) {
-                    chispa.decidir(it, listOf(pregunta)).first()
+                try {
+                    val capas = chispa.capas
+                    capasVistas = capas
+                    val efectivo = chispa.proveedorOrt?.name ?: "n/a"
+                    if (efectivo != "n/a" && efectivo != prov.name) notas += "$prov no disponible: la sesión de L2 quedó en $efectivo"
+                    val nombreCascada = "cascada " + capas.joinToString("→") + " [$prov]"
+                    for ((esquema, pregunta) in listOf("zero-shot" to ZERO_SHOT, "few-shot" to fewShot)) {
+                        // L1 solo no usa ORT: se mide una vez, con el primer proveedor
+                        if (i == 0) {
+                            if (cancelado()) break
+                            resultados += medir("$esquema · L1 solo", esquema, "L1", cfg, progreso, cancelado) {
+                                soloL1.decidir(it, pregunta)
+                            }
+                        }
+                        if (cancelado()) break
+                        resultados += medir("$esquema · $nombreCascada", esquema, nombreCascada, cfg, progreso, cancelado) {
+                            chispa.decidir(it, listOf(pregunta)).first()
+                        }.conProveedor(efectivo, prov.name)
+                    }
+                } finally {
+                    chispa.close()
                 }
             }
-            if ("L2" !in capas) notas += "sin L2 (falta el tokenizador e5, o el .chispa no trae L2/ESQUEMAS): la cascada no mide L2"
-            return ResultadoMedida(resultados, informe(resultados, capas, rutaModelo, rutaTok, notas))
+            if ("L2" !in capasVistas) notas += "sin L2 (falta el tokenizador e5, o el .chispa no trae L2/ESQUEMAS): la cascada no mide L2 ni proveedores"
+            return ResultadoMedida(resultados, informe(resultados, capasVistas, rutaModelo, rutaTok, notas))
         } finally {
-            chispa.close()
             motorL1.close()
         }
     }
@@ -140,12 +157,13 @@ class Medidor(private val ctx: Context, private val cfg: ConfigMedida = ConfigMe
             .put("ram_total_mb", mi.totalMem / (1024 * 1024))
             .put("ram_disponible_mb", mi.availMem / (1024 * 1024))
             .put("pss_proceso_mb", Debug.getPss() / 1024)
-        // El SDK crea las sesiones con OrtSession.SessionOptions() sin añadir proveedores: se ejecuta en la CPU de ORT.
+        // Cada escenario de cascada trae `proveedor` (el efectivo) y `proveedor_pedido`; L0 y L1 son Go puro (sin ORT).
+        val usados = res.map { it.proveedor }.filter { it != "n/a" }.distinct()
         val ort = JSONObject()
             .put("proveedores_disponibles", JSONArray(disponibles))
-            .put("proveedores_usados", JSONArray(listOf("CPU")))
-            .put("nnapi", false).put("xnnpack", false)
-            .put("nota", "el SDK abre ORT con SessionOptions() por defecto; L0 y L1 son Go puro (sin ORT)")
+            .put("proveedores_pedidos", JSONArray(cfg.proveedores.map { it.name }))
+            .put("proveedores_usados", JSONArray(usados))
+            .put("nota", "XNNPACK, NNAPI y CPU se miden por separado; si uno falla al crear la sesión, el escenario dice CPU")
         val config = JSONObject()
             .put("n", cfg.n).put("calentamiento", cfg.calentamiento).put("umbral_p99_ms", cfg.umbralP99Ms)
             .put("modelo", File(modelo).name).put("modelo_bytes", File(modelo).length())

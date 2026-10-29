@@ -117,7 +117,14 @@ Todo esto está escrito de memoria. En este orden de probabilidad:
    `OnnxRuntimeBindings`; el producto SPM se llama `onnxruntime` (`Package.swift`). Si SPM no resuelve `from: "1.19.2"`,
    listar las etiquetas (`git ls-remote --tags https://github.com/microsoft/onnxruntime-swift-package-manager`) y ajustar.
    El EP de CoreML en el simulador puede fallar en ejecución, pero ningún test lo ejecuta; para desactivarlo,
-   `Chispa.abrir(..., coreML: false)`.
+   `Chispa.abrir(..., proveedorOrt: .cpu)` (o `coreML: false`).
+   **Proveedores (`ProveedorOrt.swift`, `OpcionesOrt.swift`):** `appendCoreMLExecutionProvider(with:)` lanza (`throws`) en la
+   versión ObjC/Swift de ORT; si en la 1.2x pasa a devolver `Bool` o a llamarse distinto, solo hay que tocar `OpcionesOrt.swift`.
+   `ORTCoreMLExecutionProviderOptions()` puede pedir `try`. `abrirConRespaldo` es genérica: si el compilador no infiere `T`
+   en los tests, anotar el tipo de retorno del cierre (ya van anotados). La tupla `let (s, efectivo) = try …` dentro de `init`
+   de una clase `final` con `let` se asigna después; si Swift se queja de uso antes de inicializar, mover `entorno` a una
+   variable local. Dos `init` en `SesionOrt`/`SesionTorreOrt` (`proveedor:` y `coreML:`): ninguno tiene valor por defecto en
+   el segundo, para que `SesionOrt(rutaOnnx:)` no sea ambiguo. `os_log` con `type: .default` (importa `os`).
 5. **`SesionOrt` y `Chispa.abrir` no los ejercita ningún test** (necesitan un `.chispa` y ONNX reales): `BUILD SUCCEEDED` no
    garantiza que L2 funcione en un dispositivo.
 6. **Conformidad de `Motor` en `MotorNativo`.** El protocolo ahora incluye `tieneTokenizadorE5`, `textosTorreL2` e

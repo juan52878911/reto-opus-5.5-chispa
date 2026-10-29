@@ -11,8 +11,16 @@ cliente en español sobre dos esquemas y por capa:
 «L1 solo» es una cascada de una capa con τ = 0 (siempre responde L1). «Cascada» es `Chispa.abrir` completo: L0 → L1 y,
 si hay tokenizador e5 y el `.chispa` trae L2/ESQUEMAS, → L2 (zero-shot en L2 necesita además TORR). El nombre del
 escenario dice qué capas se montaron. Sale p50/p95/p99/máx, decisiones/s, qué capa respondió y el dispositivo (modelo,
-Android, ABI, RAM, CPUs, proveedores de ORT: el SDK abre ORT con `SessionOptions()` por defecto, así que **no usa NNAPI ni
-XNNPACK**; L0/L1 son Go puro).
+Android, ABI, RAM, CPUs, proveedores de ORT disponibles; L0/L1 son Go puro).
+
+**Proveedores de ORT.** La medida reabre la cascada con cada `ProveedorOrt` (`CPU`, `XNNPACK`, `NNAPI`; por defecto del SDK:
+XNNPACK) y repite los escenarios de cascada con cada uno (nombre `… [XNNPACK]`); «L1 solo» no usa ORT y se mide una vez.
+Cada escenario de cascada trae en el JSON `proveedor` (el que quedó en la sesión de L2) y `proveedor_pedido`. Si el pedido
+falla al crear la sesión, el SDK cae a CPU (`Log.w`, etiqueta `Chispa`) y el JSON dice `proveedor: "CPU"` con
+`proveedor_pedido: "NNAPI"`: esa fila es CPU, no NNAPI; además queda una línea en `notas`. En `ort` van
+`proveedores_pedidos` y `proveedores_usados`. Sin L2 (falta tokenizador o L2/ESQUEMAS) los proveedores no se miden y
+`proveedor` es `"n/a"`. Para medir solo uno: `ConfigMedida(proveedores = listOf(ProveedorOrt.NNAPI))`. Cada proveedor
+multiplica el tiempo de la medida (×3 en la cascada).
 
 **Importante:** el esquema few-shot solo cuenta como «del `.chispa`» si su `question` y los `id` de sus opciones son
 exactamente los de ESQUEMAS (el motor busca la torre por hash de pregunta+opciones). Pon el verdadero en `esquema.json`

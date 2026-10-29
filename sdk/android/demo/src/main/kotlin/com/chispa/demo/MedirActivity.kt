@@ -139,7 +139,7 @@ class MedirActivity : Activity() {
         val sb = StringBuilder()
         sb.append("${d.getString("fabricante")} ${d.getString("modelo")} · Android ${d.getString("android")} (API ${d.getInt("sdk_int")})\n")
         sb.append("ABI ${d.getJSONArray("abi")} · ${d.getInt("cpus")} CPU · RAM ${d.getLong("ram_total_mb")} MB\n")
-        sb.append("ORT: usa ${o.getJSONArray("proveedores_usados")} (NNAPI ${o.getBoolean("nnapi")}, XNNPACK ${o.getBoolean("xnnpack")}); disponibles ${o.getJSONArray("proveedores_disponibles")}\n\n")
+        sb.append("ORT: pedidos ${o.getJSONArray("proveedores_pedidos")}, usados ${o.getJSONArray("proveedores_usados")}; disponibles ${o.getJSONArray("proveedores_disponibles")}\n\n")
         for (e in res.escenarios) {
             sb.append(e.linea()).append("\n  1.ª llamada ${"%.1f".format(e.primeraMs)} ms\n")
             e.nota?.let { sb.append("  $it\n") }
