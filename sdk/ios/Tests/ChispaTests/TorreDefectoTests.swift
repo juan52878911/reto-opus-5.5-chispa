@@ -67,7 +67,11 @@ final class TorreDefectoTests: XCTestCase {
         m.onnxDeTorre = nil
         let ch = try Chispa.montar(motor: m, tokenizador: TokenizadorFalso(devuelve: [0, 2]), onnx: { "x.onnx" },
                                    crearSesion: { _ in SesionFalsa() })
-        XCTAssertNotEqual(ch.decidir("hola", [preguntaNueva])[0].capa, "L2")
+        let r = ch.decidir("hola", [preguntaNueva])[0]
+        // Al escalar, la capa es la última de la cascada (L2) aunque no opine: lo que cuenta es que L2 no puntuó.
+        XCTAssertFalse(r.capa == "L2" && !r.escalar)
+        XCTAssertFalse(m.llamadas.contains("L2"))
+        XCTAssertFalse(m.llamadas.contains("TORRES"))
         XCTAssertEqual(m.nInstaladas, 0)
     }
 
