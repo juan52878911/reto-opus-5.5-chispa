@@ -1,0 +1,72 @@
+== arranque profesor 2026-10-29T08:51:46Z local=0 base=/opt/chispa max_filas=300
+== 1. entorno 08:51:46
+/opt/pytorch/lib64/python3.13/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+cuda True
+/opt/pytorch/lib64/python3.13/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+3.13.15 torch 2.10.0+cu130 hilos 2 transformers 5.21.1
+== 2. código 08:54:21
+== 3. descargas 08:54:22
+Fetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 6 files:  67%|██████▋   | 4/6 [00:00<00:00, 14.69it/s]Fetching 6 files: 100%|██████████| 6/6 [00:06<00:00,  1.39s/it]Fetching 6 files: 100%|██████████| 6/6 [00:06<00:00,  1.13s/it]
+Fetching 11 files:   0%|          | 0/11 [00:00<?, ?it/s]Fetching 11 files:  64%|██████▎   | 7/11 [00:00<00:00, 26.26it/s]Fetching 11 files: 100%|██████████| 11/11 [00:02<00:00,  3.72it/s]Fetching 11 files: 100%|██████████| 11/11 [00:02<00:00,  4.44it/s]
+Fetching 55 files:   0%|          | 0/55 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 55 files:   5%|▌         | 3/55 [00:00<00:05,  9.35it/s]Fetching 55 files:  20%|██        | 11/55 [00:00<00:02, 20.86it/s]Fetching 55 files:  35%|███▍      | 19/55 [00:00<00:01, 28.07it/s]Fetching 55 files:  49%|████▉     | 27/55 [00:00<00:00, 31.68it/s]Fetching 55 files:  62%|██████▏   | 34/55 [00:01<00:00, 36.18it/s]Fetching 55 files:  76%|███████▋  | 42/55 [00:01<00:00, 36.14it/s]Fetching 55 files:  91%|█████████ | 50/55 [00:01<00:00, 40.39it/s]Fetching 55 files: 100%|██████████| 55/55 [00:01<00:00, 35.90it/s]
+Fetching 3 files:   0%|          | 0/3 [00:00<?, ?it/s]Fetching 3 files: 100%|██████████| 3/3 [00:00<00:00, 48.65it/s]
+Fetching 5 files:   0%|          | 0/5 [00:00<?, ?it/s]Fetching 5 files:  80%|████████  | 4/5 [00:00<00:00, 21.95it/s]Fetching 5 files: 100%|██████████| 5/5 [00:00<00:00, 25.94it/s]
+== convertir 08:54:41
+necos-tox    no disponible: no está en ~/hf (NECOS-TOX solo si se encuentra)
+massive      convertida {'train': 11514, 'dev': 2033, 'test': 2974}
+hatecheck    convertida {'train': 3009, 'test': 361, 'dev': 285}
+inyecciones  convertida {'train': 454, 'dev': 92, 'test': 116}
+== 4. preparar 08:54:59
+tasksource_fuera: 43 tareas en la lista, 644 filas test, 570 dev
+massive: 300 test, 30 dev
+hatecheck: 300 test, 30 dev
+inyecciones: 116 test, 30 dev
+tasksource_fuera: 300 test, 30 dev
+== medir bge-m3-zeroshot-c 08:55:02: quedan 57 min
+/opt/pytorch/lib64/python3.13/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]Loading weights:  88%|████████▊ | 347/393 [00:00<00:00, 3455.79it/s]Loading weights: 100%|██████████| 393/393 [00:00<00:00, 3539.22it/s]
+plantilla elegida en dev: es {'card': 0.2275755820147188, 'es': 0.2842722143337738}
+== jevbench: n=231 exactitud 0.5281 macro-F1 0.3782 14 ms/caso, 3 s
+== massive: n=300 exactitud 0.1500 macro-F1 0.1336 49 ms/caso, 15 s
+== hatecheck: n=300 exactitud 0.7067 macro-F1 0.5679 1 ms/caso, 0 s
+== inyecciones: n=116 exactitud 0.4569 macro-F1 0.3877 2 ms/caso, 0 s
+== tasksource_fuera: n=300 exactitud 0.4200 macro-F1 0.2254 44 ms/caso, 13 s
+== medir bge-m3-zeroshot 08:56:16: quedan 56 min
+/opt/pytorch/lib64/python3.13/site-packages/torch/cuda/__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]Loading weights:  89%|████████▉ | 351/393 [00:00<00:00, 3509.05it/s]Loading weights: 100%|██████████| 393/393 [00:00<00:00, 3575.33it/s]
+plantilla elegida en dev: card {'card': 0.39534959509540013, 'es': 0.3759415093812688}
+== jevbench: n=231 exactitud 0.5411 macro-F1 0.3388 14 ms/caso, 3 s
+== massive: n=300 exactitud 0.2900 macro-F1 0.2735 49 ms/caso, 15 s
+== hatecheck: n=300 exactitud 0.7233 macro-F1 0.4197 1 ms/caso, 0 s
+== inyecciones: n=116 exactitud 0.3534 macro-F1 0.3511 2 ms/caso, 0 s
+== tasksource_fuera: n=300 exactitud 0.4267 macro-F1 0.2248 43 ms/caso, 13 s
+== 5. informe 08:57:01
+# G.9 Techo del profesor zero-shot (CPU, c6a.2xlarge spot)
+
+JevBench en exactitud (231 casos, sin soporte); tareas no vistas en macro-F1 (≤ 300 filas por tarea, `profesor preparar`).
+
+| fila | licencia | JevBench (exact.) | massive | hatecheck | inyecciones | tasksource apartado | ms/caso CPU (medio) |
+|---|---|---|---|---|---|---|---|
+| profesor bge-m3-zeroshot-c (plantilla es) | MIT, solo datos comerciales: destilable | 0,528 | 0,134 | 0,568 | 0,388 | 0,225 | 22 |
+| profesor bge-m3-zeroshot (plantilla card) | MIT, pero con ANLI/WANLI/LingNLI (licencia mixta): solo de referencia | 0,541 | 0,274 | 0,420 | 0,351 | 0,225 | 22 |
+| G.8 corrida 2 (L2 sobre e5-small, 12.000 pasos) | propia | 0,463 | 0,309 | 0,531 | 0,326 | 0,192 | - |
+| T2.1b (L2; vio las tareas) | propia | 0,407 | 0,487 | 0,610 | 0,862 | 0,221 | - |
+
+Muestras: los conjuntos del profesor son ≤ 300 filas con hash estable y no son los mismos casos que G.8 (tasksource_fuera, allí 40 por tarea): la comparación es de orden de magnitud, no de décimas.
+
+**Hipótesis (profesor «-c»):** JevBench sin soporte 0,528 (umbral 0,550) y mejora de ≥ +10 puntos de macro-F1 sobre G.8 en 0 de 4 tareas no vistas (ninguna; hacen falta 2).
+
+**NO SE CUMPLE: el límite parece estar en los datos y no en el modelo.**
+
+Etiqueta: choice y noul por argmax; score, la mediana CORAL de la distribución sobre los niveles (`metricas.top1`). Plantilla elegida en dev por modelo: bge-m3-zeroshot-c: es {'card': 0.2275755820147188, 'es': 0.2842722143337738}; bge-m3-zeroshot: card {'card': 0.39534959509540013, 'es': 0.3759415093812688}.
+
+**Coste:** 8 min de instancia × 0.20 USD/h ≈ 0.03 USD (tope 0,5 USD; spot, estimado, más unos céntimos de disco y tráfico).
+
+/dev/nvme1n1p1  120G   18G  103G  15% /
+== listo 2026-10-29T08:57:01Z fallo=no (315 s)
