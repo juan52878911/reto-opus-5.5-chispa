@@ -14,6 +14,24 @@ import (
 
 const idEOS int64 = 2 // </s> de XLM-R
 
+// prefijoPasaje es el que antepone el tokenizador (IDsPasaje) y el que lleva el texto de torre.
+const prefijoPasaje = "passage: "
+
+// prefijoPorVersion: prefijo que exige cada versión de la sección TORR. Una versión futura añade su fila.
+var prefijoPorVersion = map[uint32]string{1: prefijoPasaje}
+
+// ValidarPrefijo rechaza una sección TORR cuyo prefijo no es el de su versión (o de versión desconocida).
+func ValidarPrefijo(version uint32, prefijo string) error {
+	want, ok := prefijoPorVersion[version]
+	if !ok {
+		return fmt.Errorf("TORR: versión %d desconocida", version)
+	}
+	if prefijo != want {
+		return fmt.Errorf("TORR v%d: prefijo %q no válido; se espera %q", version, prefijo, want)
+	}
+	return nil
+}
+
 // ErrSinORT: este binario se compiló sin la etiqueta de build «ort».
 var ErrSinORT = errors.New("torre: binario compilado sin la etiqueta ort")
 
@@ -57,10 +75,10 @@ func Abrir(t chispa3.Torre, tk Tokenizador) (*Codificador, error) {
 // Dim es la dimensión de h.
 func (c *Codificador) Dim() int { return c.dim }
 
-// Torre devuelve h para el texto de la torre «passage: pregunta · opción · descripción». Si el texto no trae el prefijo de la
-// sección se le antepone (el tokenizador lo pone una sola vez: aquí se quita el que ya traiga).
+// Torre devuelve h para el texto de la torre «passage: pregunta · opción · descripción». El tokenizador antepone «passage: »
+// él mismo, así que aquí se quita el que traiga el texto: sale una sola vez, sea cual sea el prefijo de la sección.
 func (c *Codificador) Torre(texto string) ([]float32, error) {
-	ids := c.tk.IDsPasaje(strings.TrimPrefix(texto, c.prefijo))
+	ids := c.tk.IDsPasaje(strings.TrimPrefix(texto, prefijoPasaje))
 	if len(ids) == 0 {
 		return nil, errors.New("torre: texto sin tokens")
 	}

@@ -123,3 +123,29 @@ func TestTorreConTokenizadorReal(t *testing.T) {
 		t.Fatalf("ids %v, esperaba %v", ses.ids, want)
 	}
 }
+
+// Hallazgo 4: el texto tokenizado lleva «passage: » una sola vez, sea cual sea el prefijo de la sección.
+func TestTorrePrefijoUnaSolaVezConSeccionRara(t *testing.T) {
+	for _, pref := range []string{"", "query: ", "passage:"} {
+		tk := &tokFalso{}
+		c := Nuevo(&sesionFalsa{h: []float32{1, 0}}, tk, chispa3.Torre{Dim: 2, MaxLen: 128, Prefijo: pref})
+		if _, err := c.Torre("passage: ¿p? · a · d"); err != nil {
+			t.Fatal(err)
+		}
+		if tk.textos[0] != "¿p? · a · d" {
+			t.Errorf("prefijo %q: tokenizador recibió %q", pref, tk.textos[0])
+		}
+	}
+}
+
+func TestValidarPrefijoPorVersion(t *testing.T) {
+	if err := ValidarPrefijo(1, "passage: "); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidarPrefijo(1, "query: "); err == nil || !strings.Contains(err.Error(), `TORR v1: prefijo "query: " no válido; se espera "passage: "`) {
+		t.Fatal(err)
+	}
+	if err := ValidarPrefijo(7, "passage: "); err == nil || !strings.Contains(err.Error(), "7") {
+		t.Fatal(err)
+	}
+}

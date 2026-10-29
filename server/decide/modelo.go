@@ -1,6 +1,7 @@
 package decide
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"chispa/format/chispa3"
@@ -38,7 +39,7 @@ type Montaje struct {
 // las que faltan quedan como stub. Con tauDeCalib, el τ de L1 y L2 pasa a ser el tau_escalate
 // de CALIB (cfg se modifica); si L2 es L2c y CALIB trae tau_l2c, ese es el τ de L2. tok es el tokenizador de e5 que necesita L2 (puede ser nil).
 // Si el .chispa trae la sección TORR, L2 calcula al vuelo las torres de los esquemas que ESQUEMAS no trae (L2.ConTorres,
-// caché de cfg.CacheEsquemas torres); sin ella, un esquema nuevo queda sin opinión de L2 como antes. Hace falta que tok
+// caché de cfg.CacheTorres torres, tope de cfg.MaxTorresNuevas por petición); sin ella, un esquema nuevo queda sin opinión de L2 como antes. Hace falta que tok
 // implemente TokenizadorPasaje: si no, la torre no se monta y se avisa.
 // f debe seguir abierto mientras se use la cascada.
 func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok Tokenizador, opts ...OpcionArmado) (Montaje, error) {
@@ -110,7 +111,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {
 			if f.Tiene(chispa3.TORR) {
-				if err := montarTorres(f, base, tok, op.torres, cfg.CacheEsquemas); err != nil {
+				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas); err != nil {
 					mt.Avisos = append(mt.Avisos, "sin torres al vuelo: "+err.Error())
 				}
 			}
@@ -139,12 +140,22 @@ func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Token
 }
 
 // montarTorres lee la sección TORR y activa las torres al vuelo en l2; enc, si no es nil, sustituye al ONNX.
-func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTorre, cache int) error {
+func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTorre, cache, maxNuevas int) error {
+	t, err := f.Torre()
+	if err != nil {
+		return fmt.Errorf("sección TORR: %w", err)
+	}
+	if t.Dim != l2.esq.Dim() {
+		return fmt.Errorf("sección TORR: dimensión %d, pero las ranuras de L2 son de %d", t.Dim, l2.esq.Dim())
+	}
+	b, err := f.Bytes(chispa3.TORR)
+	if err != nil {
+		return err
+	}
+	if err := torre.ValidarPrefijo(binary.LittleEndian.Uint32(b), t.Prefijo); err != nil {
+		return err
+	}
 	if enc == nil {
-		t, err := f.Torre()
-		if err != nil {
-			return fmt.Errorf("sección TORR: %w", err)
-		}
 		tp, ok := tok.(TokenizadorPasaje)
 		if !ok {
 			return fmt.Errorf("el tokenizador no ofrece el modo passage")
@@ -153,7 +164,10 @@ func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTo
 			return err
 		}
 	}
-	l2.ConTorres(enc, cache)
+	if cache <= 0 {
+		cache = CacheTorresPorDefecto
+	}
+	l2.ConTorres(enc, cache).ConMaxTorresNuevas(maxNuevas)
 	return nil
 }
 

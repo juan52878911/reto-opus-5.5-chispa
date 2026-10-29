@@ -54,7 +54,7 @@ func (l *L2c) DecidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 	if !ok || !hay || len(l0.Probs) == 0 {
 		return l.L2.Decidir(ctx, p)
 	}
-	S, sims, ok, err := l.sim.Similitudes(p)
+	S, sims, ok, err := l.sim.Similitudes(ctx, p)
 	if err != nil || !ok {
 		return Respuesta{}, err
 	}

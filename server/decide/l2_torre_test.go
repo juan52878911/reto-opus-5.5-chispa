@@ -3,8 +3,12 @@ package decide
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"chispa/format/chispa3"
 )
@@ -159,5 +163,120 @@ func TestArmarDesdeFicheroDeChispaTrainTorre(t *testing.T) {
 	l2, ok := mt.L2.(*L2)
 	if !ok || l2.torres == nil {
 		t.Fatalf("L2 %T sin torres", mt.L2)
+	}
+}
+
+// contador de pasadas del codificador, seguro para concurrencia.
+type codificadorContador struct{ n atomic.Int64 }
+
+func (c *codificadorContador) Torre(string) ([]float32, error) {
+	c.n.Add(1)
+	time.Sleep(time.Millisecond)
+	return []float32{1, 0}, nil
+}
+
+func preguntaConOpciones(n int) Pregunta {
+	ops := make([]Opcion, n)
+	for i := range ops {
+		ops[i] = Opcion{ID: fmt.Sprintf("o%d", i), Description: "d"}
+	}
+	return Pregunta{Texto: "¿q?", Kind: KindChoice, Estado: "x", Opciones: ops}
+}
+
+func l2Torres(t *testing.T, enc CodificadorTorre, cache int) *L2 {
+	t.Helper()
+	esq, _ := chispa3.DecodificarEsquemas(mustEsq(t))
+	return NuevoL2Con(sesionFalsa{[][]float32{{3, 0}}}, esq, chispa3.Calib{}, tokFalso{}).ConTorres(enc, cache)
+}
+
+// Hallazgo 5: con ctx cancelado no se calcula ninguna torre.
+func TestL2CtxCanceladoNoCalculaTorres(t *testing.T) {
+	enc := &codificadorContador{}
+	l := l2Torres(t, enc, 1024)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := l.Decidir(ctx, preguntaConOpciones(10)); err == nil || enc.n.Load() != 0 {
+		t.Fatalf("err=%v torres=%d", err, enc.n.Load())
+	}
+}
+
+// Hallazgo 5: por encima del tope de torres nuevas L2 no opina y no calcula nada.
+func TestL2TopeTorresNuevas(t *testing.T) {
+	enc := &codificadorContador{}
+	l := l2Torres(t, enc, 1024).ConMaxTorresNuevas(8)
+	r, err := l.Decidir(context.Background(), preguntaConOpciones(9))
+	if err != nil || r.Conf != 0 || enc.n.Load() != 0 {
+		t.Fatalf("%+v %v torres=%d", r, err, enc.n.Load())
+	}
+	if r, err = l.Decidir(context.Background(), preguntaConOpciones(8)); err != nil || r.Answer == "" || enc.n.Load() != 8 {
+		t.Fatalf("%+v %v torres=%d", r, err, enc.n.Load())
+	}
+}
+
+// Hallazgo 6: peticiones concurrentes del mismo esquema calculan cada torre una vez.
+func TestL2Singleflight(t *testing.T) {
+	enc := &codificadorContador{}
+	l := l2Torres(t, enc, 1024)
+	var wg sync.WaitGroup
+	for g := 0; g < 16; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for e := 0; e < 20; e++ {
+				p := preguntaConOpciones(2)
+				p.Texto = fmt.Sprintf("esquema %d", e)
+				if _, err := l.Decidir(context.Background(), p); err != nil {
+					t.Error(err)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	if n := enc.n.Load(); n != 40 {
+		t.Fatalf("%d pasadas, esperaba 40", n)
+	}
+}
+
+// Hallazgo 7: TORR con otra dimensión que las ranuras de L2 → aviso al montar, sin torres.
+func TestArmarDesdeTorreDimDistinta(t *testing.T) {
+	esq, _ := chispa3.CodificarEsquemas(2, []chispa3.EntradaEsquema{ent("solo en ESQUEMAS", []string{"a"}, 1, 1, 0)})
+	tr, _ := chispa3.CodificarTORR(chispa3.Torre{Dim: 3, MaxLen: 128, Prefijo: "passage: ", ONNX: []byte("x")})
+	f := v3Tiny(t, calibTiny(), chispa3.Seccion{Tipo: chispa3.L2, Datos: []byte("onnx-l2")},
+		chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: esq}, chispa3.Seccion{Tipo: chispa3.TORR, Datos: tr})
+	mt, err := ArmarDesde(f, NuevoL0(8), &Config{CacheEsquemas: 8}, false, tokFalso{}, ConSesionS(sesionFalsa{[][]float32{{1, 0}}}), ConCodificadorTorre(&codificadorContador{}))
+	if err != nil || mt.L2.(*L2).torres != nil || len(mt.Avisos) != 1 || !strings.Contains(mt.Avisos[0], "dimensión 3") {
+		t.Fatalf("%v %v", err, mt.Avisos)
+	}
+}
+
+// Hallazgo 4: prefijo de TORR distinto de «passage: » → aviso que nombra versión y prefijo; sin torres.
+func TestArmarDesdeTorrePrefijoInvalido(t *testing.T) {
+	esq, _ := chispa3.CodificarEsquemas(2, []chispa3.EntradaEsquema{ent("solo en ESQUEMAS", []string{"a"}, 1, 1, 0)})
+	tr, _ := chispa3.CodificarTORR(chispa3.Torre{Dim: 2, MaxLen: 128, Prefijo: "query: ", ONNX: []byte("x")})
+	f := v3Tiny(t, calibTiny(), chispa3.Seccion{Tipo: chispa3.L2, Datos: []byte("onnx-l2")},
+		chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: esq}, chispa3.Seccion{Tipo: chispa3.TORR, Datos: tr})
+	mt, err := ArmarDesde(f, NuevoL0(8), &Config{CacheEsquemas: 8}, false, tokFalso{}, ConSesionS(sesionFalsa{[][]float32{{1, 0}}}), ConCodificadorTorre(&codificadorContador{}))
+	if err != nil || mt.L2.(*L2).torres != nil || len(mt.Avisos) != 1 || !strings.Contains(mt.Avisos[0], `TORR v1: prefijo "query: " no válido; se espera "passage: "`) {
+		t.Fatalf("%v %v", err, mt.Avisos)
+	}
+}
+
+// Hallazgo 13: cache_torres independiente de cache_esquemas (2000 torres caben con cache_esquemas=1024).
+func TestCacheTorresPropia(t *testing.T) {
+	c := ConfigPorDefecto()
+	if c.CacheTorres < 16384 || c.MaxTorresNuevas != 64 {
+		t.Fatalf("%+v", c)
+	}
+	enc := &codificadorContador{}
+	l := l2Torres(t, enc, c.CacheTorres).ConMaxTorresNuevas(64)
+	for vuelta := 0; vuelta < 2; vuelta++ {
+		for e := 0; e < 100; e++ {
+			p := preguntaConOpciones(20)
+			p.Texto = fmt.Sprintf("e%d", e)
+			l.Decidir(context.Background(), p)
+		}
+	}
+	if enc.n.Load() != 2000 {
+		t.Fatalf("%d pasadas, esperaba 2000", enc.n.Load())
 	}
 }

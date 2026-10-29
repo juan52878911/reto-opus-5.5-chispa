@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"chispa/format/chispa3"
@@ -34,6 +35,11 @@ type L2 struct {
 	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
 	torres CodificadorTorre
 	cache  *LRU[torreDin] // claveTorre → torre cuantizada de una opción (o de la consulta, en noul y score)
+	// maxNuevas es el tope de torres por calcular en una sola petición; por encima, L2 no opina.
+	maxNuevas int
+	// vuelo agrupa los cálculos en curso por claveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
+	muVuelo sync.Mutex
+	vuelo   map[string]*llamadaTorre
 	// Hits y Misses cuentan las peticiones de esquema nuevo con todas sus torres en caché / con alguna por calcular.
 	Hits, Misses atomic.Uint64
 }
@@ -45,16 +51,75 @@ type CodificadorTorre interface {
 	Torre(texto string) ([]float32, error)
 }
 
+type llamadaTorre struct {
+	done chan struct{}
+	t    torreDin
+	err  error
+}
+
 type torreDin struct {
 	v []byte
 	e float32
 }
 
-// ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheEsquemas torres.
-func (l *L2) ConTorres(c CodificadorTorre, cacheEsquemas int) *L2 {
+// MaxTorresNuevasPorDefecto es el tope de torres que una petición puede obligar a calcular.
+const MaxTorresNuevasPorDefecto = 64
+
+// ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheTorres torres
+// (capacidad aproximada: el LRU se reparte en fragmentos).
+func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 	l.torres = c
-	l.cache = NewLRU[torreDin](cacheEsquemas)
+	l.cache = NewLRU[torreDin](cacheTorres)
+	l.vuelo = map[string]*llamadaTorre{}
+	if l.maxNuevas == 0 {
+		l.maxNuevas = MaxTorresNuevasPorDefecto
+	}
 	return l
+}
+
+// ConMaxTorresNuevas fija cuántas torres sin cachear puede calcular una petición (<= 0: el valor por defecto).
+func (l *L2) ConMaxTorresNuevas(n int) *L2 {
+	if n <= 0 {
+		n = MaxTorresNuevasPorDefecto
+	}
+	l.maxNuevas = n
+	return l
+}
+
+// torreUnica devuelve la torre de k: de la caché, o calculándola una sola vez aunque la pidan varias goroutines a la vez.
+func (l *L2) torreUnica(ctx context.Context, k, texto string) (torreDin, error) {
+	if t, ok := l.cache.Get(k); ok {
+		return t, nil
+	}
+	l.muVuelo.Lock()
+	if t, ok := l.cache.Get(k); ok { // otra la acaba de terminar
+		l.muVuelo.Unlock()
+		return t, nil
+	}
+	if c, ok := l.vuelo[k]; ok {
+		l.muVuelo.Unlock()
+		select {
+		case <-c.done:
+			return c.t, c.err
+		case <-ctx.Done():
+			return torreDin{}, ctx.Err()
+		}
+	}
+	c := &llamadaTorre{done: make(chan struct{})}
+	l.vuelo[k] = c
+	l.muVuelo.Unlock()
+
+	h, err := l.torres.Torre(texto)
+	if err == nil {
+		c.t = cuantizarTorre(h)
+		l.cache.Put(k, c.t)
+	}
+	c.err = err
+	l.muVuelo.Lock()
+	delete(l.vuelo, k)
+	l.muVuelo.Unlock()
+	close(c.done)
+	return c.t, c.err
 }
 
 const sepTorre = " · "
@@ -114,30 +179,33 @@ func opcionesConsulta(p Pregunta) []Opcion {
 }
 
 // torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae, en el orden de opcionesConsulta.
-func (l *L2) torresNuevas(p Pregunta) ([]torreDin, error) {
+// ok=false (sin error) si la petición pide más torres sin cachear que maxNuevas: L2 no opina.
+func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bool, err error) {
 	ops := opcionesConsulta(p)
-	out := make([]torreDin, len(ops))
-	completo := true
-	for i, o := range ops {
-		k := claveTorre(p.Texto, o)
-		if t, ok := l.cache.Get(k); ok {
-			out[i] = t
-			continue
+	faltan := 0
+	for _, o := range ops {
+		if _, hit := l.cache.Get(claveTorre(p.Texto, o)); !hit {
+			faltan++
 		}
-		completo = false
-		h, err := l.torres.Torre(textoTorre(p.Texto, o))
-		if err != nil {
-			return nil, err
-		}
-		out[i] = cuantizarTorre(h)
-		l.cache.Put(k, out[i])
 	}
-	if completo {
+	if faltan > l.maxNuevas {
+		return nil, false, nil
+	}
+	out := make([]torreDin, len(ops))
+	for i, o := range ops {
+		if err := ctx.Err(); err != nil {
+			return nil, false, err
+		}
+		if out[i], err = l.torreUnica(ctx, claveTorre(p.Texto, o), textoTorre(p.Texto, o)); err != nil {
+			return nil, false, err
+		}
+	}
+	if faltan == 0 {
 		l.Hits.Add(1)
 	} else {
 		l.Misses.Add(1)
 	}
-	return out, nil
+	return out, true, nil
 }
 
 // ErrSinTokenizador: L2 necesita el tokenizador de e5.
@@ -160,10 +228,10 @@ func maxsim(S [][]float32, vec []byte, escala float32) float64 { return chispa3.
 // ONNX, detrás de una interfaz para que L2c se pruebe sin ORT con similitudes falsas.
 type Similitudes interface {
 	// Similitudes devuelve ok=false (sin error) si el esquema no tiene torres en ESQUEMAS.
-	Similitudes(p Pregunta) (S [][]float32, sims []float64, ok bool, err error)
+	Similitudes(ctx context.Context, p Pregunta) (S [][]float32, sims []float64, ok bool, err error)
 }
 
-func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
+func (l *L2) Similitudes(ctx context.Context, p Pregunta) ([][]float32, []float64, bool, error) {
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
@@ -178,7 +246,7 @@ func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
 		for _, id := range ids {
 			v, e, ok := torre([]string{id})
 			if !ok {
-				return l.similitudesNuevas(p)
+				return l.similitudesNuevas(ctx, p)
 			}
 			ts = append(ts, vt{v, e})
 		}
@@ -188,7 +256,7 @@ func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
 		}
 		v, e, ok := torre(ids)
 		if !ok {
-			return l.similitudesNuevas(p)
+			return l.similitudesNuevas(ctx, p)
 		}
 		ts = []vt{{v, e}}
 	}
@@ -196,12 +264,12 @@ func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
 }
 
 // similitudesNuevas: esquema ausente de ESQUEMAS. Sin CodificadorTorre, sin opinión; con él, torres al vuelo.
-func (l *L2) similitudesNuevas(p Pregunta) ([][]float32, []float64, bool, error) {
+func (l *L2) similitudesNuevas(ctx context.Context, p Pregunta) ([][]float32, []float64, bool, error) {
 	if l.torres == nil {
 		return nil, nil, false, nil
 	}
-	ts, err := l.torresNuevas(p)
-	if err != nil {
+	ts, ok, err := l.torresNuevas(ctx, p)
+	if err != nil || !ok {
 		return nil, nil, false, err
 	}
 	return l.simsDe(p, ts)
@@ -232,7 +300,7 @@ func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
-	_, sims, ok, err := l.Similitudes(p)
+	_, sims, ok, err := l.Similitudes(ctx, p)
 	if err != nil || !ok {
 		return Respuesta{}, err
 	}
