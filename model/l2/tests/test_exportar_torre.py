@@ -163,6 +163,24 @@ class VariantesTorre(unittest.TestCase):
         self.assertLess(self.out["dinamico"].stat().st_size, self.out["ninguna"].stat().st_size)
         self.assertLess(self.out["estatico"].stat().st_size, self.out["ninguna"].stat().st_size)
 
+    def test_ffn_estatico_y_fp16_de_la_torre(self):
+        g = onnx.load(str(self.out["ffn-estatico"]), load_external_data=False).graph
+        self.assertEqual([n.name for n in g.node if n.name.startswith(E.PREFIJO_TORRE) and n.op_type in ("QuantizeLinear", "DequantizeLinear")], [])
+        self.assertIn("DequantizeLinear", {n.op_type for n in g.node})
+        ids = [[1, 5, 9, 2], [1, 7, 2], [1, 6, 8, 9, 11, 2]]
+        ref = E.correr_torre(E.sesion(self.out["ninguna"]), ids)
+        for v in ("ffn-estatico", "fp16"):
+            h = E.correr_torre(E.sesion(self.out[v]), ids)
+            self.assertEqual(h.dtype, np.float32)
+            self.assertGreater(float(E.cosenos(h, ref).min()), 0.95, v)
+            self.assertLess(self.out[v].stat().st_size, self.out["ninguna"].stat().st_size)
+
+    def test_ids_calib_consulta(self):
+        filas = [{"texto": "hola %d" % i} for i in range(5)]
+        ids = E.ids_calib_consulta(CodificadorDiminuto(), filas, 3)
+        self.assertEqual(len(ids), 3)
+        self.assertEqual(len(E.ids_calib_consulta(CodificadorDiminuto(), FILAS_CALIB, 4)), 4)   # sin `texto`: los de torre
+
     def test_estatico_sin_calibracion_falla(self):
         with self.assertRaises(ValueError):
             E.exportar_torre(encoder_diminuto(), self.modelo.torre, self.d / "x.onnx", self.d / "x", cuant="estatico")
@@ -172,6 +190,11 @@ class VariantesTorre(unittest.TestCase):
         self.assertEqual(a, E.textos_calib(FILAS_CALIB, 7))
         self.assertEqual(len(a), 7)
         self.assertEqual(len(E.textos_calib(FILAS_CALIB, 500)), 30)
+
+    def test_cli_ffn_estatico_pide_calib(self):
+        for flag in ("--cuant-torre", "--cuant"):
+            with self.assertRaises(SystemExit):
+                E.main(["--torre-onnx", str(self.d / "y.onnx"), "--ckpt-aleatorio", flag, "ffn-estatico"])
 
     def test_cli_estatico_pide_calib(self):
         with self.assertRaises(SystemExit):
