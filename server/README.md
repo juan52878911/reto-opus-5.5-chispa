@@ -1,9 +1,10 @@
 # Servidor de Chispa (T4.1)
 
 `POST /v1/decide` decide preguntas con una cascada de capas: L0 (Chispa lineal real, `pkg/chispa`
-de kindling v0.17.0), L1 real (T4.1b, embedding estático de `runtime/l1`) y L2 (ONNX, solo con la etiqueta `ort`).
-L3 y las capas sin sección en el modelo son stubs «sin opinión» (confianza 0).
-Esquema de preguntas: `model/esquema.md` (choice, score, noul).
+de kindling v0.17.0), L1 real (embedding estático de `runtime/l1`), L2 (ONNX, solo con la etiqueta `ort`) y L3 (un LLM
+opcional, ver «L3»). Las capas sin sección en el modelo, y L3 sin config, son stubs «sin opinión» (confianza 0).
+Tipos soportados: `choice`, `score`, `noul` y `multi` (ver la tabla de abajo). Esquema de preguntas: `model/esquema.md`;
+contrato completo en [`docs/03-api.md`](../docs/03-api.md) y [`api/openapi.yaml`](api/openapi.yaml).
 
 ```
 make -C server test     # go vet + go test -race
@@ -30,10 +31,11 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
 ```
 - `state` (string, ≤ 256 KiB): el texto. Es el mismo para todas las preguntas de la petición.
 - `questions` (1..256). Cada una: `id` (obligatorio, único en la petición), `question` (obligatorio),
-  `kind` ∈ `choice|score|noul`, `options` y `nonce` (opcional).
+  `kind` ∈ `choice|score|noul|multi`, `options` y `nonce` (opcional).
   - `choice`: ≥ 2 opciones (≤ 256; clinc150 trae 150) con `id` único y `description` opcional.
   - `score`: ≥ 2 opciones ordinales, ids `"1"…"K"`.
   - `noul`: opciones opcionales; si van, solo `"false"` y `"true"`. Por defecto las dos.
+  - `multi` (multietiqueta): ≥ 2 opciones (≤ 256) con `id` único; cada una es una etiqueta que puede estar activa o no.
 - Cuerpo ≤ 1 MiB; campos desconocidos → 400.
 
 ### Salida (200)
@@ -43,8 +45,10 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
    "layer": "L0", "escalate": false, "ms": 0.012, "nonce": "abc-1"}
 ]}
 ```
-- `answer`: id de la opción elegida (en `noul`, `"true"`/`"false"`; en `score`, `"1"…"K"`).
-- `probs`: id de opción → probabilidad calibrada (la de la capa que respondió).
+- `answer`: id de la opción elegida (en `noul`, `"true"`/`"false"`; en `score`, `"1"…"K"`; en `multi`, la activa de mayor probabilidad, o `""` si no hay ninguna).
+- `answers`: **solo en `multi`**: los ids de las opciones activas (p ≥ θ de la opción), en el orden de la pregunta; `[]` si ninguna
+  (respuesta válida, con `escalate: false`).
+- `probs`: id de opción → probabilidad calibrada (la de la capa que respondió). Suman 1 salvo en `multi`, donde cada opción lleva la suya en [0, 1].
 - `layer`: la capa que contestó; si `escalate` es true, `"escalar"` (ninguna capa aceptó; `answer` y `probs` son la mejor respuesta vista).
 - `escalate`: ninguna capa llegó a su τ. `answer`/`probs` son entonces la mejor pista vista
   (la capa con más confianza) y quedan vacíos (`""`, `{}`) si ninguna opinó.
@@ -52,7 +56,7 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
 - Los resultados van en el orden de `questions`.
 
 ### Errores
-`400 {"error": {"code": "invalid_kind", "message": "...", "question_id": "..."}}`: errores tipados, con la ruta del campo en `message` (`questions[2].kind: "raro" no válido (choice, score o noul)`). Lista de códigos en [`docs/03-api.md`](../docs/03-api.md) y [`api/openapi.yaml`](api/openapi.yaml).
+`400 {"error": {"code": "invalid_kind", "message": "...", "question_id": "..."}}`: errores tipados, con la ruta del campo en `message` (`questions[2].kind: "raro" no válido (choice, score, noul o multi)`). Lista de códigos en [`docs/03-api.md`](../docs/03-api.md) y [`api/openapi.yaml`](api/openapi.yaml).
 También 405 (método ≠ POST) y 413 (cuerpo > 1 MiB). No hay errores por pregunta: la validación es
 todo o nada, y un fallo interno de una capa solo la salta (se cuenta en `chispa_capa_errores_total`).
 
@@ -62,7 +66,7 @@ volver a decidir (`ms` incluido). La clave es `nonce + estado + esquema + id`: e
 otro estado o pregunta se recalcula. Sin `nonce` no se cachea. LRU de `cache_respuestas` entradas.
 
 ### Cascada
-L0 → L1 → L2 → L3: se pasa a la siguiente mientras la confianza top-1 sea < τ de la capa (una capa
+L0 → L1 → L2 → L3: se pasa a la siguiente mientras la confianza top-1 (en `multi`, la de la opción más dudosa) sea < τ de la capa (una capa
 sin opinión o con error vale 0). Con confianza ≥ τ responde esa capa. Si la última no llega,
 `escalate: true`. Capas y τ se leen del JSON de configuración (`-config`):
 
@@ -72,6 +76,69 @@ sin opinión o con error vale 0). Con confianza ≥ τ responde esa capa. Si la 
 ```
 Interfaz por capa: `type Decisor interface { Decidir(ctx, Pregunta) (Respuesta, error); Nombre() string }`
 (`decide/types.go`). Para sustituir un stub basta pasar otro `Decisor` con el mismo nombre en `main.go`.
+
+### Tipos soportados y qué capa opina en cada uno
+| `kind` | L0 | L1 | L2 | L3 |
+|---|---|---|---|---|
+| `choice` | sí, si hay un modelo con las mismas etiquetas | softmax(coseno / T) | MaxSim contra la torre de cada opción, softmax | un LLM reparte la probabilidad entre opciones |
+| `noul` | ídem | σ(a·coseno + b) sobre la opción `true` | σ(a·MaxSim + b) | ídem |
+| `score` | ídem | softmax sobre los niveles; `answer` = nivel mediano | CORAL (solo con ids `"1"…"K"`) | ídem |
+| `multi` | **no opina** (el L0 es multiclase) | σ(a·coseno + b) por opción, θ por opción | σ(a·MaxSim + b) por opción, una torre por opción | una p independiente por opción (se activan las de p ≥ 0,5) |
+
+En `multi`, una capa solo acepta si **todas** sus decisiones por opción superan τ (confianza = la de la opción más dudosa: el mínimo de
+p si está activa o 1 − p si no); si no, pasa a la siguiente y al final escala (`escalate: true`, `probs: {}`). Calibración en
+`CALIB.tipos.multi` y `multi#<id>`; detalle en [`docs/03-api.md`](../docs/03-api.md).
+
+### Esquemas nuevos: τ y λ
+- **τ de esquema nuevo** (`tau_l2_esquema_nuevo`): τ de L2 solo para preguntas cuyas torres **no estaban** en `ESQUEMAS` (salieron al vuelo desde la
+  sección `TORR`). Prioridad: la config > `tau_l2_esquema_nuevo` de `CALIB` (cuenta aunque haya `-config`) > 0,846 por defecto (precisión ≈ 0,95 con ≈ 97 % de escalado en tareas
+  no vistas). `"tau_l2_esquema_nuevo_apagado": true` vuelve al τ normal de L2 (junto a un valor, error). Métricas: `chispa_esquema_nuevo_preguntas_total`,
+  `chispa_esquema_nuevo_decididas_total`. Las torres al vuelo se cachean (`cache_torres`, por defecto 16384) y una petición calcula como mucho
+  `max_torres_nuevas` (por defecto 64) sin cachear; por encima L2 no opina (`chispa_torres_*`).
+- **λ** (`l1_shrinkage_lambda`, `l2_shrinkage_lambda`): encogimiento del soporte few-shot (sección `SOPL1`): w = k/(k+λ) mezcla la media de los k ejemplos con el
+  prototipo de la descripción. L1: por defecto 4; `"l1_shrinkage_apagado": true` lo apaga. L2: sin valor, no hay mezcla (λ = ∞). Sin `SOPL1` en el `.chispa` no tiene efecto.
+  Un λ negativo es error de config. Con `-config` hay que repetir los de `CALIB` que se quieran conservar.
+
+### L3 (LLM opcional)
+Con `"l3": {...}` en la config **y** una capa `"L3"` en `capas`, las preguntas que L0–L2 no resolvieron se mandan a un endpoint compatible con OpenAI
+(`POST {url}/chat/completions`, p. ej. Ollama en `http://127.0.0.1:11434/v1`). Pide un JSON estricto con una probabilidad por opción, lo valida y lo normaliza (en `multi`
+no normaliza y deben venir todas); si la respuesta no sirve, L3 no opina y la pregunta escala.
+Campos de `l3`: `url`, `modelo`, `api_key_env` (nombre de la variable de entorno con la clave: nunca la clave en la config; si la variable está vacía, falla al armar),
+`timeout` (`"10s"` o segundos; por defecto 10 s), `max_por_peticion` (llamadas al LLM por petición HTTP; por defecto 8) y `tau` (si falta, el de la capa `L3`).
+**Los textos del cliente salen del servidor hacia ese endpoint**; L3 no los registra. Métrica: `chispa_l3_llamadas_total`.
+
+### Flags de `chispa-server`
+| flag | por defecto | uso |
+|---|---|---|
+| `-addr` | `127.0.0.1:8090` | dirección de escucha |
+| `-config` | — | JSON de configuración (capas, τ, modelos, cachés, claves, L3) |
+| `-modelo` | — | `.chispa` v3 (o v2 envuelto) del que armar L0, L1 y L2 |
+| `-tok` | — | `.chispa-tok` de e5; sin él, L2 queda en stub |
+| `-ort-lib` | — | `libonnxruntime.so` (precede a `CHISPA_ORT_LIB`) |
+| `-timeout` | `30s` | tope por petición (503 `timeout` con `Retry-After`); 0 = sin tope |
+| `-max-conexiones` | `1024` | conexiones TCP abiertas a la vez (0 = sin tope) |
+| `-max-en-curso` | `64` | peticiones a `/v1/decide` en curso (0 = sin tope); al llenarse, 429 `rate_limited` |
+| `-plazo-cuerpo` | `0` (= 10 s) | plazo para recibir el cuerpo de `/v1/decide`; negativo = sin plazo |
+| `-pre-drenaje` | `0` | tras SIGTERM/SIGINT, `/healthz` responde 503 `shutting_down` este tiempo antes de apagar |
+| `-apagado` | `25s` | plazo para terminar las peticiones en vuelo tras SIGTERM/SIGINT |
+| `-abierto` | `false` | permite escuchar fuera de loopback sin `api_keys` (o `api_keys_abierto` en la config) |
+| `-admin-addr` | — | listener aparte para `POST /v1/admin/recargar` (la pública deja de servirla: 404) |
+| `-metricas-protegidas` | `false` | `/metrics` exige `Authorization: Bearer` con una api_key válida (o el `admin_token`) |
+| `-hash-clave` | `false` | lee una clave de la entrada estándar, imprime su SHA-256 y sale |
+
+### Claves de API
+Con `api_keys` no vacío en la config, `/v1/decide` exige `Authorization: Bearer <clave>` (401 `unauthorized` si falta o no vale) y limita por clave con un cubo
+de fichas (429 `rate_limited` con `Retry-After`). Cada entrada: `{"id": "cliente-a", "hash_sha256": "<64 hex>", "rps": 20, "rafaga": 40}`; el servidor solo guarda el SHA-256,
+nunca la clave en claro: `printf '%s' "$CLAVE" | chispa-server -hash-clave`. `id` (`[A-Za-z0-9_.-]`, ≤ 64) es la etiqueta de las métricas (`chispa_clave_peticiones_total`,
+`chispa_auth_rechazos_total`), nunca el secreto. `rafaga` 0 = ⌈rps⌉. Escuchar fuera de loopback sin claves exige `-abierto` o `api_keys_abierto`; una recarga sin claves
+tampoco las quita sin `api_keys_abierto`.
+
+### Recarga en caliente
+Dos formas, ambas sin cortar peticiones en curso: `kill -HUP <pid>` o `POST /v1/admin/recargar` con `Authorization: Bearer <admin_token>`
+(la ruta solo existe si la config trae `admin_token` —mínimo 32 bytes— o `admin_token_sha256`; si no, 404). Relee la config y el `.chispa`, arma un modelo completo nuevo
+(con cachés nuevas: un nonce del modelo anterior no devuelve su respuesta) y lo sustituye cuando está listo; las peticiones que ya corrían terminan con el viejo.
+Se relee también `api_keys` (los cubos de las claves que siguen se conservan) y el token de admin. Si algo falla (`.chispa` corrupto, config inválida) se sigue sirviendo el modelo
+anterior y se cuenta `chispa_recargas_total{resultado="error"}`. Con `-admin-addr` el endpoint sale del puerto público. Cubierto por `server/e2e/correr.sh` (pasos 5 y 8).
 
 ### L0 y caché de esquemas
 L0 carga uno o varios `.chispa` y elige el modelo cuyo **conjunto de etiquetas es igual al de ids de las
@@ -86,7 +153,8 @@ resuelto (o «ninguno»). Los LRU están fragmentados en 16: el tamaño es aprox
 (`prometheus/client_golang` no está en la caché de módulos): `chispa_peticiones_total{codigo}`,
 `chispa_preguntas_total`, `chispa_decididas_total{capa}`, `chispa_escalados_total`,
 `chispa_capa_latencia_segundos` (histograma por capa), `chispa_capa_errores_total{capa}`,
-`chispa_cache_esquemas_total{resultado}`, `chispa_cache_nonce_aciertos_total`.
+`chispa_cache_esquemas_total{resultado}`, `chispa_cache_nonce_aciertos_total`, y, según el caso, `chispa_recargas_total{resultado}`,
+`chispa_torres_*`, `chispa_esquema_nuevo_*`, `chispa_l3_llamadas_total`, `chispa_clave_peticiones_total`, `chispa_auth_rechazos_total`, `chispa_timeouts_total`.
 
 ## Relación con `/v1/systemone` de Jev — SUPOSICIÓN, sin verificar
 No tengo la especificación de `/v1/systemone`. Lo que supuse, por el encargo:

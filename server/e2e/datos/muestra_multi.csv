@@ -1,0 +1,14 @@
+texto,etiqueta
+precio del cemento hoy,cotizacion
+cuánto vale el taladro,cotizacion
+estado de mi pedido de cemento,pedido
+quiero un pedido de taladro,pedido
+necesito la factura de la compra,factura
+datos de la factura electrónica,factura
+urgente hoy la obra está detenida,urgencia
+precio del cemento urgente para la obra,cotizacion|urgencia
+pedido urgente de cemento hoy,pedido|urgencia
+factura de mi pedido de taladro,pedido|factura
+precio y factura del cemento,cotizacion|factura
+gracias buen día,
+saludos cordiales,

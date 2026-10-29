@@ -1,0 +1,8 @@
+id: temas
+pregunta: ¿Qué temas toca el mensaje del cliente de la ferretería?
+tipo: multi
+opciones:
+  cotizacion: pide precio o disponibilidad de un producto
+  pedido: habla de comprar, despachar o del estado de un pedido
+  factura: habla de factura o de datos de facturación
+  urgencia: necesita respuesta hoy o tiene una obra detenida

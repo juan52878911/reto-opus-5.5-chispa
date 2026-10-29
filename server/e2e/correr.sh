@@ -129,6 +129,46 @@ pase "3 SIGHUP con 8 hilos de esquema nuevo: ninguna petición falla" $CP recarg
 pase "recargas_total{ok} = 3 y torres sin errores" bash -c "$CP metrica '$URL' chispa_recargas_total '{resultado=\"ok\"}' --igual 3 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
 pase "tras recargar, L2 con torre al vuelo sigue decidiendo" $CP decidir "$URL" "$D/peticion_nueva.json" --capa L2
 
+paso "9. multi (multietiqueta): zero-shot en el servidor B y few-shot con chispa train (etiqueta con «|»)"
+pase "zero-shot: 200, answers y una p por opción (esquema nuevo, torre al vuelo)" $CP decidir "$URL" "$D/peticion_multi.json" --multi-con-probs --guardar "$W/resp_multi_zs.json"
+pase "torres al vuelo del multi (≥ 4 más) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --min 7 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
+$TRAIN --esquema "$D/temas.yaml" --ejemplos "$D/ejemplos_multi.csv" --tau-l2-esquema-nuevo 0.5 --salida "$W/ms.chispa" >"$W/train_ms.log" 2>&1 || { tail -5 "$W/train_ms.log"; critico "train multi few-shot"; }
+grep -iE "multi|SOPL1" "$W/train_ms.log" | cut -c1-160 | sed 's/^/        /'; ok "few-shot multi → ms.chispa"
+$PY -I -c "
+import sys; sys.path.insert(0, '$RAIZ/sdk/python')
+from chispa import formato
+import json
+s = formato.leer(open('$W/ms.chispa','rb').read()); print(sorted(s))
+" 2>&1 | sed 's/^/        /'
+grep -q "sin SOPL1" "$W/train_ms.log" && echo "        (multi sin SOPL1: ver HALLAZGOS.md H2)"
+kill "$PB"; wait "$PB" 2>/dev/null
+cp "$W/ms.chispa" "$W/serv3.chispa"
+URL=http://127.0.0.1:$P2
+arrancar "$P2" "$W/srvC.log" -modelo "$W/serv3.chispa" -config "$W/cfg.json"; PC=$SPID
+pase "few-shot: 200, answers y una p por opción" $CP decidir "$URL" "$D/peticion_multi.json" --multi-con-probs --guardar "$W/resp_multi_fs.json"
+$PY -I -c "
+import json
+for n in ('zs','fs'):
+    r = json.load(open('$W/resp_multi_%s.json' % n))['results'][0]
+    assert r['kind'] == 'multi' and isinstance(r['answers'], list) and len(r['probs']) == 4, r
+    print(n, r['layer'], r['answers'], {k: round(v, 3) for k, v in r['probs'].items()})
+" 2>&1 | sed 's/^/        /' && ok "answers y probs por opción (zero-shot y few-shot)" || fallo "forma de la respuesta multi"
+$PY -I -c "
+import json
+a, b = (json.load(open('$W/resp_multi_%s.json' % n))['results'][0]['probs'] for n in ('zs', 'fs'))
+raise SystemExit(0 if a != b else 1)" && ok "few-shot: la CALIB de multi cambia las probabilidades frente al zero-shot" || fallo "few-shot multi igual que zero-shot"
+$PY -m chispa evaluar --url "$URL" --esquema "$D/temas.yaml" --datos "$D/muestra_multi.csv" --salida "$W/informe_multi" --filas >"$W/evaluar_multi.log" 2>&1
+RC=$?; tail -3 "$W/evaluar_multi.log" | sed 's/^/        /'
+[ $RC -eq 0 ] && ok "evaluar multi rc=0" || fallo "evaluar multi rc=$RC"
+$PY -I -c "
+import json; j=json.load(open('$W/informe_multi.json'))
+assert j['tipo'] == 'multi' and j['n'] == 13 and j['errores'] == 0, j['errores_por_codigo']
+assert sorted(j['por_etiqueta']) == ['cotizacion', 'factura', 'pedido', 'urgencia']
+assert j['n_sin_etiquetas'] == 2 and all(f['answers'] is not None for f in j['filas'])
+print({k: j[k] for k in ('exactitud_subconjunto','f1_micro','f1_macro','hamming')})
+" 2>&1 | cut -c1-300 | sed 's/^/        /' && ok "informe_multi.json: métricas por etiqueta" || fallo "informe_multi.json no válido"
+grep -q "## Por etiqueta" "$W/informe_multi.md" && ok "informe_multi.md" || fallo "informe_multi.md ausente"
+
 echo
 if [ "$FALLOS" -eq 0 ]; then echo "RESULTADO: OK (todos los pasos pasan)"; exit 0; fi
 echo "RESULTADO: FALLA ($FALLOS comprobaciones)"; [ "${MANTENER:-}" = 1 ] && echo "trabajo en $W"; exit 1

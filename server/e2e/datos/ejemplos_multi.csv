@@ -1,0 +1,41 @@
+texto,etiqueta
+precio del cemento y del taladro,cotizacion
+cuánto vale el cemento hoy,cotizacion
+precio taladro disponible,cotizacion
+estado de mi pedido de cemento,pedido
+quiero hacer un pedido de taladro,pedido
+mi pedido no ha llegado,pedido
+necesito la factura de la compra,factura
+corregir datos de la factura,factura
+factura electrónica del cemento,factura
+urgente hoy la obra está detenida,urgencia
+necesito respuesta hoy urgente,urgencia
+obra parada urgente,urgencia
+precio del cemento urgente hoy para la obra,cotizacion|urgencia
+pedido urgente de cemento hoy,pedido|urgencia
+factura de mi pedido de taladro,pedido|factura
+precio y factura del cemento,cotizacion|factura
+pedido de cemento: precio y factura,cotizacion|pedido|factura
+gracias buen día,
+hola buenas tardes,
+saludos cordiales,
+precio del cemento y del taladro por favor,cotizacion
+cuánto vale el cemento hoy por favor,cotizacion
+precio taladro disponible por favor,cotizacion
+estado de mi pedido de cemento por favor,pedido
+quiero hacer un pedido de taladro por favor,pedido
+mi pedido no ha llegado por favor,pedido
+necesito la factura de la compra por favor,factura
+corregir datos de la factura por favor,factura
+factura electrónica del cemento por favor,factura
+urgente hoy la obra está detenida por favor,urgencia
+necesito respuesta hoy urgente por favor,urgencia
+obra parada urgente por favor,urgencia
+precio del cemento urgente hoy para la obra por favor,cotizacion|urgencia
+pedido urgente de cemento hoy por favor,pedido|urgencia
+factura de mi pedido de taladro por favor,pedido|factura
+precio y factura del cemento por favor,cotizacion|factura
+pedido de cemento: precio y factura por favor,cotizacion|pedido|factura
+gracias buen día por favor,
+hola buenas tardes por favor,
+saludos cordiales por favor,
