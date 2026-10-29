@@ -1,5 +1,11 @@
 # Esquemas nuevos: estado y trabajo pendiente
 
+El esquema viaja en la petición a `/v1/decide`: pregunta, `kind`, ids y descripciones. Lo que decide sobre él depende de las capas
+del `.chispa` que sirves. Cómo escribir el esquema: [02-inicio-rapido.md](02-inicio-rapido.md).
+
+**Estado (en desarrollo):** `server/decide/l2.go` ya trae `ConTorres` y un `CodificadorTorre` (torre al vuelo con LRU), probado con un
+codificador falso. `chispa-server` todavía no lo conecta a un ONNX de torre real. Hasta entonces, para un esquema nuevo, L2 no opina.
+
 ## Qué pasa hoy
 Un esquema que llega en la petición y que ningún `.chispa` trae:
 - **L1** lo decide: calcula el embedding de cada opción al vuelo y lo cachea por esquema ([`l1.go`](../server/decide/l1.go)). Necesita sección L1.
@@ -7,7 +13,7 @@ Un esquema que llega en la petición y que ningún `.chispa` trae:
   ([`l2.go`](../server/decide/l2.go)). Test: `TestL2MaxSim` y `TestEsquemaNuevoLoDecideL1`.
 - **L0, L2c y L0TF** solo existen para el esquema con el que se entrenó el `.chispa`.
 
-Por eso el servidor no puede servir un esquema nuevo con solo L2: la hipótesis «zero-shot con L2» queda **refutada con el código actual**. El zero-shot real es L1,
+Por eso, hoy, el servidor no puede servir un esquema nuevo con solo L2: la hipótesis «zero-shot con L2» queda **refutada con el código actual**. El zero-shot real es L1,
 con las cifras de [02](02-inicio-rapido.md#tres-modos).
 
 ## Qué falta (trabajo pendiente, no implementado)

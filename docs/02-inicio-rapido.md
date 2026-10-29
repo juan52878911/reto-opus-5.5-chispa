@@ -1,66 +1,121 @@
 # Inicio rápido
 
-De un esquema a una petición `curl`. Los comandos se escriben desde la raíz del repositorio.
+De un esquema nuevo a una petición `curl`. Los comandos se escriben desde la raíz del repositorio.
 
-## Tres modos
-Chispa es multipropósito: el camino por defecto no pide datos etiquetados de tu tarea. Cada modo añade datos y calidad.
-massive, clinc150 y las demás tareas son pruebas de que cada modo funciona, no el objetivo del producto.
-
-| Modo | Qué necesitas | Qué corre | Cifra medida | Límite |
-|---|---|---|---|---|
-| 1. Zero-shot | La pregunta y las opciones (con descripción) | L1 con el esquema, sin ejemplos | macro-F1 medio 0,353 con el L1 propio de 256 dim y 0,455 con potion, en 5 tareas ([fuente](../model/l1/resultados/2026-10-28/informe.md)); massive 0,406 y clinc150 0,445 con potion | L1 por sí solo es flojo sin ejemplos. **L2 no sirve esquemas nuevos** (ver [08](08-esquemas-nuevos.md)) |
-| 2. Few-shot | ~50 ejemplos por clase; `chispa train` sin `--conjunta` | L0 (+ L1 con `--l1`) | Intención del sondeo, 50 por clase: L0 0,821; L1 0,672; cascada L0→L1 0,762 contando lo escalado como fallo ([fuente](../sdk/python/README.md#punta-a-punta-intención-del-sondeo-50-por-clase)) | Una tarea y 390 filas de test (±2 puntos). La variante con L2 y prototipos no se midió |
-| 3. Con datos del cliente | Train etiquetado de la tarea, checkpoint de L2 y e5; `--conjunta` | L0TF + L2c (cabeza conjunta) | massive 0,814 y clinc150 0,887 por `/v1/decide` ([07](07-rendimiento-y-limites.md#calidad-de-punta-a-punta)) | Solo `choice`; un `.chispa` por pregunta; el repositorio no trae checkpoint de L2 |
-
-Un esquema que llega en la petición sin `.chispa` propio solo lo decide L1 (modo 1). L0, L2, L2c y L0TF dependen del esquema con el que se entrenó el `.chispa`.
+Ejemplo de esta página: clasificar solicitudes que llegan a una ferretería colombiana. Es un esquema inventado; no es
+ninguna tarea de prueba.
 
 ## Requisitos
 - Python ≥ 3.9 para `chispa train` ([`pyproject.toml`](../sdk/python/pyproject.toml)). Esquemas `.yaml`: instala PyYAML. Los `.json` no lo piden.
+- Un potion exportado con `python runtime/l1/exportar.py` (`potion.chispa-l1`, 155 MB). Sin `--l1` ni `--l2`/`--ckpt`, el zero-shot falla: no habría ninguna capa.
 - Go, para el entrenador de L0 y para compilar `chispa-server`. Sin Go, `chispa train` escribe META + L1 + CALIB y no lleva L0.
-- Solo para el modo 3 (`--conjunta`): torch y transformers, un checkpoint de L2 y e5 (ver el paso 3).
+- Solo para el modo avanzado (`--conjunta`): torch y transformers, un checkpoint de L2 y e5.
 - Los comandos de Python se corren con `PYTHONPATH=sdk/python`, o tras `pip install ./sdk/python`.
 
-## 1. Zero-shot: solo el esquema (modo 1)
-Un `.chispa` con META y L1 (más CALIB si lo tienes) basta: L1 calcula al vuelo el embedding de «pregunta · opción · descripción» de cada
-opción y lo cachea por esquema. Escribe las descripciones con cuidado: son lo único que L1 ve de tu tarea. Sirve `choice` y `noul`; `score` no.
-Salta al paso 5 con ese `.chispa`. Para pasar a few-shot, sigue con los pasos 2 a 4.
+## 1. El esquema
+JSON o YAML con `id`, `pregunta`, `tipo` (`choice`, `noul` o `score`) y `opciones` (mapa id → descripción).
+Guarda esto como `ferreteria.yaml`:
 
-## 2. Los ejemplos (modos 2 y 3)
+```yaml
+id: solicitud
+pregunta: ¿Qué necesita la persona que escribe a la ferretería?
+tipo: choice
+opciones:
+  cotizacion: pide precio o disponibilidad de un producto, o una cotización de materiales
+  pedido: quiere comprar y recibir productos, o pregunta por el estado de un pedido ya hecho
+  garantia: reclama por una herramienta defectuosa, un cambio o una devolución
+  asesoria: pide ayuda técnica para elegir o usar un material o una herramienta
+  factura: pide una factura, un RUT o corregir datos de facturación
+```
+
+Escribe las descripciones con cuidado: en zero-shot son lo único que Chispa ve de tu tarea.
+Cada descripción debe distinguir su opción de las demás. Opcionales: `licencias` y `dorado`, que van a META.
+Si el fichero trae varias preguntas, elige una con `--pregunta`.
+
+## 2. Zero-shot: sin ejemplos
+```
+PYTHONPATH=sdk/python python -m chispa train --esquema ferreteria.yaml --salida ferreteria.chispa --l1 potion.chispa-l1
+```
+
+El `.chispa` trae META, L1 y un `CALIB` sin calibrar con τ = 0,6. No lleva L0. Con `--l2 l2.chispa` o `--ckpt mejor.pt` añade también L2 y ESQUEMAS.
+
+Sirve:
+```
+cd server && go build -o chispa-server ./cmd/chispa-server
+./chispa-server -addr 127.0.0.1:8090 -modelo ../ferreteria.chispa
+```
+
+Pregunta:
+```
+curl -s localhost:8090/v1/decide -d '{"state":"Buenas, ¿cuánto vale el bulto de cemento gris de 50 kg y tienen hoy?","questions":[{"id":"q1","question":"¿Qué necesita la persona que escribe a la ferretería?","kind":"choice","options":[{"id":"cotizacion","description":"pide precio o disponibilidad de un producto, o una cotización de materiales"},{"id":"pedido","description":"quiere comprar y recibir productos, o pregunta por el estado de un pedido ya hecho"},{"id":"garantia","description":"reclama por una herramienta defectuosa, un cambio o una devolución"},{"id":"asesoria","description":"pide ayuda técnica para elegir o usar un material o una herramienta"},{"id":"factura","description":"pide una factura, un RUT o corregir datos de facturación"}]}]}'
+```
+
+El esquema viaja en la petición: la pregunta, los ids y las descripciones. El servidor decide con L1 aunque ningún `.chispa` traiga
+esa pregunta. Respuesta (la forma; los valores cambian con tu modelo):
+
+```json
+{"results": [{"id": "q1", "kind": "choice", "answer": "<id de una opción>",
+  "probs": {"cotizacion": 0.0, "pedido": 0.0, "garantia": 0.0, "asesoria": 0.0, "factura": 0.0},
+  "layer": "L1", "escalate": false, "ms": 0}]}
+```
+
+- `probs` trae un valor por opción, y `answer` es una de ellas.
+- Si L1 no llega a τ = 0,6, la respuesta trae `"escalate": true`: `answer` es la mejor pista. Decide tú qué hacer.
+- Hoy un esquema nuevo lo decide **solo L1**. L2 con torre al vuelo está **(en desarrollo)**
+  ([08-esquemas-nuevos.md](08-esquemas-nuevos.md)).
+- Límite: L1 sin ejemplos es flojo. Cifras en [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md#zero-shot).
+
+## 3. Few-shot: k ejemplos por opción
 Un fichero por pregunta. CSV con cabecera, o JSONL, con columnas `texto` (o `text`) y `etiqueta` (o `label`).
-Cada etiqueta debe ser una opción del esquema.
+Cada etiqueta debe ser una opción del esquema y cada opción necesita al menos un ejemplo. Guarda esto como `ejemplos.csv`
+(k = 5 por opción):
 
 ```
 texto,etiqueta
-"quiero comprar dos camisetas",compra
-"mi pedido no ha llegado",soporte
+"¿Cuánto vale el galón de pintura blanca de tres años?",cotizacion
+"Necesito cotizar 20 láminas de drywall y perfiles",cotizacion
+"¿Tienen disponible taladro percutor de media pulgada?",cotizacion
+"Me pasa el precio por mayor de la varilla de 3/8",cotizacion
+"¿A cómo está el metro de manguera para jardín?",cotizacion
+"Quiero comprar dos cajas de tornillos y que me las envíen a Soacha",pedido
+"Hice un pedido el lunes y todavía no llega",pedido
+"Quiero pagar y recibir en casa las baldosas que cotizamos",pedido
+"¿En qué va mi pedido 4587?",pedido
+"Confirmo la compra de cinco bultos de cemento para mañana",pedido
+"El taladro que compré dejó de funcionar a los tres días",garantia
+"Quiero devolver el martillo, vino con el mango roto",garantia
+"Me llegó una sierra distinta a la que pedí y quiero cambiarla",garantia
+"La garantía de la pulidora aún está vigente, ¿cómo la hago valer?",garantia
+"Compré una escalera y está torcida, necesito el reembolso",garantia
+"¿Qué broca sirve para perforar concreto sin que se parta?",asesoria
+"¿Cuántos bultos de cemento necesito para una placa de 20 metros?",asesoria
+"No sé si usar silicona o sellante para el baño",asesoria
+"¿Qué diferencia hay entre pintura vinilo y esmalte?",asesoria
+"¿Cómo instalo una llave de lavamanos sin cambiar la tubería?",asesoria
+"Necesito la factura electrónica de mi compra del viernes",factura
+"Me pueden mandar el RUT de la ferretería",factura
+"La factura salió a nombre equivocado, hay que corregir el NIT",factura
+"Pido factura a nombre de mi empresa para la compra de ayer",factura
+"No me llegó la factura al correo",factura
 ```
 
-El recorrido medido con 50 ejemplos por clase está en [`sdk/python/README.md`](../sdk/python/README.md#punta-a-punta-intención-del-sondeo-50-por-clase).
-
-## 3. El esquema
-JSON o YAML con `id`, `pregunta`, `tipo` (`choice`, `noul` o `score`) y `opciones` (mapa id → descripción).
-
-```json
-{"id": "intencion", "pregunta": "¿Qué quiere hacer la persona?", "tipo": "choice",
- "opciones": {"compra": "quiere comprar", "soporte": "tiene un problema con un pedido"}}
-```
-
-Opcionales: `licencias` y `dorado`, que van a META. Si el fichero trae varias preguntas, elige una con `--pregunta`.
-Un `.chispa` por pregunta: el servidor elige L0 por el conjunto de etiquetas.
-
-## 4. Entrenar con `chispa train`
-**Few-shot (modo 2).** Sin L2 (L0 y, si quieres, L1):
+Entrena sin `--conjunta`:
 
 ```
-PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema esquema.json --salida intencion.chispa [--l1 potion.chispa-l1]
+PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema ferreteria.yaml --salida ferreteria-fs.chispa --l1 potion.chispa-l1
 ```
 
-`--l1` es el potion que exporta `python runtime/l1/exportar.py` (155 MB por fichero).
+Con k = 5 (< 10 en alguna opción), `chispa train` no entrena L0 y calibra L1 con los 25 ejemplos; lo avisa por stderr.
+Con 10 o más ejemplos en cada opción entrena también L0.
+La misma petición `curl` del paso 2, contra `ferreteria-fs.chispa`, devuelve la misma forma de respuesta.
+La calibración de L1 con 25 ejemplos es ruidosa: pon aparte unas decenas de casos reales y mide antes de producción.
 
-**Con datos del cliente (modo 3).** Con la cabeza conjunta (L0TF + L2c), que es la configuración medida en [07](07-rendimiento-y-limites.md); necesita el train etiquetado de tu tarea:
+## 4. Con datos del cliente: `--conjunta` (modo avanzado)
+Con la cabeza conjunta (L0TF + L2c). Necesita train etiquetado de tu tarea: **al menos 20 ejemplos por opción**. Con menos,
+`chispa train` avisa por stderr y cae a few-shot.
 
 ```
-PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema esquema.json --salida intencion.chispa \
+PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema ferreteria.yaml --salida ferreteria-conj.chispa \
   --ckpt mejor.pt --l2 l2.chispa --conjunta --repo .
 ```
 
@@ -71,35 +126,25 @@ PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema e
 - `--repo`: la raíz del repositorio. También vale `CHISPA_REPO`.
 - `--conjunta` solo sirve para `choice`. Escribe `CONJ`, `L0TF` y `tau_l2c` en `CALIB`.
 - Topes: `--l0-max-mb` y `--l0tf-max-mb` (48 por defecto). `--precision-objetivo` (0,95) fija el τ de L2c.
+- `--validacion` (CSV/JSONL fuera de `--ejemplos`) fija el τ de L2c sobre esas filas.
 
-Cada flag está definido en [`sdk/python/chispa/cli.py`](../sdk/python/chispa/cli.py).
+Cada flag está definido en [`sdk/python/chispa/cli.py`](../sdk/python/chispa/cli.py). Con L2 o L2c, el servidor necesita además
+`-tags ort`, ONNX Runtime y el tokenizador (`-tok`): [06-despliegue.md](06-despliegue.md). Sin ellos arranca y L2 queda en stub, con un aviso
+en el log. En este modo, la pregunta y los ids de la petición deben ser los del esquema de entrenamiento: L0 elige modelo por el conjunto de ids,
+y L2 y L2c usan también la pregunta.
 
-## 5. Servir
-```
-cd server && go build -o chispa-server ./cmd/chispa-server
-./chispa-server -addr 127.0.0.1:8090 -modelo ../intencion.chispa
-```
-
-Con L2 o L2c hacen falta además `-tags ort`, ONNX Runtime y el tokenizador (`-tok`). Ver [06-despliegue.md](06-despliegue.md).
-Sin ellos, el servidor arranca y L2 queda en stub, con un aviso en el log. El resto de capas responde.
-
-Flags de [`server/cmd/chispa-server/main.go`](../server/cmd/chispa-server/main.go): `-addr`, `-config`, `-modelo`, `-tok`.
-
+Flags del servidor ([`main.go`](../server/cmd/chispa-server/main.go)): `-addr`, `-config`, `-modelo`, `-tok`.
 Sin Go instalado en el servidor, usa la imagen OCI ([06-despliegue.md](06-despliegue.md)).
-
-## 6. Una petición
-```
-curl -s localhost:8090/healthz
-curl -s localhost:8090/v1/decide -d '{"state":"quiero comprar dos camisetas","questions":[{"id":"u1","question":"¿Qué quiere hacer la persona?","kind":"choice","options":[{"id":"compra","description":"quiere comprar"},{"id":"soporte","description":"tiene un problema con un pedido"}]}]}'
-```
-
-Con L0, L2 o L2c, el `question` y los ids deben ser los del esquema de entrenamiento: L0 elige modelo por el conjunto de ids, y L2 y L2c usan también la pregunta. L1 acepta un esquema nuevo.
-
-Respuesta: ver [03-api.md](03-api.md).
 
 ## Desde Python
 ```python
 from chispa import Chispa, Choice
-rs = Chispa("http://127.0.0.1:8090").decidir("quiero comprar dos camisetas",
-    [Choice("u1", "¿Qué quiere hacer la persona?", [("compra", "quiere comprar"), ("soporte", "tiene un problema con un pedido")])])
+ops = [("cotizacion", "pide precio o disponibilidad de un producto, o una cotización de materiales"),
+       ("pedido", "quiere comprar y recibir productos, o pregunta por el estado de un pedido ya hecho"),
+       ("garantia", "reclama por una herramienta defectuosa, un cambio o una devolución"),
+       ("asesoria", "pide ayuda técnica para elegir o usar un material o una herramienta"),
+       ("factura", "pide una factura, un RUT o corregir datos de facturación")]
+rs = Chispa("http://127.0.0.1:8090").decidir("Buenas, ¿cuánto vale el bulto de cemento gris de 50 kg y tienen hoy?",
+    [Choice("q1", "¿Qué necesita la persona que escribe a la ferretería?", ops)])
+rs[0].answer, rs[0].probs, rs[0].layer, rs[0].escalate
 ```

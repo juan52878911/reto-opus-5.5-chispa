@@ -21,12 +21,14 @@ rs = c.decidir("necesito ayuda ya", [
 rs[0].answer, rs[0].probs, rs[0].layer, rs[0].escalate
 ```
 
+- El esquema viaja en cada llamada a `decidir`: la pregunta, los ids y las descripciones de las opciones. Escribe las descripciones
+  con cuidado, porque en zero-shot son lo único que Chispa ve de la tarea. Ejemplo: [02-inicio-rapido.md](02-inicio-rapido.md#desde-python).
 - Reintentos: 3 por defecto, con espera exponencial. El nonce se fija antes del primer intento, así que reintentar es idempotente.
 - `ErrorSolicitud`: 400, 405 o 413. No se reintenta.
 - `ErrorTransporte`: red, 5xx o 429 tras los reintentos.
 - Una pregunta suelta desde la consola: `python -m chispa decide --url … --estado … --pregunta … --opciones a b`
   ([`cli.py`](../sdk/python/chispa/cli.py)).
-- Entrenar: [02-inicio-rapido.md](02-inicio-rapido.md).
+- Entrenar (zero-shot, few-shot y `--conjunta`): [02-inicio-rapido.md](02-inicio-rapido.md).
 
 Los nombres de campo son los del contrato de [03-api.md](03-api.md). `/v1/systemone` de Jev no se ha visto
 ([`server/README.md`](../server/README.md#relación-con-v1systemone-de-jev--suposición-sin-verificar)).
@@ -67,7 +69,7 @@ Como en Android: L0TF, L2c (con `CONJ`) y el tokenizador del motor (`Chispa.abri
 `runtime/l1` en Go puro, compilado a `GOOS=js GOARCH=wasm`. Una página estática con L1 recortado: 50 000 piezas, 15,8 MB, frente a los 155 MB del completo.
 
 - API en JS: `cargar(Uint8Array)`, `decidir(texto, preguntaJSON)`, `huella` y `medir`.
-- Solo L1, zero-shot. La demo enseña el mecanismo y la latencia, no la calidad
+- Solo L1, zero-shot: decide sobre un esquema nuevo con la pregunta y las descripciones. La demo enseña el mecanismo y la latencia, no la calidad
   ([`demo/wasm/README.md`](../demo/wasm/README.md)).
 - Construir: `./construir.sh` en `demo/wasm`, y servir con `python -m http.server`. Necesita `chispa.wasm` y `potion-es.chispa-l1`, que no van a git.
 
