@@ -1,0 +1,470 @@
+[
+ {
+  "kind": "choice",
+  "pregunta": "¿Qué quiere el cliente?",
+  "opciones": [
+   {
+    "id": "fraude",
+    "description": "cargo no reconocido"
+   },
+   {
+    "id": "saldo",
+    "description": ""
+   },
+   {
+    "id": "tarjeta",
+    "description": "bloqueo o reposición"
+   }
+  ],
+  "torre": [
+   "passage: ¿Qué quiere el cliente? · fraude · cargo no reconocido",
+   "passage: ¿Qué quiere el cliente? · saldo · ",
+   "passage: ¿Qué quiere el cliente? · tarjeta · bloqueo o reposición"
+  ],
+  "l1": [
+   "¿Qué quiere el cliente? · fraude · cargo no reconocido",
+   "¿Qué quiere el cliente? · saldo",
+   "¿Qué quiere el cliente? · tarjeta · bloqueo o reposición"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Intención",
+  "opciones": [
+   {
+    "id": "b",
+    "description": ""
+   },
+   {
+    "id": "a",
+    "description": ""
+   },
+   {
+    "id": "c",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Intención · b · ",
+   "passage: Intención · a · ",
+   "passage: Intención · c · "
+  ],
+  "l1": [
+   "Intención · b",
+   "Intención · a",
+   "Intención · c"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Tema del mensaje",
+  "opciones": [
+   {
+    "id": "zeta",
+    "description": "última"
+   },
+   {
+    "id": "alfa",
+    "description": "primera"
+   },
+   {
+    "id": "medio",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Tema del mensaje · zeta · última",
+   "passage: Tema del mensaje · alfa · primera",
+   "passage: Tema del mensaje · medio · "
+  ],
+  "l1": [
+   "Tema del mensaje · zeta · última",
+   "Tema del mensaje · alfa · primera",
+   "Tema del mensaje · medio"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "¿Es spam?",
+  "opciones": [
+   {
+    "id": "sí",
+    "description": "publicidad no pedida"
+   },
+   {
+    "id": "no",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: ¿Es spam? · sí · publicidad no pedida",
+   "passage: ¿Es spam? · no · "
+  ],
+  "l1": [
+   "¿Es spam? · sí · publicidad no pedida",
+   "¿Es spam? · no"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Idioma: ¿ñandú · ¿qué?",
+  "opciones": [
+   {
+    "id": "es",
+    "description": "español"
+   },
+   {
+    "id": "en",
+    "description": "inglés"
+   }
+  ],
+  "torre": [
+   "passage: Idioma: ¿ñandú · ¿qué? · es · español",
+   "passage: Idioma: ¿ñandú · ¿qué? · en · inglés"
+  ],
+  "l1": [
+   "Idioma: ¿ñandú · ¿qué? · es · español",
+   "Idioma: ¿ñandú · ¿qué? · en · inglés"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Una sola",
+  "opciones": [
+   {
+    "id": "única",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Una sola · única · "
+  ],
+  "l1": [
+   "Una sola · única"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "",
+  "opciones": [
+   {
+    "id": "x",
+    "description": "d"
+   }
+  ],
+  "torre": [
+   "passage:  · x · d"
+  ],
+  "l1": [
+   " · x · d"
+  ]
+ },
+ {
+  "kind": "noul",
+  "pregunta": "¿Hay una queja?",
+  "opciones": [
+   {
+    "id": "false",
+    "description": ""
+   },
+   {
+    "id": "true",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: ¿Hay una queja? · true · "
+  ],
+  "l1": [
+   "¿Hay una queja? · false",
+   "¿Hay una queja? · true"
+  ]
+ },
+ {
+  "kind": "noul",
+  "pregunta": "¿Contiene datos personales?",
+  "opciones": [
+   {
+    "id": "true",
+    "description": "nombre, cédula o teléfono"
+   },
+   {
+    "id": "false",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: ¿Contiene datos personales? · true · nombre, cédula o teléfono"
+  ],
+  "l1": [
+   "¿Contiene datos personales? · true · nombre, cédula o teléfono",
+   "¿Contiene datos personales? · false"
+  ]
+ },
+ {
+  "kind": "noul",
+  "pregunta": "¿Es urgente?",
+  "opciones": [
+   {
+    "id": "true",
+    "description": ""
+   },
+   {
+    "id": "false",
+    "description": "no"
+   }
+  ],
+  "torre": [
+   "passage: ¿Es urgente? · true · "
+  ],
+  "l1": [
+   "¿Es urgente? · true",
+   "¿Es urgente? · false · no"
+  ]
+ },
+ {
+  "kind": "noul",
+  "pregunta": "¿Odio?",
+  "opciones": [
+   {
+    "id": "false",
+    "description": "no hay"
+   },
+   {
+    "id": "true",
+    "description": "sí hay"
+   }
+  ],
+  "torre": [
+   "passage: ¿Odio? · true · sí hay"
+  ],
+  "l1": [
+   "¿Odio? · false · no hay",
+   "¿Odio? · true · sí hay"
+  ]
+ },
+ {
+  "kind": "score",
+  "pregunta": "Gravedad",
+  "opciones": [
+   {
+    "id": "1",
+    "description": ""
+   },
+   {
+    "id": "2",
+    "description": ""
+   },
+   {
+    "id": "3",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Gravedad · 3 · "
+  ],
+  "l1": [
+   "Gravedad · 1",
+   "Gravedad · 2",
+   "Gravedad · 3"
+  ]
+ },
+ {
+  "kind": "score",
+  "pregunta": "Gravedad desordenada",
+  "opciones": [
+   {
+    "id": "3",
+    "description": "alta"
+   },
+   {
+    "id": "1",
+    "description": "baja"
+   },
+   {
+    "id": "2",
+    "description": "media"
+   }
+  ],
+  "torre": [
+   "passage: Gravedad desordenada · 3 · alta"
+  ],
+  "l1": [
+   "Gravedad desordenada · 3 · alta",
+   "Gravedad desordenada · 1 · baja",
+   "Gravedad desordenada · 2 · media"
+  ]
+ },
+ {
+  "kind": "score",
+  "pregunta": "Diez niveles",
+  "opciones": [
+   {
+    "id": "2",
+    "description": ""
+   },
+   {
+    "id": "10",
+    "description": "máximo"
+   },
+   {
+    "id": "9",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Diez niveles · 10 · máximo"
+  ],
+  "l1": [
+   "Diez niveles · 2",
+   "Diez niveles · 10 · máximo",
+   "Diez niveles · 9"
+  ]
+ },
+ {
+  "kind": "score",
+  "pregunta": "Satisfacción",
+  "opciones": [
+   {
+    "id": "5",
+    "description": "muy satisfecho"
+   },
+   {
+    "id": "4",
+    "description": ""
+   },
+   {
+    "id": "3",
+    "description": ""
+   },
+   {
+    "id": "2",
+    "description": ""
+   },
+   {
+    "id": "1",
+    "description": "nada"
+   }
+  ],
+  "torre": [
+   "passage: Satisfacción · 5 · muy satisfecho"
+  ],
+  "l1": [
+   "Satisfacción · 5 · muy satisfecho",
+   "Satisfacción · 4",
+   "Satisfacción · 3",
+   "Satisfacción · 2",
+   "Satisfacción · 1 · nada"
+  ]
+ },
+ {
+  "kind": "multi",
+  "pregunta": "Etiquetas del ticket",
+  "opciones": [
+   {
+    "id": "pago",
+    "description": "problemas de pago"
+   },
+   {
+    "id": "envío",
+    "description": ""
+   },
+   {
+    "id": "cuenta",
+    "description": "acceso"
+   }
+  ],
+  "torre": [
+   "passage: Etiquetas del ticket · pago · problemas de pago",
+   "passage: Etiquetas del ticket · envío · ",
+   "passage: Etiquetas del ticket · cuenta · acceso"
+  ],
+  "l1": [
+   "Etiquetas del ticket · pago · problemas de pago",
+   "Etiquetas del ticket · envío",
+   "Etiquetas del ticket · cuenta · acceso"
+  ]
+ },
+ {
+  "kind": "multi",
+  "pregunta": "Temas",
+  "opciones": [
+   {
+    "id": "b",
+    "description": ""
+   },
+   {
+    "id": "a",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Temas · b · ",
+   "passage: Temas · a · "
+  ],
+  "l1": [
+   "Temas · b",
+   "Temas · a"
+  ]
+ },
+ {
+  "kind": "multi",
+  "pregunta": "Un tema",
+  "opciones": [
+   {
+    "id": "t",
+    "description": "d"
+   }
+  ],
+  "torre": [
+   "passage: Un tema · t · d"
+  ],
+  "l1": [
+   "Un tema · t · d"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Descripción con espacios",
+  "opciones": [
+   {
+    "id": "op",
+    "description": "  con espacios  "
+   },
+   {
+    "id": "otra",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Descripción con espacios · op ·   con espacios  ",
+   "passage: Descripción con espacios · otra · "
+  ],
+  "l1": [
+   "Descripción con espacios · op ·   con espacios  ",
+   "Descripción con espacios · otra"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Pregunta con salto\nde línea",
+  "opciones": [
+   {
+    "id": "a",
+    "description": "x\ty"
+   },
+   {
+    "id": "b",
+    "description": ""
+   }
+  ],
+  "torre": [
+   "passage: Pregunta con salto\nde línea · a · x\ty",
+   "passage: Pregunta con salto\nde línea · b · "
+  ],
+  "l1": [
+   "Pregunta con salto\nde línea · a · x\ty",
+   "Pregunta con salto\nde línea · b"
+  ]
+ }
+]
