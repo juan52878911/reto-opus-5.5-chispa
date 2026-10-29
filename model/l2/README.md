@@ -39,8 +39,9 @@ AWS: `bash model/l2/aws/empaquetar.sh > codigo.tgz`; prueba en seco: `empaquetar
   σ(a·s+b); `scoreK`: P(y>j)=σ(a·s−b_j). La sección CALIB solo admite {T,a,b,θ} por clave: `scoreK` guarda a=w/T y b=b_1, y los
   incrementos b_j−b_{j-1} van en claves `scoreK#j` (campo `a`). θ es el umbral de p(true) de `noul` que maximiza el F1 macro (0,5 en el resto).
   El formato solo tiene un τ; el de cada tarea está en `calib.json`.
-- ESQUEMAS: en `choice` una entrada por opción (v2: `HashEsquema(pregunta, [opción, descripción])`; v1 sin descripción); en `noul`/`score` una por pregunta con
-  `[o1, d1, o2, d2, …]` (vector de consulta). El exportador escribe v2 (`META.version` 2); ver `contrato-torre.md`. Un vector int8 con su escala (`q·escala ≈ h`).
+- ESQUEMAS v2 (`HashEsquema2`, claves de 16 bytes): en `choice` una entrada por opción (kind `choice`); en `noul`/`score` una por pregunta con
+  todas las opciones (vector de consulta). El exportador escribe siempre v2; la versión va en la sección, no en `META.version`; ver
+  `contrato-torre.md`. Un vector int8 con su escala (`q·escala ≈ h`).
 - El ONNX acepta los ids del tokenizador original de e5 (con la poda, la tabla id→id podado va dentro del grafo). La atención de las
   ranuras se reescribe en `RanurasExportable` (el trazado de `nn.MultiheadAttention` fija el lote); `exportar` comprueba que coincide.
 

@@ -10,39 +10,35 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
   medio U+00B7 y espacio.
 - **noul** y **score**: **un** vector por pregunta, el «vector de consulta», con el mismo formato y la **última** opción
   (`"true"` en noul y el nivel máximo en score).
-- La clave en ESQUEMAS y CONJ depende de la versión del formato de claves (siguiente sección). Desde la v2 incluye la descripción.
+- La clave en ESQUEMAS y CONJ es `HashEsquema2` (siguiente sección) e incluye la descripción.
 
-## Claves de ESQUEMAS y CONJ: versión 2 (con descripción)
-**Dónde viaja la versión:** `META.version` del `.chispa` (entero; ya existía y el lector solo exige ≥ 1). `1` = claves antiguas, `2` = claves
-con descripción. No cambia el binario de ninguna sección, así que `format/chispa3` lee un fichero v2 sin tocarse; solo el runtime que
-busca las torres tiene que elegir la clave según `META.version`. `exportar.py` **siempre escribe 2**; los `.chispa` existentes dicen 1.
+## Claves de ESQUEMAS y CONJ: versión 2 (`HashEsquema2`)
+**Dónde viaja la versión:** en la propia sección, no en `META.version` (que sigue siendo la del META y vale 1). ESQUEMAS v2 empieza con
+la palabra `(2<<16 | dim)`; CONJ v2 con `versión = 2`. Las dos llevan claves de 16 bytes. `exportar.py` **siempre escribe ESQUEMAS v2**.
 
-`HashEsquema(pregunta, lista)` es el de siempre (`chispa3.HashEsquema`: sha256 con prefijos de longitud u64). Lo que cambia es la `lista`:
+Clave (`format/chispa3/clave2.go`, explicada en `docs/04-formato-chispa.md`):
+`sha256(pregunta · 0x1f · kind · 0x1f · por cada opción ordenada por id: id · 0x1e · descripción · 0x1d)[:16]`.
 
-| sección / tipo | v1 (`META.version` 1) | v2 (`META.version` 2) |
+| sección | `kind` | opciones de la clave |
 |---|---|---|
-| ESQUEMAS, choice (una entrada por opción) | `[opción]` | `[opción, descripción]` |
-| ESQUEMAS, noul y score (una por pregunta) | `[o1, o2, …]` (en el orden de la pregunta) | `[o1, d1, o2, d2, …]` (ídem) |
-| CONJ y SOPL1 (solo choice) | `[id1, id2, …]` ordenados | `[id1, d1, id2, d2, …]` con los ids ordenados |
+| ESQUEMAS, choice (una entrada por opción) | `choice` | solo `(opción, descripción)` |
+| ESQUEMAS, noul y score (una por pregunta) | `noul` / `score` | todas las `(id, descripción)` |
+| CONJ (solo choice) | `choice` | todas las `(id, descripción)` |
+| SOPL1 | — | **sigue con la clave v1** (`clave_conj`) |
 
-`descripción` = la de la opción tal cual, y la cadena vacía si no hay (el mismo valor que entra en el texto de la torre). Es la clave de
-la torre al vuelo: dos esquemas con las mismas opciones y distinta descripción ya no comparten torre precalculada.
+`descripción` = la de la opción tal cual, y la cadena vacía si no hay. Es la clave de la torre al vuelo: dos esquemas con las mismas
+opciones y distinta descripción no comparten torre precalculada.
 
-Ejemplo (choice, pregunta `¿Qué quiere la persona?`, opción `alarma`, descripción `Poner una alarma.`):
-- v1: `HashEsquema("¿Qué quiere la persona?", ["alarma"])` = `5fc4d79dee73d7018f230686f9e139193461929ea3d3d8a0a0031f7ed5d459db`
-- v2: `HashEsquema("¿Qué quiere la persona?", ["alarma", "Poner una alarma."])` =
-  `6143d44c05f4222dee1832556566605bb109f52893a315334728e742121880d4`
+`exportar.py` pasa a `empaquetar_go` entradas `{pregunta, kind, opciones: [{id, description}], escala, vec}` y el empaquetador calcula
+la clave con `chispa3.HashEsquema2`. En Python: `exportar.clave_torre` y `exportar.hash_clave` (`formato.hash_esquema2`);
+`test_esquemas_v2.py` reproduce los 5 vectores de `format/chispa3/vectores-clave-v2.json`.
 
-**Compatibilidad hacia atrás (qué hace el runtime):**
-- `META.version` 1 (o ausente): buscar con la clave v1, como hoy. Los fixtures v1 (`fixtures/calib-score.chispa`, `format/chispa3/testdata`) se
-  quedan tal cual para probarlo.
-- `META.version` ≥ 2: buscar con la v2. No hace falta reintentar con la otra.
-- Reintentar con la v1 si la v2 no aparece (y a la inversa) sería opcional y daría falsos aciertos en descripciones que cambian; no se recomienda.
-- **CONJ y SOPL1 no los escribe `exportar.py`** sino `chispa train --conjunta` (SDK): ese escritor debe pasar a la clave v2 y poner
-  `META.version` 2 cuando todas sus claves lo sean. Un fichero con ESQUEMAS v2 y CONJ v1 no es válido: la versión es única por fichero.
+**Compatibilidad:** el runtime elige la clave según la versión de la sección (`Esquemas.Version()`), no según `META`. Los fixtures v1
+(`fixtures/calib-score.chispa`) siguen con ESQUEMAS v1. **CONJ no lo escribe `exportar.py`** sino `chispa train --conjunta` (SDK):
+fuera de esta zona.
 
 **Fixture de paridad para el runtime:** `model/l2/tests/fixtures/esquemas-v2.chispa` (2,3 KB: ONNX de L2 de relleno, torres de un modelo diminuto) y
-`esquemas-v2.json` con, por entrada, `tipo`, `pregunta`, `opciones` (la lista v2), `hash` y `hash_v1` en hex, el `texto_torre`, y las claves de
+`esquemas-v2.json` con, por entrada, `tipo`, `pregunta`, `kind`, `opciones` (`{id, description}`) y `hash` en hex, el `texto_torre`, y las claves de
 `conj`. Se regeneran con `python -m model.l2.tests.gen_esquemas_v2`; `test_esquemas_v2.py` comprueba que coinciden con un hashlib
 independiente y con la sección ESQUEMAS del fichero. Incluye dos filas con las mismas opciones y distinta descripción de «alarma».
 

@@ -8,9 +8,9 @@
    de e5; los que no están pasan a <unk>).
 2. int8 dinámico con `onnxruntime.quantization.quantize_dynamic` (`--cuant todo|codificador|ninguna`, `--per-channel`): por
    defecto solo el codificador, por canal y con las ranuras en fp32.
-3. Torres de opción en int8 con una escala por vector. Claves de ESQUEMAS v2 (`META.version` = 2; `opciones_clave`): en `choice`,
-   una entrada por opción con `[opción, descripción]`; en `noul` y `score`, una por pregunta con `[o1, d1, o2, d2, …]`
-   (el vector de consulta, `texto_consulta`).
+3. Torres de opción en int8 con una escala por vector. ESQUEMAS v2 con `HashEsquema2` (`clave_torre`, `hash_clave`): en `choice`,
+   una entrada por opción (kind `choice`); en `noul` y `score`, una por pregunta con todas las opciones (el vector de consulta,
+   `texto_consulta`).
 4. `.chispa` v3 con `empaquetar_go` (META, L2, ESQUEMAS, CALIB).
 Junto al `.chispa` deja `<salida>.informe.json` con tamaño, paridad y latencia.
 """
@@ -189,28 +189,30 @@ def cuantizar_vec(h):
     return np.clip(np.rint(h / esc), -127, 127).astype(np.int8), esc
 
 
-VERSION_CLAVES = 2  # META.version: 1 = HashEsquema(pregunta, [opción]); 2 = con la descripción (contrato-torre.md)
+def hash_clave(pregunta, kind, opciones):
+    """`HashEsquema2` (hex de 16 bytes) con el escritor del SDK; `opciones`: pares (id, descripción) en cualquier orden."""
+    sdk = str(Path(__file__).resolve().parents[2] / "sdk" / "python")
+    if sdk not in sys.path:
+        sys.path.insert(0, sdk)
+    from chispa import formato
+    return formato.hash_esquema2(pregunta, kind, opciones).hex()
 
 
-def opciones_clave(fila, opcion=None, version=VERSION_CLAVES):
-    """Lista de `HashEsquema(pregunta, ·)` de ESQUEMAS: choice, la de una `opcion`; noul y score, la de toda la pregunta.
-
-    v2 intercala la descripción tras cada opción, como la torre al vuelo del runtime; v1 solo lleva las opciones."""
+def clave_torre(fila, opcion=None):
+    """(pregunta, kind, ((id, descripción), …)) de ESQUEMAS v2: choice, la de una `opcion`; noul y score, la de toda la pregunta."""
     desc = fila.get("descripciones", {})
     ops = [opcion] if fila["tipo"] == "choice" else list(fila["opciones"])
-    if version == 1:
-        return ops
-    return [x for o in ops for x in (o, desc.get(o, ""))]
+    return fila["pregunta"], fila["tipo"], tuple(sorted((o, desc.get(o, "")) for o in ops))
 
 
 def entradas_torres(modelo, enc, filas, lote=256):
-    """[(pregunta, opciones, vec int8, escala)] únicas; error si una misma clave tiene dos textos de torre distintos."""
+    """[(pregunta, kind, opciones, vec int8, escala)] únicas; error si una misma clave tiene dos textos de torre distintos."""
     texto_de, claves = {}, []
     for r in filas:
         if r["tipo"] == "choice":
-            pares = [((r["pregunta"], tuple(opciones_clave(r, o))), texto_opcion(r, o)) for o in r["opciones"]]
+            pares = [(clave_torre(r, o), texto_opcion(r, o)) for o in r["opciones"]]
         else:
-            pares = [((r["pregunta"], tuple(opciones_clave(r))), texto_consulta(r))]
+            pares = [(clave_torre(r), texto_consulta(r))]
         for k, t in pares:
             if texto_de.setdefault(k, t) != t:
                 raise ValueError("la clave %r tiene dos textos de torre distintos (¿descripciones que cambian?)" % (k,))
@@ -223,28 +225,29 @@ def entradas_torres(modelo, enc, filas, lote=256):
             h = modelo.torre(enc.pasaje([texto_de[k] for k in ks]).to(modelo.ranuras.q.device)).cpu().numpy()
             for k, v in zip(ks, h):
                 q, esc = cuantizar_vec(v)
-                out.append((k[0], list(k[1]), q, esc))
+                out.append((*k, q, esc))
     return out
 
 
 def esquemas_json(torres, dim):
-    return {"dim": dim, "entradas": [{"pregunta": p, "opciones": o, "escala": float(np.float32(e)),
-                                      "vec": base64.b64encode(q.tobytes()).decode()} for p, o, q, e in torres]}
+    return {"dim": dim, "entradas": [{"pregunta": p, "kind": k, "opciones": [{"id": i, "description": d} for i, d in o],
+                                      "escala": float(np.float32(e)), "vec": base64.b64encode(q.tobytes()).decode()}
+                                     for p, k, o, q, e in torres]}
 
 
 # ---------------------------------------------------------------- paridad y latencia
 def probs_onnx(modelo, enc, sess, filas, torres):
     """Probabilidades de la cabeza del modelo con S del ONNX int8 y torres dequantizadas de ESQUEMAS (lo que hará el runtime)."""
-    vec = {(p, tuple(o)): torch.from_numpy(q.astype(np.float32) * np.float32(e)) for p, o, q, e in torres}
+    vec = {(p, k, tuple(o)): torch.from_numpy(q.astype(np.float32) * np.float32(e)) for p, k, o, q, e in torres}
     out = []
     for r in filas:
         b = enc.tok(["query: " + r["texto"]], padding=True, truncation=True, max_length=enc.max_tok, return_tensors="pt")
         S = torch.from_numpy(correr(sess, b["input_ids"].numpy(), b["attention_mask"].numpy()))
         if r["tipo"] == "choice":
-            h = torch.stack([vec[(r["pregunta"], tuple(opciones_clave(r, o)))] for o in r["opciones"]])
+            h = torch.stack([vec[clave_torre(r, o)] for o in r["opciones"]])
             s = maxsim(S, h)[0]
         else:
-            s = maxsim(S, vec[(r["pregunta"], tuple(opciones_clave(r)))][None])[0]
+            s = maxsim(S, vec[clave_torre(r)][None])[0]
         clave = clave_cabeza(r)
         out.append(C.probs_de(clave, s, C.cabeza_inicial(modelo, clave)))
     return out
@@ -574,7 +577,7 @@ def meta_de(filas, dorado=""):
     lic = {}
     for r in filas:
         lic.setdefault(r.get("fuente", "?"), r.get("licencia", "?"))
-    return {"version": VERSION_CLAVES, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
+    return {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
 
 
 def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256),
@@ -592,7 +595,7 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     cuantizar(fp32, int8, cuant, per_channel)
     meta_consulta(int8, enc.max_tok)
     torres = entradas_torres(modelo, enc, filas_esq)
-    dim = int(torres[0][2].shape[0])
+    dim = int(torres[0][3].shape[0])
     empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib["chispa"], salida)
     inf = {"l2_mb": int8.stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "chispa_mb": Path(salida).stat().st_size / 1e6,
            "torres": len(torres), "vocab_podado": bool(vocab), "cuant": cuant, "per_channel": per_channel, "opset": OPSET, "k_ranuras": K_RANURAS}

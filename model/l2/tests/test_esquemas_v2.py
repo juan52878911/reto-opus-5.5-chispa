@@ -1,5 +1,7 @@
 import json
+import os
 import struct
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -11,8 +13,8 @@ FIX = Path(__file__).resolve().parent / "fixtures"
 SDK = Path(__file__).resolve().parents[3] / "sdk" / "python"
 
 
-def hashes_esquemas(chispa):
-    """Hashes de la sección ESQUEMAS (tipo 5) leída con el lector Python del SDK."""
+def leer_esquemas(chispa):
+    """(versión, dim, hashes en hex) de la sección ESQUEMAS (tipo 5) leída con el lector Python del SDK, y META."""
     sys.path.insert(0, str(SDK))
     try:
         from chispa import formato
@@ -20,41 +22,53 @@ def hashes_esquemas(chispa):
         sys.path.remove(str(SDK))
     secs = formato.leer(chispa.read_bytes())
     b = secs[5]
-    dim, n = struct.unpack_from("<II", b, 0)
-    return [b[8 + 32 * i:8 + 32 * (i + 1)].hex() for i in range(n)], json.loads(secs[1])
+    w0, n = struct.unpack_from("<II", b, 0)
+    return w0 >> 16, w0 & 0xffff, [b[8 + 16 * i:8 + 16 * (i + 1)].hex() for i in range(n)], json.loads(secs[1])
 
 
 class ClavesV2(unittest.TestCase):
-    def test_opciones_clave(self):
+    def test_vectores_del_formato(self):
+        vs = json.loads((Path(__file__).resolve().parents[3] / "format" / "chispa3" / "vectores-clave-v2.json").read_text(encoding="utf-8"))["vectores"]
+        self.assertEqual(len(vs), 5)
+        for v in vs:
+            ops = [(o["id"], o["description"]) for o in v["opciones"]]
+            self.assertEqual(E.hash_clave(v["pregunta"], v["kind"], ops), v["hash"], v["nombre"])
+            self.assertEqual(G.hash_esquema2(v["pregunta"], v["kind"], ops).hex(), v["hash"], v["nombre"])
+
+    def test_clave_torre(self):
         fs = G.filas()
-        self.assertEqual(E.opciones_clave(fs[0], "alarma"), ["alarma", "Poner una alarma."])
-        self.assertEqual(E.opciones_clave(fs[0], "musica"), ["musica", ""])
-        self.assertEqual(E.opciones_clave(fs[2]), ["false", "Mensaje legítimo.", "true", "Mensaje no deseado."])
-        self.assertEqual(E.opciones_clave(fs[0], "alarma", 1), ["alarma"])
-        self.assertEqual(E.opciones_clave(fs[3], version=1), ["1", "2", "3"])
+        self.assertEqual(E.clave_torre(fs[0], "alarma")[1:], ("choice", (("alarma", "Poner una alarma."),)))
+        self.assertEqual(E.clave_torre(fs[0], "musica")[2], (("musica", ""),))
+        self.assertEqual(E.clave_torre(fs[2])[1:], ("noul", (("false", "Mensaje legítimo."), ("true", "Mensaje no deseado."))))
+        self.assertEqual(E.clave_torre(fs[3])[1], "score")
 
     def test_la_descripcion_cambia_la_clave(self):
         a, b = G.filas()[:2]
-        self.assertNotEqual(G.hash_esquema(a["pregunta"], E.opciones_clave(a, "alarma")), G.hash_esquema(b["pregunta"], E.opciones_clave(b, "alarma")))
-        self.assertEqual(G.hash_esquema(a["pregunta"], E.opciones_clave(a, "tiempo")), G.hash_esquema(b["pregunta"], E.opciones_clave(b, "tiempo")))
+        h = lambda r, o: E.hash_clave(*E.clave_torre(r, o))
+        self.assertNotEqual(h(a, "alarma"), h(b, "alarma"))
+        self.assertEqual(h(a, "tiempo"), h(b, "tiempo"))
 
-    def test_el_exportador_escribe_v2(self):
-        self.assertEqual(E.meta_de(G.filas())["version"], 2)
+    def test_meta_no_lleva_version_de_clave(self):
+        self.assertEqual(E.meta_de(G.filas())["version"], 1)
 
     def test_fixture_v2_coincide_con_lo_esperado(self):
         esp = json.loads((FIX / "esquemas-v2.json").read_text(encoding="utf-8"))
         self.assertEqual(esp, G.esperado(G.filas()))
-        hs, meta = hashes_esquemas(FIX / "esquemas-v2.chispa")
-        self.assertEqual(meta["version"], 2)
+        ver, dim, hs, meta = leer_esquemas(FIX / "esquemas-v2.chispa")
+        self.assertEqual((ver, dim), (2, 256))
         self.assertEqual(hs, sorted(c["hash"] for c in esp["claves"]))
-        self.assertTrue(all(c["hash"] != c["hash_v1"] for c in esp["claves"]))
+        self.assertTrue(all(c["hash"] == E.hash_clave(c["pregunta"], c["kind"], [(o["id"], o["description"]) for o in c["opciones"]])
+                            for c in esp["claves"] + esp["conj"]))
         self.assertLess((FIX / "esquemas-v2.chispa").stat().st_size, 8192)
 
-    def test_ejemplo_de_clave_del_contrato(self):
-        # el ejemplo de contrato-torre.md y de 04-formato-chispa.md
-        h = G.hash_esquema("¿Qué quiere la persona?", ["alarma", "Poner una alarma."]).hex()
-        self.assertEqual(h, "6143d44c05f4222dee1832556566605bb109f52893a315334728e742121880d4")
-        self.assertIn(h, (Path(__file__).resolve().parents[1] / "contrato-torre.md").read_text(encoding="utf-8"))
+    def test_chispa3_abre_el_fixture(self):
+        # el lector de Go (chispa3.Abrir + Esquemas) busca cada clave con BuscarEsquema
+        env = {**os.environ, "CHISPA_FICHERO": str(FIX / "esquemas-v2.chispa"), "CHISPA_FIXTURE_JSON": str(FIX / "esquemas-v2.json"),
+               "GOFLAGS": "-mod=mod", "GOPROXY": "off"}
+        p = subprocess.run([E.go_bin(), "test", "-count=1", "-run", "TestFixtureEsquemasV2", "-v", "."], cwd=E.GO_DIR, env=env,
+                           capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertNotIn("SKIP", p.stdout)
 
 
 class PerfilesCli(unittest.TestCase):

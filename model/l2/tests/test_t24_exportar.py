@@ -126,7 +126,7 @@ class Exportacion(unittest.TestCase):
         d = Path(self.dir.name)
         torres = E.entradas_torres(self.modelo, self.enc, self.filas)
         # las torres cuantizadas se parecen a las de punto flotante
-        for p, o, q, esc in torres[:3]:
+        for p, k, o, q, esc in torres[:3]:
             self.assertLessEqual(int(np.abs(q).max()), 127)
             self.assertAlmostEqual(float(np.linalg.norm(q.astype(np.float32) * esc)), 1.0, delta=0.05)
         esp = d / "esperado.json"

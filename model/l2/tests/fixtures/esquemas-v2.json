@@ -1,106 +1,136 @@
 {
  "version": 2,
- "nota": "ESQUEMAS v2: choice = HashEsquema(pregunta, [opción, descripción]) por opción; noul/score = HashEsquema(pregunta, [o1, d1, o2, d2, …]) en el orden de la pregunta. CONJ v2 (solo choice): ídem con los ids ordenados. contrato-torre.md.",
+ "nota": "ESQUEMAS v2 (HashEsquema2, 16 bytes): choice = una entrada por opción (kind choice, [opción]); noul/score = una por pregunta con todas las opciones (kind = tipo). CONJ v2 (solo choice): kind choice con todas las opciones. contrato-torre.md.",
  "claves": [
   {
    "tipo": "choice",
    "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
    "opciones": [
-    "alarma",
-    "Poner una alarma."
+    {
+     "id": "alarma",
+     "description": "Poner una alarma."
+    }
    ],
-   "hash": "6143d44c05f4222dee1832556566605bb109f52893a315334728e742121880d4",
-   "hash_v1": "5fc4d79dee73d7018f230686f9e139193461929ea3d3d8a0a0031f7ed5d459db",
+   "hash": "a2c16b0b821a58fad90df5ac30b83c41",
    "texto_torre": "passage: ¿Qué quiere la persona? · alarma · Poner una alarma."
   },
   {
    "tipo": "choice",
    "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
    "opciones": [
-    "tiempo",
-    "Preguntar por el clima."
+    {
+     "id": "tiempo",
+     "description": "Preguntar por el clima."
+    }
    ],
-   "hash": "82458d8726cf9a0d1ca84c110f201047496a0f3a763b190e689d3f3f7f95b815",
-   "hash_v1": "5447fcd3b93cb07477183bd3554722dd72fe742eccb913dfa4267c788152945c",
+   "hash": "3e44b2476a3c1230b5ebc2a5690184ce",
    "texto_torre": "passage: ¿Qué quiere la persona? · tiempo · Preguntar por el clima."
   },
   {
    "tipo": "choice",
    "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
    "opciones": [
-    "musica",
-    ""
+    {
+     "id": "musica",
+     "description": ""
+    }
    ],
-   "hash": "ee54108dd6ae618cde5ea661f8140c7fa7650ac0e7a8226952ed98ec2125172d",
-   "hash_v1": "a156f4a1598a35dc587490cb16b746dba31d73584f8f81cdebb3105fa532a3e9",
+   "hash": "e610c6f9c6a6c98b49f20168f3074c80",
    "texto_torre": "passage: ¿Qué quiere la persona? · musica · "
   },
   {
    "tipo": "choice",
    "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
    "opciones": [
-    "alarma",
-    "Despertar a una hora."
+    {
+     "id": "alarma",
+     "description": "Despertar a una hora."
+    }
    ],
-   "hash": "a003ac264e7c295a93357762bcfa06cbc2bbf018dfd24889884ee70227d7efad",
-   "hash_v1": "5fc4d79dee73d7018f230686f9e139193461929ea3d3d8a0a0031f7ed5d459db",
+   "hash": "17220e667108f42c5e47fa29997835c7",
    "texto_torre": "passage: ¿Qué quiere la persona? · alarma · Despertar a una hora."
   },
   {
    "tipo": "noul",
    "pregunta": "¿Es spam? ñandú, café",
+   "kind": "noul",
    "opciones": [
-    "false",
-    "Mensaje legítimo.",
-    "true",
-    "Mensaje no deseado."
+    {
+     "id": "false",
+     "description": "Mensaje legítimo."
+    },
+    {
+     "id": "true",
+     "description": "Mensaje no deseado."
+    }
    ],
-   "hash": "9b94b54afc47a3c52c2562490ae6b6bcd2a58ca5ddd01f9a57497623325e7633",
-   "hash_v1": "ff3883bae3d5d5a1d21d45f7e42992b078a41bd448d2172bcace64f33a4df831",
+   "hash": "f6faddd60548e2b79dd7dee7c7a90769",
    "texto_torre": "passage: ¿Es spam? ñandú, café · true · Mensaje no deseado."
   },
   {
    "tipo": "score",
    "pregunta": "Valora la urgencia",
+   "kind": "score",
    "opciones": [
-    "1",
-    "Baja",
-    "2",
-    "Media",
-    "3",
-    "Alta"
+    {
+     "id": "1",
+     "description": "Baja"
+    },
+    {
+     "id": "2",
+     "description": "Media"
+    },
+    {
+     "id": "3",
+     "description": "Alta"
+    }
    ],
-   "hash": "5f296873aa90558796293e9041607009c56f950b3368c3354d75c285282fd7b2",
-   "hash_v1": "20085c02e5ce539aae589871891483f0d6b1657e8a8f1fca9063e055ec1073d7",
+   "hash": "19f84df57e56fc1e03173c61adccda3d",
    "texto_torre": "passage: Valora la urgencia · 3 · Alta"
   }
  ],
  "conj": [
   {
    "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
    "opciones": [
-    "alarma",
-    "Poner una alarma.",
-    "musica",
-    "",
-    "tiempo",
-    "Preguntar por el clima."
+    {
+     "id": "alarma",
+     "description": "Poner una alarma."
+    },
+    {
+     "id": "tiempo",
+     "description": "Preguntar por el clima."
+    },
+    {
+     "id": "musica",
+     "description": ""
+    }
    ],
-   "hash": "964e47ad0a41a98f48b48cbd353b14bc6126381be3f24736b24ba2857749536b",
-   "hash_v1": "475ba5bfb7dd2ec31f3d5f5909154a449ddfece6d47a4ff532289df6a6a46a3c"
+   "hash": "673ec16f21461d6ee35050de5b1efbb2"
   },
   {
    "pregunta": "¿Qué quiere la persona?",
+   "kind": "choice",
    "opciones": [
-    "alarma",
-    "Despertar a una hora.",
-    "musica",
-    "",
-    "tiempo",
-    "Preguntar por el clima."
+    {
+     "id": "alarma",
+     "description": "Despertar a una hora."
+    },
+    {
+     "id": "tiempo",
+     "description": "Preguntar por el clima."
+    },
+    {
+     "id": "musica",
+     "description": ""
+    }
    ],
-   "hash": "e9677a955772478a1c44d890e621804ac259edf514e4f44a1d0acd6ed2c41c79",
-   "hash_v1": "475ba5bfb7dd2ec31f3d5f5909154a449ddfece6d47a4ff532289df6a6a46a3c"
+   "hash": "eaff71e0cf2e0d2edf81c62ff34c8a8d"
   }
  ]
 }
