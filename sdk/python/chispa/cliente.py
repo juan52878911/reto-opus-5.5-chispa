@@ -17,11 +17,16 @@ class ChispaError(Exception):
 
 
 class ErrorSolicitud(ChispaError):
-    """El servidor respondió con un error (400, 405, 413…). `status` y `mensaje` (el `{"error"}` del contrato)."""
+    """El servidor respondió con un error (400, 405, 413…). `status`; `codigo`, `mensaje` y `question_id` del error tipado
+    `{"error":{"code","message","question_id"}}`. También acepta el formato viejo `{"error":"texto"}` (`codigo` y `question_id` vacíos)."""
 
-    def __init__(self, status: int, mensaje: str):
-        super().__init__(f"HTTP {status}: {mensaje}")
-        self.status, self.mensaje = status, mensaje
+    def __init__(self, status: int, mensaje, codigo: str = "", question_id=None):
+        if isinstance(mensaje, dict):
+            codigo = mensaje.get("code", codigo) or ""
+            question_id = mensaje.get("question_id", question_id)
+            mensaje = mensaje.get("message", "")
+        super().__init__(f"HTTP {status}: " + (f"[{codigo}] " if codigo else "") + str(mensaje))
+        self.status, self.codigo, self.mensaje, self.question_id = status, codigo, mensaje, question_id
 
 
 class ErrorTransporte(ChispaError):
@@ -86,7 +91,7 @@ class Chispa:
                         texto = json.loads(texto).get("error", texto)
                     except (ValueError, AttributeError):
                         pass
-                    raise ErrorSolicitud(e.code, texto) from None
+                    raise ErrorSolicitud(e.code, texto) from None  # str (formato viejo) o dict (tipado)
                 ultimo = f"HTTP {e.code}"
             except (urllib.error.URLError, OSError, ValueError) as e:  # ValueError: JSON ilegible
                 ultimo = repr(e)

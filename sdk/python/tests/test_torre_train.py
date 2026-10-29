@@ -1,5 +1,7 @@
 import json
+import os
 import shutil
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,7 +26,10 @@ class TestTorreTrain(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.d)
         (self.d / "e.json").write_text(json.dumps(ESQ))
         (self.d / "l1.bin").write_bytes(b"l1-falso")
-        (self.d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"onnx", formato.ESQUEMAS: b"esq"}))
+        (self.d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"onnx", formato.ESQUEMAS: struct.pack("<II", 8, 0)}))
+
+    def l2(self, dim):
+        (self.d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"onnx", formato.ESQUEMAS: struct.pack("<II", dim, 0)}))
 
     def onnx(self, nombre="t.onnx", **kw):
         (self.d / nombre).write_bytes(onnx_torre(**kw))
@@ -45,6 +50,7 @@ class TestTorreTrain(unittest.TestCase):
         return formato.leer_torr(formato.leer((self.d / salida).read_bytes())[formato.TORR])
 
     def test_zero_shot_con_el_sintetico(self):
+        self.l2(256)
         inf = self.correr(None, l1=self.d / "l1.bin", l2=str(self.d / "l2.chispa"), torre=SINTETICO)
         self.assertEqual(inf["secciones"], ["META", "L1", "L2", "ESQUEMAS", "CALIB", "TORR"])
         t = self.torr()
@@ -107,18 +113,79 @@ class TestTorreTrain(unittest.TestCase):
                 self.correr(None, l1=self.d / "l1.bin", torre=r)
 
     def test_metadatos_flags_y_choques(self):
-        o = self.onnx("m.onnx", meta={"chispa.torre.max_len": 64, "chispa.torre.prefijo": "doc: "})
+        o = self.onnx("m.onnx", meta={"chispa.torre.max_len": 64})
         self.correr(None, l1=self.d / "l1.bin", torre=o)
         t = self.torr()
-        self.assertEqual((t["dim"], t["max_len"], t["prefijo"]), (8, 64, "doc: "))
-        self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=32, torre_prefijo="x: ")
+        self.assertEqual((t["dim"], t["max_len"], t["prefijo"]), (8, 64, "passage: "))
+        self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=32, torre_prefijo="passage: ")
         t = self.torr()
-        self.assertEqual((t["max_len"], t["prefijo"]), (32, "x: "))
-        for kw, msg in (({"torre_max_len": 32}, "choca con los metadatos"), ({"torre_prefijo": "q: "}, "choca"), ({"torre_dim": 16}, "dim")):
+        self.assertEqual((t["max_len"], t["prefijo"]), (32, "passage: "))
+        for kw, msg in (({"torre_max_len": 32}, "choca con los metadatos"), ({"torre_max_len": 64, "torre_prefijo": "q: "}, "no válido"), ({"torre_dim": 16}, "dim")):
             with self.assertRaisesRegex(ChispaError, msg):
                 self.correr(None, l1=self.d / "l1.bin", torre=o, **kw)
         with self.assertRaisesRegex(ChispaError, "dim"):
             self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_dim=16)
+
+    def test_prefijo_distinto_de_passage_se_rechaza(self):
+        for kw in ({"torre": self.onnx("v.onnx", meta={"chispa.torre.prefijo": ""})}, {"torre": self.onnx(), "torre_prefijo": "query: "},
+                   {"torre": self.onnx("p.onnx", meta={"chispa.torre.prefijo": "passage:"})}):
+            with self.assertRaisesRegex(ChispaError, r'TORR v1: prefijo .* no válido; se espera \'passage: \''):
+                self.correr(None, l1=self.d / "l1.bin", **kw)
+        self.assertFalse((self.d / "s.chispa").exists())
+        with self.assertRaisesRegex(ChispaError, r'TORR v1: prefijo \'query: \' no válido'):
+            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_prefijo="query: ")
+
+    def test_prefijo_por_version(self):
+        formato.validar_prefijo_torr(1, "passage: ")
+        with self.assertRaisesRegex(ValueError, "TORR v7: versión desconocida"):
+            formato.validar_prefijo_torr(7, "passage: ")
+        from unittest import mock
+        with mock.patch.dict(formato.TORR_PREFIJO_POR_VERSION, {2: "doc: "}):
+            formato.validar_prefijo_torr(2, "doc: ")
+            with self.assertRaisesRegex(ValueError, "TORR v2"):
+                formato.validar_prefijo_torr(2, "passage: ")
+
+    def test_max_len_mayor_de_128_se_rechaza(self):
+        with self.assertRaisesRegex(ChispaError, "max_len 256 > 128"):
+            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=256)
+        with self.assertRaisesRegex(ChispaError, "max_len 200 > 128"):
+            self.correr(None, l1=self.d / "l1.bin", torre=self.onnx("m2.onnx", meta={"chispa.torre.max_len": 200}))
+        self.correr(None, l1=self.d / "l1.bin", torre=self.onnx(), torre_max_len=128)
+
+    def test_dim_de_torre_distinta_de_l2_falla_al_entrenar(self):
+        self.l2(2)
+        with self.assertRaisesRegex(ChispaError, r"dim de la torre \(8\) no casa con la de L2/ESQUEMAS \(2\)"):
+            self.correr(None, l1=self.d / "l1.bin", l2=str(self.d / "l2.chispa"), torre=self.onnx())
+        self.assertFalse((self.d / "s.chispa").exists())
+
+    def test_anadir_torr_comprueba_dim_y_deja_intacto_el_original(self):
+        from chispa.torre import anadir_torr
+        f = self.d / "x.chispa"
+        f.write_bytes(formato.escribir({formato.META: formato.meta(["q"]), formato.ESQUEMAS: struct.pack("<II", 2, 0)}))
+        antes = f.read_bytes()
+        t = {"dim": 3, "max_len": 128, "prefijo": "passage: ", "onnx": b"o"}
+        with self.assertRaisesRegex(ChispaError, "no casa"):
+            anadir_torr(f, t, {})
+        self.assertEqual(f.read_bytes(), antes)
+
+    def test_anadir_torr_es_atomico(self):
+        from unittest import mock
+        from chispa.torre import anadir_torr
+        f = self.d / "x.chispa"
+        f.write_bytes(formato.escribir({formato.META: formato.meta(["q"])}))
+        antes = f.read_bytes()
+        t = {"dim": 3, "max_len": 128, "prefijo": "passage: ", "onnx": b"o"}
+        with mock.patch("os.replace", side_effect=OSError("corte")):
+            with self.assertRaises(OSError):
+                anadir_torr(f, t, {})
+        self.assertEqual(f.read_bytes(), antes)
+        self.assertEqual([p.name for p in self.d.glob("x.chispa*")], ["x.chispa"])  # sin temporal
+        usados = []
+        real = os.replace
+        with mock.patch("os.replace", side_effect=lambda a, b: (usados.append((Path(a).parent, Path(a).name)), real(a, b))):
+            anadir_torr(f, t, {})
+        self.assertEqual(usados, [(self.d, "x.chispa.tmp")])
+        self.assertIn(formato.TORR, formato.leer(f.read_bytes()))
 
     def test_sin_onnx_instalado_error_claro_y_sin_torre_no_se_importa(self):
         import sys
