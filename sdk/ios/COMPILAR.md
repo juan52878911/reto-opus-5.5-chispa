@@ -148,3 +148,16 @@ Todo esto está escrito de memoria. En este orden de probabilidad:
 Anota en `sdk/ios/README.md` (quita el aviso «Escrito sin compilar» solo si el paso 6 pasó) qué cambiaste y con qué
 versiones de Xcode, Go, gomobile y onnxruntime-swift-package-manager. Para el contrato de zero-shot de L2 y el
 codificador de torres por defecto, ver `PARIDAD.md`.
+
+## Revisión estática de los tests (sin swiftc en el nodo)
+Se leyeron a mano los 10 ficheros de `Tests/ChispaTests` contra `Motor` (con sus valores por defecto de extensión), `Capa`,
+`CapaL2` (init de miembros, orden `motor/sesion/tokenizador/codificador/ahora`), `CapaConTau`, `Cascada.init/armar`, `Chispa.montar`
+y `soporteDe`, `CacheFicheros`, `abrirConRespaldo`, `TokenizadorMotor` y `CodificadorTorreMotor`: etiquetas, orden, `throws`/`try`,
+tipos (`UInt64`, `[Int64]`, `Data`) y que `MotorFalso` cumple todo el protocolo. Único cambio: en `TauEsquemaNuevoTests` se
+escribe `Double.infinity`/`Double.nan` en lugar de `.infinity`/`.nan` sobre `Double?` (evita depender de la resolución de
+miembros implícitos sobre opcionales). Sin tocar la API.
+Sigue sin asegurarse:
+- Que el `init` de miembros de `CapaL2` sea `internal` pese a sus `private let ... = X()` (no participan en el init, pero no se compiló).
+- `XCTAssertEqual(try …?.0, …)` con tuplas opcionales, y los cierres con `defer` en una sola línea del reloj de `CascadaTests`.
+- `final class` declaradas dentro de métodos de test (`Falla`, `Cuenta`, `Fijo`).
+- El resultado numérico de los tests (trazado a mano, no ejecutado) y todo lo que toque `OnnxRuntimeBindings`/`Chispamovil`.
