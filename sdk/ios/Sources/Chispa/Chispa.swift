@@ -6,8 +6,9 @@ import Foundation
 ///     let r = chispa.decidir("quiero comprar dos camisetas", [pregunta]).first!
 ///     // r.respuesta, r.confianza, r.capa, r.escalar
 ///
-/// L2 (ONNX Runtime con CoreML) solo se monta si el fichero trae las secciones L2 y ESQUEMAS **y** se da un
-/// `Tokenizador` de e5.
+/// L0 usa la sección L0TF si el fichero la trae. L2 (ONNX Runtime con CoreML) solo se monta si el fichero trae las
+/// secciones L2 y ESQUEMAS **y** hay tokenizador de e5: el de la app (`Tokenizador`) o el del motor, cargado de un
+/// `.chispa-tok` (`rutaTokenizador`, el mismo que usa el servidor). Con CONJ en el fichero, L2 es L2c (cabeza conjunta).
 public final class Chispa {
     private let motor: Motor
     private let cascada: Cascada
@@ -25,11 +26,17 @@ public final class Chispa {
     public var capas: [String] { motor.capas().filter { $0 != "L2" || sesion != nil } }
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
-    public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, coreML: Bool = true) throws -> Chispa {
+    public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
+                             coreML: Bool = true) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
         let motor = try MotorNativo.abrir(ruta: ruta)
         do {
-            return try montar(motor: motor, tokenizador: tokenizador, onnx: {
+            var tok = tokenizador
+            if tok == nil, let rt = rutaTokenizador {
+                try motor.cargarTokenizadorE5(ruta: rt)
+                tok = TokenizadorMotor(motor: motor)
+            }
+            return try montar(motor: motor, tokenizador: tok, onnx: {
                 // un nombre estable (nombre y tamaño del modelo) para no extraer el ONNX en cada arranque
                 let atributos = try? FileManager.default.attributesOfItem(atPath: ruta)
                 let tam = (atributos?[.size] as? NSNumber)?.intValue ?? 0

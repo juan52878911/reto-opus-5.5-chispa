@@ -3,7 +3,9 @@
 Paquete Swift (`Package.swift`): `Chispa.abrir(ruta:)` y `decidir(_:_:)`, con la misma cascada que Android
 (`server/decide/cascada.go`: L0 → L1 → L2, τ de CALIB para L1 y L2). L0 y L1 vienen del xcframework de gomobile
 (`binaryTarget` `Chispamovil`); L2 usa ONNX Runtime (`onnxruntime-swift-package-manager`, módulo `OnnxRuntimeBindings`)
-con el **EP de CoreML**. Como en Android, L2 necesita un `Tokenizador` de e5 que todavía no existe.
+con el **EP de CoreML**. Como en Android, L0 usa L0TF si el fichero la trae y, con CONJ, L2 es L2c (`Motor.cabezaConjunta`). L2 necesita el tokenizador de e5:
+el del motor (`Chispa.abrir(ruta:, rutaTokenizador:)` con el `.chispa-tok` de `runtime/tok/exportar.py`) o uno de la app (`Tokenizador`).
+Todo esto, sin compilar.
 
 ```swift
 let chispa = try Chispa.abrir(ruta: Bundle.main.path(forResource: "modelo", ofType: "chispa")!)

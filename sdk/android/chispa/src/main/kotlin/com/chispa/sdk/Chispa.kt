@@ -10,7 +10,9 @@ import java.io.File
  *     val r = chispa.decidir("quiero comprar dos camisetas", listOf(pregunta)).first()
  *     // r.respuesta, r.confianza, r.capa, r.escalar
  *
- * L2 (ONNX Runtime) solo se monta si el fichero trae las secciones L2 y ESQUEMAS **y** se da un [Tokenizador] de e5.
+ * L0 usa la sección L0TF si el fichero la trae. L2 (ONNX Runtime) solo se monta si el fichero trae las secciones L2
+ * y ESQUEMAS **y** hay tokenizador de e5: el de la app ([Tokenizador]) o el del motor, cargado de un `.chispa-tok`
+ * (`rutaTokenizador`, el mismo que usa el servidor). Con CONJ en el fichero, L2 es L2c (cabeza conjunta).
  */
 class Chispa private constructor(
     private val motor: Motor,
@@ -35,11 +37,21 @@ class Chispa private constructor(
          * Abre el modelo. [rutaModelo] es la ruta absoluta de un fichero, o el nombre de un asset (se copia una vez a
          * `filesDir`, porque el motor lo mapea en memoria y necesita un fichero de verdad).
          */
-        fun abrir(contexto: Context, rutaModelo: String, tokenizador: Tokenizador? = null): Chispa {
+        fun abrir(
+            contexto: Context,
+            rutaModelo: String,
+            tokenizador: Tokenizador? = null,
+            rutaTokenizador: String? = null,
+        ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
             val motor = MotorNativo.abrir(fichero.absolutePath)
             return try {
-                montar(motor, tokenizador, onnx = { motor.extraerL2ARuta(contexto, fichero) })
+                var tok = tokenizador
+                if (tok == null && rutaTokenizador != null) {
+                    motor.cargarTokenizadorE5(resolver(contexto, rutaTokenizador).absolutePath)
+                    tok = TokenizadorMotor(motor)
+                }
+                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) })
             } catch (e: Throwable) {
                 motor.close()
                 throw e

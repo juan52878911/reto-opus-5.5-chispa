@@ -20,7 +20,11 @@ class MotorFalso(
     var l1: () -> String = { json(null, 0.0) },
     var torres: Boolean = true,
     var l2: () -> String = { json(null, 0.0) },
+    var conj: Boolean = false,
+    var cabeza: () -> String = { json(null, 0.0) },
+    var idsE5: ByteArray? = null,
 ) : Motor {
+    var ultimoSimsJson: String? = null
     val llamadas = ArrayList<String>()
     var ultimasRanuras: ByteArray? = null
     var ultimoK = -1
@@ -43,6 +47,13 @@ class MotorFalso(
     }
 
     override fun extraerL2(destino: String) {}
+    override fun tieneConj() = conj
+    override fun cabezaConjunta(simsJson: String): String {
+        llamadas.add("CONJ"); ultimoSimsJson = simsJson; return cabeza()
+    }
+
+    override fun tieneTokenizadorE5() = idsE5 != null
+    override fun tokenizarE5(texto: String) = idsE5
     override fun close() {
         cerrado = true
     }

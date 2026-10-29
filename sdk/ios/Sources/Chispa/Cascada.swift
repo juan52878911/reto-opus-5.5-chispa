@@ -13,7 +13,8 @@ enum TauPorDefecto {
     static let l2 = 0.70
 }
 
-/// La cascada de `server/decide/cascada.go`: pasa por las capas en orden mientras la confianza top-1 sea < τ. Si una
+/// La cascada de `server/decide/cascada.go`: pasa por las capas en orden mientras la confianza top-1 sea < τ (cada capa recibe lo que
+/// dijeron las anteriores: L2c usa las probabilidades de L0). Si una
 /// falla o no opina, sigue con la siguiente. Si ninguna alcanza su τ, escala: la respuesta es la de mayor confianza
 /// vista (pista para quien reciba la escalada) y la capa es la última de la cascada.
 final class Cascada {
@@ -30,8 +31,10 @@ final class Cascada {
         let t0 = reloj()
         func ms() -> Double { Double(reloj() &- t0) / 1e6 }
         var mejor = SalidaCapa.sinOpinion
+        var previas: [String: SalidaCapa] = [:]
         for c in capas {
-            let r = (try? c.capa.decidir(texto, pregunta)) ?? .sinOpinion
+            let r = (try? c.capa.decidir(texto, pregunta, previas: previas)) ?? .sinOpinion
+            previas[c.capa.nombre] = r
             if r.confianza > mejor.confianza { mejor = r }
             if r.opina && r.confianza >= c.tau {
                 return Respuesta(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs,

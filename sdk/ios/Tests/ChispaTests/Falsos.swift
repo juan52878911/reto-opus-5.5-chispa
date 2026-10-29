@@ -17,6 +17,10 @@ final class MotorFalso: Motor {
     var l1: () -> String = { json(nil) }
     var torres = true
     var l2: () -> String = { json(nil) }
+    var conj = false
+    var cabeza: () -> String = { json(nil) }
+    var idsE5: Data?
+    var ultimoSimsJson: String?
     var llamadas: [String] = []
     var ultimasRanuras: Data?
     var ultimoK = -1
@@ -32,6 +36,9 @@ final class MotorFalso: Motor {
         llamadas.append("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
     }
     func extraerL2(a destino: String) throws {}
+    func tieneConj() -> Bool { conj }
+    func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return cabeza() }
+    func tokenizarE5(_ texto: String) -> Data? { idsE5 }
     func cerrar() { cerrado = true }
 }
 

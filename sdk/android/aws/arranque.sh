@@ -117,6 +117,16 @@ if [ "${CHISPA_LOCAL:-}" = 1 ]; then export GOPROXY=file://$REPO/gomod-proxy; el
 MOVIL=$REPO/sdk/movil/chispamovil
 AND=$REPO/sdk/android
 cd "$MOVIL" || { fallo "no existe sdk/movil/chispamovil en codigo.tgz"; cierre; }
+# Paridad del tokenizador de e5 (TestTokenizarE5ParidadConRuntimeTok): necesita el .chispa-tok de runtime/tok/exportar.py
+# (tokenizer.json de Hugging Face + numpy y safetensors). Si no se puede construir, el test se salta y se avisa.
+if [ "${CHISPA_LOCAL:-}" != 1 ]; then
+  echo "== 2-tok. .chispa-tok de e5 $(date -u +%T)"
+  mkdir -p "$BASE/e5"
+  { python3 -m pip install --quiet numpy safetensors &&
+    curl -fsSL -m 120 -o "$BASE/e5/tokenizer.json" https://huggingface.co/intfloat/multilingual-e5-small/resolve/main/tokenizer.json &&
+    python3 "$REPO/runtime/tok/exportar.py" "$BASE/e5" "$BASE/e5.chispa-tok"; } 2>&1 | tail -3
+  [ -s "$BASE/e5.chispa-tok" ] && export CHISPA_TOK="$BASE/e5.chispa-tok" || echo "AVISO: sin .chispa-tok; se salta la paridad del tokenizador"
+fi
 echo "== 2a. go test ./... $(date -u +%T)"
 go test -count=1 -v ./... 2>&1 | tee "$RES/go-test-chispamovil.txt"
 [ "${PIPESTATUS[0]}" = 0 ] || fallo "go test de chispamovil"
