@@ -657,6 +657,15 @@ def meta_de(filas, dorado=""):
     return {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
 
 
+def calib_con_multi(modelo, enc, chispa, filas):
+    """CALIB con `multi_l2@<hex>[#<id>]` de los esquemas multi de `filas` (con `etiqueta`) que `chispa` aún no trae (los del dev ya
+    vienen de `calibrar`); sin etiquetas variadas en un esquema, L2 no opina en él."""
+    hechos = {k.split("#")[0] for k in chispa["tipos"] if k.startswith("multi_l2@")}
+    nuevas = [r for r in filas if r["tipo"] == "multi" and "etiqueta" in r and "multi_l2" + C.sufijo_multi(r) not in hechos]
+    tipos = C.calibrar_multi_l2(modelo, enc, nuevas)
+    return {**chispa, "tipos": {**chispa["tipos"], **tipos}} if tipos else chispa
+
+
 def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256),
               cuant="codificador", per_channel=True, ids_calib=None):
     """Todo el camino hasta el `.chispa`. `encoder`: módulo HF (atención eager) del que sale el grafo; `vocab`: dict o None."""
@@ -673,7 +682,7 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     meta_consulta(int8, enc.max_tok)
     torres = entradas_torres(modelo, enc, filas_esq)
     dim = int(torres[0][3].shape[0])
-    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib["chispa"], salida)
+    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib_con_multi(modelo, enc, calib["chispa"], filas_esq), salida)
     inf = {"l2_mb": int8.stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "chispa_mb": Path(salida).stat().st_size / 1e6,
            "torres": len(torres), "vocab_podado": bool(vocab), "cuant": cuant, "per_channel": per_channel, "opset": OPSET, "k_ranuras": K_RANURAS}
     sess = sesion(int8)
