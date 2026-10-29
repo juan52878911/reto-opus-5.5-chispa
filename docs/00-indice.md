@@ -16,6 +16,7 @@ Esta documentación es para quien integra Chispa. El detalle de desarrollo está
 | [06-despliegue.md](06-despliegue.md) | Compilar con ORT, flags, imagen OCI, imagen de kindling, arnés de carga y AWS |
 | [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md) | Benchmarks por modo, límites del zero-shot, carga y excepciones de G2 |
 | [08-esquemas-nuevos.md](08-esquemas-nuevos.md) | Esquema sin `.chispa`: zero-shot con torre al vuelo (`TORR`), few-shot con soporte opcional (`SOPL1`), τ y qué falta medir |
+| [09-despliegue-piloto.md](09-despliegue-piloto.md) | Guía de piloto de cero a producción: imagen, claves (`-hash-clave`), config completa, L3, arranque con Docker y kindling, humo, métricas, recarga, apagado y privacidad |
 
 ## Piezas del repo y su README
 | Pieza | Qué es | README |
