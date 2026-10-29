@@ -1,0 +1,13 @@
+metadata_ninguna	OK dim=256 max_len prefijo='passage: '
+chispa_score	OK ["score4", "score4#1", "score4#2", "score5", "score5#1", "score5#2", "score5#3"]
+go_test_ort	OK 9 PASS
+go_test_tok	OK 1 PASS
+build_server	OK -tags ort
+train_torre_ninguna	OK chispa train --torre y servidor
+tipos_l2	OK OK tipos_l2 idéntico al checkpoint
+diag_base	OK � | | noul | 30 | 0 | 16 / 16 | 0 | 0.000 | 0.375 | — | | score | 18 | 0 | 5 / 5 | 0 | — | — | — | | todos | 78 | 0 | 21
+pasada_calib	OK
+diag_calib	OK | noul | 30 | 0 | 16 / 16 | 0 | 0.000 | 0.000 | — | | score | 18 | 0 | 5 / 5 | 0 | 0.000 | 0.000 | — | | todos | 78 | 0 
+pasada_calib-l2fp32	OK
+diag_calib-l2fp32	OK | noul | 30 | 0 | 16 / 16 | 0 | 0.000 | 0.000 | — | | score | 18 | 0 | 5 / 5 | 0 | 0.000 | 0.000 | — | | todos | 78 | 0 
+movil	OK /opt/chispa/resultados/movil/informe.md

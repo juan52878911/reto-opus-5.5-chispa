@@ -152,6 +152,8 @@ class Servidor:
         (tmp / "torre.onnx").write_bytes(self.torr["onnx"])
         self.q, self.t, self.tok = E.sesion(tmp / "l2.onnx"), E.sesion(tmp / "torre.onnx"), tok
         self.calib = json.loads(secs[formato.CALIB])
+        if self.calib.get("tipos_l2"):   # L2 lee tipos_l2 si existe (desde 2b7096a); `tipos` es de L1
+            self.calib["tipos"] = self.calib["tipos_l2"]
         g = onnx.load(str(tmp / "l2.onnx"), load_external_data=False)
         props = {p.key: p.value for p in g.metadata_props}
         self.max_len_q = int(props.get("chispa.consulta.max_len", MAX_LEN_DEFECTO))
