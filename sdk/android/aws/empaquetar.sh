@@ -18,7 +18,7 @@ mkdir -p "$T/gomod-proxy/github.com/juan52878911"
 cp -R "$KIND" "$T/gomod-proxy/github.com/juan52878911/"
 find "$T/gomod-proxy" -name '*.lock' -type f -exec rm -f {} +
 cd "$RAIZ"
-find sdk/android sdk/ios sdk/movil runtime/l1 runtime/tok format/chispa3 server/testdata server/go.mod server/go.sum server/decide \
+find sdk/android sdk/ios sdk/movil runtime/l1 runtime/tok format/chispa3 server/testdata server/go.mod server/go.sum server/decide server/torre \
   model/l2/tests/fixtures_conjunta demo/wasm/ejemplo_pregunta.json -type f \
   -not -path 'sdk/android/aws/*' -not -path '*/.gradle/*' -not -path '*/.build/*' -not -path '*/build/*' -not -path '*/__pycache__/*' \
   -not -path 'runtime/l1/aws/*' -not -name '*.pyc' -not -name '*.so' -not -name '*.aar' -not -name '*.jar' \
