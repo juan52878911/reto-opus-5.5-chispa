@@ -109,7 +109,7 @@ class TestTauL2c(unittest.TestCase):
     def test_elegir_tau_con_validacion_manda_sobre_fuera_de_pliegue(self):
         from chispa.conjunta import elegir_tau, tau_l2c
         rng = np.random.default_rng(4)
-        n = 400
+        n = 600
         conf = rng.uniform(0.5, 1, n)
         p = np.stack([conf, 1 - conf], 1)
         y_oof = np.zeros(n, int)  # fuera de pliegue todo acierta: optimista
@@ -120,6 +120,33 @@ class TestTauL2c(unittest.TestCase):
         self.assertGreater(r["tau"], elegir_tau(p, y_oof, 0.95)["tau"] - 1e-12)
         # pocas filas de validación: se ignora
         self.assertEqual(elegir_tau(p, y_oof, 0.95, (p[:10], y_val[:10]))["metodo"], "fuera_de_pliegue+margen")
+        # tarea pequeña: 499 filas de validación no bastan, 500 sí
+        pv, yv = p[:500], y_val[:500]
+        self.assertEqual(elegir_tau(p, y_oof, 0.95, (pv[:499], yv[:499]))["metodo"], "fuera_de_pliegue+margen")
+        self.assertEqual(elegir_tau(p, y_oof, 0.95, (pv, yv))["metodo"], "validacion")
+
+    def test_tope_de_tau_solo_fuera_de_pliegue(self):
+        from chispa.conjunta import elegir_tau, tau_l2c
+        n = 152  # como spam e injection: todo correcto y muy confiado
+        conf = np.linspace(0.99, 0.999, n)
+        p = np.stack([conf, 1 - conf], 1)
+        y = np.zeros(n, int)
+        r = elegir_tau(p, y, 0.95, (p, y))
+        self.assertEqual(r["metodo"], "fuera_de_pliegue+margen")
+        self.assertLessEqual(r["tau"], 0.9)
+        self.assertTrue(r["tope_aplicado"])
+        self.assertGreater(elegir_tau(p, y, 0.95, tope=None)["tau"], 0.9)
+        # con >= 500 filas de validación el camino no cambia y no hay tope
+        rng = np.random.default_rng(5)
+        m = 600
+        c2 = rng.uniform(0.95, 0.999, m)
+        p2 = np.stack([c2, 1 - c2], 1)
+        y2 = np.zeros(m, int)
+        r2 = elegir_tau(p, y, 0.95, (p2, y2))
+        self.assertEqual(r2["metodo"], "validacion")
+        self.assertEqual(r2["tau"], tau_l2c(p2, y2, 0.95)[0])
+        self.assertGreater(r2["tau"], 0.9)
+        self.assertFalse(r2["tope_aplicado"])
 
     def test_calib_con_y_sin_tau(self):
         self.assertNotIn("tau_l2c", json.loads(formato.calib({}, 0.7)))
@@ -212,14 +239,14 @@ class TestTrainConjunta(unittest.TestCase):
             for r in self._ejemplos_sinteticos(400, 1):
                 f.write(json.dumps(r) + "\n")
         with open(self.d / "val.jsonl", "w") as f:
-            for r in self._ejemplos_sinteticos(120, 9):
+            for r in self._ejemplos_sinteticos(520, 9):
                 f.write(json.dumps(r) + "\n")
         logs = []
         inf = self.correr("val.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, log=logs.append,
                           precision_objetivo=0.9, validacion=self.d / "val.jsonl")
         cj = inf["conjunta"]
         self.assertEqual(cj["metodo_tau"], "validacion")
-        self.assertTrue(any("por validacion sobre 120 filas" in m for m in logs) or cj["tau_l2c"] is None, logs)
+        self.assertTrue(any("por validacion sobre 520 filas" in m for m in logs) or cj["tau_l2c"] is None, logs)
         if cj["tau_l2c"] is not None:
             self.assertGreaterEqual(cj["precision_esperada"], 0.9)
         # sin validación, el método es el del margen
