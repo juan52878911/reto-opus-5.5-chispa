@@ -79,3 +79,8 @@ porque la cuantización dentro del proceso del export lleva la VM de 2,5 GB al O
 ## Qué no se pudo medir
 - L2 en el servidor (sin ORT para Go) y por tanto L2c.
 - Nada en el i7-8700T real; hay que repetir `armar.sh` + `medir.sh` allí (con ORT y `-tags ort` compilará `armar.sh` solo).
+
+**Nota del orquestador (2026-10-29): esto sí es el host i7-8700T.** El job corrió en `kindling-pve-personal`
+(`delega audit`). La microVM de ese nodo expone un modelo de CPU genérico de QEMU, «Intel Xeon Processor @ 2.40GHz», que es
+el mismo que aparece en `model/bench/i7/entorno.txt`, la medida del i7 de la fase 0. Las cifras de L0+L1 son, por tanto, del
+i7 virtualizado, igual que las anteriores. L2 sigue sin medirse en el servidor porque falta ORT en Go.
