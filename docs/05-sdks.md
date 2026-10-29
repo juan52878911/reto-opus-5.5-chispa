@@ -4,6 +4,7 @@
 |---|---|---|---|
 | Python | cliente de `/v1/decide` y `chispa train`; empaquetable como wheel, con extras | probado con tests y a mano contra `chispa-server` | [`sdk/python`](../sdk/python/README.md) |
 | JavaScript | cliente de `/v1/decide` y `/healthz` para Node ≥ 20 y navegador: sin dependencias, ESM, tipos a mano, validación en bytes, reintento con el mismo nonce | probado con `node --test` contra un servidor falso; sin probar contra `chispa-server` real | [`sdk/js`](../sdk/js/README.md) |
+| Go | cliente de `/v1/decide` y `/healthz` (`github.com/juan52878911/chispa/sdk/go`): solo biblioteca estándar, validación en bytes, nonce estable, reintentos como Python y JS, `api_key` opcional | `go test -race` con `httptest`; sin probar contra `chispa-server` real | [`sdk/go`](../sdk/go/README.md) |
 | Android | cascada en el dispositivo (Kotlin), con proveedores de ORT, torre al vuelo y demo «Medir» | se compila en AWS; sin tokenizador, solo L0 y L1 | [`sdk/android`](../sdk/android/README.md) |
 | iOS | cascada en el dispositivo (Swift), con proveedores de ORT y torre al vuelo | **escrito sin compilar**: no se compila en la VM ni en el Mac de Juan, solo en una mac2 o un runner macOS | [`sdk/ios`](../sdk/ios/README.md) |
 | WASM | L1 en el navegador; demo con formulario de esquema nuevo y arnés de latencia | demo con L1 recortado | [`demo/wasm`](../demo/wasm/README.md) |
