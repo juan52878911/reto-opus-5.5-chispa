@@ -1,5 +1,6 @@
 import json
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -80,12 +81,44 @@ class TestCliente(unittest.TestCase):
         self.assertEqual(rs[1].nivel, 1)
 
     def test_nonce_automatico_estable_entre_reintentos(self):
-        self.f.fallos[:] = [500, 502]
+        self.f.fallos[:] = [503, 503]
         self.c.decidir("x", [Noul("n", "¿?")])
         nonces = {p["questions"][0]["nonce"] for p in self.f.peticiones}
         self.assertEqual(len(self.f.peticiones), 3)
         self.assertEqual(len(nonces), 1)
         self.assertEqual(len(next(iter(nonces))), 32)
+
+    def test_429_500_502_no_se_reintentan(self):
+        for codigo in (429, 500, 502):
+            with self.subTest(codigo=codigo):
+                self.f.peticiones.clear()
+                self.f.fallos[:] = [codigo, codigo]
+                with self.assertRaises(ErrorSolicitud) as cm:
+                    self.c.decidir("x", [Noul("n", "¿?")])
+                self.assertEqual(cm.exception.status, codigo)
+                self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_timeout_propio_no_se_reintenta_y_el_defecto_supera_los_30s_del_servidor(self):
+        self.assertGreater(Chispa(self.f.url).timeout, 30.0)
+        f = Falso()
+        self.addCleanup(f.cerrar)
+        orig = f.srv.RequestHandlerClass.do_POST
+
+        def lento(h):
+            time.sleep(1.0)
+            try:
+                orig(h)
+            except OSError:
+                pass
+        f.srv.RequestHandlerClass.do_POST = lento
+        with self.assertRaises(ErrorTransporte):
+            Chispa(f.url, timeout=0.3, dormir=lambda s: None).decidir("x", [Noul("n", "¿?")])
+        time.sleep(1.2)
+        self.assertEqual(len(f.peticiones), 1)
+
+    def test_nonce_vacio_se_trata_como_ausente(self):
+        self.c.decidir("x", [Noul("n", "¿?", nonce="")])
+        self.assertEqual(len(self.f.peticiones[0]["questions"][0]["nonce"]), 32)
 
     def test_503_de_proxy_sin_retry_after_se_reintenta_con_backoff(self):
         self.f.fallos[:] = [503, 503]
@@ -131,7 +164,7 @@ class TestCliente(unittest.TestCase):
         self.assertNotIn("nonce", self.f.peticiones[0]["questions"][0])
 
     def test_reintentos_agotados(self):
-        self.f.fallos[:] = [500] * 10
+        self.f.fallos[:] = [503] * 10
         esperas = []
         c = Chispa(self.f.url, reintentos=2, espera=0.1, dormir=esperas.append)
         with self.assertRaises(ErrorTransporte):

@@ -33,10 +33,20 @@ class ErrorTransporte(ChispaError):
     """No hubo respuesta válida tras todos los reintentos (red, 5xx, 429 o cuerpo ilegible)."""
 
 
-_REINTENTABLES = {429, 500, 502, 503}
-# Política igual que el cliente JS: el 503 se reintenta (respetando `Retry-After`, con backoff y tope), salvo el 503 de timeout del
-# servidor (`error.code == "timeout"`, aunque traiga `Retry-After`) y el 504: repetirlos vuelve a gastar la cascada entera.
+# POLÍTICA DE REINTENTOS (única fuente; `docs/05-sdks.md` la describe y el cliente JS debe igualarla):
+#  - se reintenta: error de red (conexión rechazada, cortada, respuesta ilegible) y 503 que no sea de timeout, con backoff
+#    exponencial `espera * 2**(n-1)` y, si trae `Retry-After` en segundos, al menos esa espera (tope 30 s);
+#  - NO se reintenta: el timeout propio del cliente (el servidor cancela y no guarda nada bajo el nonce, así que repetir
+#    vuelve a gastar la cascada entera), el 503 `timeout` del servidor (aunque traiga `Retry-After`), el 504 y cualquier
+#    otro estado (400, 405, 413, 429, 500, 502…): se lanza `ErrorSolicitud` en el acto;
+#  - el `timeout` por defecto (35 s) es mayor que el `-timeout` del servidor (30 s): el 503 del servidor llega antes de cortar.
+_REINTENTABLES = {503}
 _TOPE_RETRY_AFTER = 30.0
+TIMEOUT_POR_DEFECTO = 35.0
+
+
+def _es_timeout_propio(e: BaseException) -> bool:
+    return isinstance(e, TimeoutError) or (isinstance(e, urllib.error.URLError) and isinstance(e.reason, TimeoutError))
 
 
 def _es_timeout(e, texto: str) -> bool:
@@ -62,9 +72,10 @@ class Chispa:
 
     Con `nonce_auto` (por defecto) cada pregunta sin nonce recibe un uuid fijado antes del primer intento:
     el servidor lo usa como clave de idempotencia, así que un reintento tras un corte no vuelve a decidir.
+    Un nonce vacío cuenta como ausente (se genera uno). Política de reintentos: ver el comentario sobre `_REINTENTABLES`.
     """
 
-    def __init__(self, url: str, *, timeout: float = 10.0, reintentos: int = 3, espera: float = 0.2,
+    def __init__(self, url: str, *, timeout: float = TIMEOUT_POR_DEFECTO, reintentos: int = 3, espera: float = 0.2,
                  nonce_auto: bool = True, dormir=time.sleep):
         self.url = url.rstrip("/")
         self.timeout, self.reintentos, self.espera, self.nonce_auto = timeout, reintentos, espera, nonce_auto
@@ -78,7 +89,7 @@ class Chispa:
         if len({p.id for p in preguntas}) != len(preguntas):
             raise ValueError("ids de pregunta repetidos")
         if self.nonce_auto:
-            preguntas = [p if p.nonce is not None else replace(p, nonce=uuid.uuid4().hex) for p in preguntas]
+            preguntas = [p if p.nonce else replace(p, nonce=uuid.uuid4().hex) for p in preguntas]
         cuerpo = json.dumps({"state": estado, "questions": [p.a_json() for p in preguntas]}).encode()
         resp = self._post("/v1/decide", cuerpo)
         try:
@@ -117,5 +128,7 @@ class Chispa:
                     raise ErrorSolicitud(e.code, texto) from None  # str (formato viejo) o dict (tipado)
                 ultimo, pedida = f"HTTP {e.code}", ra or 0.0
             except (urllib.error.URLError, OSError, ValueError) as e:  # ValueError: JSON ilegible
+                if _es_timeout_propio(e):
+                    raise ErrorTransporte(f"{self.url}{ruta}: {e!r}: sin respuesta en {self.timeout} s (no se reintenta)") from e
                 ultimo = repr(e)
         raise ErrorTransporte(f"{self.url}{ruta}: {ultimo} tras {self.reintentos + 1} intentos")

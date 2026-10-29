@@ -95,7 +95,7 @@ Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_inv
 | 404 | `not_found` | ruta que no existe |
 | 405 | `method_not_allowed` | método distinto de POST en `/v1/decide` (cabecera `Allow: POST`) |
 | 413 | `request_too_large` | cuerpo > `max_cuerpo` |
-| 503 | `timeout` | la petición superó `-timeout` (30 s por defecto). Lleva `Retry-After: 5` y `Content-Type: application/json`. Es sobrecarga: el cliente debe esperar ese plazo antes de reintentar (el SDK Python hoy reintenta los 503 sin leer `Retry-After`) |
+| 503 | `timeout` | la petición superó `-timeout` (30 s por defecto). Lleva `Retry-After: 5` y `Content-Type: application/json`. Es sobrecarga: el cliente debe esperar ese plazo antes de reintentar. Los SDK no reintentan este 503 (ni el 504); sí reintentan otro 503 (proxy), esperando al menos `Retry-After` (tope 30 s). El `timeout` del cliente debe ser mayor que `-timeout`: con 35 s por defecto en Python, este 503 llega antes de que el cliente corte |
 
 La validación es todo o nada: una pregunta mala rechaza la petición entera. Un fallo interno de una capa solo salta esa capa
 (cuenta en `chispa_capa_errores_total`).
@@ -166,5 +166,5 @@ Tras una petición válida y una rota, el test de métricas
 Con `-modelo` y sin `-config`, el τ de L1 y L2 sale de `CALIB`. Con `-config`, manda la config.
 
 `tau_l2_esquema_nuevo` (opcional, en [0,1]): τ de L2 solo para las preguntas cuyas torres no están en `ESQUEMAS` y salen al vuelo (sección `TORR`);
-las que L2 conoce siguen con el τ de L2 de siempre. Ausente, no cambia nada. Con `-modelo` y sin `-config`, si falta aquí se toma del campo
-`tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`); si viene en la config, manda la config. Es interno: la respuesta JSON no cambia.
+las que L2 conoce siguen con el τ de L2 de siempre. Ausente, no cambia nada. Si falta aquí se toma del campo
+`tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`), haya o no `-config` (la config no lo desactiva); si viene en la config, manda la config. Ojo: el de `CALIB` se calibró contra el τ base de `CALIB`, no contra el de la config. Es interno: la respuesta JSON no cambia.
