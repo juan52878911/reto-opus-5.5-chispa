@@ -504,3 +504,30 @@ func TestCalibTiposL2(t *testing.T) {
 		}
 	}
 }
+
+func TestCalibTiposL2VacioIdaYVuelta(t *testing.T) {
+	n := Calib{TauEscalate: 0.8, Tipos: map[string]ParamsTipo{}, TiposL2: map[string]ParamsTipo{}}
+	b, err := n.Codificar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"tipos_l2":{}`) {
+		t.Fatalf("un tipos_l2 vacío debe escribirse: %s", b)
+	}
+	g, err := DecodificarCalib(b)
+	if err != nil || g.TiposL2 == nil || len(g.TiposL2) != 0 {
+		t.Fatalf("ida y vuelta: %+v %v", g, err)
+	}
+	if p := g.ParaL2(); p.Tipos == nil || len(p.Tipos) != 0 {
+		t.Fatalf("ParaL2 debe usar el mapa vacío: %+v", p)
+	}
+	// JSON de Python con "tipos_l2":{} da un mapa vacío no nil
+	p, err := DecodificarCalib([]byte(`{"tipos":{"choice":{"T":2,"a":1,"b":0,"theta":0.5}},"tau_escalate":0.8,"tipos_l2":{}}`))
+	if err != nil || p.TiposL2 == nil {
+		t.Fatalf("python: %+v %v", p, err)
+	}
+	b2, _ := p.Codificar()
+	if !strings.Contains(string(b2), `"tipos_l2":{}`) {
+		t.Fatalf("recodificar pierde tipos_l2: %s", b2)
+	}
+}

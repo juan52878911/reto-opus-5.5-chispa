@@ -116,6 +116,21 @@ func (c Calib) ParaL2() Calib {
 	return c
 }
 
+// MarshalJSON escribe tipos_l2 siempre que TiposL2 no sea nil, también vacío ({}): un mapa vacío significa
+// «L2 no mira tipos», distinto de la ausencia del campo.
+func (c Calib) MarshalJSON() ([]byte, error) {
+	type plano Calib
+	return json.Marshal(struct {
+		plano
+		TiposL2 *map[string]ParamsTipo `json:"tipos_l2,omitempty"`
+	}{plano: plano(c), TiposL2: func() *map[string]ParamsTipo {
+		if c.TiposL2 == nil {
+			return nil
+		}
+		return &c.TiposL2
+	}()})
+}
+
 func (c Calib) validar() error {
 	if !(c.TauEscalate >= 0 && c.TauEscalate <= 1) {
 		return fmt.Errorf("%w: CALIB.tau_escalate %v", ErrContenido, c.TauEscalate)
