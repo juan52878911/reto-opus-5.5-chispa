@@ -15,3 +15,7 @@
 - **Decisión pendiente (Juan).** El valor por defecto `--tope-tau 0.9` de `chispa train` favorece la utilidad con tráfico
   normal. Se puede subir o quitar por tarea si importa más la robustez ante ataques.
 - **Coste:** dos c6a, de 4 y 28 min. Menos de 0,1 USD.
+
+**Juan's decision (2026-10-28):** «Keep the 0.9 τ cap for every task, as it is now». The default `--tope-tau 0.9` applies
+to every task, security ones included. In spam the ASR rises to 0.12–0.20 in exchange for escalating 23% of normal traffic.
+This is an accepted limitation.
