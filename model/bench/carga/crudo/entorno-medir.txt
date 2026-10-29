@@ -1,0 +1,7 @@
+inicio 2026-10-29T02:10:10+00:00
+model name	: Intel(R) Xeon(R) Processor @ 2.40GHz
+4
+MemTotal:        2551728 kB
+MemAvailable:    2173036 kB
+loadavg antes: 1.33 1.54 1.12 1/110 9965
+fin 2026-10-29T02:34:23+00:00

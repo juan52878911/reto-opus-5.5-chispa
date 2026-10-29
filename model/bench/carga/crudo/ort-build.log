@@ -1,0 +1,2 @@
+go: finding module for package github.com/yalue/onnxruntime_go
+decide/l2_ort.go:10:2: cannot find module providing package github.com/yalue/onnxruntime_go: module lookup disabled by GOPROXY=off
