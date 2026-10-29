@@ -1,0 +1,81 @@
+{
+ "esquemas": {
+  "dim": 256,
+  "entradas": [
+   {
+    "pregunta": "¿Es spam? A",
+    "kind": "noul",
+    "opciones": [
+     {
+      "id": "false",
+      "description": "Mensaje legítimo."
+     },
+     {
+      "id": "true",
+      "description": "Mensaje no deseado."
+     }
+    ],
+    "escala": 0.0014366857940331101,
+    "vec": "wv35+SEsAeG4TPL2Vyo0zggiHQTsyO4OGiAq4iYKIxvJRDS1wwEv+sw/3vYu1CFSE+DS8+b17jO1+xze5MPRCAUiQRw6VNzIJQNG8NvZ5MgdAtoREPz2yhXD1PcQJw66NgPssd7u9qzgVLvk/q5Lf+b6PQX05tDsRPwztu7h/VzQLATMzlAZD/8bu+EqDK/Izu426Q0T4uYWNMoE0tprADM7wPEmScsk/w/4FO24Iino6A0LL7UgIyO+ByblJAsnRe8MCMQq0vf2Fj/uGDi61gkh4iGpCiga8vEcBC2zquFCJB053wXm1/7IEM8ZBBoPWfXu8zMRNxch9PC3ykY3Aw=="
+   },
+   {
+    "pregunta": "¿Es spam? B",
+    "kind": "noul",
+    "opciones": [
+     {
+      "id": "false",
+      "description": "Mensaje legítimo."
+     },
+     {
+      "id": "true",
+      "description": "Mensaje no deseado."
+     }
+    ],
+    "escala": 0.0014403515961021185,
+    "vec": "wfn7+SYsAt+5S/D3VigyzQglGgXsye0NHSEr5SULIhvIQzS3xAEv/Mw/4PUu1SBTFeDS8+Xz7zS0/xzc5cPNBwUkQBs4U9vIJQVG8dzY5ssf/d0PEf/0yRfE0/YSKA+9OALvsd7u9qvgUrnk+q5Nf+j3PATz6c7tQ/43tu7h+13RLATMzk4YEP0Zu+AnC7DI0Ow26A0S4uMYNs4B1Npp/jY9we8oScok/BD3Eu27Iijm5gwLLrYiJCa8BybkIgwnRO4OCcYs0/f4FT7tFja61Aog4SOqDCsY8/IeBC6vq+E/IR444gbq1fzKEdIYBBsPWPbv8TQRNxgh8u64y0Y4BA=="
+   },
+   {
+    "pregunta": "¿Qué temas toca?",
+    "kind": "multi",
+    "opciones": [
+     {
+      "id": "precio",
+      "description": "Cuánto cuesta."
+     }
+    ],
+    "escala": 0.0013563199900090694,
+    "vec": "u//89xkrCNu2Vfb6YSQ8yQYpGQXsyOYQIx0q4CgRGCPGRTOtwfo2/MRA4fop1RxVD+PP9dzy7TSo+Bzc3rnKDAsnPiA6VuDDIQpD8djT5NIiBNsYEvXvyhnBzP4MLgeyOQLsrd/o9qPYVbjj96lPf975PwXo7NHqQAE5runj+WDJNQTLy1wZEPsdvNs0DajIy+065A4S6OMcPMUI0tlpAzNExfAoRcwn/Qr7GeayIDHk4RMPMLQgKyu9CirmJhIrTPATAL8sxvPqGEHmGj2z1A4m2SKeESwi8+8UASeqqNxCIh4+3wLl0gTCFssmCR0RXvPo8DIWNxYj9fa5xEs5AA=="
+   },
+   {
+    "pregunta": "¿Qué temas toca?",
+    "kind": "multi",
+    "opciones": [
+     {
+      "id": "envio",
+      "description": ""
+     }
+    ],
+    "escala": 0.0013969262363389134,
+    "vec": "wf/6+xsxCOG3UPX8ViE3yQMpHgPlz+gKJR8s3SkOHxzGQC6wvv40+sU94f0u2SFSDePT8t727jKt9RvY47jQBQYlOh82VtvNHwY+9NfP5dchBNwXFfnvzRy+0vcQKAezOALqsuLm+KrfVbjf96tIf9z4PAHx6NDoRQQ0t+nl9V/KMArLzV0aC/4bwtcvD63Eye434xEQ5OEdO8YJ0dthAjI/yOwnR88k+QX5Gea1Hijo5RIKLrgiJSy7ByzjJwwpR+4L/bkxw/byGj7oGD+y1REo3SKoECwc7/QYBiaxsOA+IyY/3gjk0wrEFM4nBxkPW/Pn8S4ROxAn9vS5yE81AA=="
+   },
+   {
+    "pregunta": "¿Qué temas toca?",
+    "kind": "multi",
+    "opciones": [
+     {
+      "id": "garantia",
+      "description": "Cobertura."
+     }
+    ],
+    "escala": 0.001394515624269843,
+    "vec": "wP79+RsuBt+4U/n7WCQ4ywMpFwLty+cJIh8p4CcMGhzERy6xv/82/sRC4fwr3B5WDeDS9+L68jSq9x3f57bNCQYlOSI0VtzMHgZD89rU49EkBdsbFfzuyRm80PsTKAa1NgPottzq96TeU7ne/apMf9j8PgLr6tPsRgI0t+vi+VrPMAbPz1wbCfgdwNwxCa7Hyes44gwR5t4cN8UH0txkBSxCyvEmTc8n/gn3Gui2ICno4xMLMLcaJyi3Ci3lKgwpQ+wPAcAwxPbyHTrlGUS21hMq2iOjDSwe8+wUAiO3rt9DIyM/3gbp0wTEGdAkBh0NW+7q7S8VOhEj9/O4xUw1/w=="
+   }
+  ]
+ },
+ "textos": {
+  "verdadero_noul": [
+   "passage: ¿Es spam? A · true · Mensaje no deseado.",
+   "passage: ¿Es spam? B · true · Mensaje no deseado."
+  ]
+ }
+}

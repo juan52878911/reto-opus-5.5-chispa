@@ -8,9 +8,9 @@
    de e5; los que no están pasan a <unk>).
 2. int8 dinámico con `onnxruntime.quantization.quantize_dynamic` (`--cuant todo|codificador|ninguna`, `--per-channel`): por
    defecto solo el codificador, por canal y con las ranuras en fp32.
-3. Torres de opción en int8 con una escala por vector. ESQUEMAS v2 con `HashEsquema2` (`clave_torre`, `hash_clave`): en `choice`,
-   una entrada por opción (kind `choice`); en `noul` y `score`, una por pregunta con todas las opciones (el vector de consulta,
-   `texto_consulta`).
+3. Torres de opción en int8 con una escala por vector. ESQUEMAS v2 con `HashEsquema2` (`clave_torre`, `hash_clave`): en `choice`
+   y `multi`, una entrada por opción (kind `choice` / `multi`); en `noul` (false y true) y `score` (todos los niveles), una por pregunta
+   (el vector de consulta, `texto_torre_consulta`: la opción `true` / el nivel máximo, no `opciones[-1]`).
 4. `.chispa` v3 con `empaquetar_go` (META, L2, ESQUEMAS, CALIB).
 Junto al `.chispa` deja `<salida>.informe.json` con tamaño, paridad y latencia.
 """
@@ -19,6 +19,7 @@ import base64
 import copy
 import json
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -34,7 +35,7 @@ import torch.nn.functional as F
 
 from . import calibrar as C
 from . import datos as D
-from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, texto_consulta, texto_opcion
+from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, texto_opcion
 
 RAIZ = Path(__file__).resolve().parents[2]
 VOCAB_PODADO = RAIZ / "model" / "bench" / "vocab-podado-e5-small.json"
@@ -145,18 +146,47 @@ def exportar_onnx(env, ruta, vocab_n, salida="S"):
                           dynamic_axes={"input_ids": {0: "b", 1: "s"}, "attention_mask": {0: "b", 1: "s"}, salida: {0: "b"}})
 
 
-CUANT = ("todo", "codificador", "ninguna")
+CUANT = ("todo", "codificador", "ninguna", "ffn-estatico", "fp16")
 PREFIJO_RANURAS = "/ranuras/"
+# FFN de cada capa de e5: MatMul de `intermediate.dense` y de `output.dense`. El `attention.output.dense` no entra (el patrón exige
+# «/layer.N/output/…»), ni q/k/v ni los MatMul de la atención, ni LayerNorm, ni las ranuras o la `Torre`.
+RE_FFN = re.compile(r"/layer\.\d+/(intermediate|output)/dense/MatMul$")
+RE_EMBEDDINGS = re.compile(r"/embeddings/word_embeddings/Gather$")
 
 
-def cuantizar(fp32, int8, modo="codificador", per_channel=True, prefijo=PREFIJO_RANURAS):
+def nodos_ffn(fp32, embeddings=True):
+    """Nombres de los nodos que cuantiza `ffn-estatico`: los MatMul de las FFN (`RE_FFN`) y, con `embeddings`, el Gather de la tabla de
+    palabras (lo que más pesa con el vocabulario podado; sin él el modelo móvil no baja de ~90 MB). Todo lo demás queda en fp32."""
+    import onnx
+    nodos = onnx.load(str(fp32), load_external_data=False).graph.node
+    nombres = [n.name for n in nodos if (n.op_type == "MatMul" and RE_FFN.search(n.name))
+               or (embeddings and n.op_type == "Gather" and RE_EMBEDDINGS.search(n.name))]
+    if not any(RE_FFN.search(n) for n in nombres):
+        raise RuntimeError("el grafo no tiene MatMul de FFN (…/layer.N/intermediate|output/dense/MatMul)")
+    return nombres
+
+
+def a_fp16(fp32, salida):
+    """Todo el grafo en fp16 (pesos y cálculo) con `onnxruntime.transformers.float16` (en este venv no está `onnxconverter_common`);
+    `keep_io_types`: entradas y salidas siguen como estaban (la salida, fp32)."""
+    import onnx
+    from onnxruntime.transformers.float16 import convert_float_to_float16
+    onnx.save(convert_float_to_float16(onnx.load(str(fp32)), keep_io_types=True), str(salida))
+
+
+def cuantizar(fp32, int8, modo="codificador", per_channel=True, prefijo=PREFIJO_RANURAS, ids_calib=None, metodo_calib="minmax"):
     """`todo`: todo el grafo; `codificador`: solo MatMul y Gather (tabla de embeddings) del codificador, con los nodos
-    `prefijo` (las ranuras, o la `Torre`) en fp32; `ninguna`: copia el fp32."""
+    `prefijo` (las ranuras, o la `Torre`) en fp32; `ninguna`: copia el fp32; `ffn-estatico`: QDQ estático por canal solo en las FFN
+    (`nodos_ffn`), calibrado con `ids_calib`; `fp16`: todo en fp16."""
     if modo not in CUANT:
         raise ValueError("cuantización %r desconocida (%s)" % (modo, ", ".join(CUANT)))
     if modo == "ninguna":
         shutil.copyfile(fp32, int8)
         return
+    if modo == "fp16":
+        return a_fp16(fp32, int8)
+    if modo == "ffn-estatico":
+        return cuantizar_estatico(fp32, int8, ids_calib, per_channel, metodo_calib, nodos=nodos_ffn(fp32))
     import onnx
     from onnxruntime.quantization import QuantType, quantize_dynamic
     kw = {}
@@ -198,10 +228,36 @@ def hash_clave(pregunta, kind, opciones):
     return formato.hash_esquema2(pregunta, kind, opciones).hex()
 
 
+POR_OPCION = ("choice", "multi")  # una torre (y una entrada de ESQUEMAS) por opción, como busca server/decide/l2.go
+
+
+def opcion_consulta(fila):
+    """Opción cuya torre es la de consulta: noul, `true` (el runtime la lee así, sea cual sea el orden); score, el nivel máximo."""
+    if fila["tipo"] == "noul":
+        if "true" not in fila["opciones"]:
+            raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
+        return "true"
+    try:
+        return max(fila["opciones"], key=int)
+    except ValueError:
+        raise ValueError("pregunta score con niveles no numéricos: %r" % (fila["opciones"],))
+
+
+def texto_torre_consulta(fila):
+    """Texto de la torre de noul y score (ver `opcion_consulta`); `modelo.texto_consulta` usa `opciones[-1]`, igual si el orden es [false, true] / 1..K."""
+    return texto_opcion(fila, opcion_consulta(fila))
+
+
 def clave_torre(fila, opcion=None):
-    """(pregunta, kind, ((id, descripción), …)) de ESQUEMAS v2: choice, la de una `opcion`; noul y score, la de toda la pregunta."""
+    """(pregunta, kind, ((id, descripción), …)) de ESQUEMAS v2: choice y multi, la de una `opcion`; noul (false y true,
+    como `opcionesUnica` del servidor) y score (todos los niveles), la de toda la pregunta."""
     desc = fila.get("descripciones", {})
-    ops = [opcion] if fila["tipo"] == "choice" else list(fila["opciones"])
+    if fila["tipo"] in POR_OPCION:
+        ops = [opcion]
+    elif fila["tipo"] == "noul":
+        ops = ["false", "true"]
+    else:
+        ops = list(fila["opciones"])
     return fila["pregunta"], fila["tipo"], tuple(sorted((o, desc.get(o, "")) for o in ops))
 
 
@@ -209,10 +265,10 @@ def entradas_torres(modelo, enc, filas, lote=256):
     """[(pregunta, kind, opciones, vec int8, escala)] únicas; error si una misma clave tiene dos textos de torre distintos."""
     texto_de, claves = {}, []
     for r in filas:
-        if r["tipo"] == "choice":
+        if r["tipo"] in POR_OPCION:
             pares = [(clave_torre(r, o), texto_opcion(r, o)) for o in r["opciones"]]
         else:
-            pares = [(clave_torre(r), texto_consulta(r))]
+            pares = [(clave_torre(r), texto_torre_consulta(r))]
         for k, t in pares:
             if texto_de.setdefault(k, t) != t:
                 raise ValueError("la clave %r tiene dos textos de torre distintos (¿descripciones que cambian?)" % (k,))
@@ -302,8 +358,9 @@ SEMILLA_TORRE = 20261029
 PREFIJO_PASAJE = "passage: "
 
 
-CUANT_TORRE = ("ninguna", "dinamico", "estatico")
+CUANT_TORRE = ("ninguna", "dinamico", "estatico", "ffn-estatico", "fp16")
 METODOS_CALIB = ("minmax", "percentil")
+ESTATICAS = ("estatico", "ffn-estatico")   # las que piden --calib-torre
 
 
 def poner_meta(ruta, props):
@@ -334,19 +391,24 @@ def textos_calib(filas, n=500, semilla=0):
     return todos if len(todos) <= n else sorted(random.Random(semilla).sample(todos, n), key=todos.index)
 
 
-def cuantizar_estatico(fp32, int8, ids_calib, per_channel=True, metodo="minmax", prefijo=PREFIJO_TORRE):
+def cuantizar_estatico(fp32, int8, ids_calib, per_channel=True, metodo="minmax", prefijo=PREFIJO_TORRE, nodos=None):
     """int8 estático QDQ: MatMul y Gather del codificador con pesos por canal y escalas de activación por tensor ajustadas con
-    `ids_calib` (listas de ids sin relleno, de una en una); los nodos `prefijo` (la `Torre`) quedan en fp32."""
+    `ids_calib` (listas de ids sin relleno, de una en una); los nodos `prefijo` (la `Torre`) quedan en fp32. Con `nodos` (nombres)
+    solo se cuantizan esos (`nodes_to_quantize`) y `prefijo` no cuenta."""
     import onnx
     from onnxruntime.quantization import CalibrationDataReader, CalibrationMethod, QuantFormat, QuantType, quantize_static
     if not ids_calib:
         raise ValueError("la cuantización estática pide textos de calibración (--calib-torre)")
     if metodo not in METODOS_CALIB:
         raise ValueError("método de calibración %r desconocido (%s)" % (metodo, ", ".join(METODOS_CALIB)))
-    nodos = [n for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.name.startswith(prefijo)]
-    nombres = [n.name for n in nodos] + [n.name + "_MatMul" for n in nodos if n.op_type == "Gemm"]
-    if not nombres:
-        raise RuntimeError("el grafo no tiene nodos %s*: no se pueden dejar en fp32" % prefijo)
+    if nodos is None:
+        fijos = [n for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.name.startswith(prefijo)]
+        nombres = [n.name for n in fijos] + [n.name + "_MatMul" for n in fijos if n.op_type == "Gemm"]
+        if not nombres:
+            raise RuntimeError("el grafo no tiene nodos %s*: no se pueden dejar en fp32" % prefijo)
+        sel = {"nodes_to_exclude": nombres}
+    else:
+        sel = {"nodes_to_quantize": list(nodos)}
 
     class Lector(CalibrationDataReader):
         def __init__(self):
@@ -358,14 +420,25 @@ def cuantizar_estatico(fp32, int8, ids_calib, per_channel=True, metodo="minmax",
 
     metodo_ort = CalibrationMethod.MinMax if metodo == "minmax" else CalibrationMethod.Percentile
     quantize_static(str(fp32), str(int8), Lector(), quant_format=QuantFormat.QDQ, per_channel=per_channel,
-                    activation_type=QuantType.QUInt8, weight_type=QuantType.QInt8, nodes_to_exclude=nombres,
-                    op_types_to_quantize=["MatMul", "Gather"], calibrate_method=metodo_ort)
+                    activation_type=QuantType.QUInt8, weight_type=QuantType.QInt8,
+                    op_types_to_quantize=["MatMul", "Gather"], calibrate_method=metodo_ort, **sel)
+
+
+def ids_calib_consulta(enc, filas, n=500, semilla=0):
+    """Ids de hasta `n` textos de mensaje distintos de las filas (con «query: », como los ve la consulta), repartidos al azar; si las
+    filas no traen `texto` (las de calibración de torre), los textos de torre."""
+    import random
+    todos = list(dict.fromkeys(r["texto"] for r in filas if r.get("texto")))
+    if not todos:
+        return ids_torre(enc, textos_calib(filas, n, semilla))
+    todos = todos if len(todos) <= n else sorted(random.Random(semilla).sample(todos, n), key=todos.index)
+    return ids_torre(enc, ["query: " + t for t in todos])
 
 
 def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinamico", per_channel=True, max_len=MAX_TOK, ids_calib=None,
                    metodo_calib="minmax"):
     """ONNX de la torre: (input_ids, attention_mask) → h. `cuant`: ninguna (fp32), dinamico (int8 dinámico por canal; también
-    «codificador»/«todo» de `--cuant`) o estatico (QDQ calibrado con `ids_calib`). Devuelve {mb, fp32_mb, vocab_n}. Con `vocab`
+    «codificador»/«todo» de `--cuant`) estatico (QDQ calibrado con `ids_calib`), ffn-estatico (QDQ solo en las FFN y la tabla de embeddings) o fp16. Devuelve {mb, fp32_mb, vocab_n}. Con `vocab`
     comparte la tabla podada de la consulta (los ids de entrada siguen siendo los del tokenizador original)."""
     trabajo = Path(trabajo)
     trabajo.mkdir(parents=True, exist_ok=True)
@@ -378,7 +451,7 @@ def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinami
     if cuant == "estatico":
         cuantizar_estatico(fp32, ruta_int8, ids_calib, per_channel, metodo_calib)
     else:
-        cuantizar(fp32, ruta_int8, "codificador" if cuant == "dinamico" else cuant, per_channel, PREFIJO_TORRE)
+        cuantizar(fp32, ruta_int8, "codificador" if cuant == "dinamico" else cuant, per_channel, PREFIJO_TORRE, ids_calib, metodo_calib)
     meta_torre(ruta_int8, int(torre.mlp[-1].out_features), max_len)
     return {"mb": Path(ruta_int8).stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "vocab_n": n_vocab}
 
@@ -387,7 +460,7 @@ def textos_torre(filas, n):
     """Hasta `n` textos de torre distintos (choice: uno por opción; el resto, el de consulta), en el orden de las filas."""
     vistos = {}
     for r in filas:
-        for t in ([texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r)]):
+        for t in ([texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] in POR_OPCION else [texto_torre_consulta(r)]):
             vistos.setdefault(t, None)
     return list(vistos)[:n]
 
@@ -452,6 +525,8 @@ PERFILES = {"servidor": dict(cuant="ninguna", cuant_torre="ninguna", sin_poda=Tr
 def textos_de(ruta):
     """Textos de un `.txt` (uno por línea) o `.jsonl` (cadenas de `texto`, `text`, `pregunta`, `opciones` y `descripciones`)."""
     ruta = Path(ruta)
+    if ruta.is_dir():
+        return [t for f in sorted(ruta.rglob("*")) if f.is_file() and f.suffix in (".jsonl", ".txt") for t in textos_de(f)]
     if ruta.suffix != ".jsonl":
         return [l.strip() for l in ruta.read_text(encoding="utf-8").splitlines() if l.strip()]
     out = []
@@ -482,6 +557,8 @@ def ampliar_vocab(enc, vocab, rutas, lote=512):
 
 def fraccion_unk_textos(enc, textos, vocab):
     """Parte de los tokens de `textos` que la poda manda a <unk>."""
+    if not textos:
+        return 0.0
     keep = set(vocab["ids_originales"])
     ids = [i for t in ids_torre(enc, textos) for i in t]
     return sum(int(i) not in keep for i in ids) / max(len(ids), 1)
@@ -580,8 +657,17 @@ def meta_de(filas, dorado=""):
     return {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
 
 
+def calib_con_multi(modelo, enc, chispa, filas):
+    """CALIB con `multi_l2@<hex>[#<id>]` de los esquemas multi de `filas` (con `etiqueta`) que `chispa` aún no trae (los del dev ya
+    vienen de `calibrar`); sin etiquetas variadas en un esquema, L2 no opina en él."""
+    hechos = {k.split("#")[0] for k in chispa["tipos"] if k.startswith("multi_l2@")}
+    nuevas = [r for r in filas if r["tipo"] == "multi" and "etiqueta" in r and "multi_l2" + C.sufijo_multi(r) not in hechos]
+    tipos = C.calibrar_multi_l2(modelo, enc, nuevas)
+    return {**chispa, "tipos": {**chispa["tipos"], **tipos}} if tipos else chispa
+
+
 def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256),
-              cuant="codificador", per_channel=True):
+              cuant="codificador", per_channel=True, ids_calib=None):
     """Todo el camino hasta el `.chispa`. `encoder`: módulo HF (atención eager) del que sale el grafo; `vocab`: dict o None."""
     trabajo = Path(trabajo)
     trabajo.mkdir(parents=True, exist_ok=True)
@@ -592,11 +678,11 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     env = Envoltura(encoder, modelo.ranuras, remap)
     fp32, int8 = trabajo / "l2-fp32.onnx", trabajo / "l2-int8.onnx"
     exportar_onnx(env, fp32, n_vocab)
-    cuantizar(fp32, int8, cuant, per_channel)
+    cuantizar(fp32, int8, cuant, per_channel, ids_calib=ids_calib)
     meta_consulta(int8, enc.max_tok)
     torres = entradas_torres(modelo, enc, filas_esq)
     dim = int(torres[0][3].shape[0])
-    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib["chispa"], salida)
+    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib_con_multi(modelo, enc, calib["chispa"], filas_esq), salida)
     inf = {"l2_mb": int8.stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "chispa_mb": Path(salida).stat().st_size / 1e6,
            "torres": len(torres), "vocab_podado": bool(vocab), "cuant": cuant, "per_channel": per_channel, "opset": OPSET, "k_ranuras": K_RANURAS}
     sess = sesion(int8)
@@ -635,15 +721,16 @@ def main_torre(a, modelo, enc, encoder, vocab, ampl=None):
     """`--torre-onnx`: exporta, y si se piden, mide la paridad y escribe el fixture."""
     sal = Path(a.torre_onnx)
     sal.parent.mkdir(parents=True, exist_ok=True)
-    ids_calib = None
-    if a.cuant_torre == "estatico":
+    ids_calib = ids_calib_q = None
+    if a.cuant_torre in ESTATICAS or a.cuant in ESTATICAS:
         if not a.calib_torre:
-            raise SystemExit("--cuant-torre estatico pide --calib-torre")
+            raise SystemExit("la cuantización estática pide --calib-torre")
         filas_c = D.leer(a.calib_torre)
         filas_c = [r for r in filas_c if r.get("split") == "train"] or filas_c
         tx_c = textos_calib(filas_c, a.n_calib)
         ids_calib = ids_torre(enc, tx_c)
-        print("calibración estática: %d textos de torre de %d filas" % (len(tx_c), len(filas_c)), file=sys.stderr)
+        ids_calib_q = ids_calib_consulta(enc, filas_c, a.n_calib)
+        print("calibración estática: %d textos de torre y %d de consulta de %d filas" % (len(ids_calib), len(ids_calib_q), len(filas_c)), file=sys.stderr)
     kw = dict(cuant=a.cuant_torre, per_channel=a.per_channel, max_len=enc.max_tok, ids_calib=ids_calib, metodo_calib=a.metodo_calib)
     with tempfile.TemporaryDirectory() as t:
         import gc
@@ -668,7 +755,7 @@ def main_torre(a, modelo, enc, encoder, vocab, ampl=None):
             q_fp32, q_int8 = Path(t) / "l2-fp32.onnx", Path(t) / "l2-int8.onnx"
             qenc, qremap = podar(encoder, vocab) if vocab else (encoder, None)
             exportar_onnx(Envoltura(qenc, modelo.ranuras, qremap), q_fp32, len(qremap) if vocab else encoder.get_input_embeddings().weight.shape[0])
-            cuantizar(q_fp32, q_int8, a.cuant, a.per_channel)
+            cuantizar(q_fp32, q_int8, a.cuant, a.per_channel, ids_calib=ids_calib_q, metodo_calib=a.metodo_calib)
             meta_consulta(q_int8, enc.max_tok)
             q_fp32.unlink()
             s_q, filas_t = sesion(q_int8), filas_massive(300)
@@ -790,7 +877,8 @@ def main(argv=None):
     ap.add_argument("--medir-torre", metavar="DIR", help="con --torre-onnx: mide la paridad (300 textos, top-1 de choice) y escribe DIR/LEEME.md y DIR/paridad.json")
     ap.add_argument("--fixture-torre", metavar="DIR", help="con --torre-onnx: escribe DIR/torre.json, el fixture de paridad para Go")
     ap.add_argument("--cuant-torre", choices=CUANT_TORRE,
-                    help="con --torre-onnx: ninguna (fp32), dinamico (defecto; int8 dinámico por canal) o estatico (QDQ calibrado con --calib-torre)")
+                    help="con --torre-onnx: ninguna (fp32), dinamico (defecto; int8 dinámico por canal), estatico (QDQ calibrado con --calib-torre), "
+                         "ffn-estatico (QDQ por canal solo en las FFN y la tabla de embeddings) o fp16")
     ap.add_argument("--calib-torre", nargs="+", metavar="JSONL", help="con --cuant-torre estatico: filas (split train) cuyos textos de torre calibran las activaciones")
     ap.add_argument("--n-calib", type=int, default=500, help="textos de torre distintos para la calibración estática")
     ap.add_argument("--metodo-calib", choices=METODOS_CALIB, default="minmax", help="rango de las activaciones en la calibración estática")
@@ -801,11 +889,12 @@ def main(argv=None):
     ap.add_argument("--sin-poda", action="store_true", help="no aplicar el vocabulario podado")
     ap.add_argument("--perfil", choices=sorted(PERFILES), help="servidor = --cuant ninguna --cuant-torre ninguna --sin-poda; "
                     "movil = int8 dinámico por canal en consulta y torre con la poda ampliada con --vocab-ampliar")
-    ap.add_argument("--vocab-ampliar", nargs="+", action="extend", default=[], metavar="JSONL|TXT",
-                    help="une al vocabulario podado los tokens de estos textos (repetible; jsonl con texto/pregunta/opciones/descripciones, o txt)")
+    ap.add_argument("--vocab-ampliar", nargs="+", action="extend", default=[], metavar="JSONL|TXT|DIR",
+                    help="une al vocabulario podado los tokens de estos textos (repetible; un directorio = todos sus jsonl y txt; jsonl con texto/pregunta/opciones/descripciones, o txt)")
     ap.add_argument("--tabla-perfiles", metavar="DIR", help="escribe DIR/LEEME.md con DIR/servidor/paridad.json y DIR/movil/paridad.json (de --medir-torre) y sale")
     ap.add_argument("--cuant", choices=CUANT,
-                    help="todo: todo el grafo en int8; codificador (defecto): solo MatMul y embeddings del codificador (ranuras en fp32); ninguna: fp32")
+                    help="todo: todo el grafo en int8; codificador (defecto): solo MatMul y embeddings del codificador (ranuras en fp32); ninguna: fp32; "
+                         "ffn-estatico: QDQ por canal solo en las FFN y la tabla de embeddings, calibrado con --calib-torre; fp16: todo en fp16")
     ap.add_argument("--per-channel", action=argparse.BooleanOptionalAction, default=True, help="pesos int8 con una escala por canal de salida")
     ap.add_argument("--min-top1", type=float, default=MIN_TOP1, help="falla si el acuerdo top-1 con PyTorch queda por debajo")
     ap.add_argument("--trabajo", help="directorio de los ONNX (por defecto, temporal)")
@@ -823,8 +912,8 @@ def main(argv=None):
     if a.torre_onnx:
         if not (a.ckpt or a.ckpt_aleatorio is not None):
             ap.error("--torre-onnx pide --ckpt o --ckpt-aleatorio")
-        if a.cuant_torre == "estatico" and not a.calib_torre:
-            ap.error("--cuant-torre estatico pide --calib-torre")
+        if (a.cuant_torre in ESTATICAS or a.cuant == "ffn-estatico") and not a.calib_torre:
+            ap.error("la cuantización estática pide --calib-torre")
     else:
         faltan = [f for f in ("ckpt", "calib", "esquemas", "salida") if not getattr(a, f)]
         if faltan:
@@ -850,8 +939,15 @@ def main(argv=None):
     calib = json.loads(Path(a.calib).read_text(encoding="utf-8"))
     filas = D.leer(a.esquemas)
     par = D.leer(a.paridad)[:a.n_paridad] if a.paridad else []
+    ids_q = None
+    if a.cuant == "ffn-estatico":
+        if not a.calib_torre:
+            ap.error("--cuant ffn-estatico pide --calib-torre")
+        fc = D.leer(a.calib_torre)
+        ids_q = ids_calib_consulta(enc, [r for r in fc if r.get("split") == "train"] or fc, a.n_calib)
     with tempfile.TemporaryDirectory() as t:
-        inf = construir(modelo, enc, encoder, ck, calib, filas, a.salida, a.trabajo or t, vocab, par, cuant=a.cuant, per_channel=a.per_channel)
+        inf = construir(modelo, enc, encoder, ck, calib, filas, a.salida, a.trabajo or t, vocab, par, cuant=a.cuant, per_channel=a.per_channel,
+                        ids_calib=ids_q)
     inf.pop("torres_entradas")
     if ampl:
         inf["vocab_ampliado"] = ampl

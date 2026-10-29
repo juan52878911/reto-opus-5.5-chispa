@@ -103,6 +103,34 @@ def tabla_variante(res, estado, v):
     return "\n".join(filas)
 
 
+PASADAS = (("servidor-ninguna", "base: CALIB de `chispa train --torre`, consulta int8 con poda", "diag-base"),
+           ("servidor-calib", "CALIB global del checkpoint", "diag-calib"),
+           ("servidor-calib-l2fp32", "CALIB global + consulta fp32 sin poda", "diag-calib-l2fp32"))
+
+
+def seccion_paridad(res):
+    """D1: JevBench por el servidor con cada CALIB, exactitud por tipo frente a Python k=0, y los diagnósticos de paridad."""
+    filas = []
+    for d, txt, _ in PASADAS:
+        t = (cargar(res / d / "servidor.json") or {}).get("todos")
+        if not t:
+            continue
+        pt, pp = t.get("exactitud_servidor_por_tipo") or {}, t.get("exactitud_python_k0_por_tipo") or {}
+        filas.append("| %s | %d | %s | %s | %s |" % (txt, t["casos"], f(t["exactitud_servidor"]), " · ".join("%s %s (Python %s)" % (k, f(v), f(pp[k]) if k in pp else "—")
+                     for k, v in sorted(pt.items())), "; ".join("%s %d" % kv for kv in sorted(t["capas"].items()))))
+    out = ""
+    if filas:
+        py = (cargar(res / "servidor-ninguna" / "servidor.json") or {}).get("todos", {}).get("exactitud_python_k0")
+        out += "## JevBench por el servidor: CALIB y consulta (D1)\n\nPython k=0 sobre los mismos casos: %s.\n\n| pasada | casos | exactitud | por tipo | capas |\n|---|---|---|---|---|\n%s\n\n" % (
+            f(py) if py is not None else "—", "\n".join(filas))
+    for _, txt, d in PASADAS:
+        if (res / d / "paridad_servidor.md").exists():
+            out += "## Diagnóstico de paridad: %s\n\n%s\n" % (txt, (res / d / "paridad_servidor.md").read_text().split("\n", 2)[2])
+    if (res / "movil" / "informe.md").exists():
+        out += "## Perfil móvil con la poda corregida (D1)\n\n%s\n" % (res / "movil" / "informe.md").read_text().split("\n", 2)[2]
+    return out
+
+
 def tabla(res):
     res = Path(res)
     estado = leer_estado(res)
@@ -118,7 +146,7 @@ def tabla(res):
     claves = cargar(res / "calib-score-claves.json")
     fila_estado(comunes := [], estado, "chispa_score", "`.chispa` con score K ≥ 3 subido a `$CHISPA_S3/score/l2-score.chispa`")
     out += "## `.chispa` con score K ≥ 3\n\n%s%s\n\nClaves `scoreK` de CALIB: %s\n" % (cab, comunes[0], ", ".join("`%s`" % k for k in claves) if claves else "—")
-    return out
+    return out + seccion_paridad(res)
 
 
 def main(res):

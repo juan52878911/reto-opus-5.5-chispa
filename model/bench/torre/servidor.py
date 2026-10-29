@@ -2,7 +2,7 @@
 NO están en el .chispa, decididos por /v1/decide.
 
     python -m model.bench.torre.servidor --jevbench RUTA --salida DIR --ckpt mejor.pt --torre torre.onnx --servidor BIN --tok e5.chispa-tok \
-        [--repo RAIZ] [--ort-lib SO] [--tau-nuevo X] [--exigir-torres] [--puerto 8091] [--n-esquemas 5] [--todos] [--minutos 15]
+        [--repo RAIZ] [--chispa FICHERO] [--ort-lib SO] [--tau-nuevo X] [--exigir-torres] [--puerto 8091] [--n-esquemas 5] [--todos] [--minutos 15]
 
 Escribe DIR/servidor.json: {cinco: [{id, esquema, layer, escalate, acierto}], cinco_l2: bool, todos: {...}|null, train_s, ...}.
 `todos` (231 casos) lleva la exactitud del servidor y la de Python k=0 sobre los mismos ids si existe DIR/pred/l2_k0.jsonl.
@@ -70,6 +70,7 @@ def main(argv=None):
     for k in ("jevbench", "salida", "ckpt", "torre", "servidor", "tok"):
         ap.add_argument("--" + k, required=True)
     ap.add_argument("--repo", required=True, help="raíz del repo con chispa train (el repo unificado)")
+    ap.add_argument("--chispa", help="usa este .chispa en vez de entrenar el mínimo (ver paridad_servidor.py reescribir)")
     ap.add_argument("--puerto", type=int, default=8091)
     ap.add_argument("--n-esquemas", type=int, default=5)
     ap.add_argument("--todos", action="store_true", help="además, todos los casos de JevBench por el servidor")
@@ -85,7 +86,8 @@ def main(argv=None):
     filas = cargar_jevbench(a.jevbench)
     out = {"esquema_minimo": ESQUEMA["id"]}
     t0 = time.time()
-    modelo = entrenar(a, trabajo)
+    modelo = Path(a.chispa) if a.chispa else entrenar(a, trabajo)   # --chispa: el de otra pasada, con la CALIB o la consulta cambiadas
+    out["chispa"] = str(modelo)
     out["train_s"] = round(time.time() - t0, 1)
     out["chispa_bytes"] = modelo.stat().st_size
     url = f"http://127.0.0.1:{a.puerto}"
@@ -134,12 +136,23 @@ def main(argv=None):
                 for q in preds:
                     capas[q["layer"]] = capas.get(q["layer"], 0) + 1
                 todos = {"casos": len(preds), "de": len(filas), "exactitud_servidor": res["exactitud"], "capas": capas}
+                # exactitud por tipo de pregunta (choice/noul/score): un fallo de un solo tipo (p. ej. noul invertido) se ve aquí
+                por_tipo = {}
+                for t in sorted({r["tipo"] for r in sub}):
+                    st = [r for r in sub if r["tipo"] == t]
+                    it = {r["id"] for r in st}
+                    por_tipo[t] = CE.evaluar(st, [{x: q[x] for x in ("id", "probs", "ms")} for q in preds if q["id"] in it])["global"]["exactitud"]
+                todos["exactitud_servidor_por_tipo"] = por_tipo
                 py = Path(a.pred) if a.pred else sal / "pred" / "l2_k0.jsonl"
                 if py.exists():
                     pp = [json.loads(l) for l in py.read_text().splitlines() if l.strip() and json.loads(l)["id"] in ids]
                     todos["exactitud_python_k0"] = CE.evaluar(sub, [{x: q[x] for x in ("id", "probs", "ms")} for q in pp])["global"]["exactitud"]
+                    todos["exactitud_python_k0_por_tipo"] = {
+                        t: CE.evaluar([r for r in sub if r["tipo"] == t], [{x: q[x] for x in ("id", "probs", "ms")} for q in pp
+                                                                           if q["id"] in {r["id"] for r in sub if r["tipo"] == t}])["global"]["exactitud"]
+                        for t in sorted({r["tipo"] for r in sub})}
                 out["todos"] = todos
-                (sal / "capas_por_caso.jsonl").write_text("".join(json.dumps({"id": q["id"], "layer": q["layer"], "escalate": q["escalate"]}) + "\n" for q in preds))
+                (sal / "capas_por_caso.jsonl").write_text("".join(json.dumps({"id": q["id"], "layer": q["layer"], "escalate": q["escalate"], "probs": q.get("probs")}) + "\n" for q in preds))
             m = metricas(url)
             out["metricas"] = m
             # comprobación obligatoria: la torre se calculó de verdad y L2 decidió algo (si no, todo salió de L0/L1 o escaló por el τ)
