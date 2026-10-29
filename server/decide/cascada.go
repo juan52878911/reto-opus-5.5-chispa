@@ -48,7 +48,13 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 		return nil, fmt.Errorf("cascada: %d capas en la config y %d decisores", len(cfg), len(ds))
 	}
 	c := &Cascada{met: met}
+	if met != nil {
+		met.tauEsquemaNuevo = tauNuevo
+	}
 	for i, d := range ds {
+		if u, ok := d.(UsaMetricas); ok && met != nil {
+			u.UsaMetricas(met)
+		}
 		if d.Nombre() != cfg[i].Nombre {
 			return nil, fmt.Errorf("cascada: la capa %d es %s pero la config dice %s", i, d.Nombre(), cfg[i].Nombre)
 		}
@@ -93,10 +99,16 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			mejor = r
 		}
 		tau := l.tau
-		if r.EsquemaNuevo && l.tauNuevo != nil {
-			tau = *l.tauNuevo
+		if r.EsquemaNuevo {
+			c.met.EsquemaNuevoPreguntas.Add(1)
+			if l.tauNuevo != nil {
+				tau = *l.tauNuevo
+			}
 		}
 		if r.Conf > 0 && r.Conf >= tau {
+			if r.EsquemaNuevo {
+				c.met.EsquemaNuevoDecididas.Add(1)
+			}
 			res.Answer, res.Probs, res.Layer = r.Answer, r.Probs, l.d.Nombre()
 			c.met.Decidida(res.Layer, false)
 			res.Ms = ms(time.Since(t0))

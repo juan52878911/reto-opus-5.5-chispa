@@ -2,6 +2,7 @@ package decide
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -192,6 +193,7 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 	ctx := conPresupuesto(r.Context())
 	for i, p := range preguntas {
 		if ctx.Err() != nil {
+			s.cuentaTimeout(ctx)
 			return // cliente ido: nada que escribir ni que cachear
 		}
 		var ck string
@@ -206,6 +208,7 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		}
 		res := s.Cascada.Decidir(ctx, p)
 		if ctx.Err() != nil {
+			s.cuentaTimeout(ctx)
 			return
 		}
 		b, _ := json.Marshal(res)
@@ -217,6 +220,13 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 	s.Met.Peticion(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
+}
+
+// cuentaTimeout apunta las peticiones que acaban por plazo vencido (no las que el cliente cancela).
+func (s *Servidor) cuentaTimeout(ctx context.Context) {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		s.Met.Timeouts.Add(1)
+	}
 }
 
 func bad(code, qid, format string, a ...any) *errAPI {

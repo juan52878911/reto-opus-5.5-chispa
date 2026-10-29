@@ -95,7 +95,7 @@ paths:
       summary: Metricas en formato de texto Prometheus
       responses:
         "200":
-          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...)
+          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) y plazos vencidos (chispa_timeouts_total)
           content:
             text/plain:
               schema:

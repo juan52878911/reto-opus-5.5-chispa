@@ -115,3 +115,23 @@ Prueba en seco, sin docker ni ORT: `CHISPA_LOCAL=1`. La prueba de punta a punta 
 ## Observabilidad
 Usa `/healthz` como sonda de vida y `/metrics` para Prometheus. Vigila `chispa_escalados_total` frente a `chispa_preguntas_total`
 ([03-api.md](03-api.md#get-metrics)) y `chispa_capa_errores_total`.
+
+Contadores de lo nuevo (torres al vuelo, esquemas nuevos, nonces y plazos):
+
+| Métrica | Tipo | Qué cuenta |
+|---|---|---|
+| `chispa_torres_calculadas_total` | counter | Torres de opción calculadas al vuelo (esquema que el `.chispa` no trae; hace falta la sección TORR) |
+| `chispa_torres_cache_aciertos_total` | counter | Torres servidas de la caché de torres |
+| `chispa_torres_esperas_total` | counter | Torres que esperaron a otra petición que ya las calculaba (singleflight) |
+| `chispa_torres_errores_total` | counter | Cálculos de torre fallidos (error o pánico del codificador) |
+| `chispa_torres_presupuesto_agotado_total` | counter | Preguntas en las que L2 no opinó por agotar el tope de torres nuevas de la petición |
+| `chispa_torre_latencia_segundos` | histogram | Duración de cada cálculo de torre (mismos buckets que `chispa_capa_latencia_segundos`, sin etiqueta) |
+| `chispa_esquema_nuevo_preguntas_total` | counter | Preguntas que L2 puntuó con torres al vuelo |
+| `chispa_esquema_nuevo_decididas_total` | counter | De ellas, las que L2 resolvió con el τ de esquema nuevo (el resto sube de capa o escala) |
+| `chispa_esquema_nuevo_tau` | gauge | τ de L2 para esquemas nuevos; solo aparece si la config lo fija (`tau_l2_esquema_nuevo`) |
+| `chispa_cache_nonce_aciertos_total` | counter | Respuestas repetidas servidas de la caché de nonces |
+| `chispa_timeouts_total` | counter | Peticiones cuyo plazo venció (no cuenta cancelaciones del cliente) |
+
+Pistas: un `chispa_torres_cache_aciertos_total` bajo frente a `chispa_torres_calculadas_total` pide una caché de torres mayor;
+`chispa_torres_presupuesto_agotado_total` > 0 indica clientes que mandan esquemas con demasiadas opciones; `chispa_timeouts_total`
+creciendo junto a `chispa_torre_latencia_segundos` alto apunta a torres lentas.

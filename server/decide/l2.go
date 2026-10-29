@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"chispa/format/chispa3"
 )
@@ -41,7 +42,11 @@ type L2 struct {
 	vuelo   map[string]*llamadaTorre
 	// Hits y Misses cuentan las peticiones de esquema nuevo con todas sus torres en caché / con alguna por calcular.
 	Hits, Misses atomic.Uint64
+	met          *Metricas // nil = sin contadores en /metrics
 }
+
+// UsaMetricas conecta L2 con /metrics (lo hace NuevaCascada).
+func (l *L2) UsaMetricas(m *Metricas) { l.met = m }
 
 // CodificadorTorre calcula la torre de opción h (d floats, normalizada) de un texto de pasaje «passage: pregunta · opción ·
 // descripción» (model/l2/modelo.py, texto_opcion). Es el e5 de pasaje más la cabeza de torre: la implementación real es
@@ -88,15 +93,18 @@ func (l *L2) ConMaxTorresNuevas(n int) *L2 {
 // torreUnica devuelve la torre de k: de la caché, o calculándola una sola vez aunque la pidan varias goroutines a la vez.
 func (l *L2) torreUnica(ctx context.Context, k, texto string) (torreDin, error) {
 	if t, ok := l.cache.Get(k); ok {
+		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
 		return t, nil
 	}
 	l.muVuelo.Lock()
 	if t, ok := l.cache.Get(k); ok { // otra la acaba de terminar
 		l.muVuelo.Unlock()
+		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
 		return t, nil
 	}
 	if c, ok := l.vuelo[k]; ok {
 		l.muVuelo.Unlock()
+		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresEsperas })
 		select {
 		case <-c.done:
 			return c.t, c.err
@@ -118,7 +126,9 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (torreDin, error) 
 		l.muVuelo.Unlock()
 		close(c.done)
 	}()
+	t0 := time.Now()
 	h, err := l.torres.Torre(texto)
+	l.met.ObservaTorre(time.Since(t0), err)
 	if err == nil {
 		c.t = cuantizarTorre(h)
 		l.cache.Put(k, c.t)
@@ -161,6 +171,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		pr := presupuestoDe(ctx)
 		if pr.usadas.Add(int64(faltan)) > int64(l.maxNuevas) {
 			pr.usadas.Add(-int64(faltan))
+			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 			return nil, false, nil
 		}
 	}
