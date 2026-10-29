@@ -10,6 +10,12 @@ val r = chispa.decidir("quiero comprar dos camisetas", listOf(pregunta)).first()
 r.respuesta; r.confianza; r.capa; r.escalar; r.ms
 ```
 
+- **Tipo `multi`** (`Pregunta(texto, opciones, tipo = "multi")`): cada opción es un sí/no con su p en `probs` (no suman 1).
+  `r.respuestas` son las activas en el orden de la pregunta (vacía si ninguna: es una respuesta válida y no escala);
+  `r.respuesta` es la activa más probable o `""`. La confianza que se compara con τ es la de la opción más dudosa: la calcula
+  el motor (`multi` de `chispamovil`), así que la cascada no cambia; una capa solo acepta si todas sus decisiones pasan τ. L0 no
+  opina en `multi`. Al escalar, `respuestas` es la de la capa con más confianza. En choice, noul y score `respuestas` va vacía.
+
 - **Cascada** (`Cascada.kt`): igual que `server/decide/cascada.go`. L0 → L1 → L2, pasa a la siguiente mientras la
   confianza top-1 sea < τ; una capa que falla o no opina se salta; si ninguna llega, `escalar = true` con la pista de
   mayor confianza y la última capa. τ: L0 = 0,80; L1 y L2 = `tau_escalate` de CALIB (0,80 y 0,70 si el fichero no trae
@@ -73,3 +79,12 @@ Sigue sin asegurarse (nadie lo compiló):
 - El resultado numérico de los tests (se razonó a mano la traza de cada uno, no se ejecutó).
 - `androidTest/MedirP99Test.kt` queda fuera de este repaso.
 Verificar con: `cd sdk/android && ./gradlew :chispa:testDebugUnitTest :demo:testDebugUnitTest`.
+
+## Tipo `multi` (revisión estática, sin JDK)
+Cambios: `Pregunta.tipo` admite `"multi"`; `SalidaCapa.respuestas: List<String>?` (null salvo que el JSON del motor traiga `answers`;
+al final de los parámetros, con valor por defecto); `SalidaCapa.opina` acepta `respuesta == ""` si `respuestas != null`
+(«ninguna activa»); `Respuesta.respuestas: List<String> = emptyList()` (último parámetro, con valor por defecto: las llamadas
+posicionales de antes compilan igual); `Cascada.decidir` la rellena con la de la capa que acepta o la de la mejor pista.
+Tests: `MultiTest.kt` (9) con `jsonMulti` y `PREGUNTA_MULTI` de `Falsos.kt`. Revisadas a mano las firmas: `SalidaCapa.copy` conserva
+`respuestas` (lo usa `CapaL2`), `List(n) { aj.getString(it) }` sobre `JSONArray`, `orEmpty()` sobre `List<String>?`.
+Sin compilar ni ejecutar. Verificar con: `cd sdk/android && ./gradlew :chispa:testDebugUnitTest --tests '*MultiTest'`.
