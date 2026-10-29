@@ -52,9 +52,9 @@ def main(argv=None) -> int:
     t.add_argument("--salida", required=True, help="el .chispa que se escribe")
     t.add_argument("--l1", help=".chispa-l1 (potion exportado con runtime/l1/exportar.py)")
     t.add_argument("--ckpt", help="checkpoint de L2: calibra y exporta L2 y ESQUEMAS con model/l2")
-    t.add_argument("--perfil", choices=("servidor", "movil"), default="servidor",
-                   help="con --ckpt, perfil del exportador de L2: servidor (defecto: fp32, sin poda de vocabulario) o movil (int8, vocabulario podado y "
-                        "ampliado con el esquema). La CALIB de L2 de --ckpt pasa a tipos_l2/tau_escalate_l2; la de L1 no se toca. Con --l2 no hace nada: ese .chispa ya se exportó con su perfil")
+    t.add_argument("--perfil", choices=("servidor", "movil", "movil-int8"), default="servidor",
+                   help="con --ckpt, perfil del exportador de L2: servidor (defecto: fp32, sin poda de vocabulario) movil (fp16, vocabulario podado y "
+                        "ampliado con el esquema, ≈ 89 MB) o movil-int8 (int8, más pequeño, algo menos fiel). La CALIB de L2 de --ckpt pasa a tipos_l2/tau_escalate_l2; la de L1 no se toca. Con --l2 no hace nada: ese .chispa ya se exportó con su perfil")
     t.add_argument("--l2", help=".chispa ya exportado por model/l2/exportar.py: de aquí salen L2 y ESQUEMAS")
     t.add_argument("--conjunta", action="store_true",
                    help="modo «con datos del cliente»: añade la cabeza conjunta L0 + L2 (sección CONJ) y L0TF; necesita train etiquetado "

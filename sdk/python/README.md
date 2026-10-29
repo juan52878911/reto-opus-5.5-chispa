@@ -63,9 +63,11 @@ python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chisp
     por stderr y el informe lo lista en `omitidas`. Los prototipos de T2.1b son parte de L2 y no están en el formato: no se usan.
   - **Perfiles de L2** (`--perfil`, solo con `--ckpt`): `servidor` (defecto) exporta con `model.l2.exportar --perfil servidor`: consulta fp32,
     sin cuantizar y **sin poda de vocabulario** (los 250.037 tokens), para que un esquema nuevo no caiga en `<unk>`. `movil` usa `--perfil movil`:
-    int8, vocabulario podado **ampliado** (`--vocab-ampliar`) con los textos del esquema; pesa menos. El esquema nunca poda por sí solo. Con
-    `--l2` el perfil ya lo fijó quien exportó. La CALIB global de L2 se conserva: de `l2.chispa` solo se copian L2 y ESQUEMAS, y la
-    CALIB del `.chispa` final es la de `chispa train` (la que `calibrar` escribe sobre las filas del esquema no llega al fichero).
+    fp16, vocabulario podado **ampliado** (`--vocab-ampliar`) con los textos del esquema (≈ 89 MB); `movil-int8` es el int8 dinámico de antes
+    (más pequeño, top-1 ≈ 0,87). En móvil, los esquemas que no estaban en el entrenamiento rinden menos (≈ 0,90 relativo, por `<unk>`) y escalan
+    más. El esquema nunca poda por sí solo. Con `--l2` el perfil ya lo fijó quien exportó. Con `--ckpt`, de `l2.chispa` se copian L2 y ESQUEMAS
+    y su CALIB entera (todos los tipos, `scoreK#j`, `multi_l2@…`, `tau_escalate`→`tau_escalate_l2`, `tau_l2c`) a `tipos_l2`/`tau_escalate_l2`/`tau_l2c`,
+    igual que con `--l2`; se avisa solo si ese `l2.chispa` no trae CALIB. La CALIB de L1 del `.chispa` final no se toca.
 - **`--conjunta`** (T2.6b): añade `CONJ`, la cabeza lineal L0 + L2 por tarea. Necesita `--ckpt` (el modelo de L2 y e5 dan las
   características; el ONNX no basta) y L2, de `--l2` o de `--ckpt`; sólo `choice`. Importa `model/l2/conjunta.py` (no lo copia):
   L0 fuera de pliegue (5 pliegues; es el `correr_l0` de sklearn de las líneas base), L2 con el soporte de 32 por clase y los

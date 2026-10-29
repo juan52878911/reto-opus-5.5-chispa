@@ -138,9 +138,10 @@ PYTHONPATH=sdk/python python -m chispa train --ejemplos ejemplos.csv --esquema f
   ([`model/l2/README.md`](../model/l2/README.md#uso)).
 - `--l2`: el `.chispa` con L2 y ESQUEMAS que sale de `python -m model.l2.calibrar` y `python -m model.l2.exportar`.
   Sin `--l2`, `--ckpt` calibra y exporta por ti.
-- `--perfil servidor|movil` (solo con `--ckpt`; defecto `servidor`): el perfil con el que se exporta L2. `servidor` = consulta fp32 sin cuantizar y
-  sin poda de vocabulario (decide bien sobre esquemas nuevos). `movil` = int8 con el vocabulario podado ampliado con los textos del esquema
-  (menos MB, algo menos fiel). Ninguno poda por el esquema, y la CALIB global de L2 no cambia. Con `--l2` el perfil ya lo fijó quien exportó.
+- `--perfil servidor|movil|movil-int8` (solo con `--ckpt`; defecto `servidor`): el perfil con el que se exporta L2. `servidor` = consulta fp32 sin cuantizar y
+  sin poda de vocabulario (decide bien sobre esquemas nuevos). `movil` = fp16 con el vocabulario podado ampliado con los textos del esquema
+  (≈ 89 MB); `movil-int8` = el int8 dinámico, más pequeño y algo menos fiel. En móvil, los esquemas que no estaban en el entrenamiento rinden
+  menos (≈ 0,90 relativo, por `<unk>`) y escalan más. Ninguno poda por el esquema, y la CALIB global de L2 no cambia. Con `--l2` el perfil ya lo fijó quien exportó.
 - `--repo`: la raíz del repositorio. También vale `CHISPA_REPO`.
 - `--torre <onnx>`: añade `TORR` también aquí (y en zero-shot y few-shot); detalle en [08-esquemas-nuevos.md](08-esquemas-nuevos.md).
 - `--conjunta` solo sirve para `choice`. Escribe `CONJ`, `L0TF` y `tau_l2c` en `CALIB`.
