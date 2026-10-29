@@ -42,6 +42,14 @@ class Paridad(unittest.TestCase):
         ps = P.probs_calib("score", 3, [1.0], {"score3": {"a": 2.0, "b": 1.0}, "score3#1": {"a": 0.5}})
         self.assertAlmostEqual(float(ps.sum()), 1.0)
 
+    def test_probs_calib_score_sin_calib(self):
+        # CALIB de `chispa train`: solo choice/noul; el servidor no tiene valores por defecto para score (L2.score escala) → None
+        self.assertIsNone(P.probs_calib("score", 4, [0.3], {"choice": {"T": 0.1}}))
+        self.assertIsNone(P.probs_calib("score", 5, [0.3], {"score4": {"a": 2.0, "b": 1.0}}))
+        self.assertIsNone(P.probs_calib("score", 3, [0.3], {"score3": {"a": 2.0, "b": 1.0}}))   # falta score3#1
+        self.assertAlmostEqual(float(P.probs_calib("noul", 2, [0.3], {}).sum()), 1.0)   # noul y choice sí tienen defecto
+        self.assertAlmostEqual(float(P.probs_calib("choice", 3, [0.3, 0.2, 0.1], {}).sum()), 1.0)
+
     def test_resumen_cuenta_causas(self):
         base = {"consulta": {"truncado_python": False, "truncado_servidor": True}, "torre": [{"igual": True}], "replay_fiel": 0.0, "delta_p_max": 0.2}
         fs = [{**base, "tipo": "choice", "elegida": {}, "causa": "calib"}, {**base, "tipo": "choice", "elegida": {}, "causa": None},

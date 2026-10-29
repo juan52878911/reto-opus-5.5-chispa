@@ -102,7 +102,8 @@ CALIB_DEFECTO = {"T": 0.05, "a": 4.0, "b": -2.0, "theta": 0.5}
 
 def probs_calib(tipo, K, sims, tipos):
     """Probabilidades con la sección CALIB (como `decide.L2`): choice softmax(s/T), noul σ(a·s+b), scoreK CORAL con a, b y los incrementos `#j`.
-    Un tipo que falte en CALIB usa los valores por defecto del servidor."""
+    Un tipo que falte en CALIB usa los valores por defecto del servidor (`paramsDe`): choice y noul. Un score sin `scoreK` o sin algún `scoreK#j`
+    no tiene valores por defecto: el servidor no contesta (`L2.score` devuelve Respuesta vacía y escala), y aquí se devuelve None («sin CALIB»)."""
     tipos = {**{"choice": CALIB_DEFECTO, "noul": CALIB_DEFECTO}, **tipos}
     if tipo == "choice":
         z = np.asarray(sims) / tipos["choice"]["T"]
@@ -113,6 +114,8 @@ def probs_calib(tipo, K, sims, tipos):
         pt = 1 / (1 + math.exp(-(p["a"] * sims[0] + p["b"])))
         return np.array([1 - pt, pt])
     clave = "score%d" % K
+    if clave not in tipos or any("%s#%d" % (clave, j) not in tipos for j in range(1, K - 1)):
+        return None
     base, b, sup = tipos[clave], tipos[clave]["b"], []
     for j in range(K - 1):
         if j:
@@ -213,10 +216,18 @@ def diagnosticar(a):
                 s = s_torch(modelo, enc, r, ts) if onnx else s_servidor(srv, r, ts, max_tok if truncado else srv.max_len_q)
                 return probs_calib(tipo, K, s, cal(calib)), s
             p_replay, s_replay = probs()
+            p_py = np.array([py_p[r["id"]]["probs"][o] for o in ops]) if r["id"] in py_p else probs_calib(tipo, K, s_py, py_tipos)
+            if p_replay is None or p_py is None:   # score sin CALIB (ni en el .chispa ni en el checkpoint): el servidor escala; no hay con qué comparar
+                filas_out.append({"id": r["id"], "tipo": tipo, "etiqueta": r["etiqueta"], "capa": srv_p[r["id"]]["layer"], "causa": "sin_calib",
+                                  "consulta": {"texto_igual": True, "tokens_python": len(ids_py), "tokens_servidor": len(ids_srv),
+                                               "tokens_sin_truncar": n_sin_truncar, "truncado_python": n_sin_truncar > max_tok,
+                                               "truncado_servidor": n_sin_truncar > srv.max_len_q},
+                                  "torre": [{"opcion": o, "igual": x == y, "servidor": x, "python": y} for o, x, y in zip(
+                                      (ops if tipo == "choice" else ["true" if tipo == "noul" else max(ops, key=int)]), ts_srv, ts_py)]})
+                continue
             p_srv = [srv_p[r["id"]]["probs"].get(o, 0.0) for o in ops]
             tot = sum(p_srv)
             p_srv = np.array(p_srv) / tot if tot > 0 else None
-            p_py = np.array([py_p[r["id"]]["probs"][o] for o in ops]) if r["id"] in py_p else probs_calib(tipo, K, s_py, py_tipos)
             fila = {"id": r["id"], "tipo": tipo, "etiqueta": r["etiqueta"], "capa": srv_p[r["id"]]["layer"],
                     "consulta": {"texto_igual": True, "tokens_python": len(ids_py), "tokens_servidor": len(ids_srv),
                                  "tokens_sin_truncar": n_sin_truncar, "truncado_python": n_sin_truncar > max_tok,
@@ -268,10 +279,11 @@ def resumen(filas):
         fs = [f for f in filas if t == "todos" or f["tipo"] == t]
         con = [f for f in fs if "elegida" in f]
         dis = [f for f in con if f["causa"]]
+        sin = sum(f.get("causa") == "sin_calib" for f in fs)
         causas = {}
         for f in dis:
             causas[f["causa"]] = causas.get(f["causa"], 0) + 1
-        res[t] = {"casos": len(fs), "escalados": len(fs) - len(con), "discrepan": len(dis), "causas": causas,
+        res[t] = {"casos": len(fs), "escalados": len(fs) - len(con), "sin_calib": sin, "discrepan": len(dis), "causas": causas,
                   "tokens_truncados_python": sum(f["consulta"]["truncado_python"] for f in fs),
                   "tokens_truncados_servidor": sum(f["consulta"]["truncado_servidor"] for f in fs),
                   "texto_torre_distinto": sum(not all(x["igual"] for x in f["torre"]) for f in fs),

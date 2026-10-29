@@ -18,8 +18,8 @@ CHISPA_S3=__CHISPA_S3__
 # ./torre/..., TestIgualdadTransformersPasaje · 5 chispa train --torre, chispa-server -tags ort, los 5 esquemas de JevBench y los 231 casos por /v1/decide junto a Python k=0,
 # con /metrics leído tras las peticiones (chispa_torres_calculadas_total > 0 y L2 en las capas, o FALLO) y una pasada con tau_l2_esquema_nuevo · 6 informe.md (OK/FALLO por punto).
 # Al salir (trap) sube log.txt y resultados.tgz y apaga; apagado forzoso a los 75 min.
-# CHISPA_LOCAL=1: prueba en seco sin dnf, pip, ORT ni shutdown, con checkpoint aleatorio y fixtures; sin ORT se omiten (OMITIDO) los pasos de Go
-# con ORT, `train --torre` y el servidor. Con CHISPA_DOS_PAQUETES=1, CHISPA_TRY_REF elige la rama del SDK.
+# CHISPA_LOCAL=1: prueba en seco sin dnf, pip, descargas ni shutdown, con checkpoint aleatorio y fixtures. Con ORT (~/ort o CHISPA_ORT_DIR) y gcc en el nodo
+# recorre TODOS los pasos (Go con ORT, servidor, pasadas, diagnósticos y móvil); sin ellos se omiten (OMITIDO) los pasos de Go con ORT, `train --torre` y el servidor. Con CHISPA_DOS_PAQUETES=1, CHISPA_TRY_REF elige la rama del SDK.
 CKPT_S3=${CHISPA_CKPT_S3:-s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt}
 LOCAL=${CHISPA_LOCAL:-0}
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
@@ -180,11 +180,14 @@ echo "== 4. Go y ORT $(date -u +%T)"
 TOK=$MODELOS/e5.chispa-tok
 "$PY" -I "$REPO/runtime/tok/exportar.py" "$E5" "$TOK" || { fallo "exportar tokenizador"; cierre; }
 SERV=$BASE/chispa-server
-if [ "$LOCAL" = 1 ]; then
+ORT_DIR=/opt/ort
+# en seco, con ORT (~/ort) y gcc en el nodo se recorren también los pasos de Go reales; sin ellos se omiten
+LOCAL_ORT=0; if [ "$LOCAL" = 1 ] && [ -f "${CHISPA_ORT_DIR:-$HOME/ort}/lib/libonnxruntime.so.${ORT_VERSION}" ] && command -v gcc >/dev/null; then LOCAL_ORT=1; ORT_DIR=${CHISPA_ORT_DIR:-$HOME/ort}; fi
+if [ "$LOCAL" = 1 ] && [ "$LOCAL_ORT" != 1 ]; then
   estado go_test_ort "OMITIDO local (sin ORT)"; estado go_test_tok "OMITIDO local (sin ORT ni CHISPA_TOK del SDK)"
   ( cd "$REPO/server" && go build -o "$SERV" ./cmd/chispa-server ) && estado build_server "OK sin ORT (local)" || estado build_server "FALLO go build"
 else
-  export CGO_ENABLED=1 LD_LIBRARY_PATH=/opt/ort/lib CHISPA_ORT_LIB=/opt/ort/lib/libonnxruntime.so.${ORT_VERSION}
+  export CGO_ENABLED=1 LD_LIBRARY_PATH=$ORT_DIR/lib CHISPA_ORT_LIB=$ORT_DIR/lib/libonnxruntime.so.${ORT_VERSION}
   if [ -f go.work ]; then GODIR=$REPO TORRE_PKG=./server/torre/...; else GODIR=$REPO/server TORRE_PKG=./torre/...; fi
   prueba() {   # prueba clave "go test…": OK solo con algún PASS y ningún SKIP ni FAIL (un test saltado no demuestra nada)
     local k=$1; shift; ( cd "$GODIR" && "$@" ) > "$RES/$k.log" 2>&1; local rc=$?
@@ -201,7 +204,7 @@ cd "$REPO" || cierre
 
 # --- 5. por variante: chispa train --torre, chispa-server y esquemas de JevBench por /v1/decide (los 231 casos, solo en CHISPA_TODOS_VAR) ----
 echo "== 5. servidor $(date -u +%T)"
-if [ "$LOCAL" = 1 ]; then for v in $VARIANTES; do estado "train_torre_$v" "OMITIDO local (sin ORT)"; done
+if [ "$LOCAL" = 1 ] && [ "$LOCAL_ORT" != 1 ]; then for v in $VARIANTES; do estado "train_torre_$v" "OMITIDO local (sin ORT)"; done
 elif [ -x "$SERV" ]; then
   "$PY" -u -m model.evaluacion.jevbench_l2 --ckpt "$CKPT" --jevbench "$JEV" --salida "$RES" --k 0 --device cpu || fallo "jevbench_l2 k=0"
   TODOS_VAR=${CHISPA_TODOS_VAR:-${VARIANTES%% *}}
@@ -252,7 +255,7 @@ elif [ -x "$SERV" ]; then
        && "$PY" -u -m model.bench.torre.paridad_servidor reescribir --ckpt "$CKPT" --jevbench "$JEV" --entrada "$BASE_CH" --salida "$RES/calib-global-l2fp32.chispa" \
             --calib-ckpt --l2-de "$RES/l2-servidor.chispa" >> "$RES/reescribir-calib.log" 2>&1; then
       rm -f "$RES/l2-servidor.chispa"
-      pasada calib-l2fp32 1
+      pasada calib-l2fp32 "$RES/calib-global-l2fp32.chispa" 1
       [ -f "$RES/servidor-calib-l2fp32/capas_por_caso.jsonl" ] && diagnosticar calib-l2fp32 "$RES/calib-global-l2fp32.chispa" "$RES/servidor-calib-l2fp32/capas_por_caso.jsonl"
     else tail -5 "$RES/exportar-l2-servidor.log"; estado "pasada_calib-l2fp32" "FALLO exportar consulta fp32"; fallo "consulta fp32 sin poda"; fi
   else estado "diag_base" "FALLO sin la pasada base (servidor-$TODOS_VAR)"; fi
