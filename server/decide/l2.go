@@ -91,7 +91,7 @@ func (l *L2) ConMaxTorresNuevas(n int) *L2 {
 }
 
 // torreUnica devuelve la torre de k: de la caché, o calculándola una sola vez aunque la pidan varias goroutines a la vez.
-func (l *L2) torreUnica(ctx context.Context, k, texto string) (torreDin, error) {
+func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, err error) {
 	if t, ok := l.cache.Get(k); ok {
 		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
 		return t, nil
@@ -120,6 +120,7 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (torreDin, error) 
 	defer func() {
 		if r := recover(); r != nil {
 			c.t, c.err = torreDin{}, fmt.Errorf("torre: pánico: %v", r)
+			t, err = torreDin{}, c.err // el líder también recibe el error, no una torre vacía
 		}
 		l.muVuelo.Lock()
 		delete(l.vuelo, k)
@@ -216,6 +217,13 @@ type Similitudes interface {
 }
 
 func (l *L2) Similitudes(ctx context.Context, p Pregunta) ([][]float32, []float64, bool, error) {
+	S, sims, _, ok, err := l.similitudesTorres(ctx, p)
+	return S, sims, ok, err
+}
+
+// similitudesTorres es Similitudes devolviendo además las torres con las que puntuó cada opción (choice) o la única
+// (noul y score), para que L2c mezcle con esas mismas.
+func (l *L2) similitudesTorres(ctx context.Context, p Pregunta) ([][]float32, []float64, []torreDin, bool, error) {
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
@@ -244,19 +252,27 @@ func (l *L2) Similitudes(ctx context.Context, p Pregunta) ([][]float32, []float6
 		}
 		ts = []vt{{v, e}}
 	}
-	return l.simsDe(p, ts)
+	return l.simsConTorres(p, ts)
 }
 
 // similitudesNuevas: esquema ausente de ESQUEMAS. Sin CodificadorTorre, sin opinión; con él, torres al vuelo.
-func (l *L2) similitudesNuevas(ctx context.Context, p Pregunta) ([][]float32, []float64, bool, error) {
+func (l *L2) similitudesNuevas(ctx context.Context, p Pregunta) ([][]float32, []float64, []torreDin, bool, error) {
 	if l.torres == nil {
-		return nil, nil, false, nil
+		return nil, nil, nil, false, nil
 	}
 	ts, ok, err := l.torresNuevas(ctx, p)
 	if err != nil || !ok {
-		return nil, nil, false, err
+		return nil, nil, nil, false, err
 	}
-	return l.simsDe(p, ts)
+	return l.simsConTorres(p, ts)
+}
+
+func (l *L2) simsConTorres(p Pregunta, ts []torreDin) ([][]float32, []float64, []torreDin, bool, error) {
+	S, sims, ok, err := l.simsDe(p, ts)
+	if err != nil || !ok {
+		return nil, nil, nil, ok, err
+	}
+	return S, sims, ts, true, nil
 }
 
 func (l *L2) simsDe(p Pregunta, ts []torreDin) ([][]float32, []float64, bool, error) {
@@ -270,8 +286,10 @@ func (l *L2) simsDe(p Pregunta, ts []torreDin) ([][]float32, []float64, bool, er
 	if len(S) == 0 {
 		return nil, nil, false, fmt.Errorf("L2: el codificador no devolvió ranuras")
 	}
-	if len(S[0]) != len(ts[0].v) {
-		return nil, nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(ts[0].v))
+	for _, t := range ts {
+		if len(S[0]) != len(t.v) {
+			return nil, nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(t.v))
+		}
 	}
 	sims := make([]float64, len(ts))
 	for i, t := range ts {
@@ -333,7 +351,7 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	return l.score(p, sims[0])
 }
 
-// score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j».
+// score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j» (j = 1..K−2, como a_calib_chispa).
 func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 	K := len(p.Opciones)
 	for i, o := range p.Opciones {
@@ -350,7 +368,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 	b := base.B
 	for j := 0; j < K-1; j++ {
 		if j > 0 {
-			inc, ok := l.calib.Tipos[fmt.Sprintf("%s#%d", clave, j+1)]
+			inc, ok := l.calib.Tipos[fmt.Sprintf("%s#%d", clave, j)]
 			if !ok {
 				return Respuesta{}, nil
 			}

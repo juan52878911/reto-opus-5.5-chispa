@@ -55,7 +55,7 @@ var ranurasTorre = [][]float32{{1, -0.5, 0.25, 2}, {-1, 1, 0.5, 0}}
 func calibTorre() chispa3.Calib {
 	return chispa3.Calib{TauEscalate: 0.4, Tipos: map[string]chispa3.ParamsTipo{
 		"choice": {T: 0.5}, "noul": {T: 1, A: 1.5, B: -0.5, Theta: 0.5},
-		"score3": {T: 1, A: 1, B: 0, Theta: 0.5}, "score3#2": {T: 1, A: 1, B: 0.2, Theta: 0.5},
+		"score3": {T: 1, A: 1, B: 0, Theta: 0.5}, "score3#1": {T: 1, A: 1, B: 0.2, Theta: 0.5},
 	}}
 }
 

@@ -706,7 +706,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 	b := base.B
 	for j := 0; j < K-1; j++ {
 		if j > 0 {
-			inc, ok := c.calib.Tipos[fmt.Sprintf("%s#%d", clave, j+1)]
+			inc, ok := c.calib.Tipos[fmt.Sprintf("%s#%d", clave, j)]
 			if !ok {
 				return vacia
 			}

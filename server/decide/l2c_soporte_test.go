@@ -89,7 +89,7 @@ func TestL2cSoporteMueveLaTorreHaciaLosEjemplos(t *testing.T) {
 	base := []float64{softplus(0), softplus(1)}
 	// λ=1, k=1 ⇒ w=0,5: la torre de «a», (1,0), y su soporte, (0,1), dan (√2/2, √2/2); «b» (k=0) no cambia.
 	l.ConSoporte(soplDe(t, p, 1), floatPtr(1))
-	got := l.mezclarSims(p, e, S, base)
+	got := l.mezclarSims(p, e, S, base, nil)
 	if math.Abs(got[0]-softplus(math.Sqrt2/2)) > 1e-3 || got[1] != base[1] {
 		t.Fatalf("w=0,5: %v (base %v)", got, base)
 	}
@@ -100,7 +100,7 @@ func TestL2cSoporteMueveLaTorreHaciaLosEjemplos(t *testing.T) {
 	prev := got[0]
 	for _, lambda := range []float64{0.25, 0.01} {
 		l.ConSoporte(soplDe(t, p, 1), floatPtr(lambda))
-		g := l.mezclarSims(p, e, S, base)
+		g := l.mezclarSims(p, e, S, base, nil)
 		if g[0] <= prev {
 			t.Fatalf("λ=%v: %v no sube desde %v", lambda, g[0], prev)
 		}

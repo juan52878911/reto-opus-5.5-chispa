@@ -20,7 +20,7 @@ func calibCoral() chispa3.Calib {
 	b0 := sCero - math.Log(0.4/0.6)
 	b1 := sCero - math.Log(0.6/0.4)
 	return chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{
-		"score3": {A: 1, B: b0}, "score3#2": {A: b1 - b0},
+		"score3": {A: 1, B: b0}, "score3#1": {A: b1 - b0},
 	}}
 }
 

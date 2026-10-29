@@ -54,7 +54,7 @@ func TestL2TorreORTEsquemaNuevo(t *testing.T) {
 	}
 	calib := calibTiny()
 	calib.Tipos["score3"] = chispa3.ParamsTipo{T: 1, A: 1, B: 0, Theta: 0.5}
-	calib.Tipos["score3#2"] = chispa3.ParamsTipo{T: 1, A: 1}
+	calib.Tipos["score3#1"] = chispa3.ParamsTipo{T: 1, A: 1}
 	f := v3Tiny(t, calib, chispa3.Seccion{Tipo: chispa3.L2, Datos: l2onnx},
 		chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: esq}, chispa3.Seccion{Tipo: chispa3.TORR, Datos: tr})
 	cfg := Config{CacheEsquemas: 64}

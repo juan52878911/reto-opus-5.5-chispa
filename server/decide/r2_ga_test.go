@@ -68,11 +68,10 @@ func TestSingleflightPanicoLiberaLaClave(t *testing.T) {
 	l2 := armarL2Torres(t, enc, 0)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	// El líder entra en pánico (y el pánico sigue su camino, como en net/http), pero libera la clave.
-	func() {
-		defer func() { recover() }()
-		l2.torreUnica(ctx, "k", "texto")
-	}()
+	// El líder entra en pánico: recibe el error (no una torre vacía) y la clave queda libre.
+	if _, err := l2.torreUnica(ctx, "k", "texto"); err == nil || !strings.Contains(err.Error(), "pánico") {
+		t.Fatalf("el líder debía recibir el error de pánico: %v", err)
+	}
 	if _, err := l2.torreUnica(ctx, "k", "texto"); err != nil {
 		t.Fatalf("la clave quedó en vuelo: %v", err)
 	}

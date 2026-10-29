@@ -38,7 +38,7 @@ func TestL2MaxSim(t *testing.T) {
 	}
 	cal := chispa3.Calib{TauEscalate: 0.5, Tipos: map[string]chispa3.ParamsTipo{
 		"choice": {T: 1, Theta: 0.5}, "noul": {T: 1, A: 1, B: -1, Theta: 0.5},
-		"score3": {T: 1, A: 2, B: 0, Theta: 0.5}, "score3#2": {A: 1},
+		"score3": {T: 1, A: 2, B: 0, Theta: 0.5}, "score3#1": {A: 1},
 	}}
 	// Ranuras: s_1 = (1, 0), s_2 = (0, 0.2): la torre «a» ve 5 y 0; la «b», 0 y 1.
 	l := NuevoL2Con(sesionFalsa{[][]float32{{1, 0}, {0, 0.2}}}, esq, cal, tokFalso{})

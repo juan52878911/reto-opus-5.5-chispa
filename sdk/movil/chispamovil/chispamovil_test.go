@@ -183,7 +183,7 @@ func TestPuntuarL2NoulYScore(t *testing.T) {
 	calib := chispa3.Calib{TauEscalate: 0.4, Tipos: map[string]chispa3.ParamsTipo{
 		"noul":     {T: 1, A: 2, B: -1, Theta: 0.5},
 		"score3":   {T: 1, A: 1, B: 0, Theta: 0.5},
-		"score3#2": {T: 1, A: 1, B: 0, Theta: 0.5},
+		"score3#1": {T: 1, A: 1, B: 0, Theta: 0.5},
 	}}
 	c := &Chispa{esq: esquemasDePrueba(t), tieneL2: true, calib: calib}
 	q := `{"question":"¿urgente?","kind":"noul","options":[{"id":"true"},{"id":"false"}]}`
@@ -201,11 +201,11 @@ func TestPuntuarL2NoulYScore(t *testing.T) {
 
 func TestScoreCoral(t *testing.T) {
 	c := &Chispa{calib: chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{
-		"score3": {T: 1, A: 2, B: 1, Theta: .5}, "score3#2": {T: 1, A: 1, B: 0, Theta: .5}}}}
+		"score3": {T: 1, A: 2, B: 1, Theta: .5}, "score3#1": {T: 1, A: 1, B: 0, Theta: .5}}}}
 	p := pregunta{Kind: "score", Opciones: []opcion{{ID: "1"}, {ID: "2"}, {ID: "3"}}}
 	r := c.score(p, 3)
 	s1 := 1 / (1 + math.Exp(-(2*3 - 1))) // P(y>1)
-	s2 := 1 / (1 + math.Exp(-(2*3 - 2))) // b2 = 1 + a(score3#2) = 2
+	s2 := 1 / (1 + math.Exp(-(2*3 - 2))) // b2 = 1 + a(score3#1) = 2
 	if math.Abs(r.Probs["1"]-(1-s1)) > 1e-12 || math.Abs(r.Probs["2"]-(s1-s2)) > 1e-12 || math.Abs(r.Probs["3"]-s2) > 1e-12 {
 		t.Fatalf("CORAL: %+v", r.Probs)
 	}
