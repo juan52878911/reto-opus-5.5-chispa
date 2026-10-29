@@ -40,6 +40,34 @@ Con κ = 0, λ = 0 y el paso 5 es la media normalizada de siempre. Con κ > 0 y 
   se calculan al vuelo.
 - Las clases del soporte sin descripción siguen siendo válidas: se usa `texto_opcion` con descripción vacía.
 
+## Convención de λ del runtime (G.8b)
+
+La sesión SDK implementa `p = norm((1−w)·p_desc + w·media_ejemplos)` con `w = k/(k+λ)`, `k` = ejemplos de la clase. Es la fórmula de
+G.8 con **κ = λ** (`λ_c` de arriba, el peso de la descripción, es `1−w`; no lo confundas con el `λ` de esta sección). `p_desc` = `h_c`; la media va
+sin normalizar. En código, `prototipos(..., kappa=λ)`.
+
+- λ = 0: `w = 1`, solo cuentan los ejemplos (el prototipo de T2.1b).
+- λ = ∞: `w = 0`, solo la descripción. **El runtime usa λ = ∞ por defecto: solo la torre de la descripción, es decir, zero-shot** (no se
+  construyen prototipos ni se suma `β · simproto`). Es lo que mide `barrido.py` como «λ=∞» (k = 0). `mezcla_prototipos(..., inf)` da
+  P = `h_c`, que no es lo mismo que zero-shot: añadiría `β · simproto` con la descripción como prototipo.
+
+| κ = λ | peso de los ejemplos w, n = 1 | n = 2 | n = 8 | n = 32 |
+|---|---|---|---|---|
+| 0 | 1 | 1 | 1 | 1 |
+| 1 | 0,50 | 0,67 | 0,89 | 0,97 |
+| 2 | 0,33 | 0,50 | 0,80 | 0,94 |
+| 4 | 0,20 | 0,33 | 0,67 | 0,89 |
+| 8 | 0,11 | 0,20 | 0,50 | 0,80 |
+| 16 | 0,06 | 0,11 | 0,33 | 0,67 |
+| ∞ | 0 | 0 | 0 | 0 |
+
+El peso de la descripción (el `λ_c` de la fórmula de arriba) es `1 − w`. Barrido en test: `model/l2/barrido.py` (`aws/barrido.sh`).
+
+## score: etiqueta por la mediana CORAL
+La etiqueta predicha de una pregunta `score` es el número de umbrales `j` con `P(y>j) > 0,5` (nivel = cuenta + 1), no el argmax de `P(y=k)`;
+coincide con el runtime. Se cuentan todos los umbrales, no el primer cruce, así que vale con acumuladas no monótonas. La confianza para τ sigue
+siendo la probabilidad máxima de la distribución.
+
 ## Casos límite
 - Clase de la tarea sin ningún ejemplo de soporte: sigue sin prototipo (simproto = 0), como hoy; no se inventa uno con la descripción.
 - `n_c` grande: λ → 0 y P → media normalizada. Un solo ejemplo con κ muy grande: P → `h_c` en las K ranuras.

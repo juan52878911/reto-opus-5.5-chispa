@@ -430,7 +430,10 @@ def metricas_calibracion(p_antes, p_despues, y, filas=None):
     """ECE, NLL, cobertura a precisión 0,95 (`calibrar.tau_escalate`) y AUROC de la confianza; en CLINC, también el de `escalate`."""
     r = {}
     for nombre, p in (("antes", p_antes), ("despues", p_despues)):
-        conf, ok = p.max(1), p.argmax(1) == y
+        pred = p.argmax(1)
+        if filas is not None:   # score: mediana CORAL, como el runtime
+            pred = np.array([M.etiqueta_coral(q) if f.get("tipo") == "score" else a for q, f, a in zip(p, filas, pred)])
+        conf, ok = p.max(1), pred == y
         tau, cob, prec = CAL.tau_escalate(conf, ok)
         r[nombre] = {"ece": M.ece(conf, ok), "nll": nll(p, y), "tau": tau, "cobertura_p95": cob, "precision_cubierta": prec,
                      "auroc_acierto": CAL.auroc(conf, ok), "exactitud": float(ok.mean())}

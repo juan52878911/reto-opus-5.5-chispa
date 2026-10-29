@@ -5,6 +5,7 @@
 Escribe `DIR/pred/l2_k<k>.jsonl` (`{id, probs, ms, soporte_n}`) y `DIR/jevbench_filas.jsonl` (las filas del esquema).
 k = 0 es zero-shot. Con k > 0, un caso sin ningún otro caso de su esquema se predice sin soporte (`soporte_n` = 0: se dice
 en el informe, no se cuenta como «con soporte»). Los prototipos se calculan una vez por pliegue (esquema + grupo de paráfrasis).
+En score, la etiqueta que se evalúa es la mediana CORAL (`metricas.top1`), no el argmax de las probs. `--kappa` = λ (κ = λ de formula-shrinkage.md; el zero-shot es k = 0).
 L2 trunca el estado a MAX_TOK tokens (model.l2.modelo): los casos largos del nivel hard pierden el final; el informe lo cuenta.
 """
 import argparse
