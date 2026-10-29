@@ -362,122 +362,272 @@ func (s *Servidor) leeCuerpo(w http.ResponseWriter, r *http.Request, max int) ([
 	return body, nil
 }
 
-// --- Escaneo previo del JSON: nombres exactos, sin duplicados y topes, sin reservar memoria proporcional al cuerpo ---
-
-type esqJSON struct {
-	nombre string
-	campos map[string]*esqJSON
-	elem   *esqJSON
-	max    int
-}
+// --- Escaneo previo del JSON: nombres exactos, sin duplicados y topes, sin asignar memoria ---
 
 const profMaxJSON = 32
 
-func esquemaPeticion(l Limites) *esqJSON {
-	opcion := &esqJSON{nombre: "option", campos: map[string]*esqJSON{"id": nil, "description": nil}}
-	preg := &esqJSON{nombre: "question", campos: map[string]*esqJSON{"id": nil, "question": nil, "kind": nil, "nonce": nil,
-		"options": {nombre: "options", elem: opcion, max: l.MaxOpciones}}}
-	return &esqJSON{nombre: "root", campos: map[string]*esqJSON{"state": nil,
-		"questions": {nombre: "questions", elem: preg, max: l.MaxPreguntas}}}
-}
+// Nodos del esquema de la petición que el escáner conoce; kAny es todo lo demás (sin comprobaciones).
+const (
+	kAny = iota
+	kRoot
+	kQuestions
+	kQuestion
+	kOptions
+	kOption
+)
+
+var errSintaxis = errors.New("sintaxis")
 
 type escaner struct {
-	dec *json.Decoder
+	b   []byte
+	i   int
+	l   Limites
 	qid string // id de la pregunta en curso, si ya se vio
 }
 
-// escaneaPeticion recorre el cuerpo con Token() (memoria constante) y rechaza con 400 los nombres de campo que no coinciden
+// escaneaPeticion recorre el cuerpo ya leído en una pasada, sin asignar, y rechaza con 400 los nombres de campo que no coinciden
 // exactamente con el contrato (p. ej. STATE), los campos repetidos, el exceso de preguntas u opciones y la profundidad excesiva.
-// Nada de eso llega a decodificarse a estructuras.
+// Si encuentra un fallo de sintaxis no lo describe: devuelve nil y la decodificación posterior responde el 400 de JSON no válido.
 func escaneaPeticion(body []byte, l Limites) *errAPI {
-	e := &escaner{dec: json.NewDecoder(bytes.NewReader(body))}
-	t, err := e.dec.Token()
-	if err != nil {
-		return bad(ErrJSONInvalido, "", "JSON no válido: %v", err)
+	e := escaner{b: body, l: l}
+	err := e.valor(kRoot, 0)
+	if err == nil {
+		return nil
 	}
-	if err := e.valor(t, esquemaPeticion(l), 0); err != nil {
-		if ea, ok := err.(*errAPI); ok {
-			return ea
-		}
-		return bad(ErrJSONInvalido, "", "JSON no válido: %v", err)
+	if ea, ok := err.(*errAPI); ok {
+		return ea
 	}
 	return nil
 }
 
-func (e *escaner) sig(esq *esqJSON, prof int) error {
-	t, err := e.dec.Token()
-	if err != nil {
-		return err
+func (e *escaner) ws() {
+	for e.i < len(e.b) {
+		switch e.b[e.i] {
+		case ' ', '\t', '\n', '\r':
+			e.i++
+		default:
+			return
+		}
 	}
-	return e.valor(t, esq, prof)
 }
 
-func (e *escaner) valor(t json.Token, esq *esqJSON, prof int) error {
-	d, ok := t.(json.Delim)
-	if !ok {
-		return nil
+// cadena consume una cadena JSON y devuelve su contenido crudo (sin comillas) y si trae escapes.
+func (e *escaner) cadena() (raw []byte, esc bool, err error) {
+	if e.i >= len(e.b) || e.b[e.i] != '"' {
+		return nil, false, errSintaxis
 	}
+	e.i++
+	ini := e.i
+	for e.i < len(e.b) {
+		switch c := e.b[e.i]; {
+		case c == '"':
+			raw = e.b[ini:e.i]
+			e.i++
+			return raw, esc, nil
+		case c == '\\':
+			esc = true
+			e.i += 2
+		case c < 0x20:
+			return nil, false, errSintaxis
+		default:
+			e.i++
+		}
+	}
+	return nil, false, errSintaxis
+}
+
+// texto devuelve el contenido de la cadena ya sin escapes (solo asigna si los trae).
+func texto(raw []byte, esc bool) (string, error) {
+	if !esc {
+		return string(raw), nil
+	}
+	var s string
+	q := make([]byte, 0, len(raw)+2)
+	q = append(q, '"')
+	q = append(q, raw...)
+	q = append(q, '"')
+	if err := json.Unmarshal(q, &s); err != nil {
+		return "", errSintaxis
+	}
+	return s, nil
+}
+
+// escalar salta un número o literal (true/false/null); la validación fina la hace la decodificación posterior.
+func (e *escaner) escalar() error {
+	ini := e.i
+	for e.i < len(e.b) {
+		switch e.b[e.i] {
+		case ',', ']', '}', ' ', '\t', '\n', '\r', '"', '{', '[', ':':
+			if e.i == ini {
+				return errSintaxis
+			}
+			return nil
+		}
+		e.i++
+	}
+	if e.i == ini {
+		return errSintaxis
+	}
+	return nil
+}
+
+func (e *escaner) valor(k, prof int) error {
+	e.ws()
+	if e.i >= len(e.b) {
+		return errSintaxis
+	}
+	switch e.b[e.i] {
+	case '"':
+		_, _, err := e.cadena()
+		return err
+	case '{':
+		return e.objeto(k, prof)
+	case '[':
+		return e.array(k, prof)
+	}
+	return e.escalar()
+}
+
+func (e *escaner) objeto(k, prof int) error {
 	if prof > profMaxJSON {
 		return bad(ErrJSONInvalido, "", "JSON no válido: anidado de más de %d niveles", profMaxJSON)
 	}
-	if d == '{' {
-		if esq != nil && esq.nombre == "question" {
-			e.qid = ""
-		}
-		visto := map[string]bool{}
-		for e.dec.More() {
-			kt, err := e.dec.Token()
-			if err != nil {
-				return err
-			}
-			k := kt.(string)
-			var sub *esqJSON
-			if esq != nil && esq.campos != nil {
-				s, ok := esq.campos[k]
-				if !ok {
-					return bad(ErrJSONInvalido, "", "JSON no válido: unknown field %q (campo desconocido: los nombres van exactos, en minúsculas)", k)
-				}
-				if visto[k] {
-					return bad(ErrJSONInvalido, "", "JSON no válido: campo %q repetido", k)
-				}
-				visto[k] = true
-				sub = s
-			}
-			vt, err := e.dec.Token()
-			if err != nil {
-				return err
-			}
-			if esq != nil && esq.nombre == "question" && k == "id" {
-				if s, ok := vt.(string); ok {
-					e.qid = s
-				}
-			}
-			if err := e.valor(vt, sub, prof+1); err != nil {
-				return err
-			}
-		}
-		_, err := e.dec.Token()
-		return err
+	e.i++
+	if k == kQuestion {
+		e.qid = ""
 	}
-	n := 0
-	for e.dec.More() {
-		n++
-		if esq != nil && esq.max > 0 && n > esq.max {
-			if esq.nombre == "questions" {
-				return bad(ErrDemasiadasPreg, "", "questions: máximo %d por petición, llegaron más", esq.max)
+	var visto uint8
+	primero := true
+	for {
+		e.ws()
+		if e.i >= len(e.b) {
+			return errSintaxis
+		}
+		if e.b[e.i] == '}' {
+			e.i++
+			return nil
+		}
+		if !primero {
+			if e.b[e.i] != ',' {
+				return errSintaxis
 			}
-			return bad(ErrDemasiadasOpc, e.qid, "options: máximo %d opciones", esq.max)
+			e.i++
+			e.ws()
 		}
-		var sub *esqJSON
-		if esq != nil {
-			sub = esq.elem
+		primero = false
+		raw, esc, err := e.cadena()
+		if err != nil {
+			return err
 		}
-		if err := e.sig(sub, prof+1); err != nil {
+		sub := kAny
+		var kid string
+		var campo = -1
+		if k == kRoot || k == kQuestion || k == kOption {
+			if esc {
+				kid, err = texto(raw, true)
+				if err != nil {
+					return err
+				}
+				raw = []byte(kid)
+			}
+			switch k {
+			case kRoot:
+				switch string(raw) {
+				case "state":
+					campo = 0
+				case "questions":
+					campo, sub = 1, kQuestions
+				}
+			case kQuestion:
+				switch string(raw) {
+				case "id":
+					campo = 0
+				case "question":
+					campo = 1
+				case "kind":
+					campo = 2
+				case "nonce":
+					campo = 3
+				case "options":
+					campo, sub = 4, kOptions
+				}
+			case kOption:
+				switch string(raw) {
+				case "id":
+					campo = 0
+				case "description":
+					campo = 1
+				}
+			}
+			if campo < 0 {
+				return bad(ErrJSONInvalido, "", "JSON no válido: unknown field %q (campo desconocido: los nombres van exactos, en minúsculas)", string(raw))
+			}
+			if visto&(1<<campo) != 0 {
+				return bad(ErrJSONInvalido, "", "JSON no válido: campo %q repetido", string(raw))
+			}
+			visto |= 1 << campo
+		}
+		e.ws()
+		if e.i >= len(e.b) || e.b[e.i] != ':' {
+			return errSintaxis
+		}
+		e.i++
+		e.ws()
+		if k == kQuestion && campo == 0 && e.i < len(e.b) && e.b[e.i] == '"' {
+			r, es, err := e.cadena()
+			if err != nil {
+				return err
+			}
+			if e.qid, err = texto(r, es); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := e.valor(sub, prof+1); err != nil {
 			return err
 		}
 	}
-	_, err := e.dec.Token()
-	return err
+}
+
+func (e *escaner) array(k, prof int) error {
+	if prof > profMaxJSON {
+		return bad(ErrJSONInvalido, "", "JSON no válido: anidado de más de %d niveles", profMaxJSON)
+	}
+	e.i++
+	max, elem := 0, kAny
+	switch k {
+	case kQuestions:
+		max, elem = e.l.MaxPreguntas, kQuestion
+	case kOptions:
+		max, elem = e.l.MaxOpciones, kOption
+	}
+	n := 0
+	for {
+		e.ws()
+		if e.i >= len(e.b) {
+			return errSintaxis
+		}
+		if e.b[e.i] == ']' {
+			e.i++
+			return nil
+		}
+		if n > 0 {
+			if e.b[e.i] != ',' {
+				return errSintaxis
+			}
+			e.i++
+		}
+		n++
+		if max > 0 && n > max {
+			if k == kQuestions {
+				return bad(ErrDemasiadasPreg, "", "questions: máximo %d por petición, llegaron más", max)
+			}
+			return bad(ErrDemasiadasOpc, e.qid, "options: máximo %d opciones", max)
+		}
+		if err := e.valor(elem, prof+1); err != nil {
+			return err
+		}
+	}
 }
 
 // cuentaTimeout apunta las peticiones que acaban por plazo vencido (no las que el cliente cancela).

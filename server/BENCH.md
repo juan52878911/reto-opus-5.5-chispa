@@ -95,3 +95,23 @@ loadavg: en la carga el nodo no estaba quieto. Valores de 1 min al empezar cada 
 - Carga con 1 tanda y 10 s, nodo compartido; el efecto de c=1 (−2 % a −8 %) está dentro del ruido.
 - Entre `57e0385` y `24fee0c` solo se bisectó `CascadaHTTP` hasta `a481348`; el resto del tramo (p. ej. +2 allocs hasta `57e0385`) no se desglosó.
 - No se cambió código. El `correr.sh` y el `carga` usados para `3a99102` son los de `24fee0c`.
+
+## Recuperar el camino HTTP (escáner sin asignaciones)
+
+Hipótesis: el coste era el doble recorrido del JSON (`Token()` + decodificación) y sus asignaciones. **Confirmada.** Perfil de `CascadaHTTP` (`-cpu 1`, `alloc_objects`) antes: `json.(*Decoder).Token` 31 % de los objetos (6,7 M de 21 M), `esquemaPeticion` 8 % (el árbol de esquema se rehacía en cada petición), `jsontext.Token.String` 7 %; en CPU `mallocgc` 24 % y el lector `jsonwire` repartido en decenas de nodos. Después: `Token()` y `esquemaPeticion` desaparecen del perfil; lo que queda es la decodificación (`json/v2`), `Cascada.Decidir`, `ClaveEsquema`, `json.Marshal` y `httptest.NewRecorder`.
+
+Cambio (`server/decide/http.go`, solo `escaneaPeticion`): un escáner recursivo sobre los bytes ya leídos, sin asignar (máscara de bits por objeto para claves repetidas, `switch` sobre el nombre exacto, sin mapas ni `Token()`). Solo asigna si una clave o el `id` de pregunta traen escapes (`\u…`), para compararlos ya desescapados como antes. Ante un fallo de sintaxis devuelve nil y el 400 `JSON no válido` lo da la decodificación posterior (mismo código; el texto del mensaje de esos casos viene de `json` y no del escáner). Se mantienen todas las garantías: plazo de cuerpo, topes de tamaño/profundidad/preguntas/opciones, JSON estricto, nonce, cubo por pregunta, tope en curso; `r7_b_test.go` y de contrato sin tocar y en verde.
+
+| `CascadaHTTP` (`-benchtime 2s -count 3`) | antes (`f796b45`) | después |
+|---|---|---|
+| cpu 1 ns/op | 12744 | 10216–10295 |
+| cpu 4 ns/op | ≈ 7600 | 6069–6295 |
+| allocs/op, B/op | 126, 12430 | 67, 10387 |
+
+Objetivo (≤ 10.500 ns/op y ≤ 80 allocs): cumplido. Verde: `go vet ./...`, `go test -race ./...`, `-race -tags ort ./decide` (con `CHISPA_ORT_LIB` del venv) y `bash server/e2e/correr.sh`.
+
+### Carga local `l1` c = 4/16/64: **no concluyente**
+Se midió `9e1a00d` frente a este cambio, intercalados, 10 s, 3 tandas, pero el nodo se saturó con otros trabajos (loadavg 1 min de 2,7 a 15,9 durante las tandas; mis propias tandas suman a esa carga). Decisiones/s base → nuevo, por tanda (c=4 / 16 / 64): r1 (load 2,7 / 7,9) 5502/11306/17003 → 3978/9682/17010; r2 (10,7 / 12,5) 4169/9796/17646 → 4689/9059/16918; r3 (12,4 / 15,0) 4087/9379/16713 → 3913/9091/15873. Una primera pasada con load 2–11: base 7080/13675/22191, 6055/12130/20958, 4616/9691/17239; nuevo 6058/12096/21291, 5650/10860/16311, 4034/9217/15957. La variación entre tandas del mismo sha (hasta −35 %) supera la diferencia que se busca: no se puede afirmar ni negar el 5 % de `9e1a00d`. Pendiente: repetir con el nodo vacío. Lo que sí es determinista: −47 % de allocs y −20 % de ns/op por petición en el camino HTTP.
+
+### Coste restante
+`CascadaHTTP` queda ≈ 4 % sobre `9e1a00d` (9.866 ns/op, 65 allocs → 10.2 k, 67): lo explican el plazo de cuerpo (`SetReadDeadline` dos veces por petición) y el cubo por pregunta/clave de nonce; el escaneo ya cuesta ≈ 0,5 µs.
