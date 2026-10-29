@@ -35,8 +35,9 @@ Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 
 **Actualizar el modelo**
 - [ ] Modelo nuevo con otro nombre; no sobrescribir el abierto. Probado en puerto auxiliar con humo + `chispa evaluar`.
-- [ ] Cambio de enlace y **reinicio** (no hay recarga en caliente ni apagado ordenado: pendiente de producto); ventana avisada o instancias reiniciadas de una en una.
-- [ ] Humo después del reinicio. Si falla, `.chispa` anterior y reiniciar.
+- [ ] `mv` atómico del `.chispa` nuevo sobre la ruta de `-modelo` y recarga en caliente (`kill -HUP` o `POST /v1/admin/recargar` con `admin_token`); sin ventana de caída. Un 500 `reload_failed` deja el modelo viejo en servicio.
+- [ ] `chispa_recargas_total{resultado="ok"}` sube y el log dice `modelo N en servicio`; humo después. Si falla, `mv` del `.chispa` anterior y recargar.
+- [ ] Cliente: el 503 `timeout` y el 504 no se reintentan; el resto de 503 sí, con `Retry-After` y backoff.
 
 **Copia de seguridad**
 - [ ] Guardados: los 3 últimos `.chispa`, `config.json`, `e5.chispa-tok`, el esquema, la línea de arranque, versiones de binario/imagen y de ORT, `SHA256SUMS`.

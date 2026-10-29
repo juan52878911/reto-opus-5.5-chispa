@@ -10,7 +10,7 @@ class Falso:
     """Servidor falso con el JSON del contrato (server/README.md); `fallos` = códigos a devolver antes de responder."""
 
     def __init__(self, fallos=()):
-        self.fallos, self.peticiones, self.retry_after = list(fallos), [], None
+        self.fallos, self.peticiones, self.retry_after, self.cuerpo_error = list(fallos), [], None, "boom"
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -20,7 +20,7 @@ class Falso:
             def _json(self, code, obj):
                 b = json.dumps(obj).encode()
                 self.send_response(code)
-                if code == 503 and outer.retry_after is not None:
+                if code in (503, 504) and outer.retry_after is not None:
                     self.send_header("Retry-After", outer.retry_after)
                 self.send_header("Content-Length", str(len(b)))
                 self.end_headers()
@@ -33,7 +33,7 @@ class Falso:
                 req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.peticiones.append(req)
                 if outer.fallos:
-                    return self._json(outer.fallos.pop(0), {"error": "boom"})
+                    return self._json(outer.fallos.pop(0), {"error": outer.cuerpo_error})
                 qs = req["questions"]
                 if any(q["kind"] == "raro" for q in qs):
                     return self._json(400, {"error": 'questions[0].kind: "raro" no válido (choice, score o noul)'})
@@ -87,12 +87,36 @@ class TestCliente(unittest.TestCase):
         self.assertEqual(len(nonces), 1)
         self.assertEqual(len(next(iter(nonces))), 32)
 
-    def test_503_sin_retry_after_no_se_reintenta(self):
+    def test_503_de_proxy_sin_retry_after_se_reintenta_con_backoff(self):
         self.f.fallos[:] = [503, 503]
+        esperas = []
+        Chispa(self.f.url, espera=0.1, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(len(self.f.peticiones), 3)
+        self.assertEqual(esperas, [0.1, 0.2])
+
+    def test_503_timeout_del_servidor_no_se_reintenta_aunque_traiga_retry_after(self):
+        self.f.fallos[:] = [503, 503]
+        self.f.retry_after = "5"
+        self.f.cuerpo_error = {"code": "timeout", "message": "la petición superó el tiempo máximo"}
+        esperas = []
         with self.assertRaises(ErrorSolicitud) as cm:
-            self.c.decidir("x", [Noul("n", "¿?")])
-        self.assertEqual(cm.exception.status, 503)
+            Chispa(self.f.url, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual((cm.exception.status, cm.exception.codigo), (503, "timeout"))
         self.assertEqual(len(self.f.peticiones), 1)
+        self.assertEqual(esperas, [])
+
+    def test_504_no_se_reintenta(self):
+        self.f.fallos[:] = [504, 504]
+        with self.assertRaises(ErrorSolicitud):
+            self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_503_retry_after_se_topa_a_30s(self):
+        self.f.fallos[:] = [503]
+        self.f.retry_after = "999"
+        esperas = []
+        Chispa(self.f.url, espera=0.1, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(esperas, [30.0])
 
     def test_503_con_retry_after_se_reintenta_y_lo_respeta(self):
         self.f.fallos[:] = [503]

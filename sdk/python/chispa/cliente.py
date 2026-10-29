@@ -33,10 +33,20 @@ class ErrorTransporte(ChispaError):
     """No hubo respuesta válida tras todos los reintentos (red, 5xx, 429 o cuerpo ilegible)."""
 
 
-_REINTENTABLES = {429, 500, 502, 504}
-# 503 solo se reintenta si el servidor manda `Retry-After`: el `-timeout` del servidor responde 503 sin esa cabecera y repetirlo
-# amplifica la sobrecarga (cada intento gasta otra vez la cascada entera). Con `Retry-After` se espera lo que pida (≥ backoff).
+_REINTENTABLES = {429, 500, 502, 503}
+# Política igual que el cliente JS: el 503 se reintenta (respetando `Retry-After`, con backoff y tope), salvo el 503 de timeout del
+# servidor (`error.code == "timeout"`, aunque traiga `Retry-After`) y el 504: repetirlos vuelve a gastar la cascada entera.
 _TOPE_RETRY_AFTER = 30.0
+
+
+def _es_timeout(e, texto: str) -> bool:
+    if e.code == 504:
+        return True
+    try:
+        err = json.loads(texto).get("error")
+    except (ValueError, AttributeError):
+        return False
+    return e.code == 503 and isinstance(err, dict) and err.get("code") == "timeout"
 
 
 def _retry_after(e) -> float | None:
@@ -99,7 +109,7 @@ class Chispa:
             except urllib.error.HTTPError as e:
                 texto = e.read().decode("utf-8", "replace")
                 ra = _retry_after(e)
-                if e.code not in _REINTENTABLES and not (e.code == 503 and ra is not None):
+                if e.code not in _REINTENTABLES or _es_timeout(e, texto):
                     try:
                         texto = json.loads(texto).get("error", texto)
                     except (ValueError, AttributeError):

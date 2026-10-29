@@ -86,7 +86,7 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 | `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, con `-modelo` y sin `-config` se toma de `CALIB` |
 
 El `-timeout` es un flag, no una clave de la config. Al vencer, responde 503 `timeout` con `Retry-After: 5` (`chispa_timeouts_total` lo cuenta).
-Sin `-timeout` (0) no hay tope. *(Sugerencia: déjelo en 30 s; para el piloto un valor más bajo, p. ej. 5 s, evita que una torre lenta acapare conexiones; el cliente debe respetar `Retry-After`.)*
+Sin `-timeout` (0) no hay tope. *(Sugerencia: déjelo en 30 s; para el piloto un valor más bajo, p. ej. 5 s, evita que una torre lenta acapare conexiones; los SDK no reintentan este 503; un cliente propio debe respetar `Retry-After`.)*
 
 **Valide la config antes de reiniciar:** el servidor la valida al arrancar y sale con error si no es válida (`log.Fatal`). Con el modelo en uso, arranque una copia en otro puerto
 (`-addr 127.0.0.1:18090`) y pruebe antes de tocar la de producción.
@@ -118,6 +118,7 @@ Línea base: tome las cifras de la semana 1 con tráfico real y sáquelas de ah�
 `chispa-server` escribe con `log` estándar de Go a **stderr**, sin niveles ni formato estructurado. Qué sale (de `main.go`):
 - `chispa-server en <addr>: N modelos en L0` al arrancar.
 - Avisos de armado: «el .chispa trae TORR pero falta -tok…», L2 en stub sin ORT, secciones que faltan.
+- Recarga en caliente (§6): `SIGHUP: recargando el modelo`, `recarga: modelo N en servicio` si prospera, `recarga fallida, sigue el modelo N: <error>` si no, y `recarga: cerrar el modelo N: <error>` si el fichero viejo no cierra limpio.
 - Errores fatales de arranque (`log.Fatal`): modelo, `-tok` o config inválidos.
 
 **No hay registro de peticiones ni de decisiones** (ni de textos): es deliberado para el piloto; ver [`datos-y-consentimiento.md`](datos-y-consentimiento.md).
@@ -125,14 +126,16 @@ El historial de uso sale de `/metrics`. **Pendiente de producto:** log de acceso
 Docker: `docker logs chispa`; systemd: `journalctl -u chispa`. Guarde al menos el log de arranque: es la única pista de que L2 quedó en stub.
 
 ## 6. Actualizar el modelo, la config y el binario
-**Hay que reiniciar.** No existe recarga en caliente: `main.go` abre el `.chispa` y arma la cascada una sola vez, no captura señales (`SIGHUP` incluida) ni vigila ficheros,
-y tampoco hace apagado ordenado. Buscado en `server/` y `format/chispa3/`: **pendiente de producto** (recarga en caliente y apagado ordenado).
+**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `admin_token` y cambiar el binario. Apagado ordenado sigue **pendiente de producto**.
 
-1. Entrene el nuevo `.chispa` con `chispa train` (ver [`guia-integracion.md`](guia-integracion.md)) y déjelo con otro nombre: `modelo-AAAAMMDD.chispa`. Nunca sobrescriba el fichero abierto: está mapeado en memoria y reescribirlo en sitio puede romper el proceso en marcha.
+1. Entrene el nuevo `.chispa` con `chispa train` (ver [`guia-integracion.md`](guia-integracion.md)) y déjelo con otro nombre: `modelo-AAAAMMDD.chispa`. Nunca sobrescriba en sitio el fichero abierto: está mapeado en memoria.
 2. Pruebe el nuevo en otro puerto: `./chispa-server -addr 127.0.0.1:18090 -modelo modelo-AAAAMMDD.chispa …` y pase la prueba de humo (§7) y `chispa evaluar` contra esa URL.
-3. Cambie el enlace o el volumen (`ln -sfn modelo-AAAAMMDD.chispa modelo.chispa`) y reinicie (`docker restart chispa`, `systemctl restart chispa`). Mientras reinicia, las peticiones fallan: avise al cliente de la ventana o ponga dos instancias detrás del balanceador y reinícielas de una en una.
-4. Repita la prueba de humo. Si falla, vuelva al `.chispa` anterior (§8) y reinicie.
-5. Cambios solo de config (`-config`) también exigen reinicio. Una config que no valida impide el arranque: pruebe primero en el puerto auxiliar.
+3. Sustitúyalo con un `mv` atómico sobre la ruta de `-modelo` (`mv modelo-AAAAMMDD.chispa modelo.chispa`; o `ln -sfn` sobre el enlace) y recargue:
+   - `kill -HUP <pid de chispa-server>`, o
+   - `curl -X POST -H "Authorization: Bearer $TOKEN" $URL/v1/admin/recargar`, solo si la config trae `"admin_token"`. Sin él la ruta da 404; token ausente o incorrecto, 401. Éxito: `{"status":"ok","generation":N}`.
+4. Compruebe el resultado. Si el `.chispa` nuevo no abre o no valida, el POST responde 500 `reload_failed`, el servidor **sigue con el modelo viejo** y el error queda en el log (§5); con SIGHUP no hay respuesta, así que mire el log. `chispa_recargas_total{resultado="ok"|"error"}` cuenta ambos casos. Repita la prueba de humo.
+5. Las peticiones en vuelo terminan sobre el modelo viejo. Las cachés (esquemas, torres y nonces) son del modelo: el nuevo empieza vacío, así que la primera tanda de esquemas recalcula torres. Los contadores de `/metrics` no se reinician.
+6. La recarga relee también `-config` y `-tok`: una config que no valida es un fallo de recarga (el viejo sigue), no impide el servicio. Para un cambio de `-addr` o de `admin_token`, reinicie.
 
 El `.chispa` nuevo debe llevar las mismas preguntas y opciones que el cliente manda: L0 elige el modelo por conjunto de ids de opciones (`server/README.md`); si cambia los ids, cambia el comportamiento.
 
@@ -167,7 +170,7 @@ Lo que hay que guardar, porque sin ello no se restaura el servicio:
 sha256sum modelo-*.chispa e5.chispa-tok config.json > SHA256SUMS      # tras guardar
 sha256sum -c SHA256SUMS                                               # al restaurar
 ```
-Restaurar = poner el `.chispa` anterior, reiniciar y pasar la prueba de humo. El servidor no tiene estado propio que respaldar: las cachés (esquemas, nonces, torres) viven en memoria y se vacían al reiniciar.
+Restaurar = poner el `.chispa` anterior con `mv`, recargar (§6) y pasar la prueba de humo. El servidor no tiene estado propio que respaldar: las cachés (esquemas, nonces, torres) viven en memoria y se vacían al reiniciar o recargar.
 Sin medir cuánto tarda en arrancar con un L1 de 155 MB.
 
 ## 9. Qué hacer ante…
@@ -178,7 +181,7 @@ Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos vece
 2. Si es L2 y hay `chispa_torres_calculadas_total` creciendo: esquemas nuevos por petición. Revise `chispa_torres_cache_aciertos_total`; suba `cache_torres` o mande esquemas estables.
 3. Peticiones grandes (`max_preguntas` 256, `state` 256 KiB): el coste crece con los bytes del estado (tokenizador de L1). Mande lotes menores.
 4. CPU o RAM saturadas en la máquina (misma VM que otras cargas, mmap fuera de RAM → fallos de página): mire `top`/`vmstat`; más núcleos no ayudaron en la cota medida (±30 % de ruido).
-5. Si `chispa_timeouts_total` crece, el 503 lleva `Retry-After: 5`: pida al cliente que lo respete (el SDK de Python hoy reintenta los 503 sin leerlo, `docs/03-api.md`).
+5. Si `chispa_timeouts_total` crece, el 503 lleva `Retry-After: 5`: los clientes Python y JS **no** reintentan el 503 `timeout` (cuerpo `error.code == "timeout"`, aunque traiga `Retry-After`) ni el 504: repetirlos vuelve a gastar la cascada. Sí reintentan los demás 503 (p. ej. de un proxy en un reinicio), con backoff, respetando `Retry-After` con tope de 30 s.
 
 ### Mucho escalado
 1. Compare con la línea base: ¿subió de repente (cambio de modelo, de config, de texto) o siempre fue alto?
@@ -193,13 +196,13 @@ Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos vece
 | Código | Causa | Acción |
 |---|---|---|
 | 400 `invalid_json` / `invalid_kind` / `missing_*` / `duplicate_*` | Cuerpo mal formado o campo desconocido | Corregir al cliente; la validación es todo o nada |
-| 400 `too_many_questions` / `too_many_options` / `state_too_long` / `field_too_long` | Pasa un tope de `limites` | Partir la petición, o subir el tope en `-config` y reiniciar |
+| 400 `too_many_questions` / `too_many_options` / `state_too_long` / `field_too_long` | Pasa un tope de `limites` | Partir la petición, o subir el tope en `-config` y recargar (§6) |
 | 404 `not_found` | Ruta mal escrita (solo existen `/v1/decide`, `/healthz`, `/metrics`) | Corregir la URL |
 | 405 `method_not_allowed` | Método ≠ POST en `/v1/decide` | Usar POST |
 | 413 `request_too_large` | Cuerpo > `max_cuerpo` (1 MiB) | Partir o subir `max_cuerpo` |
 
 ### Errores 5xx
-- **503 `timeout`**: ver «Latencia alta». Reintente tras `Retry-After`.
+- **503 `timeout`**: ver «Latencia alta». Los SDK no lo reintentan; si reintenta a mano, espere al menos `Retry-After`. Un 503 sin ese código (proxy o balanceador) sí es transitorio y los SDK lo reintentan.
 - **Conexión rechazada, 502/504 del proxy**: proceso caído o arrancando. Mire `docker ps` o `systemctl status`, el log de arranque (§5) y la memoria (abajo). Reinicie y haga la prueba de humo.
 - **500 o capas con error**: el código recupera pánicos solo en algunas rutas (L2); un fallo interno de capa se cuenta en `chispa_capa_errores_total` y la respuesta sale sin esa capa. Guarde el log y escale a SDK.
 - Si arranca y se cae a los segundos: config o modelo inválidos (`log.Fatal` con el motivo en stderr), `libonnxruntime.so` ausente o incompatible (imagen `ort`), o falta del `.chispa-tok`.

@@ -64,4 +64,4 @@ Se marcan aquí y **no se prometen** al cliente (cada punto se explica donde apa
 5. **Coste por 1.000 decisiones y latencia con el modelo y el hardware del cliente:** sin medir.
 6. **Español de Colombia, PQRS, EPS, ferretería:** sin medir; las cifras del repo son de benchmarks ([`docs/07`](../docs/07-rendimiento-y-limites.md)).
 7. **Salvaguardas de datos en el producto** (enmascarar datos personales, registro de decisiones): el producto no las trae; las hace el cliente antes de llamar a `/v1/decide`.
-8. **Operación** (detalle en [`operacion.md`](operacion.md)): recarga del modelo en caliente, apagado ordenado, TLS y autenticación, log de acceso, `/readyz` y métricas de memoria. No existen; el cliente reinicia y pone un proxy delante.
+8. **Operación** (detalle en [`operacion.md`](operacion.md)): recarga del modelo en caliente (`SIGHUP` o `POST /v1/admin/recargar` con `admin_token`), reintentos del cliente y registros. Siguen pendientes de producto el apagado ordenado, TLS y autenticación, el log de acceso, `/readyz` y las métricas de memoria: el cliente pone un proxy delante.
