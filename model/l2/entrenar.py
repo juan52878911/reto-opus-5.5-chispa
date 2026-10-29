@@ -36,7 +36,7 @@ import torch
 
 from . import datos as D
 from .evaluar import macro_f1_medio, predecir
-from .modelo import Codificador, ModeloL2, SoporteEval, prototipos
+from .modelo import MAX_TOK, Codificador, ModeloL2, SoporteEval, prototipos
 
 CKPT_CADA_S = 600
 
@@ -74,6 +74,17 @@ def lr_en(paso, total, base, warm=0.05):
     return base * 0.5 * (1 + math.cos(math.pi * (paso - w) / max(total - w, 1)))
 
 
+def _fuera(r):
+    from model.meta.muestreo import es_fuera
+    return es_fuera(r)
+
+
+def _tareas_fuera(meta, semilla):
+    """Tareas de tasksource del directorio de meta que se dejan fuera (para dejarlas en entrenamiento.json)."""
+    from model.meta.muestreo import es_tasksource, lista_fuera
+    return lista_fuera({r["tarea"] for f in D.ficheros(meta) for r in D._filas_meta(f, "train") if es_tasksource(r)})
+
+
 def preparar_filas(a):
     """(filas, info, meta): con `--episodios`, `meta` va aparte (los episodios la usan solo sin soporte); si no, está en `filas`."""
     filas = []
@@ -91,9 +102,17 @@ def preparar_filas(a):
     meta = []
     if a.meta:
         tope = max(a.max_filas - len(filas), 0)
-        meta, cuentas, cupo = D.submuestrear_meta(a.meta, tope, semilla=a.semilla)
-        meta = D.sin_conjuntos(meta, excl)
-        info["meta"] = {"cuentas": cuentas, "cupo": cupo, "elegidas": len(meta)}
+        if getattr(a, "tope_tarea", 0):  # G.8: reparto por tarea con tope; las tareas «fuera» no entran ni gastan cupo
+            meta, cuentas, cupo, quit = D.submuestrear_meta_tareas(
+                a.meta, tope, a.tope_tarea, a.semilla, fuera=_fuera if getattr(a, "excluir_fuera", False) else None)
+            meta = D.sin_conjuntos(meta, excl)
+            info["meta"] = {"tareas": len(cuentas), "tope_tarea": a.tope_tarea, "alfa": getattr(a, "alfa", D.ALFA), "fuera": quit,
+                            "cupo_total": sum(cupo.values()), "elegidas": len(meta),
+                            "tareas_fuera": sorted(_tareas_fuera(a.meta, a.semilla))[:400] if getattr(a, "excluir_fuera", False) else []}
+        else:
+            meta, cuentas, cupo = D.submuestrear_meta(a.meta, tope, semilla=a.semilla)
+            meta = D.sin_conjuntos(meta, excl)
+            info["meta"] = {"cuentas": cuentas, "cupo": cupo, "elegidas": len(meta)}
         if not a.episodios:
             filas += meta
             meta = []
@@ -118,9 +137,31 @@ def preparar_dev(a):
     for d in a.datos + ([a.meta] if a.meta else []):
         dev += D.leer(d, split="dev", solo_comercial=True)
     dev = D.sin_conjuntos(dev, a.excluir_tareas)
+    if getattr(a, "excluir_fuera", False):
+        dev = [r for r in dev if not _fuera(r)]
     if len(dev) > a.dev_max:
         dev = [r for r in dev if D._u(r["id"], 1) < a.dev_max / len(dev)]
     return dev
+
+
+def elegir_kappa(modelo, enc, dev, filas, a, k=2):
+    """κ de la rejilla con mayor macro-F1 medio en el dev con `k` ejemplos por clase (el caso en que el soporte estropea).
+    Devuelve {"k", "rejilla": {κ: F1}, "kappa"}; el empate lo gana el κ menor. Solo cuentan las tareas del dev con soporte local."""
+    por_conjunto = {}
+    for r in filas:
+        por_conjunto.setdefault(D.conjunto(r), []).append(r)
+    con_sop = [r for r in dev if D.conjunto(r) in por_conjunto]
+    if not con_sop:
+        return None
+    res = {}
+    for kap in sorted({0.0, *a.elegir_kappa}):
+        sop = SoporteEval(por_conjunto, k, a.semilla, kap)
+        res[kap], _ = macro_f1_medio(con_sop, predecir(modelo, enc, con_sop, soporte=sop))
+        print("κ=%g: dev con soporte k=%d macro-F1 medio %.4f" % (kap, k, res[kap]), flush=True)
+    mejor_k = max(sorted(res), key=lambda x: (res[x], -x))
+    pos = [x for x in res if x > 0]
+    mejor_pos = max(sorted(pos), key=lambda x: (res[x], -x)) if pos else None   # el mejor κ > 0: es el que se compara con κ = 0
+    return {"k": k, "filas": len(con_sop), "rejilla": {str(x): v for x, v in res.items()}, "kappa": mejor_k, "kappa_pos": mejor_pos}
 
 
 def main(argv=None):
@@ -156,6 +197,15 @@ def main(argv=None):
     ap.add_argument("--cache-mensajes", action="store_true", help="guarda los estados e5 de cada mensaje (pruebas en seco)")
     ap.add_argument("--excluir-tareas", type=lambda x: [t for t in x.split(",") if t], default=[],
                     help="conjuntos (datos.conjunto) cuyas filas se quitan de train, meta y dev, p. ej. massive,hatecheck,inyecciones")
+    ap.add_argument("--excluir-fuera", action="store_true",
+                    help="quita también las tareas de tasksource de la lista fija con semilla (model.meta.muestreo.es_fuera)")
+    ap.add_argument("--tope-tarea", type=int, default=0,
+                    help="filas máx. por tarea de meta (0 = reparto por fuente de siempre); activa el reparto por tarea (G.8)")
+    ap.add_argument("--alfa", type=float, default=D.ALFA, help="p(tarea) ∝ n^alfa al muestrear (G.8: 0,3)")
+    ap.add_argument("--max-tok", type=int, default=MAX_TOK, help="tokens de e5 por mensaje y por opción (G.8: 256)")
+    ap.add_argument("--kappa", type=float, default=0.0, help="shrinkage del soporte del dev con soporte (0 = como siempre)")
+    ap.add_argument("--elegir-kappa", type=float, nargs="*", default=[],
+                    help="al final, mide el dev con soporte de k=2 para cada κ y deja el mejor en entrenamiento.json (`kappa_dev`)")
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args(argv)
@@ -171,11 +221,11 @@ def main(argv=None):
         print("error: sin filas de train", file=sys.stderr)
         return 2
     if a.episodios:
-        mues = D.Episodios(filas, meta, a.lote, a.k_min, a.k_max, a.vias, a.frac_zeroshot, a.frac_meta, semilla=a.semilla)
+        mues = D.Episodios(filas, meta, a.lote, a.k_min, a.k_max, a.vias, a.frac_zeroshot, a.frac_meta, alfa=a.alfa, semilla=a.semilla)
         print("episodios: %d tareas con soporte, %d filas locales, %d de meta, p(sin soporte)=%.2f" % (
             len(mues.tareas), len(filas), len(meta), mues.frac_zeroshot), flush=True)
     else:
-        mues = D.Muestreador(filas, a.lote, semilla=a.semilla)
+        mues = D.Muestreador(filas, a.lote, a.alfa, semilla=a.semilla)
     total = a.pasos or int(mues.pasos_por_epoca() * a.epocas)
     claves = sorted({"score%d" % len(r["opciones"]) for r in filas + meta if r["tipo"] == "score"})
     sop_dev = None
@@ -183,9 +233,9 @@ def main(argv=None):
         por_conjunto = {}
         for r in filas:
             por_conjunto.setdefault(D.conjunto(r), []).append(r)
-        sop_dev = SoporteEval(por_conjunto, a.k_max, a.semilla)
+        sop_dev = SoporteEval(por_conjunto, a.k_max, a.semilla, a.kappa)
 
-    enc = Codificador(device=a.device, cache_mensajes=a.cache_mensajes, descongelar=a.descongelar)
+    enc = Codificador(device=a.device, max_tok=a.max_tok, cache_mensajes=a.cache_mensajes, descongelar=a.descongelar)
     modelo = ModeloL2().to(a.device)
     for k in claves:
         modelo.asegurar_cabeza(k, a.device)
@@ -224,7 +274,7 @@ def main(argv=None):
     def estado():
         return {"modelo": modelo.state_dict(), "opt": opt.state_dict(), "paso": paso, "total": total, "mejor": mejor,
                 "calibrado": calibrado, "cabezas": sorted(modelo.coral.keys()), "args": vars(a),
-                "enc": enc.estado_enc()}
+                "enc": enc.estado_enc(), "max_tok": enc.max_tok}
 
     def checkpoint(sube=True):
         guardar(ultimo, estado())
@@ -250,7 +300,7 @@ def main(argv=None):
         if f1 > mejor["f1"]:
             mejor.update(f1=f1, paso=paso)
             guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": f1,
-                                       "enc": enc.estado_enc()})
+                                       "enc": enc.estado_enc(), "max_tok": enc.max_tok})
         modelo.train()
 
     eval_cada = a.eval_cada or max(total // 4, 1)
@@ -298,10 +348,11 @@ def main(argv=None):
     evaluar_dev()
     if not (sal / "mejor.pt").exists():
         guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": None,
-                                   "enc": enc.estado_enc()})
+                                   "enc": enc.estado_enc(), "max_tok": enc.max_tok})
     checkpoint()
+    kappa_dev = elegir_kappa(modelo, enc, dev, filas, a) if a.elegir_kappa and a.episodios and not parar else None
     with open(sal / "entrenamiento.json", "w") as f:
-        json.dump({"pasos": paso, "total": total, "mejor": mejor, "filas": mues.n, "info": info,
+        json.dump({"pasos": paso, "total": total, "mejor": mejor, "filas": mues.n, "info": info, "kappa_dev": kappa_dev,
                    "segundos": time.time() - t_ini, "interrumpido": bool(parar)}, f, indent=1, ensure_ascii=False)
     print("fin: paso %d de %d, mejor dev %.4f en el paso %d" % (paso, total, mejor["f1"], mejor["paso"]), flush=True)
     return 143 if parar else 0

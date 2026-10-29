@@ -202,7 +202,7 @@ class TestCorrer(Base):
         falsos.pawsx(self.hub)
         falsos.sib200(self.hub)
         with tempfile.TemporaryDirectory() as d:
-            res = convertir.correr(d, chunk_bytes=2000)
+            res = convertir.correr(d, solo=[c for c in convertir.FUENTES if c != "tsinst"], chunk_bytes=2000)
             r = json.loads((Path(d) / "resumen.json").read_text(encoding="utf-8"))
             self.assertEqual(r["filas_por_fuente"], {"tsjev": 11, "synzs": 90, "pawsx": 12, "sib200": 28})
             self.assertEqual(r["descartadas"]["tsjev"], {"licencia_non-commercial": 10, "licencia_unspecified": 10})

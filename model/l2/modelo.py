@@ -187,13 +187,19 @@ def maxsim(S, h):
     return F.softplus(torch.einsum("bkd,ud->bku", S, h)).max(dim=1).values
 
 
-def prototipos(modelo, enc, filas_soporte, lote=256):
-    """Prototipos de clase: (idx {etiqueta: i}, P (C,K,d)). P_c es, ranura a ranura, la media normalizada de las ranuras de los
-    ejemplos de soporte de la clase. e5 va sin gradiente (aunque haya capas descongeladas); las ranuras, con el del modo actual."""
+def prototipos(modelo, enc, filas_soporte, lote=256, kappa=0.0):
+    """Prototipos de clase: (idx {etiqueta: i}, P (C,K,d)). Sin `kappa`, P_c es, ranura a ranura, la media normalizada de las
+    ranuras de los ejemplos de soporte de la clase. e5 va sin gradiente (aunque haya capas descongeladas); las ranuras, con el del
+    modo actual.
+
+    Con `kappa` > 0 (G.8, shrinkage hacia la descripción; ver formula-shrinkage.md): P_c,k = normaliza(λ_c · torre(desc_c) +
+    (1 − λ_c) · media_k(soporte_c)), con λ_c = κ / (κ + n_c), n_c = ejemplos de soporte de la clase y desc_c = `texto_opcion` de la
+    clase (pregunta, id y descripción de la tarea). La media es la de las ranuras sin normalizar (norma ≤ 1), y el mismo
+    vector de la torre se suma a las K ranuras. Con κ = 0 es exactamente lo de siempre."""
     dev = modelo.ranuras.q.device
     etqs = sorted({r["etiqueta"] for r in filas_soporte})
     idx = {e: i for i, e in enumerate(etqs)}
-    suma = None
+    suma, n = None, torch.zeros(len(etqs), device=dev)
     for i in range(0, len(filas_soporte), lote):
         fs = filas_soporte[i:i + lote]
         with torch.no_grad():
@@ -202,7 +208,20 @@ def prototipos(modelo, enc, filas_soporte, lote=256):
         ci = torch.tensor([idx[r["etiqueta"]] for r in fs], device=dev)
         parte = torch.zeros(len(etqs), *S.shape[1:], device=dev).index_add(0, ci, S)
         suma = parte if suma is None else suma + parte
-    return idx, F.normalize(suma, dim=-1)
+        n = n.index_add(0, ci, torch.ones(len(fs), device=dev))
+    if kappa <= 0:
+        return idx, F.normalize(suma, dim=-1)
+    ref = filas_soporte[0]
+    with torch.no_grad():
+        h = modelo.torre(enc.pasaje([texto_opcion(ref, e) for e in etqs]).to(dev))  # (C,d), norma 1
+    return idx, mezcla_prototipos(suma, n, h, kappa)
+
+
+def mezcla_prototipos(suma, n, h, kappa):
+    """suma (C,K,d) de ranuras por clase, n (C,) ejemplos, h (C,d) torre de la descripción → P (C,K,d) con shrinkage."""
+    lam = (kappa / (kappa + n)).view(-1, 1, 1)
+    media = suma / n.clamp(min=1).view(-1, 1, 1)
+    return F.normalize(lam * h.unsqueeze(1) + (1 - lam) * media, dim=-1)
 
 
 def simproto(S, P):
@@ -220,12 +239,12 @@ class CachePrototipos:
     def __init__(self):
         self.d, self.calculos = {}, 0
 
-    def obtener(self, modelo, enc, tarea, filas_soporte):
-        clave = (tarea, hash_soporte(filas_soporte))
+    def obtener(self, modelo, enc, tarea, filas_soporte, kappa=0.0):
+        clave = (tarea, hash_soporte(filas_soporte), float(kappa))
         if clave not in self.d:
             self.calculos += 1
             with torch.no_grad():
-                self.d[clave] = prototipos(modelo, enc, filas_soporte)
+                self.d[clave] = prototipos(modelo, enc, filas_soporte, kappa=kappa)
         return self.d[clave]
 
     def limpiar(self):
@@ -235,14 +254,14 @@ class CachePrototipos:
 class SoporteEval:
     """Soporte de evaluación: k por clase de cada tarea, elegido como en T1.7a (`datos.soporte_t17a`, semilla 0)."""
 
-    def __init__(self, train_por_tarea, k=32, semilla=0):
+    def __init__(self, train_por_tarea, k=32, semilla=0, kappa=0.0):
         from . import datos
-        self.k = k
+        self.k, self.kappa = k, kappa
         self.filas = {t: [r for _, r in datos.soporte_t17a(rs, k, semilla)] for t, rs in train_por_tarea.items() if rs}
         self.cache = CachePrototipos()
 
     def protos(self, modelo, enc, tareas):
-        return {t: self.cache.obtener(modelo, enc, t, self.filas[t]) for t in tareas if t in self.filas}
+        return {t: self.cache.obtener(modelo, enc, t, self.filas[t], self.kappa) for t in tareas if t in self.filas}
 
 
 class Coral(nn.Module):
