@@ -88,3 +88,12 @@ se toma como `choice`), `question` no vacía y ≤ 4096 bytes, `nonce` ≤ 256 b
 bytes (bytes, no runas), 2–256 opciones, ids no vacíos ni repetidos, `noul` solo `false`/`true`. Test: `validar_paridad_test.go`.
 Las apps Kotlin/Swift que armen la pregunta deben mandar siempre `kind`. Diferencia que queda: los topes por petición (cuerpo,
 preguntas, `state`, id de pregunta) no aplican, el motor móvil recibe una sola pregunta sin id ni estado.
+
+## Tipo `multi` (paridad con servidor y `chispamovil`)
+| # | Comportamiento | Android | iOS | Estado |
+|---|---|---|---|---|
+| 30 | `multi`: `Pregunta.tipo = "multi"` viaja como `kind`; `SalidaCapa.respuestas` (`List<String>?` / `[String]?`) sale de `answers` del JSON del motor (nil/null si no viene); `opina` acepta respuesta vacía si `respuestas != nil` («ninguna activa» no es «sin opinión»); `Respuesta.respuestas` (lista, vacía fuera de `multi`) con la de la capa que acepta o, al escalar, la de la mejor pista (`res.Answers = mejor.Answers` del servidor). La cascada no cambia: la confianza mínima de las opciones ya la calcula el motor (`chispamovil.multi`), una capa solo acepta si todas sus decisiones pasan τ | K:Modelos, Cascada | S:Modelos, Cascada | igual (sin compilar). Tests `MultiTest` / `MultiTests` (activas, ninguna activa, una opción que no llega a τ y pasa a L2, escalar con pista, choice sin respuestas) |
+
+Detalle de plataforma: Kotlin añade `respuestas` como último parámetro con valor por defecto de `SalidaCapa` (tras `esquemaNuevo`) y de
+`Respuesta`; Swift lo añade como último parámetro con valor por defecto de `SalidaCapa.init` y como `var respuestas: [String] = []` de
+`Respuesta` (el inicializador memberwise sigue siendo interno). Las llamadas existentes no cambian.

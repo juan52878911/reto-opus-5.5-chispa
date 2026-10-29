@@ -11,6 +11,14 @@ fun json(respuesta: String?, conf: Double, vararg probs: Pair<String, Double>): 
         .put("probs", p).toString()
 }
 
+/** JSON de una capa `multi`: `answers` siempre (vacía si ninguna activa) y `answer` = la activa más probable o "". */
+fun jsonMulti(activas: List<String>, conf: Double, vararg probs: Pair<String, Double>): String {
+    val p = JSONObject()
+    for ((k, v) in probs) p.put(k, v)
+    return JSONObject().put("ok", true).put("opina", true).put("answer", activas.firstOrNull() ?: "").put("conf", conf)
+        .put("probs", p).put("answers", org.json.JSONArray(activas)).toString()
+}
+
 /** Un motor falso: cada capa devuelve lo que se le diga y se anotan las llamadas. */
 class MotorFalso(
     var presentes: List<String> = listOf("L0", "L1", "L2"),
@@ -118,4 +126,10 @@ val PREGUNTA = Pregunta(
 val PREGUNTA_NUEVA = Pregunta(
     "¿Qué tipo de incidencia es?",
     listOf(Opcion("fraude", "cargo no reconocido"), Opcion("tarjeta", "tarjeta bloqueada o perdida")),
+)
+
+val PREGUNTA_MULTI = Pregunta(
+    "¿Qué temas toca el mensaje?",
+    listOf(Opcion("cobro", "habla de un cobro"), Opcion("atencion", "se queja de la atención"), Opcion("fraude", "sospecha de fraude")),
+    tipo = "multi",
 )

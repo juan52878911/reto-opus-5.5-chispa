@@ -30,8 +30,14 @@ data class SalidaCapa(
     val probs: Map<String, Double>,
     /** L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS): la cascada usa `tauL2EsquemaNuevo`. */
     val esquemaNuevo: Boolean = false,
+    /**
+     * Solo en `multi` (el motor manda `answers`): las opciones activas en el orden de la pregunta, vacía si ninguna; null en los
+     * demás tipos. En `multi` [respuesta] es la activa más probable o "" y la [confianza] es la de la opción más dudosa.
+     */
+    val respuestas: List<String>? = null,
 ) {
-    val opina: Boolean get() = confianza > 0 && respuesta.isNotEmpty()
+    /** En `multi`, «ninguna activa» (respuesta vacía, [respuestas] vacía) es una opinión válida si hay confianza. */
+    val opina: Boolean get() = confianza > 0 && (respuesta.isNotEmpty() || respuestas != null)
 
     companion object {
         val SIN_OPINION = SalidaCapa("", 0.0, emptyMap())
@@ -56,12 +62,17 @@ data class SalidaCapa(
                     probs[k] = pj.getDouble(k)
                 }
             }
-            return SalidaCapa(o.optString("answer", ""), o.optDouble("conf", 0.0), probs)
+            val aj = o.optJSONArray("answers")
+            val respuestas = if (aj == null) null else List(aj.length()) { aj.getString(it) }
+            return SalidaCapa(o.optString("answer", ""), o.optDouble("conf", 0.0), probs, respuestas = respuestas)
         }
     }
 }
 
-/** La decisión final de una pregunta. [escalar] es true si ninguna capa llegó a su τ ([respuesta] es la pista). */
+/**
+ * La decisión final de una pregunta. [escalar] es true si ninguna capa llegó a su τ ([respuesta] es la pista).
+ * [respuestas] solo se llena en `multi` (las activas; vacía si ninguna): [respuesta] es la más probable de ellas o "".
+ */
 data class Respuesta(
     val respuesta: String,
     val confianza: Double,
@@ -69,6 +80,7 @@ data class Respuesta(
     val capa: String,
     val escalar: Boolean,
     val ms: Double,
+    val respuestas: List<String> = emptyList(),
 )
 
 class ErrorChispa(mensaje: String, causa: Throwable? = null) : Exception(mensaje, causa)

@@ -10,7 +10,7 @@ public struct Opcion: Equatable {
     }
 }
 
-/// Una pregunta, con la misma forma que la del servidor: `question`, `kind` y `options`.
+/// Una pregunta, con la misma forma que la del servidor: `question`, `kind` (`choice`, `score`, `noul` o `multi`) y `options`.
 public struct Pregunta: Equatable {
     public let texto: String
     public let opciones: [Opcion]
@@ -46,21 +46,27 @@ public struct SalidaCapa: Equatable {
     public let probs: [String: Double]
     /// L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS): la cascada usa `tauL2EsquemaNuevo`.
     public let esquemaNuevo: Bool
+    /// Solo en `multi` (el motor manda `answers`): las opciones activas en el orden de la pregunta, vacía si ninguna; nil en los
+    /// demás tipos. En `multi`, `respuesta` es la activa más probable o "" y `confianza` es la de la opción más dudosa.
+    public let respuestas: [String]?
 
-    public init(respuesta: String, confianza: Double, probs: [String: Double], esquemaNuevo: Bool = false) {
+    public init(respuesta: String, confianza: Double, probs: [String: Double], esquemaNuevo: Bool = false,
+                respuestas: [String]? = nil) {
         self.respuesta = respuesta
         self.confianza = confianza
         self.probs = probs
         self.esquemaNuevo = esquemaNuevo
+        self.respuestas = respuestas
     }
 
     func conEsquemaNuevo(_ nuevo: Bool) -> SalidaCapa {
-        SalidaCapa(respuesta: respuesta, confianza: confianza, probs: probs, esquemaNuevo: nuevo)
+        SalidaCapa(respuesta: respuesta, confianza: confianza, probs: probs, esquemaNuevo: nuevo, respuestas: respuestas)
     }
 
     public static let sinOpinion = SalidaCapa(respuesta: "", confianza: 0, probs: [:])
 
-    public var opina: Bool { confianza > 0 && !respuesta.isEmpty }
+    /// En `multi`, «ninguna activa» (respuesta vacía, `respuestas` vacía) es una opinión válida si hay confianza.
+    public var opina: Bool { confianza > 0 && (!respuesta.isEmpty || respuestas != nil) }
 
     /// Lee el JSON de chispamovil (`{"ok":…,"opina":…,"answer":…,"conf":…,"probs":{…}}`).
     public static func desdeJson(_ js: String) throws -> SalidaCapa {
@@ -78,12 +84,14 @@ public struct SalidaCapa: Equatable {
         return SalidaCapa(
             respuesta: (o["answer"] as? String) ?? "",
             confianza: (o["conf"] as? NSNumber)?.doubleValue ?? 0,
-            probs: probs
+            probs: probs,
+            respuestas: (o["answers"] as? [Any])?.compactMap { $0 as? String }
         )
     }
 }
 
 /// La decisión final de una pregunta. `escalar` es true si ninguna capa llegó a su τ (`respuesta` es la pista).
+/// `respuestas` solo se llena en `multi` (las activas; vacía si ninguna): `respuesta` es la más probable de ellas o "".
 public struct Respuesta: Equatable {
     public let respuesta: String
     public let confianza: Double
@@ -91,4 +99,5 @@ public struct Respuesta: Equatable {
     public let capa: String
     public let escalar: Bool
     public let ms: Double
+    public var respuestas: [String] = []
 }

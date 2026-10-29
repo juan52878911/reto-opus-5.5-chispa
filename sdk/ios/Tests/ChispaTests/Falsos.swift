@@ -8,6 +8,12 @@ func json(_ respuesta: String?, _ conf: Double = 0, _ probs: [String: Double] = 
     return String(decoding: try! JSONSerialization.data(withJSONObject: o), as: UTF8.self)
 }
 
+/// JSON de una capa `multi`: `answers` siempre (vacía si ninguna activa) y `answer` = la activa más probable o "".
+func jsonMulti(_ activas: [String], _ conf: Double, _ probs: [String: Double]) -> String {
+    let o: [String: Any] = ["ok": true, "opina": true, "answer": activas.first ?? "", "conf": conf, "probs": probs, "answers": activas]
+    return String(decoding: try! JSONSerialization.data(withJSONObject: o), as: UTF8.self)
+}
+
 /// Un motor falso: cada capa devuelve lo que se le diga y se anotan las llamadas.
 final class MotorFalso: Motor {
     var presentes = ["L0", "L1", "L2"]
@@ -97,4 +103,11 @@ let pregunta = Pregunta(
 let preguntaNueva = Pregunta(
     "¿Qué tipo de incidencia es?",
     opciones: [Opcion("fraude", descripcion: "cargo no reconocido"), Opcion("tarjeta", descripcion: "tarjeta bloqueada o perdida")]
+)
+
+let preguntaMulti = Pregunta(
+    "¿Qué temas toca el mensaje?",
+    opciones: [Opcion("cobro", descripcion: "habla de un cobro"), Opcion("atencion", descripcion: "se queja de la atención"),
+               Opcion("fraude", descripcion: "sospecha de fraude")],
+    tipo: "multi"
 )

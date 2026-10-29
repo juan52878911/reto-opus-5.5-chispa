@@ -13,6 +13,11 @@ let p = Pregunta("¿Qué quiere el cliente?", opciones: [Opcion("compra", descri
 let r = chispa.decidir("quiero comprar dos camisetas", [p])[0]   // r.respuesta, r.confianza, r.capa, r.escalar
 ```
 
+Tipo `multi` (`Pregunta(..., tipo: "multi")`): cada opción es un sí/no con su p en `probs` (no suman 1); `r.respuestas` son las activas en
+el orden de la pregunta (vacía si ninguna: es una respuesta válida y no escala) y `r.respuesta` la activa más probable o `""`. La confianza
+que se compara con τ es la de la opción más dudosa (la calcula el motor: la cascada no cambia) y L0 no opina en `multi`. Al escalar,
+`respuestas` es la de la capa con más confianza; en choice, noul y score va vacía.
+
 Paridad con Android fila a fila: [PARIDAD.md](PARIDAD.md). Receta exacta de compilación en una mac2: [COMPILAR.md](COMPILAR.md).
 Esquemas nuevos (zero-shot): la pregunta trae las opciones con `descripcion`; L1 las usa tal cual y, si pasas un
 `CodificadorTorre` a `Chispa.abrir(..., codificadorTorres:)`, L2 recibe las torres al vuelo (el motor las cachea).
