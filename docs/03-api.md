@@ -151,8 +151,30 @@ Constantes de [`server/decide/http.go`](../server/decide/http.go):
 - **Torres al vuelo (sección `TORR`)**: la clave sí incluye la descripción (`HashEsquema(question, [id, description])`, una por opción).
 - **Caché de L1 (embeddings de opciones por esquema)** y **nonce**: ver `cache_esquemas` y `cache_respuestas` más abajo.
 
+## L3: escalado opcional a un LLM
+Apagada por defecto. Con la sección `l3` en la config, lo que L0, L1 y L2 no resuelven (confianza < su τ) se manda a un endpoint
+compatible con OpenAI (`POST {url}/chat/completions`) y la respuesta mantiene el contrato: `layer: "L3"`, `answer` y `probs`
+normalizadas (suma 1) por opción, para `choice`, `noul` (`false`/`true`) y `score` (`answer` = mediana, como en L1 y L2).
+
+```json
+"l3": {"url": "http://127.0.0.1:11434/v1", "modelo": "qwen3:4b-instruct", "api_key_env": "CHISPA_L3_CLAVE",
+       "timeout": "10s", "max_por_peticion": 8, "tau": 0.6}
+```
+| Clave | Efecto |
+|---|---|
+| `url`, `modelo` | Obligatorios. `url` es la base (se añade `/chat/completions`); http o https |
+| `api_key_env` | Nombre de la variable de entorno con la clave (`Authorization: Bearer`). La clave no va en la config; si el nombre está y la variable vacía, el arranque falla. Ollama no la necesita |
+| `timeout` | Plazo de cada llamada: `"10s"` o segundos. 0/ausente = 10 s. Al vencer, L3 no opina y la pregunta sigue escalada (`chispa_l3_llamadas_total{resultado="timeout"}`, `chispa_capa_errores_total{capa="L3"}`) |
+| `max_por_peticion` | Llamadas al LLM que una petición HTTP puede hacer entre todas sus preguntas. 0/ausente = 8. Pasado el tope, las preguntas restantes quedan escaladas sin llamar |
+| `tau` | τ de L3; si falta, el de la capa `"L3"` de `capas` (0,60 por defecto). `capas` debe seguir incluyendo `"L3"` |
+
+Qué se manda al LLM: un mensaje de sistema fijo y uno de usuario con un JSON `{"pregunta","tipo","opciones":[{"id","descripcion"}],"texto"}` (temperatura 0, `response_format: json_object`, `stream: false`).
+Qué se espera: `{"probs": {"<id>": <p>, ...}}`. Se acepta con vallas ```` ``` ```` o texto alrededor; se valida (solo ids de las opciones, números finitos ≥ 0, suma > 0), las opciones que falten valen 0 y se normaliza a suma 1. Si no cumple, **L3 no opina** (sin error) y la respuesta queda `escalar`. Un fallo del endpoint (red, timeout, no 2xx) deja la respuesta igual y no se guarda bajo el `nonce`.
+
+Límites que conviene saber: (1) las probabilidades de un LLM son **autodeclaradas, no calibradas**: τ de L3 no se ha calibrado contra datos y debe ajustarse con tráfico propio antes de fiarse de `escalate: false`; (2) no se usan `logprobs`: el contrato por opción se obtiene del JSON, que funciona igual en cualquier endpoint; (3) la caché de esquemas y las torres no intervienen: cada pregunta escalada es una llamada nueva (salvo un `nonce` repetido). **Privacidad:** el `state` y el esquema de las preguntas escaladas salen del servidor hacia el endpoint configurado; Chispa no los registra, pero el endpoint sí puede. Con Ollama local no salen de la máquina ([06-despliegue.md](06-despliegue.md#l3-ollama-local-o-un-llm-remoto)).
+
 ## Valores de `layer`
-`L0`, `L1`, `L2`, `L3` y `escalar` (cuando `escalate` es true). El audio (`A1`) no entra por `/v1/decide`; ver `audio/README.md`.
+`L0`, `L1`, `L2`, `L3` y `escalar` (cuando `escalate` es true). `L3` solo sale si el servidor tiene la sección `l3` en la config (ver [L3](#l3-escalado-opcional-a-un-llm)); sin ella, L3 no opina nunca. El audio (`A1`) no entra por `/v1/decide`; ver `audio/README.md`.
 
 ## `GET /healthz`
 ```
@@ -175,6 +197,8 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_cache_nonce_aciertos_total` | respuestas servidas por nonce |
 | `chispa_auth_rechazos_total` | 401 de `/v1/decide` (clave ausente o mala); con `api_keys` |
 | `chispa_clave_peticiones_total{clave,resultado}` | peticiones por **id** de clave (nunca la clave): `ok` o `limitada` (429) |
+| `chispa_l3_llamadas_total{resultado}` | llamadas de L3 al LLM: `ok`, `invalida` (respuesta que no sirve; L3 no opina), `error`, `timeout`, `presupuesto` (tope por petición agotado; no se llamó). Sin L3, todo 0 |
+| `chispa_l3_latencia_segundos` | histograma de la latencia de cada llamada al LLM |
 
 Tras una petición válida y una rota, el test de métricas
 ([`decide_test.go`](../server/decide/decide_test.go)) espera líneas como `chispa_peticiones_total{codigo="200"} 1`,

@@ -50,6 +50,8 @@ type Config struct {
 	// Apagado junto con un τ es error.
 	TauL2EsquemaNuevo        *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
 	TauL2EsquemaNuevoApagado bool     `json:"tau_l2_esquema_nuevo_apagado,omitempty"`
+	// L3 (opcional): escalado a un LLM compatible con OpenAI; ver ConfigL3. Ausente = apagada. Exige una capa "L3" en capas.
+	L3 *ConfigL3 `json:"l3,omitempty"`
 }
 
 // TauL2EsquemaNuevoPorDefecto: τ de L2 para esquemas nuevos cuando ni la config ni CALIB lo dicen. Punto prudente medido sobre
@@ -159,6 +161,14 @@ func (c Config) Validar() error {
 	if h := c.AdminTokenSHA256; h != "" {
 		if b, err := hex.DecodeString(h); err != nil || len(b) != sha256.Size {
 			return fmt.Errorf("config: admin_token_sha256 debe ser un SHA-256 en hex de 64 caracteres (use chispa-server -hash-clave)")
+		}
+	}
+	if c.L3 != nil {
+		if err := c.L3.validar(); err != nil {
+			return err
+		}
+		if !seen["L3"] {
+			return fmt.Errorf("config: l3 está configurada pero falta la capa \"L3\" en capas")
 		}
 	}
 	if err := validarClaves(c.APIKeys); err != nil {

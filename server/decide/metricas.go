@@ -78,6 +78,9 @@ type Metricas struct {
 
 	cachesBytes map[string]func() int64 // chispa_cache_bytes{cache}, bajo mu
 
+	l3Llamadas map[string]*atomic.Uint64 // chispa_l3_llamadas_total{resultado}, bajo mu
+	l3Lat      histo                     // latencia de cada llamada al LLM de L3
+
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
 }
 
@@ -137,7 +140,21 @@ func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resul
 
 func NuevasMetricas() *Metricas {
 	return &Metricas{clavesN: map[[2]string]*atomic.Uint64{}, recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
-		decididas: map[string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}}
+		decididas: map[string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}}
+}
+
+// l3Cuenta cuenta una llamada de L3 por resultado: ok, invalida (respuesta que no sirve), error, timeout o presupuesto (tope por
+// petición agotado, sin llamar). nil-safe.
+func (m *Metricas) l3Cuenta(resultado string) {
+	if m != nil {
+		contador(&m.mu, m.l3Llamadas, resultado).Add(1)
+	}
+}
+
+func (m *Metricas) l3Latencia(d time.Duration) {
+	if m != nil {
+		m.l3Lat.observa(d)
+	}
 }
 
 // Clave cuenta una petición autenticada con la clave id: resultado "ok" o "limitada" (429).
@@ -287,6 +304,14 @@ func (m *Metricas) Escribe(w io.Writer) {
 		fmt.Fprintln(w, "# TYPE chispa_esquema_nuevo_tau gauge")
 		fmt.Fprintf(w, "chispa_esquema_nuevo_tau %g\n", *tauNuevo)
 	}
+	fmt.Fprintln(w, "# HELP chispa_l3_llamadas_total Llamadas de L3 al LLM por resultado (ok, invalida, error, timeout, presupuesto). Sin L3 configurada, todo a 0.")
+	fmt.Fprintln(w, "# TYPE chispa_l3_llamadas_total counter")
+	for _, r := range []string{"ok", "invalida", "error", "timeout", "presupuesto"} {
+		fmt.Fprintf(w, "chispa_l3_llamadas_total{resultado=%q} %d\n", r, contador(&m.mu, m.l3Llamadas, r).Load())
+	}
+	fmt.Fprintln(w, "# HELP chispa_l3_latencia_segundos Latencia de cada llamada de L3 al LLM.")
+	fmt.Fprintln(w, "# TYPE chispa_l3_latencia_segundos histogram")
+	m.l3Lat.escribe(w, "chispa_l3_latencia_segundos")
 	fmt.Fprintln(w, "# HELP chispa_timeouts_total Peticiones a /v1/decide cuyo plazo venció.")
 	fmt.Fprintln(w, "# TYPE chispa_timeouts_total counter")
 	fmt.Fprintf(w, "chispa_timeouts_total %d\n", m.Timeouts.Load())
