@@ -146,3 +146,36 @@ func TestL2cSoporteLambdaCeroEInfinito(t *testing.T) {
 		t.Fatalf("solo descripción: P(a) debe bajar frente a no mezclar: %v → %v", r0.Probs["a"], rInf.Probs["a"])
 	}
 }
+
+// k ≠ n_l2: L1 ve k=3 ejemplos de «a» pero el soporte de CONJ solo 1 (SOPL1 v3). L2c pesa con n_l2: κ=1 ⇒ λ=0,5 ⇒ simproto √2/2 (el caso
+// de k=1); con k=3 saldría λ=0,25 y otro valor. Sin n_l2 (v1/v2) se usa k, como antes.
+func TestL2cSoporteUsaNL2(t *testing.T) {
+	soplCon := func(p Pregunta, k uint32, nl2 []uint32) *chispa3.Sopl1 {
+		b, err := chispa3.CodificarSopl1(3, []chispa3.EntradaSopl1{{
+			Hash: ClaveConj(p), Ids: []string{"a", "b"}, K: []uint32{k, 0}, Escala: []float32{0, 0}, Media: make([]int8, 6), NL2: nl2,
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s, err := chispa3.DecodificarSopl1(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	l, p, sf := montajeSoporteL2c(t, 1)
+	con := l.ConSoporte(soplCon(p, 3, []uint32{1, 0}), floatPtr(1)).mezclarSimproto(p, sf.S, nil)
+	if math.Abs(con[0]-math.Sqrt2/2) > 1e-6 || math.Abs(con[1]-1) > 1e-6 {
+		t.Fatalf("n_l2=1, k=3: %v, quería [0,707107 1]", con)
+	}
+	sin := l.ConSoporte(soplCon(p, 3, nil), floatPtr(1)).mezclarSimproto(p, sf.S, nil)
+	// k=3 ⇒ λ=0,25 ⇒ Q=(0,25, 0,75), simproto = 0,75/√0,625 = 0,948683.
+	if math.Abs(sin[0]-0.948683) > 1e-6 {
+		t.Fatalf("sin n_l2 (k=3): %v, quería 0,948683", sin[0])
+	}
+	// n_l2 = 0 ⇒ sin dato: cae a k.
+	cero := l.ConSoporte(soplCon(p, 3, []uint32{0, 0}), floatPtr(1)).mezclarSimproto(p, sf.S, nil)
+	if !reflect.DeepEqual(cero, sin) {
+		t.Fatalf("n_l2=0 debe equivaler a k: %v ≠ %v", cero, sin)
+	}
+}

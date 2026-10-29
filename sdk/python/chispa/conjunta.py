@@ -158,7 +158,7 @@ def seccion_conj(q, ejemplos, modelo, enc, repo, log=print, l0tf_f16=False, l0tf
          "w": [float(x) for x in cab.w.numpy()], "clases": clases, "escala": escala, "proto": proto}
     b = formato.conj([e])
     return b, b_l0, {"l0tf": {"ngramas": len(vec.vocabulary_), "max_features": mf, "bytes": len(b_l0), "f16": l0tf_f16, "s": t_l0},
-                     "normas_ranuras": {"clases": clases, "normas": normas},
+                     "normas_ranuras": {"clases": clases, "normas": normas, "n": n_soporte(sop, idx)},
                      "lambda": lam, "cv_nll": {str(k): v for k, v in tabla["lr"].items()}, "bytes": len(b), "clases": len(clases),
                "T": T, "beta": e["beta"],
                "tau_l2c": tau, "precision_oof": prec, "precision_esperada": prec, "metodo_tau": metodo, "cobertura_esperada": cob, "precision_objetivo": precision_objetivo,
@@ -191,6 +191,15 @@ def normas_ranuras(modelo, enc, filas_soporte, idx, lote=256):
         for r in fs:
             n[idx[r["etiqueta"]]] += 1
     return normas_de_suma(suma.detach().cpu().numpy(), n)
+
+
+def n_soporte(filas_soporte, idx):
+    """(C,) ejemplos del soporte de CONJ por clase, en el orden de `idx`: el n de `model.l2.modelo.prototipos` (SOPL1 v3 lo guarda como n_l2)."""
+    import numpy as np
+    n = np.zeros(len(idx), dtype=np.uint32)
+    for r in filas_soporte:
+        n[idx[r["etiqueta"]]] += 1
+    return n
 
 
 def cargar_ckpt(ckpt, repo):

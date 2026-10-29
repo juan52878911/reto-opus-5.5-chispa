@@ -16,7 +16,7 @@ import (
 // p = normaliza((1−w)·p_desc + w·media), w = k/(k+λ) (PesoSoporte). El k de la sección también sirve a la mezcla de
 // L2 (CONJ no lo guarda; la media de L2 sale de sus prototipos). Disposición (little endian):
 //
-//	u32 versión(1 o 2) · u32 dim · u32 n · n entradas con hash estrictamente creciente
+//	u32 versión(1, 2 o 3) · u32 dim · u32 n · n entradas con hash estrictamente creciente
 //
 // Entrada (hash = ClaveConj: HashEsquema de la pregunta y los ids de las opciones ordenados, la misma clave que CONJ):
 //
@@ -30,9 +30,16 @@ import (
 // siguen los f32). normas[c·K+j] es la norma de la ranura j de la media SIN normalizar de L2c de la clase c (‖(1/n)·Σ S_i,j‖ ≤ 1);
 // CONJ guarda las ranuras ya normalizadas y con ellas el runtime reconstruye la media de modelo.py (Proto·escala·norma). El escritor
 // emite la versión 2 solo si alguna entrada trae normas (si no, los bytes son los de la versión 1); el lector acepta las dos.
+//
+// Versión 3 (versión = 3): igual que la 2 y cada entrada añade, tras las normas, u32 M · M×u32 n_l2 (M = 0 ⇒ sin n_l2; si no, M = C).
+// n_l2[c] es el número de ejemplos del soporte de CONJ (SOPORTE de L2) de la clase c, que puede ser un subconjunto de los que ve L1 (k);
+// es el n de modelo.py en el peso κ/(κ+n) de L2c (L1 sigue con k). n_l2[c] = 0 ⇒ sin dato: L2c usa k. Las versiones 1 y 2 se leen
+// igual (sin n_l2). La 2 no puede ampliarse en sitio: sus entradas no llevan longitud y un lector de la 2 rechazaría los bytes de más.
+// El escritor emite la versión 3 solo si alguna entrada trae NL2 (si no, los bytes son los de la 1 o la 2).
 const (
 	Sopl1Version  = 1 // versión sin normas
 	Sopl1Version2 = 2 // con normas por ranura
+	Sopl1Version3 = 3 // con normas y n_l2
 	maxSoplK      = 256
 	maxSoplDim    = 4096
 	maxSoplN      = 1 << 16
@@ -50,6 +57,8 @@ type EntradaSopl1 struct {
 	// Ranuras (K) y Normas (versión 2): ranuras por clase y C·K normas de la media sin normalizar de L2c. Ranuras = 0 / Normas nil = sin normas.
 	Ranuras int
 	Normas  []float32
+	// NL2 (versión 3): C ejemplos del soporte de CONJ por clase (n de modelo.py); nil = sin dato (L2c usa K).
+	NL2 []uint32
 }
 
 // CuantizarMedia cuantiza una media a int8 con escala máx|x|/127 (0 si es toda ceros), redondeo a par.
@@ -92,6 +101,9 @@ func (e *EntradaSopl1) validar(dim int) error {
 			return fmt.Errorf("%w: SOPL1 norma de ranura %v", ErrContenido, x)
 		}
 	}
+	if e.NL2 != nil && len(e.NL2) != c {
+		return fmt.Errorf("%w: SOPL1 n_l2 con %d valores para C=%d", ErrContenido, len(e.NL2), c)
+	}
 	return nil
 }
 
@@ -105,8 +117,10 @@ func CodificarSopl1(dim int, es []EntradaSopl1) ([]byte, error) {
 	le := binary.LittleEndian
 	ver := uint32(Sopl1Version)
 	for i := range s {
-		if s[i].Ranuras > 0 {
-			ver = Sopl1Version2
+		if s[i].NL2 != nil {
+			ver = Sopl1Version3
+		} else if s[i].Ranuras > 0 {
+			ver = max(ver, Sopl1Version2)
 		}
 	}
 	b := le.AppendUint32(nil, ver)
@@ -135,10 +149,16 @@ func CodificarSopl1(dim int, es []EntradaSopl1) ([]byte, error) {
 		for _, v := range e.Media {
 			b = append(b, byte(v))
 		}
-		if ver == Sopl1Version2 {
+		if ver >= Sopl1Version2 {
 			b = le.AppendUint32(b, uint32(e.Ranuras))
 			for _, x := range e.Normas {
 				b = le.AppendUint32(b, math.Float32bits(x))
+			}
+		}
+		if ver == Sopl1Version3 {
+			b = le.AppendUint32(b, uint32(len(e.NL2)))
+			for _, n := range e.NL2 {
+				b = le.AppendUint32(b, n)
 			}
 		}
 	}
@@ -154,7 +174,7 @@ type Sopl1 struct {
 func DecodificarSopl1(b []byte) (*Sopl1, error) {
 	l := &lector{b: b}
 	ver := l.u32()
-	if l.err == nil && ver != Sopl1Version && ver != Sopl1Version2 {
+	if l.err == nil && (ver < Sopl1Version || ver > Sopl1Version3) {
 		return nil, fmt.Errorf("%w: SOPL1 versión %d", ErrContenido, ver)
 	}
 	dim, n := l.u32(), l.u32()
@@ -202,7 +222,7 @@ func DecodificarSopl1(b []byte) (*Sopl1, error) {
 		for j, v := range m {
 			e.Media[j] = int8(v)
 		}
-		if ver == Sopl1Version2 {
+		if ver >= Sopl1Version2 {
 			kk := l.u32()
 			if l.err != nil {
 				return nil, l.err
@@ -215,6 +235,24 @@ func DecodificarSopl1(b []byte) (*Sopl1, error) {
 				e.Normas = make([]float32, int(nc)*int(kk))
 				for j := range e.Normas {
 					e.Normas[j] = l.f32()
+				}
+				if l.err != nil {
+					return nil, l.err
+				}
+			}
+		}
+		if ver == Sopl1Version3 {
+			m := l.u32()
+			if l.err != nil {
+				return nil, l.err
+			}
+			if m != 0 && m != nc {
+				return nil, fmt.Errorf("%w: SOPL1 n_l2 M=%d para C=%d", ErrContenido, m, nc)
+			}
+			if m > 0 {
+				e.NL2 = make([]uint32, m)
+				for j := range e.NL2 {
+					e.NL2[j] = l.u32()
 				}
 				if l.err != nil {
 					return nil, l.err
@@ -393,6 +431,7 @@ func SimprotoMezclado(e *EntradaConj, sop *EntradaSopl1, kappa *float64, ids []s
 		if !ok || k <= 0 || c == len(e.Clases) || e.Clases[c] != id {
 			continue
 		}
+		n, _ := sop.NL2De(id) // el n del soporte de CONJ (v3) o k; L1 sigue con k
 		vec, esc, ok := torre(i)
 		if !ok || len(vec) != e.D {
 			continue
@@ -400,7 +439,7 @@ func SimprotoMezclado(e *EntradaConj, sop *EntradaSopl1, kappa *float64, ids []s
 		if out == nil {
 			out = SimprotoActual(e, S, ids)
 		}
-		out[i] = simprotoF(S, e.ProtosMezclados(c, TorreFloat(vec, esc), LambdaClase(k, kappa), sop.NormasDe(id)), e.D)
+		out[i] = simprotoF(S, e.ProtosMezclados(c, TorreFloat(vec, esc), LambdaClase(n, kappa), sop.NormasDe(id)), e.D)
 	}
 	return out
 }
@@ -412,6 +451,20 @@ func TorreFloat(vec []byte, escala float32) []float32 {
 		h[i] = float32(int8(q)) * escala
 	}
 	return h
+}
+
+// NL2De es el n del soporte de CONJ de la clase id (versión 3), el de modelo.py para L2c; si la entrada no lo trae (o es 0), el k de L1.
+func (e *EntradaSopl1) NL2De(id string) (n int, ok bool) {
+	k, ok := e.KDe(id)
+	if !ok {
+		return 0, false
+	}
+	if e.NL2 != nil {
+		if c := sort.SearchStrings(e.Ids, id); e.NL2[c] > 0 {
+			return int(e.NL2[c]), true
+		}
+	}
+	return k, true
 }
 
 // KDe es el número de ejemplos de la opción id; ok=false si la entrada no la trae.

@@ -395,3 +395,96 @@ func TestSimprotoMezcladoLimites(t *testing.T) {
 		t.Fatal("λ=∞ debe ser solo descripción y λ=0 solo ejemplos")
 	}
 }
+
+// SOPL1 v3: testdata/soporte-v3.chispa lo escribe Python (test_sopl1.py). Mismos bytes que CodificarSopl1; v1 y v2 siguen igual.
+func soplV3DePrueba() []EntradaSopl1 {
+	e := soplV2DePrueba()
+	e[0].NL2 = []uint32{2, 0} // k = 3 en «a» pero CONJ vio 2 ejemplos; «b» sin dato
+	return e
+}
+
+func TestSOPL1V3FicheroEscritoPorPython(t *testing.T) {
+	f, err := Abrir(filepath.Join("testdata", "soporte-v3.chispa"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	want, err := CodificarSopl1(4, soplV3DePrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := f.Bytes(SOPL1)
+	if err != nil || !bytes.Equal(raw, want) || raw[0] != 3 {
+		t.Fatalf("bytes distintos: %x vs %x (%v)", raw, want, err)
+	}
+	s, err := DecodificarSopl1(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := s.Buscar(ClaveConj("¿p?", []string{"a", "b"}))
+	if n, ok := e.NL2De("a"); !ok || n != 2 {
+		t.Fatalf("n_l2(a) = %d %v", n, ok)
+	}
+	if n, ok := e.NL2De("b"); !ok || n != 0 { // n_l2 = 0 ⇒ k (que es 0)
+		t.Fatalf("n_l2(b) = %d %v", n, ok)
+	}
+	if n := e.NormasDe("a"); len(n) != 2 || n[1] != 1 {
+		t.Fatalf("normas %v", n)
+	}
+	// Las versiones anteriores no traen n_l2 y NL2De cae a k.
+	for ver, es := range map[byte][]EntradaSopl1{1: soplDePrueba(), 2: soplV2DePrueba()} {
+		b, _ := CodificarSopl1(4, es)
+		if b[0] != ver {
+			t.Fatalf("versión %d, quería %d", b[0], ver)
+		}
+		s, err := DecodificarSopl1(b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e, _ := s.Buscar(ClaveConj("¿p?", []string{"a", "b"}))
+		if n, _ := e.NL2De("a"); e.NL2 != nil || n != 3 {
+			t.Errorf("v%d: n = %d, quería k = 3", ver, n)
+		}
+	}
+	if _, err := DecodificarSopl1(raw[:len(raw)-1]); !errors.Is(err, ErrContenido) {
+		t.Errorf("v3 truncada: %v", err)
+	}
+	if _, err := DecodificarSopl1(append(append([]byte(nil), raw...), 0)); !errors.Is(err, ErrContenido) {
+		t.Errorf("v3 con bytes de más: %v", err)
+	}
+	mal := soplV3DePrueba()
+	mal[0].NL2 = []uint32{1}
+	if _, err := CodificarSopl1(4, mal); !errors.Is(err, ErrContenido) {
+		t.Errorf("n_l2 con C distinto: %v", err)
+	}
+}
+
+// Caso a mano con k ≠ n_l2: el del test de n=3 (κ=3, normas √5/3 y 1), pero L1 ve k=5 ejemplos y el soporte de CONJ solo n=3. L2c debe
+// pesar con n=3 (λ=0,5, el resultado de modelo.py), no con k=5 (λ=3/8). Sin n_l2 (v1/v2) se usa k como hasta ahora.
+func TestShrinkageL2cUsaNL2(t *testing.T) {
+	e := &EntradaConj{K: 2, D: 2, Clases: []string{"a"}}
+	for _, m := range [][]float32{{2 / float32(math.Sqrt(5)), 1 / float32(math.Sqrt(5))}, {1, 0}} {
+		esc, q := CuantizarMedia(m)
+		e.Escala = append(e.Escala, esc)
+		for _, v := range q {
+			e.Proto = append(e.Proto, byte(v))
+		}
+	}
+	S := [][]float32{{0, 1}, {1, 0}}
+	tor := func(int) ([]byte, float32, bool) { return []byte{0, 127}, 1.0 / 127, true }
+	tres := 3.0
+	norma := []float32{float32(math.Sqrt(5) / 3), 1}
+	con := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{5}, Ranuras: 2, Normas: norma, NL2: []uint32{3}}
+	casiTol(t, "n_l2=3", SimprotoMezclado(e, con, &tres, []string{"a"}, S, tor), []float64{(2/math.Sqrt(5) + 1/math.Sqrt2) / 2}, 2e-3)
+	// Con k=5 (sin n_l2) λ=3/8: P0 = normaliza(⅜·h + ⅝·M0), distinto.
+	sin := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{5}, Ranuras: 2, Normas: norma}
+	g := SimprotoMezclado(e, sin, &tres, []string{"a"}, S, tor)
+	p := e.ProtosMezclados(0, []float32{0, 1}, 3.0/8, norma)
+	casiTol(t, "k=5", g, []float64{simprotoF(S, p, 2)}, 1e-9)
+	if math.Abs(g[0]-(2/math.Sqrt(5)+1/math.Sqrt2)/2) < 1e-3 {
+		t.Fatalf("k y n_l2 deberían dar resultados distintos: %v", g)
+	}
+	// n_l2 = k reproduce el comportamiento de antes.
+	igual := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{5}, Ranuras: 2, Normas: norma, NL2: []uint32{5}}
+	casiTol(t, "n_l2=k", SimprotoMezclado(e, igual, &tres, []string{"a"}, S, tor), g, 1e-12)
+}

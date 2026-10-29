@@ -220,3 +220,76 @@ func TestSOPL1InvalidaApagadaAbreSinAviso_YActivaAvisa(t *testing.T) {
 		t.Fatalf("activo: sopl=%v avisos=%q", c.sopl, c.Avisos())
 	}
 }
+
+// SOPL1 v3: con n_l2 ≠ k el móvil pondera L2c con n_l2 igual que el servidor, y sin n_l2 usa k como antes.
+func TestCabezaConjuntaUsaNL2ParidadConServidor(t *testing.T) {
+	fx, raw := leerFixtureConj(t)
+	conj, err := chispa3.DecodificarConj(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pjs, p := preguntaDe(fx.Pregunta, fx.Opciones)
+	pm, _ := leerPregunta(pjs)
+	ks := map[string]uint32{}
+	for i, id := range fx.Opciones {
+		ks[id] = uint32(3 + 2*i)
+	}
+	conNL2 := func(nl2 uint32) *chispa3.Sopl1 {
+		s := soplDePrueba(t, 4, pm, nil, ks)
+		e, _ := s.Buscar(chispa3.ClaveConj(pm.Texto, idsDe(pm)))
+		if nl2 > 0 {
+			e.NL2 = make([]uint32, len(e.Ids))
+			for i := range e.NL2 {
+				e.NL2[i] = nl2
+			}
+		}
+		return s
+	}
+	lam := 0.5
+	cambia := false
+	for n, caso := range fx.Casos {
+		esq, S := torresParaSims(t, fx, caso)
+		c := ficheroV3(t,
+			chispa3.Seccion{Tipo: chispa3.L2, Datos: []byte("onnx")},
+			chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: esq},
+			chispa3.Seccion{Tipo: chispa3.CONJ, Datos: raw})
+		var in map[string]any
+		json.Unmarshal([]byte(pjs), &in)
+		in["l0"], in["ranuras"], in["k"] = caso.L0, planas(S), len(S)
+		js, _ := json.Marshal(in)
+		c.lambdaL2 = &lam
+		e, _ := chispa3.DecodificarEsquemas(esq)
+		base := decide.NuevoL2Con(nil, e, chispa3.Calib{}, nil)
+		sims := make([]float64, len(fx.Opciones))
+		for i, id := range fx.Opciones {
+			v, esc, _ := e.Buscar(chispa3.HashEsquema(fx.Pregunta, []string{id}))
+			sims[i] = chispa3.MaxSim(S, v, esc)
+		}
+		var porK map[string]float64
+		for _, nl2 := range []uint32{0, 1} {
+			sopl := conNL2(nl2)
+			c.sopl = sopl
+			got := leer(t, c.CabezaConjunta(string(js)))
+			want, err := decide.NuevoL2cCon(base, simsFijas{S, sims}, conj).ConSoporte(sopl, &lam).
+				DecidirCon(context.Background(), p, decide.Previas{"L0": {Probs: caso.L0, Conf: 0.5}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, id := range fx.Opciones {
+				if d := math.Abs(got.Probs[id] - want.Probs[id]); d > tolParidad {
+					t.Fatalf("caso %d n_l2=%d: |Δp| %g en %s", n, nl2, d, id)
+				}
+			}
+			if nl2 == 0 {
+				porK = got.Probs
+			} else {
+				for _, id := range fx.Opciones {
+					cambia = cambia || math.Abs(got.Probs[id]-porK[id]) > 1e-9
+				}
+			}
+		}
+	}
+	if !cambia {
+		t.Error("n_l2=1 frente a k≥3 debería mover alguna probabilidad")
+	}
+}

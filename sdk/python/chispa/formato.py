@@ -206,6 +206,7 @@ def leer_torr(b: bytes) -> dict:
 # --- SOPL1 (ver format/chispa3/sopl1.go para la disposición) ---
 SOPL1_VERSION = 1   # sin normas
 SOPL1_VERSION2 = 2  # cada entrada añade u32 K · C×K×f32 normas de la media sin normalizar de L2c (K = 0: sin normas)
+SOPL1_VERSION3 = 3  # la 2 y cada entrada añade u32 M · M×u32 n_l2 (M = 0: sin n_l2; si no M = C): n del soporte de CONJ por clase
 SOPL1_MAX_K = 256
 
 
@@ -231,12 +232,17 @@ def sopl1(dim: int, entradas) -> bytes:
     """Sección SOPL1: soporte few-shot por pregunta (k y media int8 de los embeddings de L1 por opción). Cada entrada:
     dict con `hash` (32 bytes, `clave_conj`), `ids` (estrictamente crecientes), `k` (C,), `escala` (C,) y `media` (C,dim) int8.
     Opcional `normas` (C,K) float: norma de cada ranura de la media SIN normalizar de L2c (‖(1/n)·Σ S_i,j‖ ≤ 1); con normas en alguna
-    entrada la sección es la versión 2 (las entradas sin ellas llevan K = 0), si no es la versión 1 de siempre. Se ordenan por hash."""
+    entrada la sección es la versión 2 (las entradas sin ellas llevan K = 0), si no es la versión 1 de siempre. Opcional `n_l2` (C,) enteros:
+    ejemplos del soporte de CONJ por clase (el n de modelo.py, puede ser < k); con n_l2 en alguna entrada la sección es la versión 3 (0 = sin dato:
+    L2c usa k). Se ordenan por hash."""
     import numpy as np
     if not 0 < dim <= 4096:
         raise ValueError("SOPL1: dim fuera de rango")
     con_normas = any(e.get("normas") is not None for e in entradas)
-    out = [struct.pack("<III", SOPL1_VERSION2 if con_normas else SOPL1_VERSION, dim, len(entradas))]
+    con_n = any(e.get("n_l2") is not None for e in entradas)
+    ver = SOPL1_VERSION3 if con_n else SOPL1_VERSION2 if con_normas else SOPL1_VERSION
+    con_normas = ver >= SOPL1_VERSION2
+    out = [struct.pack("<III", ver, dim, len(entradas))]
     for e in sorted(entradas, key=lambda e: e["hash"]):
         media = np.ascontiguousarray(e["media"], dtype=np.int8)
         c = len(e["ids"])
@@ -257,6 +263,15 @@ def sopl1(dim: int, entradas) -> bytes:
             if nm.ndim != 2 or nm.shape[0] != c or nm.shape[1] > SOPL1_MAX_K or not np.all((nm >= 0) & (nm <= 1.001)):
                 raise ValueError("SOPL1: normas mal formadas (C×K, en [0, 1])")
             out.append(struct.pack("<I", nm.shape[1]) + nm.tobytes())
+        if con_n:
+            nl = e.get("n_l2")
+            if nl is None:
+                out.append(struct.pack("<I", 0))
+            else:
+                nl = np.asarray(nl)
+                if nl.shape != (c,) or np.any(nl < 0) or np.any(nl != np.floor(nl)):
+                    raise ValueError("SOPL1: n_l2 mal formado (C enteros ≥ 0)")
+                out.append(struct.pack("<I", c) + nl.astype("<u4").tobytes())
     return b"".join(out)
 
 
@@ -266,7 +281,7 @@ def leer_sopl1(b: bytes) -> dict:
     if len(b) < 12:
         raise ValueError("SOPL1 truncada")
     ver, dim, n = struct.unpack("<III", b[:12])
-    if ver not in (SOPL1_VERSION, SOPL1_VERSION2) or not 0 < dim <= 4096:
+    if ver not in (SOPL1_VERSION, SOPL1_VERSION2, SOPL1_VERSION3) or not 0 < dim <= 4096:
         raise ValueError("SOPL1 inválida")
     pos, es = 12, []
     for _ in range(n):
@@ -281,14 +296,22 @@ def leer_sopl1(b: bytes) -> dict:
         esc = np.frombuffer(b, "<f4", c, pos); pos += 4 * c
         media = np.frombuffer(b, np.int8, c * dim, pos).reshape(c, dim); pos += c * dim
         normas = None
-        if ver == SOPL1_VERSION2:
+        if ver >= SOPL1_VERSION2:
             kk = struct.unpack("<I", b[pos:pos + 4])[0]
             pos += 4
             if kk > SOPL1_MAX_K:
                 raise ValueError("SOPL1 inválida")
             if kk:
                 normas = np.frombuffer(b, "<f4", c * kk, pos).reshape(c, kk); pos += 4 * c * kk
-        es.append({"hash": h, "ids": ids, "k": k, "escala": esc, "media": media, "normas": normas})
+        n_l2 = None
+        if ver == SOPL1_VERSION3:
+            m = struct.unpack("<I", b[pos:pos + 4])[0]
+            pos += 4
+            if m not in (0, c):
+                raise ValueError("SOPL1 inválida")
+            if m:
+                n_l2 = np.frombuffer(b, "<u4", c, pos); pos += 4 * c
+        es.append({"hash": h, "ids": ids, "k": k, "escala": esc, "media": media, "normas": normas, "n_l2": n_l2})
     if pos != len(b):
         raise ValueError("SOPL1 con bytes sobrantes")
     return {"dim": dim, "entradas": es}

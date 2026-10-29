@@ -101,6 +101,21 @@ class TestSOPL1EnTrain(unittest.TestCase):
         np.testing.assert_allclose(e["normas"], [[5 ** 0.5 / 3, 1.0], [0.0, 0.0]], atol=1e-7)  # «baja» no está en CONJ: ceros
         self.assertEqual(seccion_sopl1(q, ex, embeber_falso)[0][:4].hex(), "01000000")
 
+    def test_con_n_del_soporte_de_conjunta_escribe_v3_con_n_l2(self):
+        from chispa.train import seccion_sopl1
+        import chispa.train as tr
+        q, _ = tr.cargar_esquema(self.d / "e.json", None)
+        ex = [("urgente ya 0", "alta"), ("urgente ya 1", "alta"), ("urgente ya 2", "alta"), ("luego caso 0", "baja")]
+        # L1 ve 3 ejemplos de «alta»; el soporte de CONJ solo 2 (k ≠ n_l2). «baja» no está en CONJ ⇒ 0 (sin dato).
+        cj = {"clases": ["alta"], "normas": np.array([[0.5, 1.0]], np.float32), "n": np.array([2], np.uint32)}
+        b, ks, _ = seccion_sopl1(q, ex, embeber_falso, cj)
+        self.assertEqual(b[:4].hex(), "03000000")
+        e = formato.leer_sopl1(b)["entradas"][0]
+        self.assertEqual(e["k"].tolist(), [3, 1])
+        self.assertEqual(e["n_l2"].tolist(), [2, 0])
+        sin_n = {k: v for k, v in cj.items() if k != "n"}
+        self.assertEqual(seccion_sopl1(q, ex, embeber_falso, sin_n)[0][:4].hex(), "02000000")
+
     def test_sin_l1_no_hay_con_que_embeber(self):
         logs = []
         inf = self.correr("e.chispa", l1=None, shrinkage_lambda=1.0, log=logs.append)

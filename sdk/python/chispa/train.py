@@ -141,7 +141,8 @@ def embeber_con_go(l1: str, textos: List[str], fuentes, go: str, trabajo: Path):
 def seccion_sopl1(q, ex, embeber, normas_ranuras=None):
     """SOPL1 de la pregunta `q` con los ejemplos `ex` ([(texto, opción)]): por opción, k (ejemplos que L1 ve) y la media de sus
     embeddings de L1 en int8. `embeber(textos) → (E, ok)`. `normas_ranuras` = {"clases": [...], "normas": (C,K)} (de `--conjunta`: la
-    norma de cada ranura de la media sin normalizar de L2c, que CONJ no guarda) escribe la versión 2; sin ellas, la versión 1.
+    norma de cada ranura de la media sin normalizar de L2c, que CONJ no guarda; con `n`, los ejemplos del soporte de CONJ por clase) escribe la
+    versión 3 (2 sin `n`); sin ellas, la versión 1.
     Devuelve (bytes de la sección, {opción: k}, dim)."""
     import numpy as np
     E, ok = embeber([t for t, _ in ex])
@@ -161,6 +162,9 @@ def seccion_sopl1(q, ex, embeber, normas_ranuras=None):
         pos = {c: i for i, c in enumerate(normas_ranuras["clases"])}
         nm = np.asarray(normas_ranuras["normas"], dtype=np.float32)
         entrada["normas"] = np.stack([nm[pos[i]] if i in pos else np.zeros(nm.shape[1], np.float32) for i in ids])
+        if normas_ranuras.get("n") is not None:  # n del soporte de CONJ (puede ser < k): el de L2c
+            n = np.asarray(normas_ranuras["n"], dtype=np.uint32)
+            entrada["n_l2"] = np.array([n[pos[i]] if i in pos else 0 for i in ids], dtype=np.uint32)
     b = formato.sopl1(dim, [entrada])
     return b, {i: int(n) for i, n in zip(ids, k)}, dim
 
@@ -206,12 +210,12 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
     inf["bytes"] = salida.stat().st_size
     if "SOPL1" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("SOPL1")
-    inf["soporte"] = {"lambda_sugerida": "inf" if lambda_ == float("inf") else lambda_, "k": ks, "version": 2 if normas_ranuras is not None else 1, "dim": dim, "bytes": len(b), "tau_sin_encogimiento": True}
+    inf["soporte"] = {"lambda_sugerida": "inf" if lambda_ == float("inf") else lambda_, "k": ks, "version": (3 if normas_ranuras.get("n") is not None else 2) if normas_ranuras is not None else 1, "dim": dim, "bytes": len(b), "tau_sin_encogimiento": True}
     inf.setdefault("avisos", []).append("τ de L1/L2c calibrado sin el encogimiento de SOPL1: con l1_shrinkage_lambda/l2_shrinkage_lambda > 0 "
                                         "la cobertura y precisión prometidas no valen; recalibra con el encogimiento activo")
     log("AVISO: " + inf["avisos"][-1])
     log(f"SOPL1: k por opción {ks}, dim {dim}, {len(b)} bytes; el runtime la usa con l1_shrinkage_lambda (y l2_shrinkage_lambda) = {lambda_:g}"
-        + ("; con normas por ranura (v2)" if normas_ranuras is not None else "; sin normas por ranura (v1): L2c usa la media normalizada"))
+        + ("; con normas por ranura y n_l2 (v3)" if normas_ranuras is not None else "; sin normas por ranura (v1): L2c usa la media normalizada"))
 
 
 def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable) -> List[List[str]]:
@@ -297,8 +301,8 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     `shrinkage_lambda` (≥ 0; por defecto None) activa la sección SOPL1: con `ejemplos` y `l1`, guarda por opción k y la media de los
     embeddings de L1 de sus ejemplos, para que el runtime encoja el prototipo de la descripción hacia ellos (w = k/(k+λ)). Sin él
     no se escribe nada (apagado) y el fichero es el de siempre. Cualquier λ ≥ 0, también 0 (solo ejemplos) e inf (solo descripción),
-    escribe SOPL1: con `--conjunta` la sección es la versión 2, con la norma de cada ranura de la media sin normalizar de L2c (como
-    `modelo.py`); sin ella, la versión 1. λ no va en el fichero: lo lee el runtime de su config (`l1_shrinkage_lambda`,
+    escribe SOPL1: con `--conjunta` la sección es la versión 3, con la norma de cada ranura de la media sin normalizar de L2c y el n del soporte de CONJ (`n_l2`;
+    como `modelo.py`); sin ella, la versión 1. λ no va en el fichero: lo lee el runtime de su config (`l1_shrinkage_lambda`,
     `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe (`soporte.lambda_sugerida`, "inf" si es infinito). `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
     if shrinkage_lambda is not None and (shrinkage_lambda != shrinkage_lambda or shrinkage_lambda < 0):
         raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (0 = solo ejemplos, inf = solo descripción; sin la opción = apagado): {shrinkage_lambda}")
@@ -421,7 +425,7 @@ def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semill
     if tiempo_l2 is not None:
         inf["tiempos_s"]["l2"] = tiempo_l2
     if conj_inf:
-        inf["_normas_ranuras"] = conj_inf.pop("normas_ranuras", None)  # lo consume entrenar() (SOPL1 v2); no va al informe JSON
+        inf["_normas_ranuras"] = conj_inf.pop("normas_ranuras", None)  # lo consume entrenar() (SOPL1 v3); no va al informe JSON
         inf["conjunta"] = conj_inf
     inf["reloj_s"] = time.time() - t0
     if conj_inf and conj_inf.get("tau_l2c") is not None:
