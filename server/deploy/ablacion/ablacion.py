@@ -50,6 +50,8 @@ def leer_esquemas(b):
     """ESQUEMAS → {hash: (vec int8 (d,), escala)}. Disposición de format/chispa3/secciones.go: v1 empieza por dim y lleva
     claves de 32 bytes; v2 por (2<<16 | dim) y claves de 16 bytes (HashEsquema2)."""
     u, n = struct.unpack_from("<II", b, 0)
+    if u >> 16 not in (0, 2):   # como DecodificarEsquemas en Go
+        raise ValueError(f"ESQUEMAS versión {u >> 16} desconocida")
     dim, kb = u & 0xFFFF, (16 if u >> 16 == 2 else 32)
     hs, ss, vs = 8, 8 + kb * n, 8 + (kb + 4) * n
     esc = np.frombuffer(b, "<f4", n, ss)
