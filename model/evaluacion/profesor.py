@@ -146,6 +146,9 @@ def medir_modelo(nli, test, dev, salida, plantilla=None, log=print):
                                     "ms_p50": ms[len(ms) // 2] if ms else None}
         log(f"== {nombre}: n={len(filas)} exactitud {ev['global']['exactitud']:.4f} macro-F1 {ev['global']['macro_f1']:.4f} "
             f"{res['conjuntos'][nombre]['ms_medio']:.0f} ms/caso, {time.time() - t0:.0f} s")
+        # tras cada conjunto: si el tope de tiempo corta el proceso, lo medido no se pierde
+        Path(salida).mkdir(parents=True, exist_ok=True)
+        (Path(salida) / "resultados.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
     Path(salida).mkdir(parents=True, exist_ok=True)
     (Path(salida) / "resultados.json").write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
     return res
@@ -248,11 +251,15 @@ def main(argv=None):
             from .jevbench import cargar_jevbench
             jev = cargar_jevbench(x.jevbench)
             test["jevbench"] = jev[:x.max_jev] if x.max_jev else jev
+        orden = ["jevbench", "massive", "hatecheck", "inyecciones"]   # prioridad si el tiempo no da para todo
+        test = {k: test[k] for k in sorted(test, key=lambda k: (orden.index(k) if k in orden else len(orden), k))}
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         fallos = 0
         for e in x.modelo:
             nombre, _, ruta = e.partition("=")
             try:
-                medir_modelo(NLIHF(ruta), test, dev, Path(x.salida) / nombre, x.plantilla)
+                medir_modelo(NLIHF(ruta, device), test, dev, Path(x.salida) / nombre, x.plantilla)
             except Exception as ex:   # un modelo que falla no tumba al otro
                 print(f"FALLO {nombre}: {type(ex).__name__}: {ex}", file=sys.stderr)
                 fallos += 1
