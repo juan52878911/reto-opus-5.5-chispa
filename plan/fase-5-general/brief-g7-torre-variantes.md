@@ -27,7 +27,8 @@ Se refuta midiendo con el checkpoint real en la c6a.
   - latencia p50/p99 de la torre en ORT con 1 hilo, por texto;
   - `chispa train --torre`, `chispa-server -tags ort` y `/v1/decide` con un esquema no visto de JevBench (que responda L2).
 
-  `informe.md` lleva una tabla por variante. Debe seguir cabiendo en 16 KB; si no, comprímelo con gzip.
+  `informe.md` lleva una tabla por variante. Exporta `CHISPA_TOK=$TOK` también en el paso de `go test -tags ort` del
+  paquete de la torre (hoy solo lo lleva el paso del tokenizador, así que `TestTorreConTokenizadorReal` se salta). Debe seguir cabiendo en 16 KB; si no, comprímelo con gzip.
 - **Contrato:** `model/l2/contrato-torre.md` explica las variantes.
 - **Prueba en seco:** `CHISPA_LOCAL=1` con fixtures y `bash -n`. Tests y `make test`/`make smoke` en verde **después** del
   último cambio.
