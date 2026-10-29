@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -79,5 +80,31 @@ func TestExpulsarSoloOciosasMaduras(t *testing.T) {
 	time.Sleep(250 * time.Millisecond)
 	if v, _ := ll.expulsarOciosa(); v == nil {
 		t.Fatal("no expulsó una ociosa madura")
+	}
+}
+
+// R11-9: con el tope lleno Accept no acumula un timer y un defer por reintento.
+func TestAcceptNoAcumulaTimers(t *testing.T) {
+	old := minOcio
+	minOcio = 8 * time.Millisecond // reintento cada 2 ms
+	fin := make(chan struct{})
+	defer func() { <-fin; minOcio = old }() // tras cerrar ll, Accept ya no lee minOcio
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	ll := limitarConexiones(ln, 1).(*limitListener)
+	defer ll.Close()
+	c1, _ := net.Dial("tcp", ln.Addr().String())
+	defer c1.Close()
+	s1, _ := ll.Accept()
+	defer s1.Close() // activa: nunca expulsable
+	c2, _ := net.Dial("tcp", ln.Addr().String())
+	defer c2.Close()
+	go func() { ll.Accept(); close(fin) }()
+	time.Sleep(50 * time.Millisecond) // Accept ya está en el bucle
+	var a, b runtime.MemStats
+	runtime.ReadMemStats(&a)
+	time.Sleep(400 * time.Millisecond) // ~200 reintentos
+	runtime.ReadMemStats(&b)
+	if n := b.Mallocs - a.Mallocs; n > 100 {
+		t.Fatalf("Accept reservó %d objetos en 400 ms con el tope lleno: timers/defers acumulados", n)
 	}
 }

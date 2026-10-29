@@ -295,6 +295,12 @@ func (l *limitListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 	var espera <-chan time.Time
+	var t *time.Timer // un único timer, rearmado con Reset
+	defer func() {
+		if t != nil {
+			t.Stop()
+		}
+	}()
 	for {
 		select {
 		case l.sem <- struct{}{}:
@@ -311,8 +317,11 @@ func (l *limitListener) Accept() (net.Conn, error) {
 			continue
 		}
 		if espera == nil && minOcio > 0 {
-			t := time.NewTimer(minOcio / 4)
-			defer t.Stop()
+			if t == nil {
+				t = time.NewTimer(minOcio / 4)
+			} else {
+				t.Reset(minOcio / 4) // solo tras recibir de t.C: ya expiró y está vacío
+			}
 			espera = t.C
 		}
 		select {
