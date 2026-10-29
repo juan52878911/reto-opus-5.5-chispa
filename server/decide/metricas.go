@@ -76,7 +76,19 @@ type Metricas struct {
 	clavesN      map[[2]string]*atomic.Uint64 // chispa_clave_peticiones_total{clave,resultado}, bajo mu
 	AuthRechazos atomic.Uint64                // 401 de /v1/decide (clave ausente o incorrecta)
 
+	cachesBytes map[string]func() int64 // chispa_cache_bytes{cache}, bajo mu
+
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
+}
+
+// FijaCacheBytes registra el gauge chispa_cache_bytes{cache=nombre}; registrar de nuevo el mismo nombre lo sustituye.
+func (m *Metricas) FijaCacheBytes(nombre string, bytes func() int64) {
+	m.mu.Lock()
+	if m.cachesBytes == nil {
+		m.cachesBytes = map[string]func() int64{}
+	}
+	m.cachesBytes[nombre] = bytes
+	m.mu.Unlock()
 }
 
 // UsaMetricas lo implementan los decisores que cuentan en /metrics (L2, y L2c por incrustación); NuevaCascada se lo entrega.
@@ -184,6 +196,7 @@ func claves[V any](mu *sync.Mutex, m map[string]V) []string {
 
 // Escribe vuelca el formato de texto de Prometheus.
 func (m *Metricas) Escribe(w io.Writer) {
+	defer m.escribeCachesBytes(w)
 	fmt.Fprintln(w, "# HELP chispa_peticiones_total Peticiones a /v1/decide por código HTTP.")
 	fmt.Fprintln(w, "# TYPE chispa_peticiones_total counter")
 	m.mu.Lock()
@@ -297,3 +310,23 @@ func (m *Metricas) Escribe(w io.Writer) {
 
 // escapaEtiqueta escapa un valor de etiqueta Prometheus: solo se admiten \\, \" y \n.
 var escapaEtiqueta = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace
+
+// escribeCachesBytes emite chispa_cache_bytes{cache}: las cachés registradas (l1, torres) y la de nonces del modelo en servicio.
+func (m *Metricas) escribeCachesBytes(w io.Writer) {
+	m.mu.Lock()
+	vals := map[string]int64{}
+	for n, f := range m.cachesBytes {
+		vals[n] = f()
+	}
+	m.mu.Unlock()
+	if c := noncesActual.Load(); c != nil {
+		vals["nonces"] = c.Bytes()
+	}
+	fmt.Fprintln(w, "# HELP chispa_cache_bytes Bytes que ocupan las entradas de cada caché acotada por bytes (l1, nonces, torres).")
+	fmt.Fprintln(w, "# TYPE chispa_cache_bytes gauge")
+	for _, n := range []string{"l1", "nonces", "torres"} {
+		if v, ok := vals[n]; ok {
+			fmt.Fprintf(w, "chispa_cache_bytes{cache=%q} %d\n", n, v)
+		}
+	}
+}

@@ -4,6 +4,7 @@
 package torre
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +48,11 @@ type Sesion interface {
 	Embeber(ids, mascara []int64) ([]float32, error)
 }
 
+// SesionCtx es Sesion que espera su turno respetando el ctx (la de ORT); el codificador la usa si la sesión la implementa.
+type SesionCtx interface {
+	EmbeberCtx(ctx context.Context, ids, mascara []int64) ([]float32, error)
+}
+
 // Codificador implementa decide.CodificadorTorre sobre una Sesion.
 type Codificador struct {
 	ses     Sesion
@@ -87,6 +93,11 @@ func (c *Codificador) Dim() int { return c.dim }
 // Torre devuelve h para el texto de la torre «passage: pregunta · opción · descripción». El tokenizador antepone «passage: »
 // él mismo, así que aquí se quita el que traiga el texto: sale una sola vez, sea cual sea el prefijo de la sección.
 func (c *Codificador) Torre(texto string) ([]float32, error) {
+	return c.TorreCtx(context.Background(), texto)
+}
+
+// TorreCtx es Torre que no espera el turno de ORT más allá del ctx (decide.CodificadorTorreCtx).
+func (c *Codificador) TorreCtx(ctx context.Context, texto string) ([]float32, error) {
 	ids := c.tk.IDsPasaje(strings.TrimPrefix(texto, prefijoPasaje))
 	if len(ids) == 0 {
 		return nil, errors.New("torre: texto sin tokens")
@@ -98,7 +109,13 @@ func (c *Codificador) Torre(texto string) ([]float32, error) {
 	for i := range mascara {
 		mascara[i] = 1
 	}
-	h, err := c.ses.Embeber(ids, mascara)
+	var h []float32
+	var err error
+	if sc, ok := c.ses.(SesionCtx); ok {
+		h, err = sc.EmbeberCtx(ctx, ids, mascara)
+	} else {
+		h, err = c.ses.Embeber(ids, mascara)
+	}
 	if err != nil {
 		return nil, err
 	}
