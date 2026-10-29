@@ -53,7 +53,7 @@ def esperado(fs):
             if any(c["hash"] == h for c in claves):
                 continue  # «tiempo» y «musica» comparten clave en las dos filas de choice: una sola torre
             claves.append({"tipo": r["tipo"], "pregunta": r["pregunta"], "kind": kind, "opciones": [{"id": i, "description": d} for i, d in ops],
-                           "hash": h, "texto_torre": texto_opcion(r, o) if o else E.texto_consulta(r)})
+                           "hash": h, "texto_torre": texto_opcion(r, o) if o else E.texto_torre_consulta(r)})
         if r["tipo"] == "choice":
             ops = [(o, r["descripciones"].get(o, "")) for o in r["opciones"]]
             conj.append({"pregunta": r["pregunta"], "kind": "choice", "opciones": [{"id": i, "description": d} for i, d in ops],

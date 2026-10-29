@@ -8,9 +8,9 @@
    de e5; los que no están pasan a <unk>).
 2. int8 dinámico con `onnxruntime.quantization.quantize_dynamic` (`--cuant todo|codificador|ninguna`, `--per-channel`): por
    defecto solo el codificador, por canal y con las ranuras en fp32.
-3. Torres de opción en int8 con una escala por vector. ESQUEMAS v2 con `HashEsquema2` (`clave_torre`, `hash_clave`): en `choice`,
-   una entrada por opción (kind `choice`); en `noul` y `score`, una por pregunta con todas las opciones (el vector de consulta,
-   `texto_consulta`).
+3. Torres de opción en int8 con una escala por vector. ESQUEMAS v2 con `HashEsquema2` (`clave_torre`, `hash_clave`): en `choice`
+   y `multi`, una entrada por opción (kind `choice` / `multi`); en `noul` (false y true) y `score` (todos los niveles), una por pregunta
+   (el vector de consulta, `texto_torre_consulta`: la opción `true` / el nivel máximo, no `opciones[-1]`).
 4. `.chispa` v3 con `empaquetar_go` (META, L2, ESQUEMAS, CALIB).
 Junto al `.chispa` deja `<salida>.informe.json` con tamaño, paridad y latencia.
 """
@@ -35,7 +35,7 @@ import torch.nn.functional as F
 
 from . import calibrar as C
 from . import datos as D
-from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, texto_consulta, texto_opcion
+from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, texto_opcion
 
 RAIZ = Path(__file__).resolve().parents[2]
 VOCAB_PODADO = RAIZ / "model" / "bench" / "vocab-podado-e5-small.json"
@@ -228,10 +228,36 @@ def hash_clave(pregunta, kind, opciones):
     return formato.hash_esquema2(pregunta, kind, opciones).hex()
 
 
+POR_OPCION = ("choice", "multi")  # una torre (y una entrada de ESQUEMAS) por opción, como busca server/decide/l2.go
+
+
+def opcion_consulta(fila):
+    """Opción cuya torre es la de consulta: noul, `true` (el runtime la lee así, sea cual sea el orden); score, el nivel máximo."""
+    if fila["tipo"] == "noul":
+        if "true" not in fila["opciones"]:
+            raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
+        return "true"
+    try:
+        return max(fila["opciones"], key=int)
+    except ValueError:
+        raise ValueError("pregunta score con niveles no numéricos: %r" % (fila["opciones"],))
+
+
+def texto_torre_consulta(fila):
+    """Texto de la torre de noul y score (ver `opcion_consulta`); `modelo.texto_consulta` usa `opciones[-1]`, igual si el orden es [false, true] / 1..K."""
+    return texto_opcion(fila, opcion_consulta(fila))
+
+
 def clave_torre(fila, opcion=None):
-    """(pregunta, kind, ((id, descripción), …)) de ESQUEMAS v2: choice, la de una `opcion`; noul y score, la de toda la pregunta."""
+    """(pregunta, kind, ((id, descripción), …)) de ESQUEMAS v2: choice y multi, la de una `opcion`; noul (false y true,
+    como `opcionesUnica` del servidor) y score (todos los niveles), la de toda la pregunta."""
     desc = fila.get("descripciones", {})
-    ops = [opcion] if fila["tipo"] == "choice" else list(fila["opciones"])
+    if fila["tipo"] in POR_OPCION:
+        ops = [opcion]
+    elif fila["tipo"] == "noul":
+        ops = ["false", "true"]
+    else:
+        ops = list(fila["opciones"])
     return fila["pregunta"], fila["tipo"], tuple(sorted((o, desc.get(o, "")) for o in ops))
 
 
@@ -239,10 +265,10 @@ def entradas_torres(modelo, enc, filas, lote=256):
     """[(pregunta, kind, opciones, vec int8, escala)] únicas; error si una misma clave tiene dos textos de torre distintos."""
     texto_de, claves = {}, []
     for r in filas:
-        if r["tipo"] == "choice":
+        if r["tipo"] in POR_OPCION:
             pares = [(clave_torre(r, o), texto_opcion(r, o)) for o in r["opciones"]]
         else:
-            pares = [(clave_torre(r), texto_consulta(r))]
+            pares = [(clave_torre(r), texto_torre_consulta(r))]
         for k, t in pares:
             if texto_de.setdefault(k, t) != t:
                 raise ValueError("la clave %r tiene dos textos de torre distintos (¿descripciones que cambian?)" % (k,))
@@ -434,7 +460,7 @@ def textos_torre(filas, n):
     """Hasta `n` textos de torre distintos (choice: uno por opción; el resto, el de consulta), en el orden de las filas."""
     vistos = {}
     for r in filas:
-        for t in ([texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r)]):
+        for t in ([texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] in POR_OPCION else [texto_torre_consulta(r)]):
             vistos.setdefault(t, None)
     return list(vistos)[:n]
 
