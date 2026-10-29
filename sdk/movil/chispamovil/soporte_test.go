@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"chispa/format/chispa3"
@@ -104,15 +105,15 @@ func TestAbrirConSoporteLeeSOPL1(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ficheroV3(t, chispa3.Seccion{Tipo: chispa3.SOPL1, Datos: b})
-	if c.sopl == nil || c.sopl.Len() != 1 || c.lambdaL1 != nil || c.lambdaL2 != nil {
-		t.Fatalf("Abrir: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
+	if c.sopl != nil || c.lambdaL1 != nil || c.lambdaL2 != nil {
+		t.Fatalf("Abrir (λ=∞) no decodifica SOPL1: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
 	}
 	ruta := filepath.Join(t.TempDir(), "s.chispa")
 	if err := os.WriteFile(ruta, mustEscribir(t, b), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c2, err := AbrirConSoporte(ruta, 3, math.Inf(1))
-	if err != nil || c2.lambdaL1 == nil || *c2.lambdaL1 != 3 || c2.lambdaL2 != nil {
+	if err != nil || c2.sopl == nil || c2.sopl.Len() != 1 || c2.lambdaL1 == nil || *c2.lambdaL1 != 3 || c2.lambdaL2 != nil || c2.Avisos() != "" {
 		t.Fatalf("%v %v", c2, err)
 	}
 	c2.Cerrar()
@@ -191,5 +192,28 @@ func TestCabezaConjuntaConSoporteParidadConServidor(t *testing.T) {
 		if mueve == 0 {
 			t.Errorf("caso %d: con λ=0,5 la mezcla debería mover las probabilidades", n)
 		}
+	}
+}
+
+func TestSOPL1InvalidaConLambdaInfinitoAbreSinAviso_YConFinitoAvisa(t *testing.T) {
+	ruta := filepath.Join(t.TempDir(), "mala.chispa")
+	if err := os.WriteFile(ruta, mustEscribir(t, []byte{9, 9, 9}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Abrir(ruta)
+	if err != nil {
+		t.Fatalf("λ=∞ no debe fallar por una SOPL1 inválida: %v", err)
+	}
+	if c.sopl != nil || c.Avisos() != "" {
+		t.Fatalf("λ=∞: sopl=%v avisos=%q", c.sopl, c.Avisos())
+	}
+	c.Cerrar()
+	c, err = AbrirConSoporte(ruta, 2, 2)
+	if err != nil {
+		t.Fatalf("con λ finito una SOPL1 inválida se ignora con aviso: %v", err)
+	}
+	defer c.Cerrar()
+	if c.sopl != nil || !strings.Contains(c.Avisos(), "SOPL1") {
+		t.Fatalf("λ finito: sopl=%v avisos=%q", c.sopl, c.Avisos())
 	}
 }
