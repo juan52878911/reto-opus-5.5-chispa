@@ -31,10 +31,9 @@ def esquema_json(fila):
 
 def cuerpo_decide(fila):
     q = {"id": fila["id"], "question": fila["pregunta"], "kind": fila["tipo"], "nonce": fila["id"]}
-    if fila["tipo"] == "choice":
-        q["options"] = [{"id": o, "description": fila["descripciones"].get(o, "")} for o in fila["opciones"]]
-    elif fila["tipo"] == "score":
-        q["options"] = [{"id": o} for o in fila["opciones"]]  # como sdk.tipos.Score: los niveles "1"…"K"
+    # con las descripciones de todas las opciones (también de true/false en noul y de los niveles en score): la torre de L2 las usa como Python
+    if fila["tipo"] in ("choice", "noul", "score"):
+        q["options"] = [{"id": o, "description": fila.get("descripciones", {}).get(o, "")} for o in fila["opciones"]]
     return {"state": fila["texto"], "questions": [q]}
 
 

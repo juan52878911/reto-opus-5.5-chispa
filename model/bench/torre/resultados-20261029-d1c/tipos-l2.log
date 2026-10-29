@@ -1,0 +1,2 @@
+{"tipos_l2": ["choice"], "checkpoint": ["choice", "noul", "score4", "score4#1", "score4#2", "score5", "score5#1", "score5#2", "score5#3"], "distintas": ["noul", "score4#1", "score4#2", "score4", "score5#1", "score5#2", "score5#3", "score5"], "tau_escalate_l2": 0.9325805902481079, "tau_l2c": null, "tau_escalate": 1}
+FALLO tipos_l2 distinto en ['noul', 'score4#1', 'score4#2', 'score4', 'score5#1', 'score5#2', 'score5#3', 'score5']

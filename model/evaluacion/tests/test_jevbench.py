@@ -109,10 +109,9 @@ class TestCascadaYInforme(unittest.TestCase):
             self.assertEqual(list(e["opciones"]), f["opciones"])
             q = JC.cuerpo_decide(f)["questions"][0]
             self.assertEqual(q["kind"], f["tipo"])
-            if f["tipo"] == "noul":
-                self.assertNotIn("options", q)
-            else:
-                self.assertEqual([o["id"] for o in q["options"]], f["opciones"])
+            self.assertEqual([o["id"] for o in q["options"]], f["opciones"])
+            # la torre del servidor usa la descripción (true en noul, nivel máximo en score), como Python
+            self.assertEqual([o["description"] for o in q["options"]], [f["descripciones"].get(o, "") for o in f["opciones"]])
 
     def test_informe(self):
         with tempfile.TemporaryDirectory() as t:
