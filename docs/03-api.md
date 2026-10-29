@@ -59,6 +59,16 @@ Con `noul` y `score` ([`noul_score_escala.req.json`](../server/decide/testdata/n
 ```
 Este segundo ejemplo sale de un test con capas falsas: muestra el formato de un escalado, no cifras reales.
 
+En `score`, `answer` depende de la capa que respondió:
+- **L1:** `probs` es el softmax de los cosenos (/ T) entre el mensaje y cada «pregunta · nivel · descripción»; `answer` es
+  la **mediana**: el primer nivel cuya probabilidad acumulada llega a 0,5.
+- **L2:** cabeza CORAL (`server/decide/l2.go`, `score`). `probs` sale de las diferencias entre las probabilidades
+  acumuladas de sus umbrales, P(y = k) = P(y > k−1) − P(y > k); `answer` es el nivel con mayor P(y = k). Suele coincidir
+  con la mediana (contar los umbrales con P > 0,5), pero no siempre.
+- **L0:** el clasificador entrenado con los ejemplos; `answer` es su nivel más probable.
+
+En los tres casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
+
 ### Errores
 Todo error lleva el mismo cuerpo tipado. `code` es estable y pensado para programas; `message` es para humanos (lleva la ruta del campo) y puede cambiar. `question_id` solo aparece cuando el error es de una pregunta con id.
 
