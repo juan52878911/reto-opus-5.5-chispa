@@ -47,7 +47,7 @@ def armar(salida, fuentes=CV.FUENTES, fixtures=False, jevbench=None, maximo=None
             if r.get("estado") != "convertida":
                 resumen["no_disponibles"][nombre] = r.get("detalle") or r.get("error") or r.get("estado")
                 continue
-            filas = [json.loads(l) for l in (Path(t) / (nombre + ".jsonl")).read_text(encoding="utf-8").splitlines() if l.strip()]
+            filas = [json.loads(l) for l in (Path(t) / (nombre + ".jsonl")).read_text(encoding="utf-8").split("\n") if l.strip()]
             es = [f for f in filas if f.get("idioma") == "es"]
             train = [_recortar(f) for f in es if f["split"] == "train"]
             if maximo:

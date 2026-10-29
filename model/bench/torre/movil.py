@@ -132,7 +132,7 @@ def medir(a):
     ref = referencia(modelo, enc, filas, textos_h)
     filas_c = D.leer([a.calib])
     filas_c = [r for r in filas_c if r.get("split") == "train"] or filas_c
-    corpus = [json.loads(l) for f in sorted(Path(a.ampliar).rglob("*.jsonl")) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
+    corpus = [json.loads(l) for f in sorted(Path(a.ampliar).rglob("*.jsonl")) for l in f.read_text(encoding="utf-8").split("\n") if l.strip()]
     cal = {"torre": E.ids_torre(enc, E.textos_calib(filas_c, a.n_calib)), "consulta": E.ids_calib_consulta(enc, corpus or filas_c, a.n_calib)}
     ids_lat = E.ids_torre(enc, textos_h[::3])
     ids_lat_q = [enc.tok(["query: " + r["texto"]], truncation=True, max_length=enc.max_tok)["input_ids"][0] for r in filas[:100]]
