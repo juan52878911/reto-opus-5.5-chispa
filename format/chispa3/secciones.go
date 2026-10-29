@@ -95,6 +95,8 @@ type Calib struct {
 	TauL2c *float64 `json:"tau_l2c,omitempty"`
 	// TauL2EsquemaNuevo es el τ de L2 para preguntas cuyas torres no están en ESQUEMAS (salen al vuelo); nil = L2 usa su τ de siempre.
 	TauL2EsquemaNuevo *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
+	// L1LambdaCalib es el λ de encogimiento del soporte (SOPL1) con el que se calibró el τ de L1; nil = calibrado sin encogimiento.
+	L1LambdaCalib *float64 `json:"l1_lambda_calib,omitempty"`
 }
 
 func (c Calib) validar() error {
@@ -106,6 +108,9 @@ func (c Calib) validar() error {
 	}
 	if c.TauL2EsquemaNuevo != nil && !(*c.TauL2EsquemaNuevo >= 0 && *c.TauL2EsquemaNuevo <= 1) {
 		return fmt.Errorf("%w: CALIB.tau_l2_esquema_nuevo %v", ErrContenido, *c.TauL2EsquemaNuevo)
+	}
+	if c.L1LambdaCalib != nil && !(*c.L1LambdaCalib >= 0) {
+		return fmt.Errorf("%w: CALIB.l1_lambda_calib %v", ErrContenido, *c.L1LambdaCalib)
 	}
 	for k, p := range c.Tipos {
 		if !(p.T > 0) || math.IsInf(p.T, 0) || math.IsNaN(p.A) || math.IsInf(p.A, 0) ||

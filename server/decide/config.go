@@ -17,14 +17,15 @@ type Capa struct {
 // Config es el JSON de configuración del servidor.
 type Config struct {
 	Capas           []Capa     `json:"capas"`
-	Modelos         []string   `json:"modelos"`           // ficheros .chispa para L0
-	CacheEsquemas   int        `json:"cache_esquemas"`    // entradas del LRU de esquemas
-	CacheRespuestas int        `json:"cache_respuestas"`  // entradas del LRU de nonces
-	CacheTorres     int        `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
-	MaxTorresNuevas int        `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
-	Limites         Limites    `json:"limites"`           // topes de entrada de /v1/decide
-	APIKeys         []ClaveAPI `json:"api_keys"`          // si no está vacío, /v1/decide exige Authorization: Bearer <clave> y limita por clave
-	AdminToken      string     `json:"admin_token"`       // si no está vacío, abre POST /v1/admin/recargar con Authorization: Bearer <token>
+	Modelos         []string   `json:"modelos"`                    // ficheros .chispa para L0
+	CacheEsquemas   int        `json:"cache_esquemas"`             // entradas del LRU de esquemas
+	CacheRespuestas int        `json:"cache_respuestas"`           // entradas del LRU de nonces
+	CacheTorres     int        `json:"cache_torres"`               // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
+	MaxTorresNuevas int        `json:"max_torres_nuevas"`          // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
+	Limites         Limites    `json:"limites"`                    // topes de entrada de /v1/decide
+	APIKeys         []ClaveAPI `json:"api_keys"`                   // si no está vacío, /v1/decide exige Authorization: Bearer <clave> y limita por clave
+	APIKeysAbierto  bool       `json:"api_keys_abierto,omitempty"` // permite que una recarga sin api_keys deje /v1/decide abierto (si no, se rechaza)
+	AdminToken      string     `json:"admin_token"`                // si no está vacío, abre POST /v1/admin/recargar con Authorization: Bearer <token>
 	// λ del encogimiento del soporte (sección SOPL1): w = k/(k+λ) mezcla la media de los ejemplos con el prototipo de la
 	// descripción, en L1 y en L2c por separado. En JSON, un número ≥ 0.
 	// L1: ausente = L1ShrinkageLambdaPorDefecto (4, medido en G.8b); un valor explícito manda; para apagarlo (el comportamiento de

@@ -159,7 +159,15 @@ func TestAuthHealthzMetricsAbiertos(t *testing.T) {
 func TestAuthAdminSigueConAdminToken(t *testing.T) {
 	a := &armadorModelos{etiquetas: []string{"x"}}
 	s, _ := servidorRecargable(t, a, "adm")
-	s.ConClaves([]ClaveAPI{{ID: "a", HashSHA256: HashClave("k"), RPS: 10}}, nil)
+	ks := []ClaveAPI{{ID: "a", HashSHA256: HashClave("k"), RPS: 10}}
+	s.ConClaves(ks, nil)
+	s.ConRecarga(func() (*Armado, error) {
+		ar, err := a.armar()
+		if ar != nil {
+			ar.APIKeys = ks
+		}
+		return ar, err
+	}, "adm")
 	h := s.Handler()
 	pide := func(ruta, tok string) int {
 		r := httptest.NewRequest("POST", ruta, strings.NewReader(cuerpoNonce))

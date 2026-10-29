@@ -88,7 +88,7 @@ type Servidor struct {
 
 func NuevoServidor(c *Cascada, met *Metricas, cacheRespuestas int) *Servidor {
 	s := &Servidor{Met: met}
-	s.cur.Store(s.nuevoVivo(&Armado{Cascada: c, CacheRespuestas: cacheRespuestas, Limites: LimitesPorDefecto()}, 1))
+	s.cur.Store(s.nuevoVivo(&Armado{Cascada: c, CacheRespuestas: cacheRespuestas, Limites: LimitesPorDefecto()}, 1, nil))
 	return s
 }
 

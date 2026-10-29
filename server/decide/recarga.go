@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 )
 
@@ -16,7 +15,8 @@ type Armado struct {
 	Cascada         *Cascada
 	CacheRespuestas int
 	Limites         Limites
-	APIKeys         []ClaveAPI   // api_keys de la config: se releen en cada recarga (los cubos empiezan llenos)
+	APIKeys         []ClaveAPI   // api_keys de la config: se releen en cada recarga (los cubos de las claves que siguen se conservan)
+	APIKeysAbierto  bool         // api_keys_abierto de la config: permite que una recarga deje /v1/decide sin claves
 	AdminToken      string       // admin_token de la config (solo se lee del arranque)
 	L0              *L0          // para la métrica de la caché de esquemas (puede ser nil)
 	Cerrar          func() error // libera el .chispa; se llama cuando ya no quedan peticiones sobre este modelo (puede ser nil)
@@ -101,7 +101,12 @@ func (s *Servidor) adquirir() *vivo {
 // NuevoServidorDe es NuevoServidor con un Armado completo (incluye su Cerrar y su L0 para las métricas).
 func NuevoServidorDe(a *Armado, met *Metricas) *Servidor {
 	s := &Servidor{Met: met}
-	s.cur.Store(s.nuevoVivo(a, 1))
+	s.cur.Store(s.nuevoVivo(a, 1, nil))
+	if n := len(a.APIKeys); n > 0 {
+		log.Printf("arranque: %d claves de API activas", n)
+	} else {
+		log.Print("AVISO: arranque sin claves de API: /v1/decide está abierto")
+	}
 	return s
 }
 
@@ -133,15 +138,28 @@ func (s *Servidor) Recargar() error {
 		return err
 	}
 	old := s.cur.Load()
-	nv := s.nuevoVivo(a, old.gen+1)
+	if old.auth != nil && len(a.APIKeys) == 0 && !a.APIKeysAbierto {
+		err := fmt.Errorf("la config nueva no trae api_keys y dejaría /v1/decide abierto; se rechaza (ponga \"api_keys_abierto\": true si es a propósito)")
+		if a.Cerrar != nil {
+			a.Cerrar()
+		}
+		s.Met.Recarga("error")
+		log.Printf("recarga rechazada, sigue el modelo %d con sus %d claves de API: %v", old.gen, len(old.auth.claves), err)
+		return err
+	}
+	nv := s.nuevoVivo(a, old.gen+1, old.auth)
 	s.cur.Store(nv)
 	old.retirar()
 	s.Met.Recarga("ok")
-	log.Printf("recarga: modelo %d en servicio", nv.gen)
+	if nv.auth == nil {
+		log.Printf("AVISO: recarga: modelo %d en servicio SIN claves de API: /v1/decide está abierto", nv.gen)
+	} else {
+		log.Printf("recarga: modelo %d en servicio, %d claves de API activas", nv.gen, len(nv.auth.claves))
+	}
 	return nil
 }
 
-func (s *Servidor) nuevoVivo(a *Armado, gen uint64) *vivo {
+func (s *Servidor) nuevoVivo(a *Armado, gen uint64, prev *autenticador) *vivo {
 	n := a.CacheRespuestas
 	if n < 1 {
 		n = 1
@@ -150,7 +168,7 @@ func (s *Servidor) nuevoVivo(a *Armado, gen uint64) *vivo {
 		s.Met.FijaEsquemas(a.L0.Hits.Load, a.L0.Misses.Load)
 	}
 	s.Met.FijaTauNuevo(a.Cascada.tauNuevo)
-	return &vivo{casc: a.Cascada, nonces: NewLRU[[]byte](n), lim: normalizaLimites(a.Limites), auth: nuevoAutenticador(a.APIKeys, nil), gen: gen, cerrar: a.Cerrar}
+	return &vivo{casc: a.Cascada, nonces: NewLRU[[]byte](n), lim: normalizaLimites(a.Limites), auth: nuevoAutenticadorDe(a.APIKeys, nil, prev), gen: gen, cerrar: a.Cerrar}
 }
 
 // admin atiende POST /v1/admin/recargar.
@@ -160,7 +178,7 @@ func (s *Servidor) admin(w http.ResponseWriter, r *http.Request) {
 		s.fallo(w, http.StatusMethodNotAllowed, ErrMetodo, "", "método %s no permitido: usa POST", r.Method)
 		return
 	}
-	got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	got, ok := bearer(r.Header.Get("Authorization"))
 	if !ok || subtle.ConstantTimeCompare([]byte(got), []byte(s.adminToken)) != 1 {
 		w.Header().Set("WWW-Authenticate", "Bearer")
 		s.fallo(w, http.StatusUnauthorized, ErrNoAutorizado, "", "token de administración ausente o incorrecto")

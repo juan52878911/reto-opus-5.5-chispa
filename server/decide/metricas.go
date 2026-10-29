@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -207,7 +208,7 @@ func (m *Metricas) Escribe(w io.Writer) {
 	}
 	sort.Slice(ks, func(i, j int) bool { return ks[i][0] < ks[j][0] || ks[i][0] == ks[j][0] && ks[i][1] < ks[j][1] })
 	for _, k := range ks {
-		fmt.Fprintf(w, "chispa_clave_peticiones_total{clave=%q,resultado=%q} %d\n", k[0], k[1], m.clavesN[k].Load())
+		fmt.Fprintf(w, "chispa_clave_peticiones_total{clave=\"%s\",resultado=\"%s\"} %d\n", escapaEtiqueta(k[0]), escapaEtiqueta(k[1]), m.clavesN[k].Load())
 	}
 	m.mu.Unlock()
 	fmt.Fprintln(w, "# HELP chispa_preguntas_total Preguntas decididas.")
@@ -293,3 +294,6 @@ func (m *Metricas) Escribe(w io.Writer) {
 		fmt.Fprintf(w, "chispa_capa_latencia_segundos_count{capa=%q} %d\n", k, acc)
 	}
 }
+
+// escapaEtiqueta escapa un valor de etiqueta Prometheus: solo se admiten \\, \" y \n.
+var escapaEtiqueta = strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`).Replace

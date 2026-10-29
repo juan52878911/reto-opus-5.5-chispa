@@ -107,6 +107,13 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 	}
 	var sopl *chispa3.Sopl1
 	lambdaL1 := cfg.LambdaL1()
+	if f.Tiene(chispa3.SOPL1) && cfg.L1ShrinkageLambda == nil && !cfg.L1ShrinkageApagado && calib.L1LambdaCalib == nil {
+		// .chispa anterior a l1_lambda_calib: su CALIB se calibró sin encogimiento, así que el λ por defecto lo descalibraría.
+		// Sin λ de L1 explícito en la config, el soporte de L1 queda apagado (el comportamiento de antes).
+		lambdaL1 = nil
+		mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: el .chispa trae SOPL1 pero su CALIB no trae l1_lambda_calib (calibrado sin encogimiento): "+
+			"L1 no mezcla el soporte; ponga l1_shrinkage_lambda en la config para activarlo (λ=%g por defecto en modelos nuevos)", L1ShrinkageLambdaPorDefecto))
+	}
 	explicito := cfg.L1ShrinkageLambda != nil || cfg.L2ShrinkageLambda != nil // el operador pidió el soporte: SOPL1 ilegible es error
 	if f.Tiene(chispa3.SOPL1) && explicito {
 		var err error
@@ -117,7 +124,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		// Sin λ explícito (solo el default de L1, o apagado) una SOPL1 ilegible no impide arrancar: se ignora con aviso.
 		if s, err := f.Sopl1(); err != nil {
 			mt.Avisos = append(mt.Avisos, "SOPL1 inválida, se ignora: "+err.Error())
-		} else if lambdaL1 != nil {
+		} else {
 			sopl = s
 		}
 	}
@@ -131,6 +138,16 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			return mt, fmt.Errorf("sección L1: %w", err)
 		}
 		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, lambdaL1)
+		if sopl != nil && lambdaL1 != nil {
+			switch {
+			case calib.L1LambdaCalib == nil:
+				mt.Avisos = append(mt.Avisos, "AVISO: L1 mezcla SOPL1 con λ explícito pero la CALIB se calibró sin encogimiento (sin l1_lambda_calib): la cobertura y precisión prometidas no valen")
+			case *calib.L1LambdaCalib != *lambdaL1:
+				mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: λ de L1 del runtime (%g) distinto del de la CALIB (l1_lambda_calib=%g): τ de L1 descalibrado", *lambdaL1, *calib.L1LambdaCalib))
+			}
+		} else if sopl != nil && calib.L1LambdaCalib != nil {
+			mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: L1 sin soporte (apagado) pero la CALIB se calibró con λ=%g (l1_lambda_calib): τ de L1 descalibrado", *calib.L1LambdaCalib))
+		}
 		if sopl != nil && sopl.Dim() != m.Dim() {
 			mt.Avisos = append(mt.Avisos, fmt.Sprintf("SOPL1 de dimensión %d y L1 de %d: L1 no mezcla el soporte", sopl.Dim(), m.Dim()))
 		}

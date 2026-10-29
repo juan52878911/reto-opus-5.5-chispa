@@ -188,7 +188,9 @@ func TestL1DefaultCuatro(t *testing.T) {
 	conSopl := func(cfg Config) *L1 {
 		cfg.CacheEsquemas, cfg.CacheRespuestas = 16, 16
 		extra := []chispa3.Seccion{{Tipo: chispa3.SOPL1, Datos: sopl}}
-		mt, err := ArmarDesde(v3Tiny(t, calibTiny(), extra...), NuevoL0(8), &cfg, false, nil)
+		calib := calibTiny()
+		calib.L1LambdaCalib = floatPtr(4) // calibrado con el λ por defecto: el soporte se usa sin λ en la config
+		mt, err := ArmarDesde(v3Tiny(t, calib, extra...), NuevoL0(8), &cfg, false, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

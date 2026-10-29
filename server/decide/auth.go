@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,12 +28,28 @@ func HashClave(clave string) string {
 	return hex.EncodeToString(h[:])
 }
 
+var idClaveValido = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
+
+// bearer extrae la clave de una cabecera Authorization: el esquema no distingue mayúsculas (RFC 7235) y se toleran espacios
+// repetidos entre esquema y credencial. ok es false si el esquema no es Bearer o no hay credencial.
+func bearer(cab string) (string, bool) {
+	esq, resto, _ := strings.Cut(strings.TrimLeft(cab, " \t"), " ")
+	if !strings.EqualFold(esq, "Bearer") {
+		return "", false
+	}
+	resto = strings.TrimLeft(resto, " \t")
+	return resto, resto != ""
+}
+
 func validarClaves(ks []ClaveAPI) error {
 	ids := map[string]bool{}
 	hashes := map[string]bool{}
 	for i, k := range ks {
 		if k.ID == "" || ids[k.ID] {
 			return fmt.Errorf("config: api_keys[%d]: id vacío o repetido: %q", i, k.ID)
+		}
+		if !idClaveValido.MatchString(k.ID) {
+			return fmt.Errorf("config: api_keys[%d]: id %q no válido: use [A-Za-z0-9_.-], 1 a 64 caracteres", i, k.ID)
 		}
 		ids[k.ID] = true
 		h := strings.ToLower(k.HashSHA256)
@@ -60,6 +77,14 @@ type cubo struct {
 	cap    float64
 	rps    float64
 	ultimo time.Time
+}
+
+// reajusta cambia capacidad y tasa sin devolver tokens: si la capacidad baja, los tokens se recortan.
+func (c *cubo) reajusta(cap, rps float64) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cap, c.rps = cap, rps
+	c.tokens = math.Min(c.tokens, cap)
 }
 
 // toma gasta un token. Si no hay, devuelve los segundos (enteros, ≥ 1) tras los que habrá uno.
@@ -94,8 +119,17 @@ type autenticador struct {
 }
 
 func nuevoAutenticador(ks []ClaveAPI, ahora func() time.Time) *autenticador {
+	return nuevoAutenticadorDe(ks, ahora, nil)
+}
+
+// nuevoAutenticadorDe es nuevoAutenticador reutilizando los cubos de prev para las claves con el mismo id y hash (la recarga
+// no debe rellenarlos); cap y rps se actualizan por si cambiaron. ahora nil = el reloj de prev, o el real.
+func nuevoAutenticadorDe(ks []ClaveAPI, ahora func() time.Time, prev *autenticador) *autenticador {
 	if len(ks) == 0 {
 		return nil
+	}
+	if ahora == nil && prev != nil {
+		ahora = prev.ahora
 	}
 	if ahora == nil {
 		ahora = time.Now
@@ -106,9 +140,21 @@ func nuevoAutenticador(ks []ClaveAPI, ahora func() time.Time) *autenticador {
 		if raf < 1 {
 			raf = int(math.Ceil(k.RPS))
 		}
-		cv := claveViva{id: k.ID, cubo: &cubo{tokens: float64(raf), cap: float64(raf), rps: k.RPS, ultimo: ahora()}}
+		cv := claveViva{id: k.ID}
 		b, _ := hex.DecodeString(strings.ToLower(k.HashSHA256))
 		copy(cv.hash[:], b)
+		if prev != nil {
+			for _, p := range prev.claves {
+				if p.id == cv.id && p.hash == cv.hash {
+					p.cubo.reajusta(float64(raf), k.RPS)
+					cv.cubo = p.cubo
+					break
+				}
+			}
+		}
+		if cv.cubo == nil {
+			cv.cubo = &cubo{tokens: float64(raf), cap: float64(raf), rps: k.RPS, ultimo: ahora()}
+		}
 		a.claves = append(a.claves, cv)
 	}
 	return a
@@ -142,9 +188,9 @@ func (s *Servidor) conAuth(h http.HandlerFunc) http.HandlerFunc {
 			h(w, r)
 			return
 		}
-		got, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		got, ok := bearer(r.Header.Get("Authorization"))
 		var k *claveViva
-		if ok && got != "" {
+		if ok {
 			k = a.busca(got)
 		}
 		if k == nil {
