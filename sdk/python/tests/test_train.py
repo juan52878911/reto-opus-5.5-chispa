@@ -109,6 +109,45 @@ class TestComandosL2(unittest.TestCase):
         self.assertEqual(e[e.index("--vocab-ampliar") + 1], "/t/f.jsonl")
         self.assertNotIn("--sin-poda", e)
 
+    def test_perfil_movil_int8(self):
+        e = comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), python="py", perfil="movil-int8")[1]
+        self.assertEqual(e[e.index("--perfil") + 1], "movil-int8")
+        self.assertEqual(e[e.index("--vocab-ampliar") + 1], "/t/f.jsonl")
+
+    def _ckpt_sin_l2(self, calib_l2):
+        """`entrenar` zero-shot con `--ckpt` y un exportador falso que escribe `calib_l2` (None = sin CALIB) en l2.chispa."""
+        from unittest import mock
+        d = Path(tempfile.mkdtemp())
+        (d / "e.json").write_text(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a", "description": "A"}, {"id": "b", "description": "B"}]}))
+        secs = {formato.L2: b"x", formato.ESQUEMAS: b"y"}
+        if calib_l2 is not None:
+            secs[formato.CALIB] = calib_l2
+        logs = []
+
+        def falso(cmd, **kw):
+            if cmd[2] == "model.l2.exportar":
+                Path(cmd[cmd.index("--salida") + 1]).write_bytes(formato.escribir(secs))
+            return mock.Mock(returncode=0, stderr="")
+        with mock.patch("chispa.train.subprocess.run", falso):
+            entrenar(None, d / "e.json", d / "o.chispa", ckpt="ck", repo=str(d), log=logs.append)
+        return json.loads(formato.leer((d / "o.chispa").read_bytes())[formato.CALIB]), logs
+
+    def test_ckpt_copia_la_calib_entera_del_l2_generado(self):
+        tipos = {"choice": {"T": 0.7, "a": 1.0, "b": 0.0, "theta": 0.5}, "noul": {"T": 1.0, "a": 1.0, "b": 0.0},
+                 "score4": {"T": 1.0}, "score5": {"T": 1.1}, "score4#0": {"T": 1.2}, "score4#3": {"T": 1.3}, "score5#4": {"T": 1.4},
+                 "multi_l2@choice": {"T": 0.9}}
+        c, logs = self._ckpt_sin_l2(formato.calib(tipos, 0.35, tau_l2c=0.5))
+        self.assertEqual(c["tipos_l2"], tipos)
+        self.assertEqual((c["tau_escalate_l2"], c["tau_l2c"]), (0.35, 0.5))
+        self.assertEqual((c["tipos"], c["tau_escalate"]), ({}, 0.6))  # la CALIB de L1 se conserva
+        self.assertEqual([m for m in logs if "AVISO" in m and "no trae CALIB" in m], [])
+
+    def test_ckpt_sin_calib_en_el_l2_generado_avisa(self):
+        c, logs = self._ckpt_sin_l2(None)
+        self.assertNotIn("tipos_l2", c)
+        self.assertEqual((c["tipos"], c["tau_escalate"]), ({}, 0.6))
+        self.assertTrue(any("AVISO" in m and "no trae CALIB" in m for m in logs), logs)
+
     def test_perfil_desconocido(self):
         with self.assertRaises(ChispaError):
             comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), perfil="gpu")
@@ -310,16 +349,17 @@ class TestModos(unittest.TestCase):
         l2 = {formato.L2: b"onnx", formato.ESQUEMAS: b"esq", formato.CALIB: fuente[formato.CALIB]}
         (self.d / "fuente.chispa").write_bytes(formato.escribir(l2))
         solo = formato.escribir({**l2, formato.CALIB: formato.calib({"choice": {"T": 9.0}}, 0.123)})
-        real, logs = subprocess.run, []
+        real, logs, con_l2 = subprocess.run, [], True
 
         def falso(cmd, **kw):
             if cmd[1:3] != ["-m", cmd[2]] or not cmd[2].startswith("model.l2."):
                 return real(cmd, **kw)
             if cmd[2] == "model.l2.exportar":
-                Path(cmd[cmd.index("--salida") + 1]).write_bytes(solo)
+                Path(cmd[cmd.index("--salida") + 1]).write_bytes(solo if con_l2 else formato.escribir(l2))
             return mock.Mock(returncode=0, stderr="")
         with mock.patch("chispa.train.subprocess.run", falso):
             self.correr(self.jsonl(5), "ck.chispa", ckpt="ck", repo=str(repo), l2=str(self.d / "fuente.chispa"), log=logs.append)
+            con_l2, logs[:] = False, []
             self.correr(self.jsonl(5), "sinl2.chispa", ckpt="ck", repo=str(repo), log=logs.append)
         c = json.loads(formato.leer((self.d / "ck.chispa").read_bytes())[formato.CALIB])
         self.assertEqual(c["tipos_l2"], cf["tipos"])
@@ -327,8 +367,8 @@ class TestModos(unittest.TestCase):
         for k in ("noul", "score4", "score5"):
             self.assertIn(k, c["tipos_l2"])
         c = json.loads(formato.leer((self.d / "sinl2.chispa").read_bytes())[formato.CALIB])
-        self.assertEqual(list(c["tipos_l2"]), ["choice"])
-        self.assertTrue(any("--ckpt sin --l2" in m for m in logs), logs)
+        self.assertEqual((c["tipos_l2"], c["tau_escalate_l2"]), (cf["tipos"], cf["tau_escalate"]))
+        self.assertEqual([m for m in logs if "AVISO" in m and "no trae CALIB" in m], [])
 
     @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
     def test_con_diez_por_opcion_sigue_entrenando_l0(self):

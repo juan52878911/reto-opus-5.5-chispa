@@ -256,14 +256,14 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
         + ("; con normas por ranura y n_l2 (v3)" if normas_ranuras is not None else "; sin normas por ranura (v1): L2c usa la media normalizada"))
 
 
-PERFILES_L2 = ("servidor", "movil")
+PERFILES_L2 = ("servidor", "movil", "movil-int8")
 
 
 def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable, perfil: str = "servidor") -> List[List[str]]:
     """calibrar → exportar de `model/l2` (necesitan el repo en el cwd y torch/transformers).
 
-    `perfil` es el del exportador: `servidor` (defecto: consulta fp32, sin cuantizar y sin poda de vocabulario) o `movil` (int8, vocabulario
-    podado y ampliado con los textos del esquema). El esquema nunca poda por sí solo: con `servidor` no hay poda y con `movil` solo amplía.
+    `perfil` es el del exportador: `servidor` (defecto: consulta fp32, sin cuantizar y sin poda de vocabulario), `movil` (fp16, poda de vocabulario ampliada
+    con los textos del esquema, ≈ 89 MB) o `movil-int8` (int8 dinámico, más pequeño, top-1 ≈ 0,87; misma poda). El esquema nunca poda por sí solo: con `servidor` no hay poda y con `movil` solo amplía.
     De `l2.chispa` se copian L2 y ESQUEMAS y, de su CALIB, `tipos` → `tipos_l2`, `tau_escalate` → `tau_escalate_l2` y `tau_l2c`
     (ver `calib_de_l2`): la CALIB de L1 del `.chispa` final no se toca."""
     if perfil not in PERFILES_L2:
@@ -271,7 +271,7 @@ def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable, pe
     calib, salida = trabajo / "calib_l2.json", trabajo / "l2.chispa"
     exportar = [python, "-m", "model.l2.exportar", "--ckpt", ckpt, "--calib", str(calib), "--esquemas", str(filas),
                 "--salida", str(salida), "--perfil", perfil]
-    if perfil == "movil":
+    if perfil in ("movil", "movil-int8"):
         exportar += ["--vocab-ampliar", str(filas)]
     return [[python, "-m", "model.l2.calibrar", "--ckpt", ckpt, "--dev", str(filas), "--salida", str(calib), "--device", "cpu"], exportar]
 
@@ -306,20 +306,27 @@ def calib_de_l2(secciones) -> dict:
 
 
 def _calib_l2_entera(exportado: Path, l2, log) -> None:
-    """Con `--ckpt`, la CALIB de L2 que sale de calibrar solo cubre el tipo del esquema de entrenamiento: noul, scoreK y multi_l2@…
-    caerían a los valores por defecto del servidor. Con `--l2` además, la CALIB de ese `l2.chispa` sustituye a la calibrada, entera
-    (todos sus tipos, `tau_escalate_l2` y `tau_l2c`: `calib_de_l2` y el entrenador de Go la pasan a `tipos_l2` tal cual). Sin `--l2`
-    no hay de dónde copiarla (calibrar solo ve las filas del esquema): se avisa."""
+    """Con `--ckpt`, la CALIB de L2 del `.chispa` final sale entera de un `l2.chispa` (todos sus tipos, `tau_escalate_l2` y `tau_l2c`:
+    `calib_de_l2` y el entrenador de Go la pasan a `tipos_l2` tal cual). Sin `--l2` es el que acaba de generar el exportador, que ya
+    la trae: no hay nada que copiar aquí y solo se avisa si no la trae. Con `--l2`, la de ese fichero sustituye a la del exportado."""
+    sec = formato.leer(exportado.read_bytes())
     if not l2:
-        log("AVISO: --ckpt sin --l2: tipos_l2 solo trae el tipo del esquema; los demás (noul, scoreK, multi_l2@…) usarán los valores por defecto del servidor")
+        _avisar_sin_calib(sec, "el l2.chispa que genera el exportador", log)
         return
     fuente = formato.leer(Path(l2).read_bytes())
     if formato.CALIB not in fuente:
         log("AVISO: --l2 sin CALIB: tipos_l2 solo trae el tipo del esquema; los demás usarán los valores por defecto del servidor")
         return
-    sec = formato.leer(exportado.read_bytes())
     sec[formato.CALIB] = fuente[formato.CALIB]
     exportado.write_bytes(formato.escribir(sec))
+
+
+def _avisar_sin_calib(secciones, origen: str, log) -> bool:
+    """Avisa si la CALIB de `origen` no trae tipos que copiar a `tipos_l2`; devuelve True si avisa."""
+    if calib_de_l2(secciones).get("tipos_l2"):
+        return False
+    log(f"AVISO: {origen} no trae CALIB de L2: tipos_l2 solo trae el tipo del esquema; los demás (noul, scoreK, multi_l2@…) usarán los valores por defecto del servidor")
+    return True
 
 
 def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="servidor") -> dict:
@@ -353,7 +360,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
             tiempos["l2"] = time.time() - t
             l2_ch = str(tmp / "l2.chispa")
             sec = formato.leer(Path(l2_ch).read_bytes())
-            log("AVISO: --ckpt sin --l2 y sin ejemplos: no se calibra, tipos_l2 queda vacío y L2 usará los valores por defecto del servidor")
+            _avisar_sin_calib(sec, "el l2.chispa que genera el exportador (sin ejemplos no se calibra)", log)
     elif l2:
         sec = formato.leer(Path(l2).read_bytes())
     if l2_ch:
