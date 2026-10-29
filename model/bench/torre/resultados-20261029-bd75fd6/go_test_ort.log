@@ -1,0 +1,18 @@
+go: downloading github.com/juan52878911/kindling v0.17.0
+=== RUN   TestSinteticoORT
+--- PASS: TestSinteticoORT (0.03s)
+=== RUN   TestCodificadorSinteticoORT
+--- PASS: TestCodificadorSinteticoORT (0.01s)
+=== RUN   TestTorreUnaVezElPrefijo
+--- PASS: TestTorreUnaVezElPrefijo (0.00s)
+=== RUN   TestTorreTruncaYValida
+--- PASS: TestTorreTruncaYValida (0.00s)
+=== RUN   TestTorreConTokenizadorReal
+    torre_test.go:101: sin .chispa-tok: stat /tmp/e5.chispa-tok: no such file or directory
+--- SKIP: TestTorreConTokenizadorReal (0.00s)
+=== RUN   TestTorrePrefijoUnaSolaVezConSeccionRara
+--- PASS: TestTorrePrefijoUnaSolaVezConSeccionRara (0.00s)
+=== RUN   TestValidarPrefijoPorVersion
+--- PASS: TestValidarPrefijoPorVersion (0.00s)
+PASS
+ok  	github.com/juan52878911/chispa/server/torre	0.048s

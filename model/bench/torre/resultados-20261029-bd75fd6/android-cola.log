@@ -1,0 +1,36 @@
+> Task :demo:mapDebugSourceSetPaths
+> Task :demo:generateDebugResources
+> Task :demo:mergeDebugResources
+> Task :demo:packageDebugResources
+> Task :demo:parseDebugLocalResources
+> Task :demo:createDebugCompatibleScreenManifests
+> Task :chispa:extractDeepLinksDebug
+> Task :demo:extractDeepLinksDebug
+> Task :demo:javaPreCompileDebug
+> Task :demo:preDebugUnitTestBuild UP-TO-DATE
+> Task :demo:javaPreCompileDebugUnitTest
+> Task :demo:buildKotlinToolingMetadata
+> Task :chispa:compileReleaseLibraryResources
+> Task :chispa:processDebugManifest
+> Task :chispa:writeReleaseAarMetadata
+> Task :demo:processDebugMainManifest FAILED
+> Task :chispa:compileReleaseKotlin
+> Task :chispa:compileDebugKotlin
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':demo:processDebugMainManifest'.
+> com.android.manifmerger.ManifestMerger2$MergeFailureException: Error parsing /opt/chispa/repo/sdk/android/demo/src/main/AndroidManifest.xml
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 34s
+37 actionable tasks: 37 executed
+FALLO: ./gradlew test assembleDebug
+== 4. recoger 03:42:01
+FALLO: no hay APK de demo
