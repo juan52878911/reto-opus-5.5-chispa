@@ -9,7 +9,7 @@ import numpy as np
 from chispa import Multi, Resultado, formato
 from chispa.cliente import ChispaError
 from chispa.datos import cargar_ejemplos, cargar_esquema, etiquetas_multi, validar_multi
-from chispa.multi import ajustar_sigmoide, mejor_theta
+from chispa.multi import ajustar_sigmoide, mejor_theta, sufijo_esquema
 from chispa.train import entrenar
 
 ESQ = {"id": "temas", "pregunta": "¿Qué temas toca el mensaje?", "tipo": "multi",
@@ -96,11 +96,12 @@ class TestTrainMulti(unittest.TestCase):
         self.assertEqual(inf["soporte"]["k"], {"cobro": 15, "cortesia": 9, "envio": 11})
         secs = formato.leer((self.d / "m.chispa").read_bytes())
         calib = json.loads(secs[formato.CALIB])
-        m = calib["tipos"]["multi"]
+        sfx = sufijo_esquema(cargar_esquema(self.d / "e.json")[0])
+        m = calib["tipos"]["multi" + sfx]
         self.assertGreater(m["a"], 0)                      # más coseno, más probable
         self.assertTrue(0 < m["T"] and 0 <= m["theta"] <= 1)
         for o in ("cobro", "envio", "cortesia"):           # todas tienen positivos y negativos de sobra
-            self.assertTrue(0.05 <= calib["tipos"]["multi#" + o]["theta"] <= 0.95)
+            self.assertTrue(0.05 <= calib["tipos"]["multi" + sfx + "#" + o]["theta"] <= 0.95)
         self.assertNotIn("l1_lambda_calib", calib)         # multi no se calibró con encogimiento
 
     def test_la_sigmoide_ajustada_separa_positivos_de_negativos(self):
@@ -121,12 +122,35 @@ class TestTrainMulti(unittest.TestCase):
         inf = self.correr(ejemplos="todo.csv")
         self.assertIn("CALIB multi", inf["omitidas"])
         calib = json.loads(formato.leer((self.d / "m.chispa").read_bytes())[formato.CALIB])
-        self.assertNotIn("multi", calib["tipos"])
+        self.assertEqual([k for k in calib["tipos"] if k.startswith("multi")], [])
 
     def test_etiqueta_desconocida_falla(self):
         (self.d / "mal.csv").write_text("texto,etiqueta\nfactura,inventada\n", encoding="utf-8")
         with self.assertRaises(ChispaError):
             self.correr(ejemplos="mal.csv")
+
+    def test_calib_indexada_por_esquema(self):
+        """R10-8: las claves de CALIB llevan el esquema; otro esquema con una opción homónima no las comparte."""
+        self.correr()
+        q, _ = cargar_esquema(self.d / "e.json")
+        otro = Multi("otro", "¿Urgente?", ["cobro", "si"])
+        self.assertNotEqual(sufijo_esquema(q), sufijo_esquema(otro))
+        tipos = json.loads(formato.leer((self.d / "m.chispa").read_bytes())[formato.CALIB])["tipos"]
+        self.assertNotIn("multi", tipos)
+        self.assertNotIn("multi#cobro", tipos)
+        self.assertTrue(all(k.split("#")[0] == "multi" + sufijo_esquema(q) for k in tipos), list(tipos))
+
+    def test_avisa_de_sopl1_ignorado(self):
+        """R10-12: el informe dice que el servidor ignora SOPL1 por defecto (sin l1_lambda_calib)."""
+        inf = self.correr()
+        self.assertTrue(any("IGNORA" in a and "SOPL1" in a for a in inf["avisos"]), inf["avisos"])
+
+    def test_avisa_de_que_l2_no_opina_sin_multi_l2(self):
+        """R10-5: con L2 y sin maxsim_l2 el informe explica que no hay multi_l2 y que L2 no opinará en multi."""
+        (self.d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"l2", formato.ESQUEMAS: b"esq"}))
+        inf = self.correr(l2=self.d / "l2.chispa")
+        self.assertTrue(any("L2 NO opinará" in a for a in inf["avisos"]), inf["avisos"])
+        self.assertIn("CALIB multi_l2", inf["omitidas"])
 
     def test_conjunta_no_es_para_multi(self):
         with self.assertRaises(ChispaError):
@@ -180,7 +204,7 @@ class TestCalibPorCapa(unittest.TestCase):
     """R9-5: la CALIB de L2 se ajusta con el MaxSim de L2 (otra escala), no con los cosenos de L1."""
 
     def test_multi_l2_se_ajusta_con_maxsim_y_multi_con_cosenos(self):
-        from chispa.multi import calibrar_multi
+        from chispa.multi import calibrar_multi, sufijo_esquema
         import types
         ops = [types.SimpleNamespace(id=i, description="") for i in "ab"]
         q = types.SimpleNamespace(id="t", question="q", options=ops)
@@ -191,6 +215,9 @@ class TestCalibPorCapa(unittest.TestCase):
         Y = np.array([[o.id in es for o in ops] for _, es in ex], float)
         S = 20 * Y + 10 * (1 - Y)  # MaxSim en otra escala (10..20), no en [-1, 1]
         tipos, inf = calibrar_multi(q, ex, emb, lambda textos: (S, np.ones(len(textos), bool)))
+        sfx = sufijo_esquema(q)
+        self.assertNotIn("multi", tipos)  # R10-8: las claves llevan el esquema
+        tipos = {k.replace(sfx, ""): v for k, v in tipos.items()}
         self.assertIn("multi_l2", tipos)
         self.assertGreater(abs(tipos["multi_l2"]["b"] - tipos["multi"]["b"]), 5)  # b distinto: otra escala
         p = 1 / (1 + np.exp(-(tipos["multi_l2"]["a"] * S + tipos["multi_l2"]["b"])))
@@ -198,4 +225,4 @@ class TestCalibPorCapa(unittest.TestCase):
         q1 = 1 / (1 + np.exp(-(tipos["multi"]["a"] * S + tipos["multi"]["b"])))
         self.assertFalse(((q1 > 0.5) == (Y > 0)).mean() > 0.95)  # la de L1 aplicada a MaxSim no separa
         t2, _ = calibrar_multi(q, ex, emb)
-        self.assertNotIn("multi_l2", t2)  # sin maxsim_l2 no se inventa
+        self.assertFalse([k for k in t2 if k.startswith("multi_l2")])  # sin maxsim_l2 no se inventa

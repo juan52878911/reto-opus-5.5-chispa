@@ -636,46 +636,77 @@ func softmax(p pregunta, sims []float64, T float64) respuesta {
 	return r
 }
 
-// paramsMulti son (a, b, θ) de una opción de multi en L1: CALIB «multi#<id>», si no «multi» y si no la de «noul» (como server/decide/multi.go).
-func (c *Chispa) paramsMulti(id string) chispa3.ParamsTipo {
-	if p, ok := c.calib.Tipos["multi#"+id]; ok {
-		return p
-	}
-	if p, ok := c.calib.Tipos["multi"]; ok {
-		return p
-	}
-	return c.params("noul")
+// claveCalibMulti es el sufijo de esquema de las claves de CALIB de multi: «@» y HashEsquema2 en hex (como server/decide.ClaveCalibMulti).
+func claveCalibMulti(p pregunta) string {
+	h := chispa3.HashEsquema2(p.Texto, p.Kind, clavesDe(p.Opciones))
+	return "@" + hex.EncodeToString(h[:])
 }
 
-// paramsMultiL2 son (a, b, θ) de una opción de multi en L2: «multi_l2#<id>», si no «multi_l2» y si no la de «noul» (como
-// server/decide/multi.go). Las de «multi» salen de cosenos de L1 (otra escala) y no valen para MaxSim.
-func (c *Chispa) paramsMultiL2(id string) chispa3.ParamsTipo {
-	if p, ok := c.calib.Tipos["multi_l2#"+id]; ok {
-		return p
+// calibPorEsquema: CALIB trae alguna clave de multi con esquema; si la trae, las claves sin esquema (ficheros antiguos) no se aplican.
+func (c *Chispa) calibPorEsquema() bool {
+	for k := range c.calib.Tipos {
+		if strings.HasPrefix(k, "multi@") || strings.HasPrefix(k, "multi_l2@") {
+			return true
+		}
 	}
-	if p, ok := c.calib.Tipos["multi_l2"]; ok {
-		return p
+	return false
+}
+
+// paramsMultiCapa son (a, b, θ) de una opción de multi en la capa `clave` («multi» L1, «multi_l2» L2) para el esquema `esq`:
+// «<clave><esq>#<id>», si no «<clave><esq>»; en ficheros sin claves con esquema, «<clave>#<id>» y «<clave>»; si no la de «noul»
+// (como server/decide/multi.go). Las de «multi» salen de cosenos de L1 (otra escala) y no valen para MaxSim.
+func (c *Chispa) paramsMultiCapa(clave, esq, id string) chispa3.ParamsTipo {
+	p, _ := c.buscarParamsMulti(clave, esq, id)
+	return p
+}
+
+// buscarParamsMulti es paramsMultiCapa diciendo además si salió de una CALIB de multi (true) o es el respaldo de noul.
+func (c *Chispa) buscarParamsMulti(clave, esq, id string) (chispa3.ParamsTipo, bool) {
+	if p, ok := c.calib.Tipos[clave+esq+"#"+id]; ok {
+		return p, true
 	}
-	return c.params("noul")
+	if p, ok := c.calib.Tipos[clave+esq]; ok {
+		return p, true
+	}
+	if !c.calibPorEsquema() {
+		if p, ok := c.calib.Tipos[clave+"#"+id]; ok {
+			return p, true
+		}
+		if p, ok := c.calib.Tipos[clave]; ok {
+			return p, true
+		}
+	}
+	return c.params("noul"), false
+}
+
+func (c *Chispa) paramsMultiDe(p pregunta, clave string) []chispa3.ParamsTipo {
+	esq := claveCalibMulti(p)
+	prms := make([]chispa3.ParamsTipo, len(p.Opciones))
+	for i, o := range p.Opciones {
+		prms[i] = c.paramsMultiCapa(clave, esq, o.ID)
+	}
+	return prms
 }
 
 // multiL2 es multi sobre el MaxSim de L2 con las cabezas por capa.
+// Sin CALIB «multi_l2» del esquema L2 no opina en multi (como server/decide.respuestaMultiL2).
 func (c *Chispa) multiL2(p pregunta, s []float64) respuesta {
-	prms := make([]chispa3.ParamsTipo, len(p.Opciones))
-	for i, o := range p.Opciones {
-		prms[i] = c.paramsMultiL2(o.ID)
+	esq, sin := claveCalibMulti(p), true
+	for _, o := range p.Opciones {
+		if _, ok := c.buscarParamsMulti("multi_l2", esq, o.ID); ok {
+			sin = false
+		}
 	}
-	return multiDe(p, s, prms)
+	if sin {
+		return respuesta{Ok: true, Probs: map[string]float64{}}
+	}
+	return multiDe(p, s, c.paramsMultiDe(p, "multi_l2"))
 }
 
 // multi: cada opción es un sí/no con su σ(a·s + b) y su θ; answers son las activas, probs la p de cada una (no suman 1) y conf la de la
 // opción más dudosa (min de p si activa, 1−p si no), como server/decide.respuestaMulti.
 func (c *Chispa) multi(p pregunta, s []float64) respuesta {
-	prms := make([]chispa3.ParamsTipo, len(p.Opciones))
-	for i, o := range p.Opciones {
-		prms[i] = c.paramsMulti(o.ID)
-	}
-	return multiDe(p, s, prms)
+	return multiDe(p, s, c.paramsMultiDe(p, "multi"))
 }
 
 func multiDe(p pregunta, s []float64, prms []chispa3.ParamsTipo) respuesta {
