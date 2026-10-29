@@ -96,7 +96,7 @@ simulador no existe, usa uno de la lista (`name=iPhone 16`, etc.) o `id=<UDID>`.
 ## Sitios que probablemente fallen
 Todo esto está escrito de memoria. En este orden de probabilidad:
 
-1. **Nombres de gomobile (`MotorNativo.swift`).** Se esperan: `ChispamovilAbrir(ruta, &error)` → `ChispamovilChispa?` y `ChispamovilAbrirConSoporte(ruta, lambdaL1, lambdaL2, &error)` (`Double`, `Double`; el mismo tipo de retorno; si el header lo nombra distinto, se corrige en `MotorNativo.abrir`);
+1. **Nombres de gomobile (`MotorNativo.swift`).** Se esperan: `ChispamovilAbrir(ruta, &error)` → `ChispamovilChispa?` y `ChispamovilAbrirConSoporte(ruta, lambdaL1, lambdaL2, &error)` (`Double`, `Double`; el mismo tipo de retorno; si el header lo nombra distinto, se corrige en `MotorNativo.abrir`). `Chispa.soporteDe` devuelve nil cuando L1 va por defecto (`Chispa.soportePorDefecto` = `Double.nan`) y L2 nil: entonces se llama a `ChispamovilAbrir` (λ de L1 según el fichero); en los demás casos, a `ChispamovilAbrirConSoporte` (λ explícitos; nil → -1 = apagado);
    métodos `capas()`, `tieneCalib()`, `tauEscalate()`, `decidirL0(_:preguntaJSON:)`, `decidir(_:preguntaJSON:)`,
    `torresL2(_:)`, `puntuarL2(_:ranuras:k:)`, `extraerL2(_:)` (throws), `tieneConj()`, `cabezaConjunta(_:)`, `tieneTokenizadorE5()`,
    `cargarTokenizadorE5(_:)` (throws), `tokenizarE5(_:)` → `Data?`, `cerrar()`; y los de W7: `textosTorreL2(_:)` → `String`,

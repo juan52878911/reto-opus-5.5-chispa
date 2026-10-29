@@ -17,8 +17,8 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
 - **τ de L2 para esquemas nuevos**: si CALIB trae `tau_l2_esquema_nuevo` (`Motor.tauL2EsquemaNuevo()`, −1 si falta), L2 lo usa
   en lugar de su τ cuando las torres de la pregunta salieron al vuelo (`SalidaCapa.esquemaNuevo`); con esquemas de ESQUEMAS o sin
   ese campo, el τ de siempre.
-- **Soporte few-shot**: `Chispa.abrir(contexto, ruta, lambdaSoporteL1 = 3.0, lambdaSoporteL2 = 3.0)` llama a `AbrirConSoporte`
-  (sección SOPL1; `lambdaSoporteL1` = 4,0 por defecto (G.8b), `null` = apagado explícito de L1; `lambdaSoporteL2` nulo = apagado; con solo `lambdaSoporteL2`, L1 queda en 4 (no apagado): para apagar L1, pasar `lambdaSoporteL1 = null`; 0 = solo ejemplos; `Double.POSITIVE_INFINITY` = solo descripción).
+- **Soporte few-shot**: `Chispa.abrir(contexto, ruta, lambdaSoporteL1 = 3.0, lambdaSoporteL2 = 3.0)` llama a `AbrirConSoporte` (o a `Abrir` si ambos son los de por defecto)
+  (sección SOPL1; `lambdaSoporteL1` = `Chispa.SOPORTE_POR_DEFECTO` (`Double.NaN`) por defecto: lo decide el motor (`Abrir` del puente: λ = 4 si el fichero trae `l1_lambda_calib`; un `.chispa` viejo con SOPL1 sin él queda con L1 apagado), `null` = apagado explícito de L1, un número = explícito; `lambdaSoporteL2` nulo = apagado; con `lambdaSoporteL2` y L1 por defecto, L1 va con 4 explícito (el puente no ofrece «L1 por defecto» con L2: para respetar un fichero viejo, pasar `lambdaSoporteL1 = null` o un λ propio): para apagar L1, pasar `lambdaSoporteL1 = null`; 0 = solo ejemplos; `Double.POSITIVE_INFINITY` = solo descripción).
 - **L0TF y L2c**: `DecidirL0` usa la sección L0TF si está. Con CONJ en el fichero, `CapaL2` hace L2c: las ranuras de ORT van a
   `Motor.cabezaConjunta` junto con las probabilidades de L0 (la cascada pasa a cada capa lo que dijeron las anteriores); si la
   cabeza no opina, cae a `puntuarL2`.

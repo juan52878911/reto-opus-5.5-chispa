@@ -60,16 +60,28 @@ final class TauEsquemaNuevoTests: XCTestCase {
     }
 
     func testLambdaDelSoporteLlegaAlMotor() throws {
-        let apagado = try Chispa.soporteDe(nil, nil)
+        let apagado = try XCTUnwrap(try Chispa.soporteDe(nil, nil))
         XCTAssertEqual(apagado.0, Chispa.lambdaApagado)
         XCTAssertEqual(apagado.1, Chispa.lambdaApagado)
         XCTAssertEqual(Chispa.lambdaSoporteL1PorDefecto, 4.0)
-        XCTAssertEqual(try Chispa.soporteDe(3, 5).0, 3)
-        XCTAssertEqual(try Chispa.soporteDe(3, 5).1, 5)
-        XCTAssertEqual(try Chispa.soporteDe(3, nil).1, Chispa.lambdaApagado)
-        XCTAssertEqual(try Chispa.soporteDe(nil, 0).0, Chispa.lambdaApagado)
+        XCTAssertEqual(try Chispa.soporteDe(3, 5)?.0, 3)
+        XCTAssertEqual(try Chispa.soporteDe(3, 5)?.1, 5)
+        XCTAssertEqual(try Chispa.soporteDe(3, nil)?.1, Chispa.lambdaApagado)
+        XCTAssertEqual(try Chispa.soporteDe(nil, 0)?.0, Chispa.lambdaApagado)
         // +∞ ya no apaga: es «solo descripción» y llega tal cual al motor.
-        XCTAssertEqual(try Chispa.soporteDe(Double.infinity, 0).0, Double.infinity)
+        XCTAssertEqual(try Chispa.soporteDe(Double.infinity, 0)?.0, Double.infinity)
+    }
+
+    /// Por defecto (centinela) = `Abrir` del puente (nil): λ de L1 lo decide el motor según el fichero; nil = apagado y número = explícito, ambos por `AbrirConSoporte`.
+    func testLambdaPorDefectoLoDecideElMotor() throws {
+        XCTAssertTrue(Chispa.soportePorDefecto.isNaN)
+        XCTAssertNil(try Chispa.soporteDe(Chispa.soportePorDefecto, nil))
+        XCTAssertEqual(try Chispa.soporteDe(nil, nil)?.0, Chispa.lambdaApagado)
+        XCTAssertEqual(try Chispa.soporteDe(4, nil)?.0, 4)
+        // Con L2 explícito el puente no ofrece «L1 por defecto»: L1 va con 4 explícito.
+        XCTAssertEqual(try Chispa.soporteDe(Chispa.soportePorDefecto, 3)?.0, 4)
+        XCTAssertEqual(try Chispa.soporteDe(Chispa.soportePorDefecto, 3)?.1, 3)
+        XCTAssertEqual(try Chispa.soporteDe(nil, 3)?.0, Chispa.lambdaApagado)
     }
 
     /// R4 #15: un λ negativo o NaN es error al abrir (antes se apagaba el soporte sin avisar); nil sigue siendo apagado.
@@ -77,7 +89,8 @@ final class TauEsquemaNuevoTests: XCTestCase {
         XCTAssertThrowsError(try Chispa.soporteDe(-5, nil))
         XCTAssertThrowsError(try Chispa.soporteDe(nil, -0.5))
         XCTAssertThrowsError(try Chispa.soporteDe(2, Double.nan))
+        XCTAssertThrowsError(try Chispa.soporteDe(Chispa.soportePorDefecto, Double.nan))
         XCTAssertThrowsError(try Chispa.soporteDe(-Double.infinity, 0))
-        XCTAssertEqual(try Chispa.soporteDe(nil, nil).0, Chispa.lambdaApagado)
+        XCTAssertEqual(try Chispa.soporteDe(nil, nil)?.0, Chispa.lambdaApagado)
     }
 }

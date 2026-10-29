@@ -77,12 +77,25 @@ class TauEsquemaNuevoTest {
         assertEquals(Pair(Double.POSITIVE_INFINITY, 0.0), Chispa.soporteDe(Double.POSITIVE_INFINITY, 0.0))
     }
 
+    /** Por defecto (centinela) = `Abrir` del puente (null): λ de L1 lo decide el motor según el fichero; null = apagado y número = explícito, ambos por `AbrirConSoporte`. */
+    @Test
+    fun lambdaPorDefectoLoDecideElMotor() {
+        assertTrue(Chispa.SOPORTE_POR_DEFECTO.isNaN())
+        assertNull(Chispa.soporteDe(Chispa.SOPORTE_POR_DEFECTO, null))
+        assertEquals(Pair(Chispa.LAMBDA_APAGADO, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(null, null))
+        assertEquals(Pair(4.0, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(4.0, null))
+        // Con L2 explícito el puente no ofrece «L1 por defecto»: L1 va con 4 explícito.
+        assertEquals(Pair(4.0, 3.0), Chispa.soporteDe(Chispa.SOPORTE_POR_DEFECTO, 3.0))
+        assertEquals(Pair(Chispa.LAMBDA_APAGADO, 3.0), Chispa.soporteDe(null, 3.0))
+    }
+
     /** R4 #15: un λ negativo o NaN es error al abrir (antes se apagaba el soporte sin avisar); nulo sigue siendo apagado. */
     @Test
     fun lambdaNegativoONaNEsError() {
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(-5.0, null) }
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(null, -0.5) }
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(2.0, Double.NaN) }
+        assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(Chispa.SOPORTE_POR_DEFECTO, Double.NaN) }
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(Double.NEGATIVE_INFINITY, 0.0) }
         assertEquals(Pair(Chispa.LAMBDA_APAGADO, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(null, null))
     }

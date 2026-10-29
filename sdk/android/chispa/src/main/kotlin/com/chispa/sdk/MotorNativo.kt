@@ -42,7 +42,7 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
     override fun close() = go.cerrar()
 
     companion object {
-        /** [soporte]: (λ de L1, λ de L2c) del encogimiento few-shot (`AbrirConSoporte`); null = `Abrir` del puente (λ de L1 = 4, L2 apagado). */
+        /** [soporte]: (λ de L1, λ de L2c) del encogimiento few-shot (`AbrirConSoporte`); null = `Abrir` del puente (λ de L1 según el fichero, L2 apagado). */
         fun abrir(ruta: String, soporte: Pair<Double, Double>? = null): MotorNativo = try {
             MotorNativo(if (soporte == null) Chispamovil.abrir(ruta) else Chispamovil.abrirConSoporte(ruta, soporte.first, soporte.second))
         } catch (e: Exception) {

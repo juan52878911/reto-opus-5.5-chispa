@@ -35,14 +35,16 @@ public final class Chispa {
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
     /// `lambdaSoporteL1`/`lambdaSoporteL2`: λ del soporte few-shot (mismo nombre y semántica que `l1_shrinkage_lambda`/`l2_shrinkage_lambda`
-    /// del servidor). `lambdaSoporteL1` vale `lambdaSoporteL1PorDefecto` (4,0; medido en G.8b) si no se pasa; pasar `nil` es el apagado
-    /// explícito de L1 (lo de antes del default). `lambdaSoporteL2` nil = apagado (sin default). 0 = solo ejemplos, `.infinity` = solo
+    /// del servidor). `lambdaSoporteL1` vale `soportePorDefecto` (`Double.nan`) si no se pasa: lo decide el motor
+    /// (`Abrir` del puente: λ = 4 solo si el fichero trae `l1_lambda_calib`; un `.chispa` viejo con SOPL1 y sin él queda con L1 apagado). `nil` es el
+    /// apagado explícito de L1; un número es explícito. Con `lambdaSoporteL2` y L1 por defecto, el puente solo ofrece λ explícitos: L1 queda en
+    /// `lambdaSoporteL1PorDefecto` (4,0) aunque el fichero sea viejo. `lambdaSoporteL2` nil = apagado (sin default). 0 = solo ejemplos, `.infinity` = solo
     /// descripción; negativo o NaN lanza error. Sin sección SOPL1 en el fichero el default no tiene efecto.
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
                              coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
                              codificadorTorres: CodificadorTorre? = nil,
                              alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa,
-                             lambdaSoporteL1: Double? = Chispa.lambdaSoporteL1PorDefecto, lambdaSoporteL2: Double? = nil) throws -> Chispa {
+                             lambdaSoporteL1: Double? = Chispa.soportePorDefecto, lambdaSoporteL2: Double? = nil) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
         let motor = try MotorNativo.abrir(ruta: ruta, soporte: try soporteDe(lambdaSoporteL1, lambdaSoporteL2))
         // `proveedorOrt` manda; sin él, `coreML` (true por defecto) elige entre CoreML y CPU.
@@ -68,16 +70,21 @@ public final class Chispa {
     /// λ de L1 por defecto (`chispamovil.SoporteL1PorDefecto`; G.8b: massive 0,395 vs 0,266, inyecciones 0,740 vs 0,326, hatecheck 0,492 vs 0,224, JevBench 0,379 vs 0,398).
     public static let lambdaSoporteL1PorDefecto: Double = 4.0
 
+    /// Centinela de «λ por defecto: que decida el motor» (`Double.nan`; compara con `.isNaN`, nunca con `==`). Solo vale para `abrir(lambdaSoporteL1:)`.
+    public static let soportePorDefecto: Double = Double.nan
+
     /// `chispamovil.SoporteApagado`: el λ negativo que apaga el encogimiento en el puente (que no tiene opcionales).
     static let lambdaApagado: Double = -1
 
-    /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es apagado (`lambdaApagado`). Siempre explícito: `Abrir` del puente ya usa 4 en L1.
+    /// (λL1, λL2) para `AbrirConSoporte`, o nil si hay que llamar a `Abrir` del puente (L1 `soportePorDefecto` y L2 nil: λ de L1 según el fichero).
+    /// Un λ nil es apagado (`lambdaApagado`); L1 por defecto con L2 explícito se manda como `lambdaSoporteL1PorDefecto` explícito.
     /// 0 = solo ejemplos; `.infinity` = solo descripción (ya no apaga).
-    /// Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`): el puente usa el negativo como apagado.
-    static func soporteDe(_ l1: Double?, _ l2: Double?) throws -> (Double, Double) {
-        for (nombre, l) in [("lambdaSoporteL1", l1), ("lambdaSoporteL2", l2)] {
-            if let l = l, l.isNaN || l < 0 { throw ErrorChispa("\(nombre) inválido (\(l)): debe ser nil (apagado) o >= 0") }
-        }
+    /// Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`); el NaN de L1 es el centinela por defecto.
+    static func soporteDe(_ l1: Double?, _ l2: Double?) throws -> (Double, Double)? {
+        let l1Defecto = l1?.isNaN ?? false
+        if let l = l1, !l1Defecto, l < 0 { throw ErrorChispa("lambdaSoporteL1 inválido (\(l)): debe ser nil (apagado), por defecto o >= 0") }
+        if let l = l2, l.isNaN || l < 0 { throw ErrorChispa("lambdaSoporteL2 inválido (\(l)): debe ser nil (apagado) o >= 0") }
+        if l1Defecto { return l2 == nil ? nil : (lambdaSoporteL1PorDefecto, l2!) }
         return (l1 ?? lambdaApagado, l2 ?? lambdaApagado)
     }
 

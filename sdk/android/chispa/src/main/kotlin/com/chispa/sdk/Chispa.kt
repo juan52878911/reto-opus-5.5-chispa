@@ -46,8 +46,10 @@ class Chispa private constructor(
          * `filesDir`, porque el motor lo mapea en memoria y necesita un fichero de verdad).
          * [proveedorOrt] elige el proveedor de ORT de L2 y de la torre (XNNPACK por defecto; si falla al crear la sesión, CPU).
          * [lambdaSoporteL1]/[lambdaSoporteL2]: λ del soporte few-shot (`AbrirConSoporte`, mismo nombre y semántica que
-         * `l1_shrinkage_lambda`/`l2_shrinkage_lambda` del servidor). [lambdaSoporteL1] vale [LAMBDA_SOPORTE_L1_POR_DEFECTO] (4,0; medido en G.8b)
-         * si no se pasa; pasar `null` es el apagado explícito de L1 (lo de antes del default). [lambdaSoporteL2] nulo = apagado (sin default).
+         * `l1_shrinkage_lambda`/`l2_shrinkage_lambda` del servidor). [lambdaSoporteL1] vale [SOPORTE_POR_DEFECTO] (`Double.NaN`)
+         * si no se pasa: lo decide el motor (`Abrir` del puente: λ = 4 solo si el fichero trae `l1_lambda_calib`; un `.chispa` viejo con SOPL1 y sin él
+         * queda con L1 apagado). `null` es el apagado explícito de L1; un número es explícito (se aplica tal cual). [lambdaSoporteL2] nulo = apagado (sin default).
+         * Si se pasa [lambdaSoporteL2] con L1 por defecto, el puente solo ofrece λ explícitos: L1 queda en [LAMBDA_SOPORTE_L1_POR_DEFECTO] (4,0) aunque el fichero sea viejo.
          * 0 = solo ejemplos, `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga); negativo o NaN lanza [ErrorChispa].
          * Sin sección SOPL1 en el fichero el default no tiene efecto.
          */
@@ -59,7 +61,7 @@ class Chispa private constructor(
             codificadorTorres: CodificadorTorre? = null,
             alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
             proveedorOrt: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO,
-            lambdaSoporteL1: Double? = LAMBDA_SOPORTE_L1_POR_DEFECTO,
+            lambdaSoporteL1: Double? = SOPORTE_POR_DEFECTO,
             lambdaSoporteL2: Double? = null,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
@@ -81,15 +83,23 @@ class Chispa private constructor(
         /** λ de L1 por defecto (`chispamovil.SoporteL1PorDefecto`; G.8b: massive 0,395 vs 0,266, inyecciones 0,740 vs 0,326, hatecheck 0,492 vs 0,224, JevBench 0,379 vs 0,398). */
         const val LAMBDA_SOPORTE_L1_POR_DEFECTO = 4.0
 
+        /** Centinela de «λ por defecto: que decida el motor» (`Double.NaN`; compara con `isNaN()`, nunca con `==`). Solo vale para [abrir]`.lambdaSoporteL1`. */
+        val SOPORTE_POR_DEFECTO: Double = Double.NaN
+
         /** `chispamovil.SoporteApagado`: el λ negativo que apaga el encogimiento en el puente (que no tiene opcionales). */
         internal const val LAMBDA_APAGADO = -1.0
 
-        /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es apagado (LAMBDA_APAGADO). Siempre explícito: `Abrir` del puente ya usa 4 en L1. */
-        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double> {
-            // Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`): el puente usa el negativo como apagado.
+        /**
+         * (λL1, λL2) para `AbrirConSoporte`, o null si hay que llamar a `Abrir` del puente (L1 [SOPORTE_POR_DEFECTO] y L2 nulo: λ de L1 según el fichero).
+         * Un λ nulo es apagado (LAMBDA_APAGADO); L1 por defecto con L2 explícito se manda como [LAMBDA_SOPORTE_L1_POR_DEFECTO] explícito.
+         */
+        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double>? {
+            val l1Defecto = l1 != null && l1.isNaN()
+            // Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`); el NaN de L1 es el centinela por defecto.
             for ((nombre, l) in listOf("lambdaSoporteL1" to l1, "lambdaSoporteL2" to l2)) {
-                if (l != null && (l.isNaN() || l < 0)) throw ErrorChispa("$nombre inválido ($l): debe ser nulo (apagado) o >= 0")
+                if (l != null && (l < 0 || (l.isNaN() && !(nombre == "lambdaSoporteL1" && l1Defecto)))) throw ErrorChispa("$nombre inválido ($l): debe ser nulo (apagado) o >= 0")
             }
+            if (l1Defecto) return if (l2 == null) null else Pair(LAMBDA_SOPORTE_L1_POR_DEFECTO, l2)
             return Pair(l1 ?: LAMBDA_APAGADO, l2 ?: LAMBDA_APAGADO)
         }
 
