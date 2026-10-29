@@ -52,7 +52,7 @@ Sin red: `GOFLAGS=-mod=mod GOPROXY=off` (ya puesto en el Makefile). `go.sum` es 
 - Los resultados van en el orden de `questions`.
 
 ### Errores
-`400 {"error": "..."}` con la ruta del campo: `questions[2].kind: "raro" no válido (choice, score o noul)`.
+`400 {"error": {"code": "invalid_kind", "message": "...", "question_id": "..."}}`: errores tipados, con la ruta del campo en `message` (`questions[2].kind: "raro" no válido (choice, score o noul)`). Lista de códigos en [`docs/03-api.md`](../docs/03-api.md) y [`api/openapi.yaml`](api/openapi.yaml).
 También 405 (método ≠ POST) y 413 (cuerpo > 1 MiB). No hay errores por pregunta: la validación es
 todo o nada, y un fallo interno de una capa solo la salta (se cuenta en `chispa_capa_errores_total`).
 
@@ -94,7 +94,7 @@ No tengo la especificación de `/v1/systemone`. Lo que supuse, por el encargo:
   y `nonce` devuelto tal cual. Se parecen los tres `kind`.
 - **Suposición**: la respuesta es una lista por pregunta con el mismo `id`. Aquí va envuelta en `{"results": [...]}`;
   si systemone devuelve un array desnudo o usa otra clave, hay que cambiar `respuestaHTTP` (`decide/http.go`).
-- No se parece / es nuestro: `probs`, `layer`, `escalate`, `ms`, y el 400 todo-o-nada con `{"error"}`.
+- No se parece / es nuestro: `probs`, `layer`, `escalate`, `ms`, y el 400 todo-o-nada con `{"error": {"code", "message", "question_id"}}`.
   Los nombres de campo de salida (`answer`, `probs`) son los del encargo, no los de Jev.
 
 ## Pruebas y modelos de prueba
