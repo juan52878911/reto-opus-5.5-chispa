@@ -52,10 +52,9 @@ func TestR1LeerPreguntaValida(t *testing.T) {
 		}
 	}
 	for n, js := range map[string]string{
-		"choice":   `{"question":"q","kind":"choice","options":[{"id":"a"},{"id":"b"}]}`,
-		"noul":     `{"question":"q","kind":"noul","options":[{"id":"true"},{"id":"false"}]}`,
-		"sin kind": `{"question":"q","options":[{"id":"a"},{"id":"b"}]}`,
-		"score":    `{"question":"q","kind":"score","options":[{"id":"1"},{"id":"2"},{"id":"3"}]}`,
+		"choice": `{"question":"q","kind":"choice","options":[{"id":"a"},{"id":"b"}]}`,
+		"noul":   `{"question":"q","kind":"noul","options":[{"id":"true"},{"id":"false"}]}`,
+		"score":  `{"question":"q","kind":"score","options":[{"id":"1"},{"id":"2"},{"id":"3"}]}`,
 	} {
 		if _, err := leerPregunta(js); err != nil {
 			t.Errorf("%s: %v", n, err)

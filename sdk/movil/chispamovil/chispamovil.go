@@ -49,6 +49,7 @@ type opcion struct {
 type pregunta struct {
 	Texto    string   `json:"question"`
 	Kind     string   `json:"kind"`
+	Nonce    string   `json:"nonce"`
 	Opciones []opcion `json:"options"`
 }
 
@@ -320,12 +321,11 @@ func leerPregunta(js string) (pregunta, error) {
 		return p, err
 	}
 	switch p.Kind {
-	case "", "choice", "noul", "score":
+	case "choice", "noul", "score":
+	case "":
+		return p, errors.New("kind: obligatorio (choice, score o noul)")
 	default:
 		return p, fmt.Errorf("kind no válido: %q", p.Kind)
-	}
-	if p.Kind == "" {
-		p.Kind = "choice"
 	}
 	return p, validarPregunta(&p)
 }
@@ -333,9 +333,24 @@ func leerPregunta(js string) (pregunta, error) {
 // maxOpciones es el tope del servidor (server/decide MaxOpciones).
 const maxOpciones = 256
 
+// Topes en bytes del servidor (server/decide MaxTextoByte, MaxIDByte).
+const (
+	maxTextoByte = 4 << 10
+	maxIDByte    = 256
+)
+
 // validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score con ≥2 opciones, noul solo
 // {false,true} (vacío → por defecto), ids de opción no vacíos ni repetidos, y MaxOpciones.
 func validarPregunta(p *pregunta) error {
+	if p.Texto == "" {
+		return errors.New("question: obligatorio")
+	}
+	if len(p.Texto) > maxTextoByte {
+		return fmt.Errorf("question: más de %d bytes", maxTextoByte)
+	}
+	if len(p.Nonce) > maxIDByte {
+		return fmt.Errorf("nonce: más de %d bytes", maxIDByte)
+	}
 	switch p.Kind {
 	case "choice", "score":
 		if len(p.Opciones) < 2 {
@@ -358,6 +373,12 @@ func validarPregunta(p *pregunta) error {
 		}
 		if seen[o.ID] {
 			return fmt.Errorf("options[%d].id: %q repetido", j, o.ID)
+		}
+		if len(o.ID) > maxIDByte {
+			return fmt.Errorf("options[%d].id: más de %d bytes", j, maxIDByte)
+		}
+		if len(o.Description) > maxTextoByte {
+			return fmt.Errorf("options[%d].description: más de %d bytes", j, maxTextoByte)
 		}
 		seen[o.ID] = true
 	}
