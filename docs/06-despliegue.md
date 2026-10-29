@@ -178,6 +178,21 @@ Todo lo medido de punta a punta corrió así, en una c6a.xlarge (spot):
 Prueba en seco, sin docker ni ORT: `CHISPA_LOCAL=1`. La prueba de punta a punta con modelos es `server/deploy/aws/e2e.sh`
 (`empaquetar_e2e.sh > codigo.tgz`; pasos en la cabecera del script).
 
+## L3: Ollama local o un LLM remoto
+L3 es opcional y viene apagada. Para activarla con Ollama en la misma máquina (modelo ya descargado con `ollama pull qwen3:4b-instruct`;
+Ollama sirve la API compatible con OpenAI en `http://127.0.0.1:11434/v1`), añada a la config de `-config`:
+```json
+"l3": {"url": "http://127.0.0.1:11434/v1", "modelo": "qwen3:4b-instruct", "timeout": "15s", "max_por_peticion": 4, "tau": 0.6}
+```
+Con un servicio remoto compatible, ponga su `url` y `"api_key_env": "NOMBRE_DE_LA_VARIABLE"` y exporte esa variable en el entorno del servicio (la clave no va en el fichero).
+Se aplica en el arranque y en cada recarga (SIGHUP o `/v1/admin/recargar`); una `l3` mal escrita, o con `api_key_env` vacía, rechaza la recarga y sigue sirviendo la anterior.
+Referencia de claves y del contrato: [03-api.md](03-api.md#l3-escalado-opcional-a-un-llm).
+
+- **Privacidad:** con L3 activa, el texto del cliente (`state`) y la pregunta con sus opciones **salen del servidor hacia el endpoint configurado**, solo para lo que L0–L2 escalan. Con Ollama local no salen de la máquina; con un endpoint remoto sí, y el contrato con el cliente debe decirlo. Chispa no escribe esos textos en logs ni en errores ni en métricas; lo que registre el endpoint es cosa suya.
+- **Latencia y carga:** cada pregunta escalada espera a una inferencia (cientos de ms a segundos en CPU). Suba `-timeout` por encima de `timeout` × el número de preguntas escaladas por petición que espere, y use `max_por_peticion` para acotarlo; `timeout` del cliente > `-timeout`.
+- **Vigile** `chispa_l3_llamadas_total{resultado}` (`invalida` alto = el modelo no sigue el JSON; `timeout`/`error` = endpoint caído o lento; `presupuesto` = peticiones con demasiadas escaladas) y `chispa_l3_latencia_segundos`.
+- **Sin verificar:** no se ha probado contra un Ollama ni un LLM real, solo contra un servidor falso en los tests; la calidad y la calibración de `qwen3:4b-instruct` en este contrato están por medir.
+
 ## Observabilidad
 Usa `/healthz` como sonda de vida y `/metrics` para Prometheus. Vigila `chispa_escalados_total` frente a `chispa_preguntas_total`
 ([03-api.md](03-api.md#get-metrics)) y `chispa_capa_errores_total`.
@@ -198,6 +213,8 @@ Contadores de lo nuevo (torres al vuelo, esquemas nuevos, nonces y plazos):
 | `chispa_esquema_nuevo_decididas_total` | counter | De ellas, las que L2 resolvió con el τ de esquema nuevo (el resto sube de capa o escala) |
 | `chispa_esquema_nuevo_tau` | gauge | τ de L2 para esquemas nuevos; solo aparece si la config lo fija (`tau_l2_esquema_nuevo`) |
 | `chispa_cache_nonce_aciertos_total` | counter | Respuestas repetidas servidas de la caché de nonces |
+| `chispa_l3_llamadas_total{resultado}` | counter | Llamadas de L3 al LLM: `ok`, `invalida`, `error`, `timeout`, `presupuesto` |
+| `chispa_l3_latencia_segundos` | histogram | Latencia de cada llamada de L3 (mismos buckets que las demás) |
 | `chispa_timeouts_total` | counter | Peticiones cuyo plazo venció (no cuenta cancelaciones del cliente) |
 | `chispa_recargas_total{resultado}` | counter | Recargas del modelo (SIGHUP o `/v1/admin/recargar`): `ok` o `error` (se queda el modelo anterior) |
 
