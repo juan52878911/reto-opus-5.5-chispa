@@ -30,6 +30,15 @@ Se refuta midiendo con el checkpoint real en la c6a.
   `informe.md` lleva una tabla por variante. Exporta `CHISPA_TOK=$TOK` también en el paso de `go test -tags ort` del
   paquete de la torre (hoy solo lo lleva el paso del tokenizador, así que `TestTorreConTokenizadorReal` se salta). Debe seguir cabiendo en 16 KB; si no, comprímelo con gzip.
 - **Contrato:** `model/l2/contrato-torre.md` explica las variantes.
+- **max_len configurable.**
+  - `exportar.py` escribe `chispa.consulta.max_len` en el ONNX de consulta y `chispa.torre.max_len` en el de la torre, con
+    el max_tok con que se entrenó el checkpoint: si el ckpt lo guarda, ese; si no, `--max-tok`, por defecto 128. G.8
+    entrena con 256.
+  - Quita el 128 fijo del exportador y del contrato. Sin `chispa.consulta.max_len`, el runtime se queda en 128.
+- **Un `.chispa` real con score K ≥ 3 para la otra sesión.** En la c6a, `e2e.sh` corre `calibrar.py` y `exportar.py` sobre
+  un dev que incluya al menos una tarea `score` de 3 o más niveles: sácala del meta de tsjev o de JevBench. Sube el
+  `.chispa` resultante a `$CHISPA_S3/score/l2-score.chispa` y anota en `informe.md` las claves de CALIB que lleva
+  (`scoreK`, `scoreK#j`). Lo usa la sesión SDK para un test de paridad.
 - **Prueba en seco:** `CHISPA_LOCAL=1` con fixtures y `bash -n`. Tests y `make test`/`make smoke` en verde **después** del
   último cambio.
 - **Parada:** si algo falla 2 veces, márcalo y para.
