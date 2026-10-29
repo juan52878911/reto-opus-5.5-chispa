@@ -130,7 +130,8 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
 
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
-             validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, log=print) -> dict:
+             validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
+             log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
@@ -138,6 +139,22 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     (potencias de dos) hasta que cabe; con muchas clases, más colisiones. `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
     características. `conjunta` también escribe L0TF (el L0 tfidf que alimenta a la cabeza; `l0tf_max_mb` topa su tabla de coeficientes podando el
     vocabulario por frecuencia, `l0tf_f16` los guarda en media precisión). `validacion` (JSONL/CSV de texto y etiqueta, fuera de `ejemplos`) fija el τ de L2c sobre esas filas; sin ella, `margen` y `suelo` (H2 de T4.6c). `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
+    if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
+        from .torre import validar_torre
+        torre = validar_torre(torre, torre_dim, torre_max_len, torre_prefijo, log)
+    inf = _entrenar(ejemplos, esquema, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
+                    frac_valid=frac_valid, l0_max_mb=l0_max_mb, usar_go=usar_go, conjunta=conjunta, modelo_l2=modelo_l2,
+                    l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,
+                    margen=margen, suelo=suelo, tope_tau=tope_tau, log=log)
+    if torre:
+        from .torre import anadir_torr
+        anadir_torr(salida, torre, inf)
+        log(f"TORR: dim {torre['dim']}, max_len {torre['max_len']}, prefijo {torre['prefijo']!r}, {len(torre['onnx'])} bytes de ONNX")
+    return inf
+
+
+def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semilla, frac_valid, l0_max_mb, usar_go, conjunta,
+              modelo_l2, l0tf_f16, l0tf_max_mb, precision_objetivo, validacion, margen, suelo, tope_tau, log) -> dict:
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
     if l1 and not Path(l1).is_file():
