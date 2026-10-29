@@ -1,0 +1,96 @@
+{
+  "_doc": "Preguntas zero-shot para probar /v1/decide con varias por petición. Cada elemento de 'preguntas' es una pregunta válida del API tal cual (id, question, kind, options). 'lotes' agrupa ids: cada lote es una petición con esas preguntas sobre el mismo 'state'. Ninguna coincide con la pregunta fija de cmd/carga (compra/queja/saludo/soporte).",
+  "preguntas": [
+    {
+      "id": "tipo_pqrs",
+      "question": "¿Qué tipo de solicitud hace el cliente?",
+      "kind": "choice",
+      "options": [
+        {"id": "peticion", "description": "Pide información, un trámite, un cambio o un servicio"},
+        {"id": "queja", "description": "Expresa inconformidad por la atención o el trato recibido"},
+        {"id": "reclamo", "description": "Exige que se corrija un cobro, un daño, un incumplimiento o una negativa"},
+        {"id": "sugerencia", "description": "Propone una mejora sin reclamar nada"}
+      ]
+    },
+    {
+      "id": "area_destino",
+      "question": "¿A qué área de la empresa se debe dirigir este mensaje?",
+      "kind": "choice",
+      "options": [
+        {"id": "salud_autorizaciones", "description": "Citas, autorizaciones, medicamentos, IPS o EPS"},
+        {"id": "banca_productos", "description": "Tarjetas, cuentas, créditos, transferencias, claves o fraudes bancarios"},
+        {"id": "telecomunicaciones", "description": "Internet, señal, líneas celulares, planes y facturas de telefonía"},
+        {"id": "comercio_pedidos", "description": "Pedidos, envíos, devoluciones y reembolsos de compras en línea"},
+        {"id": "servicios_publicos", "description": "Luz, agua, gas, aseo, alumbrado y medidores"},
+        {"id": "soporte_tecnico", "description": "Fallas de aplicaciones, sesiones, contraseñas y sistemas"},
+        {"id": "ventas_comercial", "description": "Cotizaciones, precios, demostraciones y compras al por mayor"},
+        {"id": "ferreteria_obra", "description": "Materiales de construcción, herramientas y pedidos de obra"}
+      ]
+    },
+    {
+      "id": "accion_pedida",
+      "question": "¿Qué acción concreta espera el cliente?",
+      "kind": "choice",
+      "options": [
+        {"id": "reembolso_o_reverso", "description": "Que le devuelvan dinero o reversen un cobro"},
+        {"id": "cancelar_o_dar_de_baja", "description": "Que cancelen un producto, plan, pedido o afiliación"},
+        {"id": "reparar_o_restablecer", "description": "Que arreglen una falla o restablezcan un servicio o acceso"},
+        {"id": "cotizar_o_comprar", "description": "Que le den un precio, una propuesta o le vendan algo"},
+        {"id": "agendar_o_reprogramar", "description": "Que le den, cambien o reprogramen una cita, visita o entrega"},
+        {"id": "informacion_o_documento", "description": "Que le den una respuesta, certificado, copia o estado de un trámite"}
+      ]
+    },
+    {
+      "id": "urgencia",
+      "question": "¿Qué tan urgente es atender este mensaje? 1 es sin prisa y 5 es riesgo para la salud, la seguridad o el dinero del cliente.",
+      "kind": "score",
+      "options": [
+        {"id": "1", "description": "Consulta general, sin plazo"},
+        {"id": "2", "description": "Molestia menor, puede esperar días"},
+        {"id": "3", "description": "Afecta al cliente, conviene responder en el día"},
+        {"id": "4", "description": "Servicio esencial caído o plazo que vence pronto"},
+        {"id": "5", "description": "Riesgo para la salud, la seguridad o fraude en curso"}
+      ]
+    },
+    {
+      "id": "enojo",
+      "question": "¿Qué tan molesto o enojado está el cliente? 1 es tranquilo y 5 es furioso.",
+      "kind": "score",
+      "options": [
+        {"id": "1", "description": "Tono cordial y neutro"},
+        {"id": "2", "description": "Algo de incomodidad"},
+        {"id": "3", "description": "Molesto, se queja abiertamente"},
+        {"id": "4", "description": "Muy molesto, amenaza con irse o con acciones legales"},
+        {"id": "5", "description": "Furioso, insultos o mayúsculas sostenidas"}
+      ]
+    },
+    {
+      "id": "hay_fraude",
+      "question": "¿El mensaje describe un posible fraude, estafa o uso no autorizado de datos o dinero del cliente?",
+      "kind": "noul"
+    },
+    {
+      "id": "menciona_accion_legal",
+      "question": "¿El cliente amenaza con una tutela, una denuncia ante la superintendencia o una acción legal?",
+      "kind": "noul",
+      "options": [{"id": "false"}, {"id": "true"}]
+    },
+    {
+      "id": "intencion_compra",
+      "question": "¿Qué tan probable es que este cliente quiera comprar? 1 es nada y 4 es compra casi segura.",
+      "kind": "score",
+      "options": [
+        {"id": "1", "description": "No quiere comprar, reclama o pide soporte"},
+        {"id": "2", "description": "Curiosidad o consulta sin intención clara"},
+        {"id": "3", "description": "Compara y pide precios"},
+        {"id": "4", "description": "Quiere cerrar la compra o pide cotización formal"}
+      ]
+    }
+  ],
+  "lotes": {
+    "uno": ["tipo_pqrs"],
+    "tres": ["tipo_pqrs", "urgencia", "hay_fraude"],
+    "cinco": ["tipo_pqrs", "area_destino", "urgencia", "enojo", "hay_fraude"],
+    "ocho": ["tipo_pqrs", "area_destino", "accion_pedida", "urgencia", "enojo", "hay_fraude", "menciona_accion_legal", "intencion_compra"]
+  }
+}
