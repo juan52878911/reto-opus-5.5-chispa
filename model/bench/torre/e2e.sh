@@ -4,7 +4,7 @@ CHISPA_S3=__CHISPA_S3__
 # s3:PutObject (sin List), sin SSH. G.6/G.7: la torre de L2 (variantes fp32, int8 dinámico y int8 estático) de punta a punta con el checkpoint real.
 # El orquestador sustituye __CHISPA_S3__ y sube dos paquetes (model/bench/torre/empaquetar.sh, git archive):
 #   $CHISPA_S3/codigo-modelo.tgz    esta rama:    bash model/bench/torre/empaquetar.sh <sha> model
-#   $CHISPA_S3/codigo-SDK.tgz   rama SDK: CHISPA_GOMOD_PROXY=1 bash model/bench/torre/empaquetar.sh claude/chispa-sdk-6773ef \
+#   $CHISPA_S3/codigo-sdk.tgz   rama del SDK: CHISPA_GOMOD_PROXY=1 bash model/bench/torre/empaquetar.sh claude/chispa-sdk-6773ef \
 #                                                   server runtime format sdk/python go.work     (lleva gomod-proxy/ de kindling)
 # Opcionales: CHISPA_CKPT_S3 (por defecto el de l2-20261028b), CHISPA_JEV_REF, CHISPA_TODOS_MIN (minutos máx. de los 231 casos).
 # Opcionales además: CHISPA_VARIANTES (por defecto «ninguna dinamico estatico»), CHISPA_TODOS_VAR (variante con los 231 casos, por defecto estatico).
@@ -14,7 +14,7 @@ CHISPA_S3=__CHISPA_S3__
 # si cabe, los 231 junto a Python k=0 · 6 informe.md (OK/FALLO por punto). `go get onnxruntime_go` solo toca el server/go.mod de la instancia.
 # Al salir (trap) sube log.txt y resultados.tgz y apaga; apagado forzoso a los 75 min.
 # CHISPA_LOCAL=1: prueba en seco sin dnf, pip, ORT ni shutdown, con checkpoint aleatorio y fixtures; sin ORT se omiten (OMITIDO) los pasos de Go
-# con ORT, `train --torre` y el servidor. CHISPA_TRY_REF (por defecto HEAD en local, claude/chispa-sdk-6773ef si no) elige la rama SDK.
+# con ORT, `train --torre` y el servidor. CHISPA_TRY_REF (por defecto HEAD en local, claude/chispa-sdk-6773ef si no) elige la rama del SDK.
 CKPT_S3=${CHISPA_CKPT_S3:-s3://chispa-pruebas-879381269751/l2-20261028b/ckpt/mejor.pt}
 LOCAL=${CHISPA_LOCAL:-0}
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
@@ -91,11 +91,11 @@ echo "== 2. código y datos $(date -u +%T)"
 if [ "$LOCAL" = 1 ]; then   # en seco los empaqueta el propio script (SDK: por defecto el HEAD, que ya trae server/ y runtime/)
   d=/tmp/chispa/s3/${CHISPA_S3#s3://}; mkdir -p "$d"
   bash "$AQUI/empaquetar.sh" HEAD model > "$d/codigo-modelo.tgz" || { fallo "empaquetar modelo"; cierre; }
-  CHISPA_GOMOD_PROXY=1 bash "$AQUI/empaquetar.sh" "${CHISPA_TRY_REF:-HEAD}" server runtime format sdk/python go.work > "$d/codigo-SDK.tgz" \
-    || { fallo "empaquetar SDK"; cierre; }
+  CHISPA_GOMOD_PROXY=1 bash "$AQUI/empaquetar.sh" "${CHISPA_TRY_REF:-HEAD}" server runtime format sdk/python go.work > "$d/codigo-sdk.tgz" \
+    || { fallo "empaquetar sdk"; cierre; }
 fi
 rm -rf "$REPO" "$JEV" "$MODELOS"; mkdir -p "$REPO" "$MODELOS"
-for p in modelo SDK; do   # un paquete a medias no se acepta: hasta 45 min de reintentos (el orquestador los sube tras lanzar)
+for p in modelo sdk; do   # un paquete a medias no se acepta: hasta 45 min de reintentos (el orquestador los sube tras lanzar)
   for _ in $(seq 1 90); do
     s3cp "$CHISPA_S3/codigo-$p.tgz" "$BASE/codigo-$p.tgz" 2>/dev/null && tar -tzf "$BASE/codigo-$p.tgz" >/dev/null 2>&1 && break
     rm -f "$BASE/codigo-$p.tgz"; [ "$LOCAL" = 1 ] && break; sleep 30
@@ -148,7 +148,7 @@ print(p); sys.exit('metadata_props mal: %r' % mal if mal else 0)" "$TORRE" "$RES
     && estado "metadata_$v" "OK dim=256 max_len prefijo='passage: '" || estado "metadata_$v" "FALLO ver log"
 done
 
-# --- 3b. .chispa con score K≥3 para la sesión SDK: calibrar.py + exportar.py sobre un dev con tareas score de JevBench -----------------
+# --- 3b. .chispa con score K≥3 para la sesión del SDK: calibrar.py + exportar.py sobre un dev con tareas score de JevBench -----------------
 echo "== 3b. .chispa score $(date -u +%T)"
 : > "$RES/exportar-score.log"   # existe siempre, falle el paso que falle
 if "$PY" -m model.bench.torre.datos_g7 dev "$RES/dev-score.jsonl" --jevbench "$JEV" \
@@ -168,7 +168,7 @@ TOK=$MODELOS/e5.chispa-tok
 "$PY" -I "$REPO/runtime/tok/exportar.py" "$E5" "$TOK" || { fallo "exportar tokenizador"; cierre; }
 SERV=$BASE/chispa-server
 if [ "$LOCAL" = 1 ]; then
-  estado go_test_ort "OMITIDO local (sin ORT)"; estado go_test_tok "OMITIDO local (sin ORT ni CHISPA_TOK de SDK)"
+  estado go_test_ort "OMITIDO local (sin ORT)"; estado go_test_tok "OMITIDO local (sin ORT ni CHISPA_TOK del SDK)"
   ( cd "$REPO/server" && go build -o "$SERV" ./cmd/chispa-server ) && estado build_server "OK sin ORT (local)" || estado build_server "FALLO go build"
 else
   export CGO_ENABLED=1 LD_LIBRARY_PATH=/opt/ort/lib CHISPA_ORT_LIB=/opt/ort/lib/libonnxruntime.so.${ORT_VERSION}

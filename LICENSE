@@ -1,0 +1,10 @@
+Chispa — Licencia propietaria
+
+Copyright (c) 2026 Juan Bedoya <user52878911@gmail.com>. Todos los derechos reservados.
+
+Este software, sus modelos, formatos, SDK (Python, Go, JavaScript, Android, iOS y WASM), documentación y demás
+materiales de este repositorio son propiedad exclusiva de Juan Bedoya. No se concede ninguna licencia de uso, copia,
+modificación, distribución ni sublicencia sin autorización previa y por escrito del titular.
+
+Los componentes de terceros que se incluyan o descarguen conservan sus propias licencias (ver model/datos/LICENCIAS.md y
+model/liston/LICENCIAS.md).

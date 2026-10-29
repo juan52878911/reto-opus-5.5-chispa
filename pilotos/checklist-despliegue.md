@@ -49,4 +49,4 @@ Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 - [ ] Guardados: los 3 últimos `.chispa`, `config.json`, `e5.chispa-tok`, el esquema, la línea de arranque, versiones de binario/imagen y de ORT, `SHA256SUMS`.
 
 **Si algo falla**
-- [ ] Latencia, escalado, 4xx, 5xx o memoria: `operacion.md` §9. Misma causa dos veces seguidas: parar y escalar a SDK.
+- [ ] Latencia, escalado, 4xx, 5xx o memoria: `operacion.md` §9. Misma causa dos veces seguidas: parar y escalar al equipo de Chispa.

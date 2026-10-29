@@ -139,7 +139,7 @@ class Exportacion(unittest.TestCase):
         self.assertNotIn("SKIP", p.stdout)
 
     def test_empaquetar_apaga_el_go_work(self):
-        """Con un go.work en la raíz (paquete SDK) `-mod=mod` fallaba: la llamada a Go debe llevar GOWORK=off."""
+        """Con un go.work en la raíz (paquete del SDK) `-mod=mod` fallaba: la llamada a Go debe llevar GOWORK=off."""
         from unittest import mock
         visto = {}
 

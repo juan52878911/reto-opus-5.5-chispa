@@ -33,7 +33,7 @@ Con 2 semanas se hacen las semanas 1 y 2 y se decide con zero-shot y few-shot.
 | Responsable de datos | Cliente (jurídica o seguridad de la información) | Autorización de tratamiento, anonimización, retención |
 | Etiquetador(es) | Cliente (gente que conoce los casos) | Etiqueta la muestra de evaluación; mínimo 2 para medir acuerdo en una parte |
 | Integrador | TI del cliente | Despliega el servidor y conecta su sistema |
-| Responsable técnico de Chispa | SDK | Arma los `.chispa`, mide y escribe el informe |
+| Responsable técnico de Chispa | Equipo de Chispa | Arma los `.chispa`, mide y escribe el informe |
 
 ## Entregables
 1. Un servidor `chispa-server` corriendo en el entorno del cliente, con 1 o 2 esquemas.
@@ -58,7 +58,7 @@ Se marcan aquí y **no se prometen** al cliente (cada punto se explica donde apa
    ([`docs/07`](../docs/07-rendimiento-y-limites.md#zero-shot)). La plantilla trae una variante `choice` (alta/media/baja) que sí funciona.
 2. **L2 en esquemas nuevos.** Falta el ONNX real de la torre; sin paridad ni cifra ([`docs/08`](../docs/08-esquemas-nuevos.md#qué-falta)).
 3. **Modo con datos del cliente (`--conjunta`).** Necesita un checkpoint de L2 que el repositorio no trae; solo para `choice`
-   ([`docs/02`](../docs/02-inicio-rapido.md#4-con-datos-del-cliente---conjunta-modo-avanzado)). Se ofrece solo si SDK lo entrega.
+   ([`docs/02`](../docs/02-inicio-rapido.md#4-con-datos-del-cliente---conjunta-modo-avanzado)). Se ofrece solo si el equipo de Chispa lo entrega.
 4. **Evaluación sobre datos del cliente con una sola orden.** Lo que hay (`e2e_util.py cliente` + `medir.py`) está escrito para los benchmarks:
    el cliente HTTP de `e2e_util.py` solo manda `choice` y `medir.py` espera un formato propio ([`metrica.md`](metrica.md#cómo-se-mide)). Para `noul` y `score` no hay medición lista.
 5. **Coste por 1.000 decisiones y latencia con el modelo y el hardware del cliente:** sin medir.

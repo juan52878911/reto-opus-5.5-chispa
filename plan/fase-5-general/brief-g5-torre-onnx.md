@@ -3,7 +3,7 @@
 ## Antecedentes
 Hoy `chispa-server` no puede decidir con L2 sobre un esquema que no venga en el `.chispa`: las torres solo existen
 precalculadas en ESQUEMAS. Para el multipropósito hace falta calcularlas al vuelo. El contrato está en
-`model/l2/contrato-torre.md`: léelo primero, porque manda sobre este brief. La sesión de SDK hace el lado Go a partir
+`model/l2/contrato-torre.md`: léelo primero, porque manda sobre este brief. La sesión del SDK hace el lado Go a partir
 de ese contrato.
 
 Ya existe `model/l2/exportar.py`, que genera el ONNX de la consulta (e5 + ranuras → S): int8 por canal, solo del
@@ -27,7 +27,7 @@ Se refuta midiendo.
   - Acuerdo top-1 de choice usando las S del ONNX de consulta con torres ONNX, frente a torres PyTorch.
   - Tabla en `model/l2/resultados/torre-onnx/LEEME.md`.
 - Un fixture de paridad para Go en `model/l2/tests/fixtures_torre/` (≤ 200 KB): 20 textos, sus ids de entrada y la `h`
-  esperada. Así la sesión de SDK prueba su runtime sin PyTorch.
+  esperada. Así la sesión del SDK prueba su runtime sin PyTorch.
 - Tests en `model/l2/tests/test_exportar_torre.py`.
 - `python -m unittest discover -s model -t .`, `make test` y `make smoke` en verde, **después** del último cambio.
 - Si algo del contrato es inexacto, corrige `contrato-torre.md` en un commit aparte y dilo en el informe.

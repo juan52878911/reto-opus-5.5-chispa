@@ -2,7 +2,7 @@
 
 ## Antecedentes
 G.7 (`model/bench/torre/e2e.sh`, paso «3b. .chispa score») debía generar con `calibrar.py` y `exportar.py` un `.chispa`
-real con una tarea `score` de K ≥ 3. La sesión SDK lo necesita para un test de paridad: L2 no opinaba en score porque
+real con una tarea `score` de K ≥ 3. La sesión del SDK lo necesita para un test de paridad: L2 no opinaba en score porque
 el runtime buscaba otra clave.
 
 En la c6a falló con `[chispa_score] FALLO ver exportar-score.log`, y ese log no se subió. El dev eran 231 filas de

@@ -29,8 +29,8 @@ quedó incorporado en el Decreto Único 1074 de 2015); no se verificó aquí nin
 | Tabla de reemplazos de la anonimización | Sistemas del cliente | **No** |
 | Muestra etiquetada (texto anonimizado + etiqueta) | Sistemas del cliente | **No** (el informe lleva solo métricas agregadas) |
 | `.chispa` entrenados con ejemplos del cliente | Servidor del cliente | Solo si el cliente lo autoriza por escrito: contiene información derivada de sus ejemplos |
-| Servidor `chispa-server` | On-prem o nube del cliente, con red controlada | No hay llamadas a servicios de SDK |
-| Informe final | Cliente y SDK | Métricas agregadas; ningún texto |
+| Servidor `chispa-server` | On-prem o nube del cliente, con red controlada | No hay llamadas a servicios externos |
+| Informe final | Cliente y equipo de Chispa | Métricas agregadas; ningún texto |
 
 - [ ] Si el servidor está en una nube, anotar el país de la región: si los datos pasan a otro país, aplica el régimen de **transferencia y transmisión** de la Ley 1581 (art. 26 y Decreto 1377); verifíquelo con su asesor.
 - [ ] Estas afirmaciones de «no sale» las cumple el cliente con su red y sus permisos. El producto no las impone.
@@ -48,15 +48,15 @@ quedó incorporado en el Decreto Único 1074 de 2015); no se verificó aquí nin
 - [ ] **Autorización previa, expresa e informada** del titular (Ley 1581, art. 9; Decreto 1377, arts. 5–7), conservada como prueba. Verifique la numeración actual.
 - [ ] **Datos sensibles** (salud, etc.): autorización explícita y aviso de que no está obligado a darla (Ley 1581, art. 6).
 - [ ] **Menores:** solo con respeto del interés superior y autorización de sus representantes; mejor excluirlos del piloto.
-- [ ] **Encargado del tratamiento:** si SDK ve texto real, hay una relación de encargado y se necesita un contrato o cláusula de transmisión (Decreto 1377). Si SDK no ve texto (el cliente corre todo), anótelo.
+- [ ] **Encargado del tratamiento:** si el equipo de Chispa ve texto real, hay una relación de encargado y se necesita un contrato o cláusula de transmisión (Decreto 1377). Si el equipo de Chispa no ve texto (el cliente corre todo), anótelo.
 - [ ] **Derechos de los titulares** (consultar, actualizar, rectificar, suprimir, revocar): el canal ya existe y el piloto no lo bloquea. Si el titular pide suprimir su dato, se borra también de la muestra.
 - [ ] **Decisiones automáticas:** durante el piloto una persona sigue decidiendo (modo sombra, [guía](guia-integracion.md#6-conectar-su-sistema)); Chispa no decide solo sobre derechos de nadie.
 - [ ] **Registro Nacional de Bases de Datos (RNBD):** el cliente revisa si el piloto crea o cambia una base que deba registrarse.
 - [ ] **Seguridad:** acceso por rol a la muestra, cifrado en reposo y en tránsito (TLS en un proxy del cliente, [guía](guia-integracion.md#seguridad-de-red-pendiente-del-lado-del-cliente)), registro de quién accede.
 
 ## 6. Qué no sale del cliente (resumen)
-Mensajes originales, datos personales, tabla de reemplazos, la muestra etiquetada y los modelos entrenados con sus ejemplos. A SDK solo llegan, por escrito y si el cliente lo permite:
+Mensajes originales, datos personales, tabla de reemplazos, la muestra etiquetada y los modelos entrenados con sus ejemplos. Al equipo de Chispa solo llegan, por escrito y si el cliente lo permite:
 las métricas del piloto y los textos anonimizados que el cliente decida compartir para ajustar descripciones.
 
 ## Firmas
-Responsable de datos del cliente: ______  Patrocinador: ______  SDK: ______  Fecha: ______
+Responsable de datos del cliente: ______  Patrocinador: ______  Equipo de Chispa: ______  Fecha: ______

@@ -512,7 +512,7 @@ def empaquetar(meta, onnx, esquemas, calib, salida):
             (t / n).write_text(json.dumps(c, ensure_ascii=False), encoding="utf-8")
         # GOPROXY=off solo por defecto: en AWS el script fija un proxy (go.mod de format/chispa3 trae kindling).
         env = {"GOFLAGS": "-mod=mod", "GOPROXY": "off", **{k: v for k, v in os.environ.items() if k in ("GOFLAGS", "GOPROXY")}}
-        # GOWORK=off: con el go.work del paquete SDK en la raíz, `-mod=mod` falla ("-mod may only be set to readonly or vendor").
+        # GOWORK=off: con el go.work del paquete del SDK en la raíz, `-mod=mod` falla ("-mod may only be set to readonly or vendor").
         env = {**os.environ, **env, "GOWORK": "off"}
         p = subprocess.run([go_bin(), "run", ".", "--meta", str(t / "meta.json"), "--l2", str(onnx), "--esquemas", str(t / "esquemas.json"),
                             "--calib", str(t / "calib.json"), "--salida", str(Path(salida).resolve())],

@@ -17,7 +17,7 @@ Rama del modelo: `claude/chispa-plan-83616c`. Rama del servidor: `claude/chispa-
   el error de e5 int8 se amplifica: 0,986 sin `<unk>`, y además la poda resta otro tanto. Hay dos salidas:
   - exportar la torre con e5 en fp32 (≈ 175 MB) o con cuantización estática calibrada;
   - podar el vocabulario con el idioma de los esquemas.
-- **Fallos para la sesión SDK:**
+- **Fallos para la sesión del SDK:**
   1. `TestAbrirSinORT` falla al abrir el ONNX real.
   2. Los tests con el tokenizador real se saltan, así que hay que revisar la variable o la ruta que esperan.
   3. `chispa-server` rechaza el `.chispa` de `chispa train --torre` por los parámetros de L1.

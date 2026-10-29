@@ -56,7 +56,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     for k in ("jevbench", "salida", "ckpt", "torre", "servidor", "tok"):
         ap.add_argument("--" + k, required=True)
-    ap.add_argument("--repo", required=True, help="raíz del repo con chispa train (la rama SDK)")
+    ap.add_argument("--repo", required=True, help="raíz del repo con chispa train (la rama del SDK)")
     ap.add_argument("--puerto", type=int, default=8091)
     ap.add_argument("--n-esquemas", type=int, default=5)
     ap.add_argument("--todos", action="store_true", help="además, todos los casos de JevBench por el servidor")

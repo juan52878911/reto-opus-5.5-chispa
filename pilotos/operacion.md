@@ -1,6 +1,6 @@
 # Operación de `chispa-server` en casa del cliente (runbook del piloto)
 
-Para el integrador de TI del cliente y para SDK. Explica cómo desplegar, vigilar y recuperar `chispa-server`. La integración y la métrica
+Para el integrador de TI del cliente y para el equipo de Chispa. Explica cómo desplegar, vigilar y recuperar `chispa-server`. La integración y la métrica
 están en [`guia-integracion.md`](guia-integracion.md) y [`metrica.md`](metrica.md); la lista de una página, en [`checklist-despliegue.md`](checklist-despliegue.md).
 
 **Cómo leer este documento.** Las cifras llevan su fichero. «Sin medir» significa que el repo no tiene la medida. Lo marcado *(sugerencia)* es un
@@ -179,7 +179,7 @@ Restaurar = poner el `.chispa` anterior con `mv`, recargar (§6) y pasar la prue
 Sin medir cuánto tarda en arrancar con un L1 de 155 MB.
 
 ## 9. Qué hacer ante…
-Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos veces seguidas, pare y escale a SDK.
+Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos veces seguidas, pare y escale al equipo de Chispa.
 
 ### Latencia alta
 1. `chispa_capa_latencia_segundos` por capa: ¿qué capa sube? L0 debería estar en µs (p99 0,2 ms con L0 real, `docs/07`); L2 ronda 10–20 ms.
@@ -211,7 +211,7 @@ Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos vece
 ### Errores 5xx
 - **503 `timeout`**: ver «Latencia alta». Los SDK no lo reintentan; si reintenta a mano, espere al menos `Retry-After`. Un 503 sin ese código (proxy o balanceador) sí es transitorio y los SDK lo reintentan.
 - **Conexión rechazada, 502/504 del proxy**: proceso caído o arrancando. Mire `docker ps` o `systemctl status`, el log de arranque (§5) y la memoria (abajo). Reinicie y haga la prueba de humo.
-- **500 o capas con error**: el código recupera pánicos solo en algunas rutas (L2); un fallo interno de capa se cuenta en `chispa_capa_errores_total` y la respuesta sale sin esa capa. Guarde el log y escale a SDK.
+- **500 o capas con error**: el código recupera pánicos solo en algunas rutas (L2); un fallo interno de capa se cuenta en `chispa_capa_errores_total` y la respuesta sale sin esa capa. Guarde el log y escale al equipo de Chispa.
 - Si arranca y se cae a los segundos: config o modelo inválidos (`log.Fatal` con el motivo en stderr), `libonnxruntime.so` ausente o incompatible (imagen `ort`), o falta del `.chispa-tok`.
 
 ### Memoria
@@ -219,7 +219,7 @@ Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos vece
 2. En contenedor: sin límite de memoria o con un `GOMEMLIMIT` mayor que el límite del contenedor, el OOM mata el proceso. Fije `GOMEMLIMIT` a ~75 % del límite (kindling: 400MiB por defecto, valores sin medir).
 3. Las cachés (`cache_esquemas`, `cache_respuestas`, `cache_torres`) crecen hasta su tope y no más; bájelas si el RSS es el problema. Una torre pesa ≈ 0,3 KB, el resto de entradas no se midió.
 4. Peticiones grandes (`max_estado` 256 KiB × concurrencia): baje `limites` si el cliente no necesita tanto.
-5. Si el RSS sube sin parar con tráfico estable: **no hay medida de fugas en el repo**; escale a SDK con las series de `/metrics` y el RSS. Mientras, reinicie en la ventana de menos tráfico.
+5. Si el RSS sube sin parar con tráfico estable: **no hay medida de fugas en el repo**; escale al equipo de Chispa con las series de `/metrics` y el RSS. Mientras, reinicie en la ventana de menos tráfico.
 
 ## Verificación pendiente
 Nada de esto se ejecutó en el nodo de redacción. En un nodo con Go, ORT y modelos:

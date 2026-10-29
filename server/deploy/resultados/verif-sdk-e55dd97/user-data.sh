@@ -1,5 +1,5 @@
 #!/bin/bash
-# Verificación de la rama SDK en un clon limpio (git archive). c6a.xlarge, AL2023. Apagado forzoso a los 60 min.
+# Verificación de la rama del SDK en un clon limpio (git archive). c6a.xlarge, AL2023. Apagado forzoso a los 60 min.
 CHISPA_S3=__CHISPA_S3__
 shutdown -h +60
 BASE=/opt/v; REPO=$BASE/repo; RES=$BASE/res; mkdir -p $REPO $RES; exec > >(tee -a $RES/log.txt) 2>&1

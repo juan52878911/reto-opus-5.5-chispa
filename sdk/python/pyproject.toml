@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "SDK de Chispa: cliente de /v1/decide y «chispa train» (zero-shot, few-shot y con datos del cliente) en CPU"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "Propietaria. Todos los derechos reservados (titular por definir)"}
+license = {text = "Propietaria. Copyright (c) 2026 Juan Bedoya. Todos los derechos reservados."}
+authors = [{name = "Juan Bedoya", email = "user52878911@gmail.com"}]
 keywords = ["clasificador", "zero-shot", "few-shot", "chispa", "nlp"]
 classifiers = [
     "License :: Other/Proprietary License",

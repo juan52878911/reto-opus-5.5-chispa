@@ -1,6 +1,6 @@
 # Guía de integración: de cero a `/v1/decide` en su sistema
 
-Para el equipo de TI del cliente y el responsable técnico de SDK. Los comandos salen de [`docs/`](../docs) y de
+Para el equipo de TI del cliente y el responsable técnico de Chispa. Los comandos salen de [`docs/`](../docs) y de
 [`sdk/python/chispa/cli.py`](../sdk/python/chispa/cli.py) y se corren desde la raíz del repositorio. En el nodo donde se escribió esta guía no hay Go:
 **los comandos de compilación y de servidor no se ejecutaron**; sí se comprobó que `python -m chispa train --help` y `decide --help` muestran los flags usados aquí.
 Cifras y límites: [`docs/07`](../docs/07-rendimiento-y-limites.md); lo que Chispa todavía no hace, en [`README.md`](README.md#pendiente-de-producto).

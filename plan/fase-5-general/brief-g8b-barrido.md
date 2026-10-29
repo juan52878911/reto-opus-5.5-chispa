@@ -6,7 +6,7 @@ G.8 (`model/l2/aws/general.sh`, `model/l2/formula-shrinkage.md`, `model/evaluaci
 entraron.
 
 ## Terminado cuando
-1. **Convención de λ.** La sesión SDK implementa `p = norm((1−w)·p_desc + w·media_ejemplos)` con `w = k/(k+λ)`.
+1. **Convención de λ.** El runtime (Go y móvil) implementa `p = norm((1−w)·p_desc + w·media_ejemplos)` con `w = k/(k+λ)`.
    - Es la fórmula de G.8 con κ = λ: con λ = 0 solo cuentan los ejemplos; con λ = ∞, solo la descripción.
    - Añádelo de forma explícita a `formula-shrinkage.md`, con la tabla de equivalencias κ ↔ λ. Indica también qué hace el
      runtime con λ = ∞ por defecto: solo la torre de descripción, es decir, zero-shot.

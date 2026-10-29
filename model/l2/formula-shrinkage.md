@@ -42,7 +42,7 @@ Con κ = 0, λ = 0 y el paso 5 es la media normalizada de siempre. Con κ > 0 y 
 
 ## Convención de λ del runtime (G.8b)
 
-La sesión SDK implementa `p = norm((1−w)·p_desc + w·media_ejemplos)` con `w = k/(k+λ)`, `k` = ejemplos de la clase. Es la fórmula de
+El runtime (Go y móvil) implementa `p = norm((1−w)·p_desc + w·media_ejemplos)` con `w = k/(k+λ)`, `k` = ejemplos de la clase. Es la fórmula de
 G.8 con **κ = λ** (`λ_c` de arriba, el peso de la descripción, es `1−w`; no lo confundas con el `λ` de esta sección). `p_desc` = `h_c`; la media va
 sin normalizar. En código, `prototipos(..., kappa=λ)`.
 

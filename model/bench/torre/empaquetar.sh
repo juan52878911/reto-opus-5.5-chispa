@@ -2,9 +2,9 @@
 # Imprime en stdout un tar.gz (git archive, sin bsdtar) con las rutas pedidas de una rama o sha de ESTE repo.
 # Uso: bash model/bench/torre/empaquetar.sh <rama-o-sha> <ruta>… > paquete.tgz
 #   esta rama:   bash model/bench/torre/empaquetar.sh HEAD model > codigo-modelo.tgz
-#   SDK:     bash model/bench/torre/empaquetar.sh claude/chispa-sdk-6773ef server runtime format sdk/python go.work > codigo-SDK.tgz
+#   SDK:     bash model/bench/torre/empaquetar.sh claude/chispa-sdk-6773ef server runtime format sdk/python go.work > codigo-sdk.tgz
 # CHISPA_GOMOD_PROXY=1 añade gomod-proxy/ (la caché de módulos de kindling del GOMODCACHE local, que no está en un proxy público): el
-# paquete de SDK lo necesita para compilar `server/`.
+# paquete del SDK lo necesita para compilar `server/`.
 # Las rutas que no existen en esa revisión se omiten con un aviso en stderr (go.work puede no existir); si no queda ninguna, falla.
 set -euo pipefail
 [ $# -ge 2 ] || { echo "uso: $0 <rama-o-sha> <ruta>…" >&2; exit 2; }

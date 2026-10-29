@@ -20,7 +20,7 @@
 Con el checkpoint real:
 - la `h` del ONNX tiene coseno ≥ 0,999 frente a PyTorch, sin `<unk>`, y declara el que tiene con la poda;
 - el top-1 de choice con torres al vuelo frente a PyTorch es ≥ 0,98;
-- en `chispa-server` de la rama SDK, un esquema de JevBench que no está en ningún `.chispa` lo decide L2 por
+- en `chispa-server` de la rama del SDK, un esquema de JevBench que no está en ningún `.chispa` lo decide L2 por
   `/v1/decide`.
 
 Se refuta midiendo.
@@ -31,14 +31,14 @@ Se refuta midiendo.
   `__CHISPA_S3__`, `shutdown -h +75`, un trap que sube `log.txt` y `resultados.tgz`, y descargas por fichero.
   - **Dos paquetes:**
     - `$CHISPA_S3/codigo-modelo.tgz`: esta rama, con `model/`;
-    - `$CHISPA_S3/codigo-SDK.tgz`: la rama SDK, con `server/`, `runtime/`, `format/`, `sdk/python/` y `go.work`
+    - `$CHISPA_S3/codigo-sdk.tgz`: la rama del SDK, con `server/`, `runtime/`, `format/`, `sdk/python/` y `go.work`
       si existe.
   - Añade `model/bench/torre/empaquetar.sh <rama-o-sha> <rutas…>` con `git archive`, que no depende de bsdtar.
   - **Pasos:**
     1. Instala Go, gcc, ORT y Python con torch CPU.
     2. Exporta la consulta y la torre con el checkpoint real.
     3. Paridad: coseno de `h` y top-1 de choice en 300 filas de massive-es, con la poda y sin `<unk>` si cabe en memoria.
-    4. En la rama SDK:
+    4. En la rama del SDK:
        - `go get github.com/yalue/onnxruntime_go` en `server/go.mod`, **solo en la instancia**;
        - `go test -tags ort ./server/torre/...` con `CHISPA_ORT_LIB`;
        - `TestIgualdadTransformersPasaje` con `CHISPA_TOK`.
@@ -52,7 +52,7 @@ Se refuta midiendo.
 
 ## Zona
 - `model/l2/exportar.py`, `model/l2/contrato-torre.md`, `model/l2/tests/test_exportar_torre.py` y `model/bench/torre/**`.
-- La rama SDK se lee y no se cambia.
+- La rama del SDK se lee y no se cambia.
 - Rama: la que te da delega. Commits simples, sin firmas. Sin push ni merge.
 
 ## Entorno

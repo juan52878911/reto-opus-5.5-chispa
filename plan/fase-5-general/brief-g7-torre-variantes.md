@@ -38,7 +38,7 @@ Se refuta midiendo con el checkpoint real en la c6a.
 - **Un `.chispa` real con score K ≥ 3 para la otra sesión.** En la c6a, `e2e.sh` corre `calibrar.py` y `exportar.py` sobre
   un dev que incluya al menos una tarea `score` de 3 o más niveles: sácala del meta de tsjev o de JevBench. Sube el
   `.chispa` resultante a `$CHISPA_S3/score/l2-score.chispa` y anota en `informe.md` las claves de CALIB que lleva
-  (`scoreK`, `scoreK#j`). Lo usa la sesión SDK para un test de paridad.
+  (`scoreK`, `scoreK#j`). Lo usa la sesión del SDK para un test de paridad.
 - **Prueba en seco:** `CHISPA_LOCAL=1` con fixtures y `bash -n`. Tests y `make test`/`make smoke` en verde **después** del
   último cambio.
 - **Parada:** si algo falla 2 veces, márcalo y para.

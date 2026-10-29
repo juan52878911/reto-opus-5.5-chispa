@@ -11,7 +11,7 @@ Clasificar o decidir sobre **audio de llamadas, en streaming y sin transcribir a
 
 ## 2. Casos de uso en Colombia
 Todos son preguntas sobre un trozo de llamada; ninguno necesita texto.
-- Cobranza y banca (cliente final de SDK: banca puertorriqueña; mismo patrón en Colombia): «¿el cliente está molesto?» (noul),
+- Cobranza y banca (banca y cobranza; mismo patrón en Colombia): «¿el cliente está molesto?» (noul),
   «nivel de alteración» (score 1-5), «¿quiere hablar con un humano?» (noul).
 - Calidad (QA) de líneas de atención: ¿el agente saludó/cerró? (noul), ¿hay gritos o solapamiento? (score), tipo de ruido (choice).
 - Triaje de PQRS por voz y de líneas de emergencia: ¿hay ruido ambiente que indique riesgo? (choice).
