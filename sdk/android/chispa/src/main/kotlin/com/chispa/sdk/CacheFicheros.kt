@@ -45,6 +45,13 @@ internal object CacheFicheros {
     fun copiarAtomico(origen: InputStream, destino: File) =
         escribirAtomico(destino) { tmp -> tmp.outputStream().use { origen.copyTo(it) } }
 
+    /** Borra las carpetas hermanas de [raiz] que no son la de la versión [actual] (copias de versiones viejas de la app). */
+    fun borrarVersionesViejas(raiz: File, actual: String) {
+        for (d in raiz.listFiles().orEmpty()) {
+            if (d.isDirectory && d.name != actual) d.deleteRecursively()
+        }
+    }
+
     /** `chispa-l2-<hash>.onnx` en [dir]; el hash es el de la sección L2 del motor (o, si no lo da, el del [modelo]). Extrae solo si falta. */
     fun rutaOnnxL2(motor: Motor, dir: File, modelo: File): String {
         val hash = motor.hashSeccion(SECCION_L2).ifEmpty { sha256Hex(modelo) }

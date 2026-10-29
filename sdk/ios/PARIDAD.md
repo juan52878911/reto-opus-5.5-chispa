@@ -34,7 +34,10 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 | 24 | Torre al vuelo que falla (excepción, dimensiones o `instalarTorresL2` false) → se lanza una vez (se registra) y el esquema queda en caché negativa 60 s; sin recalcular torres | K:Capas 190-215 | S:Capas 200-225 | arreglado (FG #14) |
 | 25 | Proveedor de ORT (L2 y torre): `Chispa.abrir(..., proveedorOrt)` opcional; respaldo a CPU si falla al crear la sesión (registrado); `Chispa.proveedorOrt` dice cuál quedó | K:ProveedorOrt, SesionOrt, SesionTorreOrt; enum `CPU/XNNPACK/NNAPI`, por defecto XNNPACK (`addXnnpack`/`addNnapi`), `Log.w` | S:ProveedorOrt, OpcionesOrt, SesionOrt, SesionTorreOrt; enum `cpu/coreML`, por defecto CoreML (`appendCoreMLExecutionProvider`), `os_log`; `coreML: Bool` se conserva | distinto a propósito (NNAPI y XNNPACK solo existen en Android; CoreML solo en iOS). Antes la torre de iOS no recibía `coreML: false` ni tenía respaldo. Tests `ProveedorOrtTest` / `ProveedorOrtTests` (sin compilar) |
 
-Resumen: 25 filas, ninguna pendiente (arregladas: 6, 7, 9, 11, 14, 19, 21 y 22 a 24; la 25 es nueva y distinta a propósito; el resto igual), **0 faltan** en los SDK. Lo abierto está en el motor Go
+| 26 | Caché negativa de torres con reloj monótono (R2 #10): Kotlin `System.nanoTime` (`relojMonotonicoMs`), Swift `DispatchTime.now().uptimeNanoseconds` (`ahora: () -> UInt64`, `ttlFalloTorreNs`); tests con reloj falso y del reloj por defecto | K:Capas 169-178 | S:Capas 191-194 | igual (sin compilar) |
+| 27 | Limpieza de copias viejas del asset (R2 #11): tras copiar con éxito, `CacheFicheros.borrarVersionesViejas` borra `filesDir/chispa/<otra versión>/` | K:Chispa `resolver`, CacheFicheros | — (iOS abre el fichero del bundle) | solo Android (sin compilar). El `chispa-l2-<hash>.onnx` de `cacheDir` no se limpia: lo purga el sistema y dos modelos abiertos a la vez se pisarían |
+
+Resumen: 27 filas (la 26 y la 27 son de R2), ninguna pendiente (arregladas: 6, 7, 9, 11, 14, 19, 21 y 22 a 24; la 25 es nueva y distinta a propósito; el resto igual), **0 faltan** en los SDK. Lo abierto está en el motor Go
 (sección siguiente), no en la paridad.
 
 ## FG: `chispamovil` TauL2c y HashSeccion

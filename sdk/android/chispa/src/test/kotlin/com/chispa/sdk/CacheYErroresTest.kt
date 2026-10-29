@@ -67,6 +67,33 @@ class CacheYErroresTest {
         assertEquals(listOf("d"), tmp.root.list()!!.toList())
     }
 
+    // --- R2 #11: se borran las copias de versiones viejas del asset ---
+
+    @Test
+    fun borrarVersionesViejasDejaSoloLaActual() {
+        val raiz = File(tmp.root, "chispa")
+        for (v in listOf("1", "2", "3")) File(raiz, "$v/modelo.chispa").also { it.parentFile!!.mkdirs(); it.writeText(v) }
+        CacheFicheros.borrarVersionesViejas(raiz, "3")
+        assertEquals(listOf("3"), raiz.list()!!.toList())
+        assertEquals("3", File(raiz, "3/modelo.chispa").readText())
+    }
+
+    @Test
+    fun borrarVersionesViejasSinCarpetaNoFalla() {
+        CacheFicheros.borrarVersionesViejas(File(tmp.root, "nada"), "1")
+    }
+
+    // --- R2 #10: el reloj por defecto de la caché negativa es monótono, no el de pared ---
+
+    @Test
+    fun elRelojPorDefectoEsMonotonico() {
+        val a = relojMonotonicoMs()
+        val b = relojMonotonicoMs()
+        assertTrue(b >= a)
+        // nanoTime/1e6 tiene origen arbitrario; el reloj de pared (epoch) no puede coincidir con él
+        assertTrue(kotlin.math.abs(a - System.nanoTime() / 1_000_000L) < 1_000L)
+    }
+
     // --- #8: τ de L2c ---
 
     @Test

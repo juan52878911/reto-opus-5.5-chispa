@@ -163,6 +163,9 @@ class Ranuras(val datos: FloatArray, val k: Int) {
     }
 }
 
+/** Reloj monótono en ms (no salta si el usuario o NTP cambian la hora): para plazos como la caché negativa de torres. */
+internal fun relojMonotonicoMs(): Long = System.nanoTime() / 1_000_000L
+
 /**
  * L2: ranuras del mensaje (ONNX Runtime) contra las torres de ESQUEMAS. Si el fichero no trae torres para la
  * pregunta no opina y no llega a tokenizar ni a llamar a ONNX. Si el fichero trae CONJ y L0 ya dio probabilidades,
@@ -175,7 +178,7 @@ class CapaL2(
     private val sesion: SesionRanuras,
     private val tokenizador: Tokenizador,
     private val codificador: CodificadorTorre? = null,
-    private val ahoraMs: () -> Long = System::currentTimeMillis,
+    private val ahoraMs: () -> Long = ::relojMonotonicoMs,
     private val ttlFalloTorreMs: Long = TTL_FALLO_TORRE_MS,
 ) : Capa {
     override val nombre = "L2"

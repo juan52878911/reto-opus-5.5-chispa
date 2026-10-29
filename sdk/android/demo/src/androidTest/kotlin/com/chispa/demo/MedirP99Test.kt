@@ -30,7 +30,7 @@ class MedirP99Test {
         Exportar.logcat(res)
         assertTrue("no se midió ningún escenario", res.escenarios.isNotEmpty())
         for (e in res.escenarios) {
-            assertTrue("${e.nombre}: ${e.errores} errores (${e.nota})", e.errores == 0)
+            assertTrue("${e.nombre}: ${e.errores} errores (${e.nota})", e.errores == 0 && !(e.nota ?: "").contains("fallos de capa"))
             assertTrue("${e.nombre}: p99 ${e.p99} ms > $umbral ms", e.p99 <= umbral)
         }
     }

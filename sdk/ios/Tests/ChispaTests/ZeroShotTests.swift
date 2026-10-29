@@ -18,7 +18,7 @@ final class ZeroShotTests: XCTestCase {
         }
     }
 
-    func capa(_ m: MotorFalso, _ enc: CodificadorTorre?, ahora: @escaping () -> Date = { Date(timeIntervalSince1970: 0) }) -> CapaL2 {
+    func capa(_ m: MotorFalso, _ enc: CodificadorTorre?, ahora: @escaping () -> UInt64 = { 0 }) -> CapaL2 {
         CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [0, 7, 2]), codificador: enc, ahora: ahora)
     }
 
@@ -75,12 +75,12 @@ final class ZeroShotTests: XCTestCase {
         m.l2 = { json("fraude", 0.9, ["fraude": 0.9]) }
         let enc = Codificador()
         enc.falla = true
-        var t = 0.0
-        let c = capa(m, enc, ahora: { Date(timeIntervalSince1970: t) })
+        var t: UInt64 = 0
+        let c = capa(m, enc, ahora: { t })
         XCTAssertThrowsError(try c.decidir("hola", preguntaNueva))
         XCTAssertEqual(m.nInstaladas, 0)
         enc.falla = false
-        t = 61 // pasado el TTL de la caché negativa
+        t = 61 * 1_000_000_000 // pasado el TTL de la caché negativa
         XCTAssertEqual(try c.decidir("hola", preguntaNueva).respuesta, "fraude")
     }
 

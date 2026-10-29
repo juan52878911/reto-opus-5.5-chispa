@@ -188,9 +188,10 @@ struct CapaL2: Capa {
     let sesion: SesionRanuras
     let tokenizador: Tokenizador
     var codificador: CodificadorTorre? = nil
-    var ahora: () -> Date = Date.init
-    /// Cuánto tiempo no se reintenta la torre de un esquema cuyo cálculo falló.
-    var ttlFalloTorre: TimeInterval = 60
+    /// Reloj monótono en ns (no salta si el usuario o NTP cambian la hora).
+    var ahora: () -> UInt64 = { DispatchTime.now().uptimeNanoseconds }
+    /// Cuánto tiempo (ns) no se reintenta la torre de un esquema cuyo cálculo falló.
+    var ttlFalloTorreNs: UInt64 = 60 * 1_000_000_000
     var nombre: String { "L2" }
     /// Caché negativa: esquema (JSON de la pregunta) → instante hasta el que no se reintenta calcular su torre.
     private let fallosTorre = FallosTorre()
@@ -235,7 +236,7 @@ struct CapaL2: Capa {
             }
             return true
         } catch {
-            fallosTorre.anotar(preguntaJson, hasta: ahora().addingTimeInterval(ttlFalloTorre))
+            fallosTorre.anotar(preguntaJson, hasta: ahora() &+ ttlFalloTorreNs)
             throw error // la primera vez llega a la cascada, que la registra
         }
     }
@@ -253,11 +254,11 @@ struct CapaL2: Capa {
 
 /// Caja de la caché negativa de torres (`CapaL2` es un struct: el estado mutable vive en una referencia).
 final class FallosTorre {
-    private var hastas: [String: Date] = [:]
+    private var hastas: [String: UInt64] = [:]
     private let cerrojo = NSLock()
     private let maximo = 256
 
-    func hasta(_ clave: String) -> Date? {
+    func hasta(_ clave: String) -> UInt64? {
         cerrojo.lock(); defer { cerrojo.unlock() }
         return hastas[clave]
     }
@@ -267,7 +268,7 @@ final class FallosTorre {
         hastas[clave] = nil
     }
 
-    func anotar(_ clave: String, hasta: Date) {
+    func anotar(_ clave: String, hasta: UInt64) {
         cerrojo.lock(); defer { cerrojo.unlock() }
         if hastas.count >= maximo { hastas.removeAll() }
         hastas[clave] = hasta
