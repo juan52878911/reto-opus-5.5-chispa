@@ -128,17 +128,21 @@ class TestCascadaYInforme(unittest.TestCase):
             w = lambda n, ps: (d / "pred" / f"{n}.jsonl").write_text("".join(json.dumps(p) + "\n" for p in ps))
             w("l2_k0", [pred(f, i < 3, soporte_n=0) for i, f in enumerate(filas)])
             w("l2_k8", [pred(f, i < 5, soporte_n=5) for i, f in enumerate(filas)])
-            w("cascada_k8", [pred(f, i < 4, escalate=i == 5, layer="L0") for i, f in enumerate(filas[:5])])
+            sin = {"id": filas[4]["id"], "probs": {"escalate": 1.0}, "ms": 1.0, "escalate": True, "layer": "escalar"}
+            w("cascada_k8", [pred(f, True, escalate=False, layer="L0") for f in filas[:4]] + [sin])
             (d / "pred" / "cascada_k8_omitidos.json").write_text(json.dumps([{"id": filas[5]["id"], "motivo": "sin tiempo"}]))
             txt = JI.informe(d)
             r = json.loads((d / "informe.json").read_text())
             self.assertAlmostEqual(r["variantes"]["l2_k0"]["todos"]["exactitud"], 0.5)
             self.assertAlmostEqual(r["variantes"]["l2_k8"]["todos"]["exactitud"], 5 / 6)
             self.assertEqual(r["variantes"]["cascada_k8"]["cascada"]["n"], 5)
-            self.assertEqual(r["variantes"]["cascada_k8"]["cascada"]["escalados"], 0)
+            self.assertEqual(r["variantes"]["cascada_k8"]["cascada"]["escalados"], 1)
+            self.assertAlmostEqual(r["variantes"]["cascada_k8"]["cascada"]["exactitud"], 0.8)   # el escalado sin respuesta es un fallo
+            self.assertAlmostEqual(r["variantes"]["cascada_k8"]["cascada"]["exactitud_respondidos"], 1.0)
             self.assertFalse(r["H1"]["cumple"])
             self.assertEqual(r["H2"]["l2_k8"]["mejora_en"], 2)   # casos 3 y 4
             self.assertEqual(r["H2"]["cascada_k8"]["empeora_en"], 0)
+            self.assertEqual(r["H2"]["cascada_k8"]["mejora_en"], 1)
             self.assertIn("H1", txt)
             self.assertIn("1 sin tiempo", txt)
 

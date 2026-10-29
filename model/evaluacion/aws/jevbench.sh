@@ -14,6 +14,7 @@ CHISPA_S3=__CHISPA_S3__
 # /tmp/chispa/s3/<prefijo>. CHISPA_PLIEGUES=N limita los pliegues de la cascada.
 CKPT_S3=${CHISPA_CKPT_S3:-s3://chispa-pruebas-879381269751/l2-20261028b/ckpt/mejor.pt}
 LOCAL=${CHISPA_LOCAL:-0}
+AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
 if [ "$LOCAL" = 1 ]; then [ "${CHISPA_S3#__}" != "$CHISPA_S3" ] && CHISPA_S3=s3://local/jevbench; else shutdown -h +60; fi
 set -uo pipefail
 export HOME="${HOME:-/root}"
@@ -81,7 +82,7 @@ export GOTOOLCHAIN=local GOFLAGS=-mod=mod GONOSUMDB='github.com/juan52878911/*'
 echo "== 2. código y datos $(date -u +%T)"
 if [ "$LOCAL" = 1 ] && [ ! -f "/tmp/chispa/s3/${CHISPA_S3#s3://}/codigo.tgz" ]; then   # en seco lo empaqueta el propio script
   mkdir -p "/tmp/chispa/s3/${CHISPA_S3#s3://}"
-  bash "$(dirname "${BASH_SOURCE[0]}")/../../../server/deploy/aws/empaquetar_e2e.sh" --fixtures > "/tmp/chispa/s3/${CHISPA_S3#s3://}/codigo.tgz" \
+  bash "$AQUI/../../../server/deploy/aws/empaquetar_e2e.sh" --fixtures > "/tmp/chispa/s3/${CHISPA_S3#s3://}/codigo.tgz" \
     || { fallo "empaquetar_e2e.sh"; cierre; }
 fi
 for _ in $(seq 1 90); do   # 90 × 30 s = 45 min
@@ -93,7 +94,7 @@ done
 rm -rf "$REPO" "$MODELOS" "$JEV"; mkdir -p "$REPO" "$MODELOS"
 tar -xzf "$BASE/codigo.tgz" -C "$REPO" || { fallo "no llegó un codigo.tgz válido"; cierre; }
 cd "$REPO" || { fallo "sin repo"; cierre; }
-export PYTHONPATH=$REPO:$REPO/sdk/python
+export PYTHONPATH=$REPO:$REPO/sdk/python${CHISPA_PYTHONPATH_EXTRA:+:$CHISPA_PYTHONPATH_EXTRA}   # el extra solo lo usa la prueba en seco
 if [ "$LOCAL" = 1 ]; then export GOPROXY=off; else export GOPROXY=file://$REPO/gomod-proxy,https://proxy.golang.org; fi
 { lscpu; echo "nproc: $(nproc)"; } > "$RES/hardware.txt"
 
@@ -117,7 +118,7 @@ E5=$(ls -d "$HF_HOME"/hub/models--intfloat--multilingual-e5-small/snapshots/*/ 2
 [ -f "${E5}tokenizer.json" ] || { fallo "e5 (con tokenizer.json) no está en $HF_HOME"; cierre; }
 export HF_HUB_OFFLINE=1
 if [ "$LOCAL" = 1 ]; then
-  cp -r "${CHISPA_JEV_LOCAL:-$REPO/model/evaluacion/tests/fixtures/jevbench}" "$JEV"
+  cp -r "${CHISPA_JEV_LOCAL:-$AQUI/../tests/fixtures/jevbench}" "$JEV" || { fallo "sin JevBench local"; cierre; }
 else
   git clone -q https://github.com/fstandhartinger/jevbench "$JEV" && { [ -z "${CHISPA_JEV_REF:-}" ] || git -C "$JEV" checkout -q "$CHISPA_JEV_REF"; } \
     || { fallo "git clone de JevBench"; cierre; }

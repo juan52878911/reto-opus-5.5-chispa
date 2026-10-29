@@ -36,6 +36,9 @@ def wilson(a, n, z=1.96):
 
 
 def top1(probs, opciones):
+    """La opción más probable; None si la predicción no da ninguna (escalado sin respuesta o error): cuenta como fallo."""
+    if sum(probs.get(o, 0.0) for o in opciones) <= 0:
+        return None
     return max(opciones, key=lambda o: probs.get(o, 0.0))
 
 
@@ -54,7 +57,7 @@ def metricas(filas, preds):
     if any(e is not None for e in esc):
         resp = [r for r, e in zip(fs, esc) if not e]
         okr = sum(top1(preds[r["id"]]["probs"], r["opciones"]) == r["etiqueta"] for r in resp)
-        out.update({"escalados": len(fs) - len(resp), "cobertura": len(resp) / len(fs),
+        out.update({"escalados": len(fs) - len(resp), "errores": sum(preds[r["id"]].get("layer") == "error" for r in fs), "cobertura": len(resp) / len(fs),
                     "exactitud_respondidos": okr / len(resp) if resp else None,
                     "capas": dict(Counter(preds[r["id"]].get("layer", "?") for r in fs))})
     return out
@@ -102,12 +105,12 @@ def informe(d):
     cas = [v for v in preds if v.startswith("cascada")]
     if cas:
         md += ["", "## Cobertura y escalado de la cascada (sobre los casos que midió)", "",
-               "| variante | n | cobertura (no escala) | escalados | exactitud respondidos | exactitud total (escalado = su top-1) | capas |", "|---|---|---|---|---|---|---|"]
+               "| variante | n | cobertura (no escala) | escalados | exactitud respondidos | exactitud total (sin respuesta = fallo) | errores | capas |", "|---|---|---|---|---|---|---|---|"]
         for v in cas:
             m = res["variantes"][v]["cascada"]
             if m["n"]:
                 md.append(f"| {v} | {m['n']} | {f3(m.get('cobertura'))} | {m.get('escalados', '-')} | {f3(m.get('exactitud_respondidos'))} | "
-                          f"{m['exactitud']:.3f} | {m.get('capas')} |")
+                          f"{m['exactitud']:.3f} | {m.get('errores', '-')} | {m.get('capas')} |")
         for v in cas:
             om = omitidos.get(v, [])
             if om:

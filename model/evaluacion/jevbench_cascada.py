@@ -48,7 +48,9 @@ def decidir(url, fila, timeout=60):
         probs = {o: float(res.get("probs", {}).get(o, 0.0)) for o in fila["opciones"]}
         s = sum(probs.values())
         if s <= 0:
-            raise ValueError("sin probabilidades")
+            if not res.get("escalate"):
+                raise ValueError("sin probabilidades y sin escalar")
+            probs, s = {"escalate": 1.0}, 1.0   # ninguna capa opinó: escala sin respuesta (no es un error)
         return {"id": fila["id"], "probs": {o: p / s for o, p in probs.items()}, "ms": float(res.get("ms", 0.0)), "layer": res.get("layer", ""),
                 "escalate": bool(res.get("escalate", False)), "cliente_ms": (time.perf_counter() - t0) * 1000}
     except Exception as e:  # noqa: BLE001: un error de un caso no tira el pliegue; queda anotado
@@ -132,6 +134,7 @@ def main(argv=None):
     cache = {}   # (esquema, ids del soporte) -> (preds por id, info): k = 32 reutiliza los pliegues que k = 8 ya corrió
     sal.mkdir(parents=True, exist_ok=True)
     pl_log = open(sal / "cascada_pliegues.jsonl", "a", encoding="utf-8")
+    errores = 0
     for k in a.k:
         preds, omitidos, corridos = {}, [], 0
         todos = pliegues(filas, k)
@@ -167,11 +170,12 @@ def main(argv=None):
                 preds[r["id"]] = dict(p, pliegue=f"{clave[0]}/{clave[1]}")
             pl_log.write(json.dumps({"k": k, "pliegue": list(clave), "casos": len(rs), "soporte": len(sop), **info}, ensure_ascii=False) + "\n")
             pl_log.flush()
+        errores += sum(p.get("layer") == "error" for p in preds.values())
         escribir(sal / "pred" / f"cascada_k{k}.jsonl", [preds[r["id"]] for r in filas if r["id"] in preds])
         (sal / "pred" / f"cascada_k{k}_omitidos.json").write_text(json.dumps(omitidos, ensure_ascii=False, indent=1))
         print(f"== cascada k={k}: {len(preds)} casos respondidos, {len(omitidos)} omitidos, {corridos} pliegues nuevos, "
               f"{(time.time() - T0) / 60:.1f} min", flush=True)
-    return 0
+    return 1 if errores else 0
 
 
 if __name__ == "__main__":

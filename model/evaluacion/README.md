@@ -18,7 +18,9 @@ en stderr ante id sin predicción, probs que no suman 1 (±1e-6), opción descon
 - Latencia: p50/p99 lineales de `ms`. Deriva: tasa de cambio del top-1 y variación total media ½Σ|p−q| entre `--pred` y `--pred-b`.
 - ASR (Arena): `fooled` / rondas contestadas (sin `error`), por detector; el del enjambre por dimensión.
 - El sondeo congelado (T0.2) no trae `id`: el arnés le asigna `<fichero>:<split>:<n línea>` si ninguna fila lo trae.
-- JevBench: `cargar_jevbench(ruta) -> filas`; forma del volcado documentada (e inventada) en `jevbench.py`; la API no se llama.
+- JevBench: `cargar_jevbench(ruta)` lee el formato real del repo (`datasets/public/{easy,hard,original}.jsonl`, 231 casos, MIT); la conversión está documentada en `jevbench.py`.
+  G.1: `jevbench_l2.py` (L2 sin soporte y con k, dejando fuera el caso y sus paráfrasis), `jevbench_cascada.py` (`chispa train` sin `--conjunta` por pliegue + `chispa-server`),
+  `jevbench_informe.py` y el user-data `aws/jevbench.sh` (c6a.xlarge spot; el código sale de `server/deploy/aws/empaquetar_e2e.sh`).
 
 ## Demostración: predicciones uniformes sobre `model/sondeo/`
 En `model/eval0/out/` solo hay agregados de e5 kNN-32, no predicciones por fila, así que se usan uniformes
