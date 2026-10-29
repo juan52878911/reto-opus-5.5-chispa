@@ -21,6 +21,9 @@ export function bytes(s) {
   return enc.encode(s).length;
 }
 
+// U+001D–U+001F: el servidor los usa de separadores al hashear el esquema, así que no los admite.
+const SEPARADORES = /[\x1d-\x1f]/;
+
 function falla(codigo, mensaje, idPregunta) {
   return new ErrorChispa({ codigo, mensaje, idPregunta, status: 0 });
 }
@@ -57,6 +60,9 @@ export function validar(estado, preguntas, lim = LIMITES) {
     texto(q.question, `${r}.question`, id);
     if (bytes(q.question) > lim.maxTexto) {
       throw falla("field_too_long", `${r}.question: ${bytes(q.question)} bytes, máximo ${lim.maxTexto}`, id);
+    }
+    if (SEPARADORES.test(q.question)) {
+      throw falla("invalid_characters", `${r}.question: no admite los caracteres de control U+001D–U+001F`, id);
     }
     if (q.kind === undefined || q.kind === "") throw falla("missing_kind", `${r}.kind: obligatorio`, id);
     if (!KINDS.includes(q.kind)) {
@@ -97,14 +103,20 @@ function validarOpciones(q, r, id, lim) {
     if (bytes(o.id) > lim.maxId) {
       throw falla("field_too_long", `${ro}.id: ${bytes(o.id)} bytes, máximo ${lim.maxId}`, id);
     }
-    if (vistas.has(o.id)) throw falla("duplicate_option_id", `${ro}.id: "${o.id}" repetido`, id);
-    vistas.add(o.id);
     if (o.description !== undefined) {
       texto(o.description, `${ro}.description`, id);
       if (bytes(o.description) > lim.maxTexto) {
         throw falla("field_too_long", `${ro}.description: ${bytes(o.description)} bytes, máximo ${lim.maxTexto}`, id);
       }
     }
+    if (SEPARADORES.test(o.id)) {
+      throw falla("invalid_characters", `${ro}.id: no admite los caracteres de control U+001D–U+001F`, id);
+    }
+    if (typeof o.description === "string" && SEPARADORES.test(o.description)) {
+      throw falla("invalid_characters", `${ro}.description: no admite los caracteres de control U+001D–U+001F`, id);
+    }
+    if (vistas.has(o.id)) throw falla("duplicate_option_id", `${ro}.id: "${o.id}" repetido`, id);
+    vistas.add(o.id);
     if (q.kind === "noul" && o.id !== "true" && o.id !== "false") {
       throw falla("invalid_options", `${ro}.id: en noul solo "false" y "true"`, id);
     }
