@@ -2,7 +2,7 @@
 
 Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codificador.pasaje`, `Torre`, `maxsim`) y
 `model/l2/exportar.py` (torres de ESQUEMAS). Este contrato describe lo que existe. El ONNX de la torre lo exporta
-`model/l2/exportar.py` (en preparación: `--torre-onnx`). Si algo de aquí no cuadra con el código, manda el código: avísame.
+`model/l2/exportar.py --torre-onnx SALIDA`. Si algo de aquí no cuadra con el código, manda el código: avísame.
 
 ## Texto de entrada (por vector de torre)
 - **choice**: un vector **por opción**. Texto: `"passage: " + pregunta + " · " + opción + " · " + descripción(opción)`.
@@ -48,8 +48,17 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
 - **Caché:** `h` depende solo del texto de la torre, así que se cachea por la clave de ESQUEMAS y se calcula una vez por
   esquema nuevo.
 
-## Paridad esperada
-- Para medirla (pendiente), se compara `h` ONNX int8 con `h` PyTorch fp32, por coseno, y el top-1 de choice con torres al
-  vuelo frente a las de ESQUEMAS.
-- El objetivo es un coseno medio ≥ 0,999 y un top-1 ≥ 0,98, al nivel del de la consulta.
-- Las cifras se publicarán en `model/l2/resultados/torre-onnx/`.
+## Paridad medida
+Con e5 de `~/hf` y pesos de L2 aleatorios (semilla fija); tabla completa en `model/l2/resultados/torre-onnx/LEEME.md`.
+- **Cuantización sola** (sin `<unk>`): coseno medio de `h` 0,9998 (mínimo 0,9995), ≥ 0,999 como se esperaba.
+- **Vocabulario podado**: los tokens que no están en la tabla podada pasan a `<unk>` dentro del grafo (7,5 % de los tokens en los
+  textos de massive-es) y el coseno medio baja a 0,9987 (mínimo 0,9978). Es la poda y no el int8: vale lo mismo que en la consulta;
+  si el vocabulario no cubre el idioma del esquema, las torres al vuelo se alejan de las de ESQUEMAS.
+- **Top-1 de choice** con torres al vuelo frente a PyTorch: 0,66 con la poda y 0,75 sin `<unk>` en 300 filas; con pesos aleatorios
+  el margen entre opciones es ~0,001, así que mide ruido sobre empates (0,93 en la mitad de filas con más margen). **No confirma ni
+  refuta el 0,98** hasta repetirlo con el checkpoint real.
+- **Tamaño**: 46,7 MB con el vocabulario podado compartido (fp32: 174 MB).
+- **Lote**: la escala int8 de las activaciones es dinámica y por tensor, así que `h` varía ~1e-4 según qué otros textos vayan en el
+  lote (y su relleno). Para reproducir un valor exacto, un texto por llamada. La caché por clave de ESQUEMAS no se ve afectada.
+- **Fixture para Go**: `model/l2/tests/fixtures_torre/torre.json` (20 textos, `input_ids` sin relleno con `<s>`=0, `</s>`=2 y
+  `<pad>`=1, `h_fp32` y `h_onnx`). Un texto llega a los 128 tokens del truncado.
