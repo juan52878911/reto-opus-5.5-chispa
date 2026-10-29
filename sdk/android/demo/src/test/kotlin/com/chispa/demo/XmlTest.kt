@@ -10,7 +10,9 @@ class XmlTest {
     @Test
     fun losXmlDeLaDemoSonValidos() {
         // Gradle corre los tests unitarios con el directorio del módulo como directorio de trabajo.
-        val xmls = File("src/main").walkTopDown().filter { it.isFile && it.extension == "xml" }.toList()
+        // Se saltan los ocultos: un empaquetado hecho en macOS deja copias AppleDouble («._AndroidManifest.xml») que no son XML.
+        val xmls = File("src/main").walkTopDown()
+            .filter { it.isFile && it.extension == "xml" && !it.name.startsWith(".") }.toList()
         assertTrue("no encontré AndroidManifest.xml", xmls.any { it.name == "AndroidManifest.xml" })
         val fabrica = DocumentBuilderFactory.newInstance()
         for (f in xmls) fabrica.newDocumentBuilder().parse(f)
