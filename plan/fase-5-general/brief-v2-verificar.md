@@ -1,13 +1,23 @@
-# V1 Verificar el sha final de `integracion` (perfil móvil fp16)
+# V2 Verificar el sha final de `integracion`: perfil móvil fp16 y CALIB completa de L2
 
 ## Antecedentes
 - `integracion` acaba de fusionar `chispa-sdk` (`f91e143`) y D1b, y cambia:
   - el perfil `movil` de `model/l2/exportar.py`, que pasa a fp16 con poda ampliada;
   - el nuevo perfil `movil-int8`, el int8 dinámico de antes;
-  - las peticiones de JevBench (`cuerpo_decide`), que ahora envían descripciones en noul y score.
+  - las peticiones de JevBench (`cuerpo_decide`), que ahora envían descripciones en noul y score;
+  - `calib_completa` en `model/l2/exportar.py`: el `l2.chispa` lleva en CALIB todas las cabezas de L2 (`choice`, `noul`,
+    `score2`…`score5` y sus `scoreK#j`). Las que no trae `calibrar` salen del checkpoint (`cabeza_inicial`, θ = 0,5), con el
+    mismo criterio que `calib_del_checkpoint` en `model/bench/torre/paridad_servidor.py`.
 - Ninguno de estos cambios ha pasado aún `make test` ni `make smoke` sobre el sha final.
 
 ## Terminado cuando
+- **Test de `calib_completa`**, en `model/l2/tests/`, con un checkpoint aleatorio (como `--ckpt-aleatorio`):
+  - con una CALIB de entrada `{"tipos": {}, "tau_escalate": 0.6}`, el resultado trae todas las cabezas y sus valores
+    coinciden con `paridad_servidor.calib_del_checkpoint` (tolerancia 1e-6);
+  - una cabeza que ya viene en la entrada no se toca;
+  - `tau_escalate` se conserva.
+  - Si cabe en el tiempo, exporta un `l2.chispa` pequeño con el perfil `movil` y lee su CALIB con
+    `sdk/python/chispa/formato.py` para comprobar que trae todas las cabezas.
 - `python -m unittest discover -s model -t .`, `make test` y `make smoke` pasan sobre el HEAD que recibes. Copia en el
   informe la última línea de cada uno.
 - **Exportación de humo del perfil móvil**, con pesos aleatorios y e5 de `~/hf`:
