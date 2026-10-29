@@ -68,6 +68,7 @@ def reescribir(a):
     if tipos is not None:
         d = json.loads(secs[formato.CALIB])
         d["tipos"] = tipos
+        d["tipos_l2"] = tipos   # desde 2b7096a L2 lee tipos_l2 (si existe) y no tipos
         secs[formato.CALIB] = json.dumps(d).encode()
     if l2 is not None:
         secs[formato.L2] = l2
