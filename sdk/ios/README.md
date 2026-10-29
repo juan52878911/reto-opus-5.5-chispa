@@ -13,6 +13,10 @@ let p = Pregunta("¿Qué quiere el cliente?", opciones: [Opcion("compra", descri
 let r = chispa.decidir("quiero comprar dos camisetas", [p])[0]   // r.respuesta, r.confianza, r.capa, r.escalar
 ```
 
+Paridad con Android fila a fila: [PARIDAD.md](PARIDAD.md). Receta exacta de compilación en una mac2: [COMPILAR.md](COMPILAR.md).
+Esquemas nuevos (zero-shot): la pregunta trae las opciones con `descripcion`; L1 las usa tal cual y, si pasas un
+`CodificadorTorre` a `Chispa.abrir(..., codificadorTorres:)`, L2 recibe las torres al vuelo (el motor las cachea).
+
 ## ⚠️ Escrito sin compilar
 Este paquete **no se ha compilado ni probado**: no hay Swift ni Xcode en la VM de desarrollo y la compilación se hace
 en una mac2 o en un runner macOS de CI, nunca en el Mac de Juan. Los nombres que genera gomobile

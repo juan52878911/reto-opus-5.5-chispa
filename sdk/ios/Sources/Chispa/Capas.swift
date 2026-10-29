@@ -20,16 +20,30 @@ public protocol Motor: AnyObject {
     /// L2c: `simsJson` es la pregunta más `l0` (probabilidades de L0), `ranuras` (K×d aplanado) y `k`. Devuelve la
     /// misma forma que las demás capas; sin opinión si no hay cabeza para la pregunta.
     func cabezaConjunta(_ simsJson: String) -> String
+    func tieneTokenizadorE5() -> Bool
     func cargarTokenizadorE5(ruta: String) throws
     /// Ids de e5 como int32 little endian (4 bytes por id), o nil si no se cargó el tokenizador.
     func tokenizarE5(_ texto: String) -> Data?
+
+    /// Zero-shot de L2 (esquema que el `.chispa` no trae en ESQUEMAS): textos de pasaje («passage: pregunta · opción ·
+    /// descripción») cuyas torres hay que calcular, en el orden en que las espera `instalarTorresL2`; vacío si el
+    /// motor no sabe pedirlas (motor sin soporte, o ya las tiene). Las torres que calcule el propio motor no pasan
+    /// por aquí: basta con que `torresL2` diga true.
+    func textosTorreL2(_ preguntaJson: String) -> [String]
+    /// Entrega al motor las torres de `preguntaJson` (`n` vectores de d float32 little endian, uno por texto de
+    /// `textosTorreL2`); el motor las cuantiza y las cachea, así que la siguiente `torresL2` de ese esquema da true sin
+    /// volver a calcular. false si no las acepta.
+    func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool
 }
 
 public extension Motor {
     func tieneConj() -> Bool { false }
     func cabezaConjunta(_ simsJson: String) -> String { #"{"ok":false,"error":"sin CONJ","probs":{}}"# }
     func cargarTokenizadorE5(ruta: String) throws { throw ErrorChispa("el motor no tiene tokenizador de e5") }
+    func tieneTokenizadorE5() -> Bool { false }
     func tokenizarE5(_ texto: String) -> Data? { nil }
+    func textosTorreL2(_ preguntaJson: String) -> [String] { [] }
+    func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool { false }
 }
 
 /// Una capa de la cascada. Devuelve `.sinOpinion` si no tiene nada que decir; lanza si falla.
@@ -64,14 +78,20 @@ struct CapaL1: Capa {
 
 /// Convierte un texto en los ids del tokenizador de e5 (con «query: » delante, tokens especiales y recorte a 128).
 public protocol Tokenizador {
-    func ids(_ texto: String) -> [Int64]
+    func ids(_ texto: String) throws -> [Int64]
+}
+
+/// El codificador de torres de opción (e5 de pasaje + cabeza de torre, un segundo ONNX): texto de pasaje → d floats.
+/// Solo hace falta para esquemas nuevos cuando el motor no calcula las torres por su cuenta.
+public protocol CodificadorTorre {
+    func torre(_ texto: String) throws -> [Float]
 }
 
 /// El tokenizador de e5 del propio motor (runtime/tok en Go): no hace falta que la app aporte uno.
 struct TokenizadorMotor: Tokenizador {
     let motor: Motor
-    func ids(_ texto: String) -> [Int64] {
-        guard let d = motor.tokenizarE5(texto) else { return [] }
+    func ids(_ texto: String) throws -> [Int64] {
+        guard let d = motor.tokenizarE5(texto) else { throw ErrorChispa("el motor no tiene el tokenizador de e5") }
         return stride(from: 0, to: d.count - 3, by: 4).map { i in
             let v = UInt32(d[d.startIndex + i]) | UInt32(d[d.startIndex + i + 1]) << 8
                 | UInt32(d[d.startIndex + i + 2]) << 16 | UInt32(d[d.startIndex + i + 3]) << 24
@@ -104,11 +124,13 @@ public struct Ranuras: Equatable {
 /// L2: ranuras del mensaje (ONNX Runtime) contra las torres de ESQUEMAS. Si el fichero no trae torres para la
 /// pregunta no opina y no llega a tokenizar ni a llamar a ONNX. Si el fichero trae CONJ y L0 ya dio probabilidades,
 /// es L2c: las similitudes salen de las mismas ranuras y la cabeza conjunta (en Go, la del servidor) decide; sin
-/// cabeza para la pregunta, cae a L2 a secas.
+/// cabeza para la pregunta, cae a L2 a secas. Con `codificador`, un esquema que ESQUEMAS no trae (zero-shot) recibe sus
+/// torres al vuelo la primera vez (`torresAlVuelo`) y el motor las cachea; sin él, no opina, como antes.
 struct CapaL2: Capa {
     let motor: Motor
     let sesion: SesionRanuras
     let tokenizador: Tokenizador
+    var codificador: CodificadorTorre? = nil
     var nombre: String { "L2" }
 
     func decidir(_ texto: String, _ pregunta: Pregunta) throws -> SalidaCapa {
@@ -117,8 +139,10 @@ struct CapaL2: Capa {
 
     func decidir(_ texto: String, _ pregunta: Pregunta, previas: [String: SalidaCapa]) throws -> SalidaCapa {
         let pj = pregunta.json()
-        guard motor.torresL2(pj) else { return .sinOpinion }
-        let ids = tokenizador.ids(texto)
+        if !motor.torresL2(pj) {
+            guard try torresAlVuelo(pj) else { return .sinOpinion }
+        }
+        let ids = try tokenizador.ids(texto)
         guard !ids.isEmpty else { return .sinOpinion }
         let s = try sesion.ranuras(ids)
         if let l0 = previas["L0"]?.probs, !l0.isEmpty, motor.tieneConj() {
@@ -126,6 +150,20 @@ struct CapaL2: Capa {
             if c.opina { return c }
         }
         return try SalidaCapa.desdeJson(motor.puntuarL2(pj, ranuras: s.aBytes(), k: s.k))
+    }
+
+    private func torresAlVuelo(_ preguntaJson: String) throws -> Bool {
+        guard let enc = codificador else { return false }
+        let textos = motor.textosTorreL2(preguntaJson)
+        if textos.isEmpty { return false }
+        let torres = try textos.map { try enc.torre($0) }
+        let d = torres[0].count
+        guard d > 0, torres.allSatisfy({ $0.count == d }) else {
+            throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
+        }
+        let plano = torres.flatMap { $0 }
+        let bytes = plano.withUnsafeBufferPointer { Data(buffer: $0) } // float32 little endian
+        return motor.instalarTorresL2(preguntaJson, torres: bytes, n: torres.count)
     }
 
     private func entradaConj(_ preguntaJson: String, _ l0: [String: Double], _ s: Ranuras) throws -> String {

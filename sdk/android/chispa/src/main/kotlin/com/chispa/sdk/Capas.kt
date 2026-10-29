@@ -25,6 +25,21 @@ interface Motor : AutoCloseable {
      */
     fun cabezaConjunta(simsJson: String): String = throw UnsupportedOperationException("sin CONJ")
 
+    /**
+     * Zero-shot de L2 (esquema que el `.chispa` no trae en ESQUEMAS): textos de pasaje («passage: pregunta · opción ·
+     * descripción») cuyas torres hay que calcular, en el orden en que las espera [instalarTorresL2]; vacío si el motor
+     * no sabe pedirlas (motor sin soporte, o ya las tiene). Las torres que calcule el propio motor no pasan por aquí:
+     * basta con que [torresL2] diga true.
+     */
+    fun textosTorreL2(preguntaJson: String): List<String> = emptyList()
+
+    /**
+     * Entrega al motor las torres de [preguntaJson] ([n] vectores de d float32 little endian, uno por texto de
+     * [textosTorreL2]); el motor las cuantiza y las cachea, así que la siguiente [torresL2] de ese esquema da true sin
+     * volver a calcular. false si no las acepta.
+     */
+    fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean = false
+
     fun tieneTokenizadorE5(): Boolean = false
     fun cargarTokenizadorE5(ruta: String): Unit = throw UnsupportedOperationException("sin tokenizador")
 
@@ -68,6 +83,14 @@ class TokenizadorMotor(private val motor: Motor) : Tokenizador {
     }
 }
 
+/**
+ * El codificador de torres de opción (e5 de pasaje + cabeza de torre, un segundo ONNX): texto de pasaje → d floats.
+ * Solo hace falta para esquemas nuevos cuando el motor no calcula las torres por su cuenta.
+ */
+fun interface CodificadorTorre {
+    fun torre(texto: String): FloatArray
+}
+
 /** El ONNX de L2: ids → S ∈ R^{K×d}, aplanado por filas. */
 interface SesionRanuras : AutoCloseable {
     fun ranuras(ids: LongArray): Ranuras
@@ -90,12 +113,14 @@ class Ranuras(val datos: FloatArray, val k: Int) {
  * L2: ranuras del mensaje (ONNX Runtime) contra las torres de ESQUEMAS. Si el fichero no trae torres para la
  * pregunta no opina y no llega a tokenizar ni a llamar a ONNX. Si el fichero trae CONJ y L0 ya dio probabilidades,
  * es L2c: las similitudes salen de las mismas ranuras y la cabeza conjunta (en Go, la del servidor) decide; sin
- * cabeza para la pregunta, cae a L2 a secas.
+ * cabeza para la pregunta, cae a L2 a secas. Con [codificador], un esquema que ESQUEMAS no trae (zero-shot) recibe sus
+ * torres al vuelo la primera vez ([torresAlVuelo]) y el motor las cachea; sin él, no opina, como antes.
  */
 class CapaL2(
     private val motor: Motor,
     private val sesion: SesionRanuras,
     private val tokenizador: Tokenizador,
+    private val codificador: CodificadorTorre? = null,
 ) : Capa {
     override val nombre = "L2"
 
@@ -104,7 +129,7 @@ class CapaL2(
 
     override fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa {
         val pj = pregunta.toJson()
-        if (!motor.torresL2(pj)) return SalidaCapa.SIN_OPINION
+        if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
         val ids = tokenizador.ids(texto)
         if (ids.isEmpty()) return SalidaCapa.SIN_OPINION
         val s = sesion.ranuras(ids)
@@ -114,6 +139,18 @@ class CapaL2(
             if (c.opina) return c
         }
         return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+    }
+
+    private fun torresAlVuelo(preguntaJson: String): Boolean {
+        val enc = codificador ?: return false
+        val textos = motor.textosTorreL2(preguntaJson)
+        if (textos.isEmpty()) return false
+        val torres = textos.map { enc.torre(it) }
+        val d = torres[0].size
+        if (d == 0 || torres.any { it.size != d }) throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
+        val b = java.nio.ByteBuffer.allocate(4 * d * torres.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (t in torres) for (x in t) b.putFloat(x)
+        return motor.instalarTorresL2(preguntaJson, b.array(), torres.size)
     }
 
     private fun entradaConj(preguntaJson: String, l0: Map<String, Double>, s: Ranuras): String {

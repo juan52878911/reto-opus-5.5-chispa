@@ -36,6 +36,7 @@ final class MotorNativo: Motor {
     func extraerL2(a destino: String) throws { try go.extraerL2(destino) }
     func tieneConj() -> Bool { go.tieneConj() }
     func cabezaConjunta(_ simsJson: String) -> String { go.cabezaConjunta(simsJson) }
+    func tieneTokenizadorE5() -> Bool { go.tieneTokenizadorE5() }
     func cargarTokenizadorE5(ruta: String) throws { try go.cargarTokenizadorE5(ruta) }
     func tokenizarE5(_ texto: String) -> Data? { go.tokenizarE5(texto) }
     func cerrar() { try? go.cerrar() }

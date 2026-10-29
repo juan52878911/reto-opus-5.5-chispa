@@ -30,6 +30,11 @@ class MotorFalso(
     var ultimoK = -1
     var cerrado = false
 
+    /** Zero-shot: mientras [torres] sea false el motor pide estos textos; al instalarlas, [torres] pasa a true (caché). */
+    var textosTorre: List<String> = emptyList()
+    var torresInstaladas: ByteArray? = null
+    var nInstaladas = 0
+
     override fun capas() = presentes
     override fun tieneCalib() = calib
     override fun tauEscalate() = tau
@@ -42,6 +47,11 @@ class MotorFalso(
     }
 
     override fun torresL2(preguntaJson: String) = torres
+    override fun textosTorreL2(preguntaJson: String) = if (torres) emptyList() else textosTorre
+    override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean {
+        llamadas.add("TORRES"); torresInstaladas = torres; nInstaladas = n; this.torres = true; return true
+    }
+
     override fun puntuarL2(preguntaJson: String, ranuras: ByteArray, k: Int): String {
         llamadas.add("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
     }
@@ -75,4 +85,10 @@ class SesionFalsa(val devuelve: Ranuras = Ranuras(floatArrayOf(1f, 2f, 3f, 4f, 5
 val PREGUNTA = Pregunta(
     "¿Qué quiere el cliente?",
     listOf(Opcion("compra", "quiere comprar"), Opcion("soporte", "pide ayuda"), Opcion("saludo")),
+)
+
+/** Una pregunta con un esquema que ningún `.chispa` trae. */
+val PREGUNTA_NUEVA = Pregunta(
+    "¿Qué tipo de incidencia es?",
+    listOf(Opcion("fraude", "cargo no reconocido"), Opcion("tarjeta", "tarjeta bloqueada o perdida")),
 )
