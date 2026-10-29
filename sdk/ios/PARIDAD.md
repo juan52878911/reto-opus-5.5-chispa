@@ -15,7 +15,7 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 | 5 | Ranuras a float32 little endian; validación K×d | K:Capas 99 | S:Capas 108 | igual (Kotlin lanza `IllegalArgumentException`, Swift `precondition`; la entrada ya la validan `SesionOrt` en ambos) |
 | 6 | Tokenizador del motor (int32 LE → ids) | K:Capas 78 | S:Capas 91 | arreglado (si el motor no tiene tokenizador Kotlin lanzaba `ErrorChispa`; Swift devolvía `[]` y L2 callaba. `Tokenizador.ids` ahora `throws`) |
 | 7 | `Motor.tieneTokenizadorE5` | K:Capas 43 | S:Capas 23, MotorNativo 39 | arreglado (faltaba en el protocolo y en `MotorNativo`) |
-| 8 | Cascada: orden, «la mejor pista», `escalar`, capa de escalada = la última | K:Cascada 30-48 | S:Cascada 30-47 | igual |
+| 8 | Cascada: orden, «la mejor pista», `escalar`, capa de escalada = «escalar» (como `CapaEscalar` del servidor) | K:Cascada 30-52 | S:Cascada 30-50 | arreglado (antes, la última capa) |
 | 9 | Capa que lanza → sin opinión y sigue (Kotlin `catch Exception`, Swift `try?`) | K:Cascada 38 | S:Cascada 36 | igual |
 | 10 | τ por defecto (L0 0,80, L1 0,80, L2 0,70) | K:Cascada 7 | S:Cascada 10 | igual (`TauPorDefecto.de(nombre)` solo existe en Kotlin y no lo usa nadie) |
 | 11 | τ de CALIB para L1 y L2, nunca para L0 | K:Cascada 55-61 | S:Cascada 50-56 | igual |
