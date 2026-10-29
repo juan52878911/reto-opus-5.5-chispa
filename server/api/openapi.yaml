@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: chispa-server
   version: "1.0.0"
-  description: Clasificador tipado (choice, score, noul) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion.
+  description: Clasificador tipado (choice, score, noul) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion. Las longitudes se cuentan en BYTES UTF-8 como hace el servidor, y por eso se declaran con la extension x-max-bytes y no con maxLength (que cuenta caracteres). Presupuesto de torres: el servidor calcula como mucho max_torres_nuevas (64 por defecto) torres de esquemas nuevos POR PETICION, sumando todas sus preguntas; agotado, L2 no opina y la pregunta sube a la capa siguiente.
 servers:
   - url: http://127.0.0.1:8090
 paths:
@@ -109,8 +109,8 @@ components:
       properties:
         state:
           type: string
-          maxLength: 262144
-          description: Texto que se clasifica, el mismo para todas las preguntas. Limite en bytes, max_estado.
+          x-max-bytes: 262144
+          description: Texto que se clasifica, el mismo para todas las preguntas. Limite en BYTES UTF-8 (max_estado), no en caracteres.
         questions:
           type: array
           minItems: 1
@@ -126,26 +126,26 @@ components:
         id:
           type: string
           minLength: 1
-          maxLength: 256
-          description: Unico en la peticion (max_id).
+          x-max-bytes: 256
+          description: Unico en la peticion. Max max_id BYTES UTF-8 (x-max-bytes), no caracteres.
         question:
           type: string
           minLength: 1
-          maxLength: 4096
-          description: Max max_texto bytes.
+          x-max-bytes: 4096
+          description: Max max_texto BYTES UTF-8 (x-max-bytes), no caracteres; con tildes y enes un caracter ocupa 2 bytes o mas.
         kind:
           type: string
           enum: [choice, score, noul]
         options:
           type: array
           maxItems: 256
-          description: "choice y score: al menos 2, con id unico (max_opciones). noul: opcional; si va, solo los ids false y true."
+          description: "choice y score: al menos 2, con id unico (max_opciones). En score los ids son libres para L0 y L1; la cabeza CORAL de L2 solo opina si son \"1\"..\"K\" en orden. noul: opcional; si va, solo los ids false y true."
           items:
             $ref: "#/components/schemas/Option"
         nonce:
           type: string
-          maxLength: 256
-          description: Clave de idempotencia opcional.
+          x-max-bytes: 256
+          description: Clave de idempotencia opcional (max max_id BYTES UTF-8). No se guardan bajo ella las respuestas de peticiones canceladas o con alguna capa fallida.
     Option:
       type: object
       additionalProperties: false
@@ -154,11 +154,11 @@ components:
         id:
           type: string
           minLength: 1
-          maxLength: 256
+          x-max-bytes: 256
         description:
           type: string
-          maxLength: 4096
-          description: En zero-shot es lo unico que Chispa ve de la opcion.
+          x-max-bytes: 4096
+          description: Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion.
     DecideResponse:
       type: object
       additionalProperties: false

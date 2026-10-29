@@ -109,17 +109,43 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (torreDin, error) 
 	l.vuelo[k] = c
 	l.muVuelo.Unlock()
 
+	// Aunque Torre entre en pánico, la clave se libera y los que esperan despiertan con error.
+	defer func() {
+		if r := recover(); r != nil {
+			c.t, c.err = torreDin{}, fmt.Errorf("torre: pánico: %v", r)
+		}
+		l.muVuelo.Lock()
+		delete(l.vuelo, k)
+		l.muVuelo.Unlock()
+		close(c.done)
+	}()
 	h, err := l.torres.Torre(texto)
 	if err == nil {
 		c.t = cuantizarTorre(h)
 		l.cache.Put(k, c.t)
 	}
 	c.err = err
-	l.muVuelo.Lock()
-	delete(l.vuelo, k)
-	l.muVuelo.Unlock()
-	close(c.done)
 	return c.t, c.err
+}
+
+type claveCtxPresupuesto struct{}
+
+// presupuestoTorres cuenta las torres nuevas que ha calculado una petición.
+type presupuestoTorres struct{ usadas atomic.Int64 }
+
+// conPresupuesto devuelve un ctx con un presupuesto de torres nuevas propio de la petición, si no lo tenía ya.
+func conPresupuesto(ctx context.Context) context.Context {
+	if ctx.Value(claveCtxPresupuesto{}) != nil {
+		return ctx
+	}
+	return context.WithValue(ctx, claveCtxPresupuesto{}, &presupuestoTorres{})
+}
+
+func presupuestoDe(ctx context.Context) *presupuestoTorres {
+	if p, ok := ctx.Value(claveCtxPresupuesto{}).(*presupuestoTorres); ok {
+		return p
+	}
+	return &presupuestoTorres{} // llamada directa sin petición: presupuesto propio
 }
 
 const sepTorre = " · "
@@ -179,7 +205,7 @@ func opcionesConsulta(p Pregunta) []Opcion {
 }
 
 // torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae, en el orden de opcionesConsulta.
-// ok=false (sin error) si la petición pide más torres sin cachear que maxNuevas: L2 no opina.
+// ok=false (sin error) si a la petición (todas sus preguntas juntas, ver conPresupuesto) ya no le quedan torres nuevas por calcular: L2 no opina.
 func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bool, err error) {
 	ops := opcionesConsulta(p)
 	faltan := 0
@@ -188,8 +214,12 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 			faltan++
 		}
 	}
-	if faltan > l.maxNuevas {
-		return nil, false, nil
+	if faltan > 0 {
+		pr := presupuestoDe(ctx)
+		if pr.usadas.Add(int64(faltan)) > int64(l.maxNuevas) {
+			pr.usadas.Add(-int64(faltan))
+			return nil, false, nil
+		}
 	}
 	out := make([]torreDin, len(ops))
 	for i, o := range ops {
