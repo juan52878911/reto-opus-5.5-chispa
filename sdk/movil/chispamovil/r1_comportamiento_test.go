@@ -138,7 +138,7 @@ func TestR1HashSeccionYTauL2c(t *testing.T) {
 	if c.HashSeccion(int(chispa3.TORR)) != "" {
 		t.Fatal("sección ausente debía dar \"\"")
 	}
-	if c.TauL2c() != -1 || c.TauL2EsquemaNuevo() != -1 {
+	if c.TauL2c() != -1 || c.TauL2EsquemaNuevo() != 0.846 {
 		t.Fatalf("sin tau_l2c: %v, %v", c.TauL2c(), c.TauL2EsquemaNuevo())
 	}
 	tau, tauNuevo := 0.9, 0.3

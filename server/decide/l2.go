@@ -290,29 +290,19 @@ func (l *L2) Similitudes(ctx context.Context, p Pregunta) ([][]float32, []float6
 // similitudesTorres es Similitudes devolviendo además las torres con las que puntuó cada opción (choice) o la única
 // (noul y score), para que L2c mezcle con esas mismas.
 func (l *L2) similitudesTorres(ctx context.Context, p Pregunta) ([][]float32, []float64, []torreDin, bool, error) {
-	ids := make([]string, len(p.Opciones))
-	for i, o := range p.Opciones {
-		ids[i] = o.ID
-	}
 	// Puntuar antes de llamar al ONNX: sin torres para este esquema no hay nada que hacer.
-	torre := func(opciones []string) ([]byte, float32, bool) {
-		return l.esq.Buscar(chispa3.HashEsquema(p.Texto, opciones))
-	}
 	type vt = torreDin
 	var ts []vt
-	if p.Kind == KindChoice {
-		for _, id := range ids {
-			v, e, ok := torre([]string{id})
+	if p.Kind == KindChoice || p.Kind == KindMulti { // una torre por opción
+		for _, o := range p.Opciones {
+			v, e, ok := buscarTorre(l.esq, p, []Opcion{o})
 			if !ok {
 				return l.similitudesNuevas(ctx, p)
 			}
 			ts = append(ts, vt{v, e})
 		}
 	} else {
-		if p.Kind == KindNoul {
-			ids = []string{"false", "true"}
-		}
-		v, e, ok := torre(ids)
+		v, e, ok := buscarTorre(l.esq, p, opcionesUnica(p))
 		if !ok {
 			return l.similitudesNuevas(ctx, p)
 		}
@@ -376,24 +366,47 @@ func (l *L2) simsDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([][]floa
 
 // esquemaNuevo dice si ESQUEMAS no trae las torres de la pregunta (las mismas que busca Similitudes).
 func (l *L2) esquemaNuevo(p Pregunta) bool {
-	ids := make([]string, 0, len(p.Opciones))
-	switch p.Kind {
-	case KindChoice:
+	if p.Kind == KindChoice || p.Kind == KindMulti {
 		for _, o := range p.Opciones {
-			if _, _, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, []string{o.ID})); !ok {
+			if _, _, ok := buscarTorre(l.esq, p, []Opcion{o}); !ok {
 				return true
 			}
 		}
 		return false
-	case KindNoul:
-		ids = []string{"false", "true"}
-	default:
-		for _, o := range p.Opciones {
-			ids = append(ids, o.ID)
+	}
+	_, _, ok := buscarTorre(l.esq, p, opcionesUnica(p))
+	return !ok
+}
+
+func clavesDe(ops []Opcion) []chispa3.OpcionClave {
+	out := make([]chispa3.OpcionClave, len(ops))
+	for i, o := range ops {
+		out[i] = chispa3.OpcionClave{ID: o.ID, Descripcion: o.Description}
+	}
+	return out
+}
+
+// opcionesUnica son las opciones de la única torre de noul (false y true, con la descripción de la petición si la trae) y
+// score (todas).
+func opcionesUnica(p Pregunta) []Opcion {
+	if p.Kind != KindNoul {
+		return p.Opciones
+	}
+	out := []Opcion{{ID: "false"}, {ID: "true"}}
+	for _, o := range p.Opciones {
+		for i := range out {
+			if o.ID == out[i].ID {
+				out[i].Description = o.Description
+			}
 		}
 	}
-	_, _, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, ids))
-	return !ok
+	return out
+}
+
+// buscarTorre busca en ESQUEMAS la torre de estas opciones de la pregunta con la clave de la versión de la sección
+// (HashEsquema en v1, HashEsquema2 en v2: con v2, otra descripción u otro kind es otro esquema).
+func buscarTorre(esq *chispa3.Esquemas, p Pregunta, ops []Opcion) ([]byte, float32, bool) {
+	return esq.BuscarEsquema(p.Texto, p.Kind, clavesDe(ops))
 }
 
 // marcarNuevo anota en r si la pregunta venía de torres al vuelo.
@@ -423,6 +436,8 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	case KindNoul:
 		prm := paramsDe(l.calib, "noul")
 		return respuestaNoul(prm.A*sims[0]+prm.B, prm.Theta), nil
+	case KindMulti:
+		return respuestaMulti(p, sims, l.calib), nil
 	}
 	return l.score(p, sims[0])
 }
@@ -453,6 +468,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 		sup[j] = 1 / (1 + math.Exp(-(base.A*s - b)))
 	}
 	r := Respuesta{Probs: make(map[string]float64, K)}
+	var suma float64
 	for i := 0; i < K; i++ {
 		hi, lo := 1.0, 0.0
 		if i > 0 {
@@ -461,7 +477,12 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 		if i < K-1 {
 			lo = sup[i]
 		}
-		r.Probs[p.Opciones[i].ID] = math.Max(hi-lo, 0)
+		d := math.Max(hi-lo, 0)
+		r.Probs[p.Opciones[i].ID] = d
+		suma += d
+	}
+	for id, d := range r.Probs { // con acumuladas no monótonas las diferencias recortadas suman > 1: se normaliza
+		r.Probs[id] = d / suma
 	}
 	// Mediana CORAL: nivel 1 + número de umbrales con P(y > j) > 0,5 (como L1). Con acumuladas no monótonas, el argmax
 	// de las diferencias podría salir de diferencias negativas recortadas.

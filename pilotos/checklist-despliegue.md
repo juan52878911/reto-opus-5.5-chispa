@@ -1,6 +1,6 @@
 # Lista de verificación de despliegue de `chispa-server`
 
-Una página. El detalle y el porqué de cada punto están en [`operacion.md`](operacion.md). `$URL` = `http://127.0.0.1:8090` (o la del servicio).
+Una página. El detalle y el porqué de cada punto están en [`operacion.md`](operacion.md); los pasos de cero a producción, en [`docs/09-despliegue-piloto.md`](../docs/09-despliegue-piloto.md). `$URL` = `http://127.0.0.1:8090` (o la del servicio).
 Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 
 **Antes**
@@ -8,7 +8,7 @@ Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 - [ ] Si el modelo trae `TORR` o L2: `e5.chispa-tok` (12 MB) montado y binario/imagen compilado con `-tags ort` (+ `libonnxruntime.so` compatible).
 - [ ] Máquina con RAM para el `.chispa` + el tokenizador + montón de Go + margen (orientativo y sin medir: 512 MB con L1 de 155 MB; 1 GB con L2, `deploy/kindling/README.md`).
 - [ ] `config.json` válido (τ en [0,1], cachés ≥ 1, límites ≥ 0); probado en un puerto auxiliar con `-addr 127.0.0.1:18090`.
-- [ ] El puerto solo es alcanzable desde el sistema del cliente: el servidor no trae TLS ni autenticación (pendiente de producto); los pone el proxy del cliente.
+- [ ] El puerto solo es alcanzable desde el sistema del cliente: el servidor no trae TLS (pendiente de producto; lo pone el proxy del cliente). `api_keys` con hash (`-hash-clave`) puestas: fuera de loopback no arranca sin ellas.
 - [ ] `-addr` correcto: por defecto es `127.0.0.1:8090` (solo local); en contenedor, `0.0.0.0`.
 
 **Arranque**
@@ -18,8 +18,8 @@ Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 
 **Prueba de humo**
 - [ ] `curl -fsS $URL/healthz` → `{"status":"ok"}` (solo dice que el proceso vive).
-- [ ] `curl $URL/v1/decide -d '{…}'` (ejemplo de `operacion.md` §7) → 200, con `layer`, `answer`, `probs`.
-- [ ] `chispa decide --url $URL --estado "…" --pregunta "…" --opciones a b c` responde.
+- [ ] `curl $URL/v1/decide -H "Authorization: Bearer $CLAVE" -d '{…}'` (ejemplo de `operacion.md` §7) → 200, con `layer`, `answer`, `probs`.
+- [ ] (`chispa decide` y `chispa evaluar` no envían clave: contra una instancia auxiliar en loopback sin `api_keys`, `docs/09` §7.) `chispa decide --url $URL --estado "…" --pregunta "…" --opciones a b c` responde.
 - [ ] `chispa evaluar --url $URL --esquema esquema.yaml --datos muestra.csv --salida humo-AAAAMMDD` genera `.md` y `.json`; exactitud y escalado cerca de la línea base.
 - [ ] No todo da `escalar`: algunas decisiones salen de L0, L1 o L2 (`chispa_decididas_total{capa}`).
 
@@ -43,6 +43,7 @@ Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 - [ ] Modelo nuevo con otro nombre; no sobrescribir el abierto ni usar `cp` sobre él (solo `mv`). Probado en puerto auxiliar con humo + `chispa evaluar`.
 - [ ] `mv` atómico del `.chispa` nuevo sobre la ruta de `-modelo` y recarga en caliente (`kill -HUP` o `POST /v1/admin/recargar` con `admin_token`); sin ventana de caída. Un 500 `reload_failed` deja el modelo viejo en servicio.
 - [ ] `chispa_recargas_total{resultado="ok"}` sube y el log dice `modelo N en servicio`; humo después. Si falla, `mv` del `.chispa` anterior y recargar.
+- [ ] Parada: `--stop-timeout 40` (o gracia ≥ `-pre-drenaje` + `-apagado` + margen); el código de salida es 0, y 1 si cortó peticiones.
 - [ ] Cliente: el 503 `timeout` y el 504 no se reintentan; el resto de 503 sí, con `Retry-After` y backoff.
 
 **Copia de seguridad**

@@ -40,7 +40,7 @@ class Falso:
                     return self._json(outer.fallos.pop(0), {"error": outer.cuerpo_error})
                 qs = req["questions"]
                 if any(q["kind"] == "raro" for q in qs):
-                    return self._json(400, {"error": 'questions[0].kind: "raro" no válido (choice, score o noul)'})
+                    return self._json(400, {"error": 'questions[0].kind: "raro" no válido (choice, score, noul o multi)'})
                 res = []
                 for q in qs:
                     ops = [o["id"] for o in q.get("options", [])] or ["false", "true"]

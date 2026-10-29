@@ -9,7 +9,7 @@ public protocol Motor: AnyObject {
     func tauEscalate() -> Double
     /// `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta.
     func tauL2c() -> Double
-    /// `tau_l2_esquema_nuevo` de CALIB (el τ de L2 cuando sus torres salen al vuelo), o −1 si falta.
+    /// τ efectivo de L2 cuando sus torres salen al vuelo: el de CALIB o, si falta, 0,846 (lo decide el motor Go); −1 = sin τ propio.
     func tauL2EsquemaNuevo() -> Double
     /// sha256 hex de la sección de `tipo` (ver `seccionL2`, `seccionTorr`), o "" si el motor no lo sabe o no la hay.
     func hashSeccion(_ tipo: Int) -> String

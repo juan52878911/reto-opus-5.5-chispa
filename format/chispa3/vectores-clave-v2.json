@@ -1,0 +1,101 @@
+{
+  "especificacion": "HashEsquema2 = sha256(pregunta · 0x1f · kind · 0x1f · por cada opción ordenada por id (orden de bytes): id · 0x1e · descripción · 0x1d)[:16]; hash en hex",
+  "vectores": [
+    {
+      "nombre": "choice_con_descripciones",
+      "pregunta": "¿Cuál es la intención del cliente?",
+      "kind": "choice",
+      "opciones": [
+        {
+          "id": "pagar",
+          "description": "Quiere pagar una factura o cuota"
+        },
+        {
+          "id": "consultar",
+          "description": "Pregunta por saldo o movimientos"
+        },
+        {
+          "id": "reclamar",
+          "description": "Presenta una queja o reclamo"
+        }
+      ],
+      "hash": "9f9a02b03d18ea904c2ec936a0d5bcd5"
+    },
+    {
+      "nombre": "noul",
+      "pregunta": "¿El mensaje es spam?",
+      "kind": "noul",
+      "opciones": [
+        {
+          "id": "false",
+          "description": "Mensaje legítimo"
+        },
+        {
+          "id": "true",
+          "description": "Mensaje no deseado"
+        }
+      ],
+      "hash": "6514e616a26a5feab5068bff313e34ff"
+    },
+    {
+      "nombre": "score",
+      "pregunta": "¿Qué tan urgente es el caso?",
+      "kind": "score",
+      "opciones": [
+        {
+          "id": "0",
+          "description": "Sin urgencia"
+        },
+        {
+          "id": "1",
+          "description": "Urgencia media"
+        },
+        {
+          "id": "2",
+          "description": "Urgencia máxima"
+        }
+      ],
+      "hash": "d23289a0df6875dcc8dd013722bbaaaf"
+    },
+    {
+      "nombre": "choice_opciones_desordenadas",
+      "pregunta": "¿Cuál es la intención del cliente?",
+      "kind": "choice",
+      "opciones": [
+        {
+          "id": "reclamar",
+          "description": "Presenta una queja o reclamo"
+        },
+        {
+          "id": "pagar",
+          "description": "Quiere pagar una factura o cuota"
+        },
+        {
+          "id": "consultar",
+          "description": "Pregunta por saldo o movimientos"
+        }
+      ],
+      "hash": "9f9a02b03d18ea904c2ec936a0d5bcd5"
+    },
+    {
+      "nombre": "choice_otra_descripcion",
+      "pregunta": "¿Cuál es la intención del cliente?",
+      "kind": "choice",
+      "opciones": [
+        {
+          "id": "pagar",
+          "description": "Quiere pagar con tarjeta"
+        },
+        {
+          "id": "consultar",
+          "description": "Pregunta por saldo o movimientos"
+        },
+        {
+          "id": "reclamar",
+          "description": "Presenta una queja o reclamo"
+        }
+      ],
+      "hash": "740b0fd05ccfd90e29b1ad63a1025c96"
+    }
+  ]
+}

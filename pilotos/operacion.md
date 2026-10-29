@@ -1,7 +1,7 @@
 # Operación de `chispa-server` en casa del cliente (runbook del piloto)
 
 Para el integrador de TI del cliente y para el equipo de Chispa. Explica cómo desplegar, vigilar y recuperar `chispa-server`. La integración y la métrica
-están en [`guia-integracion.md`](guia-integracion.md) y [`metrica.md`](metrica.md); la lista de una página, en [`checklist-despliegue.md`](checklist-despliegue.md).
+están en [`guia-integracion.md`](guia-integracion.md) y [`metrica.md`](metrica.md); la lista de una página, en [`checklist-despliegue.md`](checklist-despliegue.md). **Paso a paso de cero a producción:** [`docs/09-despliegue-piloto.md`](../docs/09-despliegue-piloto.md) (este runbook es la referencia y el diagnóstico).
 
 **Cómo leer este documento.** Las cifras llevan su fichero. «Sin medir» significa que el repo no tiene la medida. Lo marcado *(sugerencia)* es un
 valor de partida de este runbook, no un compromiso del producto. Lo marcado **«pendiente de producto»** no existe en el código y no se promete al cliente.
@@ -39,7 +39,7 @@ Flags reales de [`main.go`](../server/cmd/chispa-server/main.go): `-addr` (por d
 detrás del balanceador o cortafuegos del cliente), `-modelo`, `-config`, `-tok`, `-ort-lib` (o variable `CHISPA_ORT_LIB`; precede a la ruta fijada al compilar), `-timeout` (30 s; 0 = sin tope). No hay flag de versión, de TLS ni de autenticación.
 Sin `-tags ort`, o sin `-tok`, L2 queda en stub (el servidor lo avisa en el log); si el log dice `AVISO: ONNX Runtime no carga`, corrija la ruta con `-ort-lib`/`CHISPA_ORT_LIB`.
 
-**Pendiente de producto:** TLS, autenticación y límite de tasa en el servidor. El cliente los pone delante (proxy inverso o malla); el kit no los trae.
+**Pendiente de producto:** TLS en el servidor; el cliente lo pone delante (proxy inverso o malla). La autenticación y el límite de tasa por clave ya existen (`api_keys`, §3 y [`docs/09`](../docs/09-despliegue-piloto.md#3-generar-las-claves-de-api)); fuera de loopback el servidor no arranca sin ellas salvo `-abierto`.
 
 ### 2.2 Contenedor (imagen de `server/deploy`)
 ```
@@ -75,7 +75,7 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
   "api_keys": [{"id": "piloto-banco", "hash_sha256": "<64 hex de chispa-server -hash-clave>", "rps": 20, "rafaga": 40}]
 }
 ```
-(Los valores son los por defecto; `l1_shrinkage_lambda` = 4 aparece escrito pero es lo que se aplica si falta, y `tau_l2_esquema_nuevo` se pone solo si se usa; su 0.7 es un ejemplo, no una recomendación.)
+(Los valores son los por defecto; `l1_shrinkage_lambda` = 4 aparece escrito pero es lo que se aplica si falta, y `tau_l2_esquema_nuevo` se pone solo si se quiere otro que 0,846; su 0.7 es un ejemplo, no una recomendación.)
 
 | Clave | Efecto | Cuidado |
 |---|---|---|
@@ -85,7 +85,8 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 | `cache_torres`, `max_torres_nuevas` | Torres al vuelo de L2 (0 = por defecto 16 384 / 64); por encima del tope por petición, L2 no opina | Solo con `-tags ort`, `-tok` y sección `TORR` |
 | `l1_shrinkage_lambda`, `l2_shrinkage_lambda` | λ ≥ 0 del encogimiento del soporte (sección `SOPL1`). L1: **ausente = 4**; apagarlo: `"l1_shrinkage_apagado": true`. L2: ausente = apagado | Solo few-shot con `SOPL1`. Un λ inválido es error de arranque; apagado + λ a la vez también. Medido con λ = 4 (`model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8)): con `l1_shrinkage_lambda` = 4 frente a sin soporte: massive 0,395 frente a 0,266, inyecciones 0,740 frente a 0,326, hatecheck 0,492 frente a 0,224; en JevBench cuesta 2 puntos (0,379 frente a 0,398) |
 | `api_keys` | Claves de API de `/v1/decide` con límite de tasa por clave (`rps`, `rafaga`). Ausente = abierto. Solo el hash SHA-256 en el fichero: `printf '%s' "$CLAVE" \| chispa-server -hash-clave` ([`docs/06`](../docs/06-despliegue.md#claves-de-api)) | **Recomendada en el piloto.** `/healthz` y `/metrics` nunca piden clave: no los exponga fuera de la red de operación. Se relee al recargar (rotación sin reinicio); `id` único; una clave en claro o un hash mal formado falla la config |
-| `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, se toma de `CALIB`, haya o no `-config` (calibrado contra el τ base de `CALIB`, no el de la config). Su default no cambia. Guía medida en tareas no vistas (`model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8)): τ = 0,846 → precisión 0,95 con ~97 % de escalado; τ = 0,276 → escala ≤ 20 % con precisión ~0,53 |
+| `l3` | **Apagada si falta.** Escala lo que L0–L2 no resuelven a un LLM compatible con OpenAI (`url`, `modelo`, `api_key_env`, `timeout`, `max_por_peticion`, `tau`); p. ej. Ollama local `http://127.0.0.1:11434/v1` con `qwen3:4b-instruct`. Ver [`docs/06`](../docs/06-despliegue.md#l3-ollama-local-o-un-llm-remoto) | **Privacidad:** el texto del cliente sale del servidor hacia ese endpoint; con uno remoto, avíselo al cliente y al DPO antes de activarla. Las probabilidades del LLM no están calibradas: ajuste `tau` con tráfico del piloto. Requiere la capa `"L3"` en `capas`. Sin probar contra un LLM real |
+| `tau_l2_esquema_nuevo`, `tau_l2_esquema_nuevo_apagado` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1]. **Default 0,846**; `"tau_l2_esquema_nuevo_apagado": true` = sin τ propio | Prioridad: config > `CALIB` (haya o no `-config`) > 0,846; apagado + τ a la vez es error de arranque. Medido sobre tareas no vistas (`model/l2/resultados/barrido-20261029/LEEME.md`, rama de modelos; G.8b, checkpoint de G.8): τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Se eligió 0,846 como default por prudente: ante un esquema que L2 no ha visto, prefiere escalar a acertar a medias (decisión del dueño del producto); 0,276 queda como alternativa si se prioriza no escalar. |
 
 El `-timeout` es un flag, no una clave de la config. Al vencer, responde 503 `timeout` con `Retry-After: 5` (`chispa_timeouts_total` lo cuenta).
 Sin `-timeout` (0) no hay tope. *(Sugerencia: déjelo en 30 s; para el piloto un valor más bajo, p. ej. 5 s, evita que una torre lenta acapare conexiones; los SDK no reintentan este 503; un cliente propio debe respetar `Retry-After`.) **El `timeout` del cliente debe ser mayor que `-timeout`**: el SDK Python usa 35 s por defecto (frente a 30 s); si el cliente corta antes, el servidor cancela sin guardar el nonce y cada intento repite la cascada. Con `-timeout 5s`, un cliente de 10 s también cumple.*
@@ -113,6 +114,7 @@ Los buckets de latencia son fijos: 10 µs, 50 µs, 0,1 ms, 0,5 ms, 1 ms, 5 ms, 1
 | `chispa_admin_rechazos_total` | Intentos fallidos o limitados contra `/v1/admin/recargar` | Cualquier subida que no sea un error suyo: alguien sondea la ruta de admin |
 | `chispa_cache_bytes{cache}` | Bytes de las cachés `l1`, `nonces` y `torres` (topes: `cache_esquemas_mb`, `cache_respuestas_mb`) | Pegado al tope y con `rate(chispa_decididas…)` cayendo: suba el tope o la RAM |
 | `chispa_cache_nonce_aciertos_total` | Reintentos idempotentes servidos | Informativo |
+| `chispa_l3_llamadas_total{resultado}`, `chispa_l3_latencia_segundos` | Solo con `l3` en la config: `invalida` (el LLM no devuelve el JSON esperado), `timeout`/`error` (endpoint caído o lento), `presupuesto` (tope `max_por_peticion`) | `invalida` > 10 % de las llamadas, o `timeout`/`error` > 0 sostenido |
 
 `/healthz` devuelve `{"status":"ok"}`: solo dice que el proceso responde, **no** qué capas hay cargadas. No lo use como único criterio de salud; combínelo con la prueba de humo (§7)
 y con `chispa_decididas_total`. **Pendiente de producto:** un `/readyz` que compruebe las capas, (el tamaño de las cachés ya sale en `chispa_cache_bytes`; la memoria del proceso, mírela con las herramientas del sistema).
@@ -131,7 +133,7 @@ El historial de uso sale de `/metrics`. **Pendiente de producto:** log de acceso
 Docker: `docker logs chispa`; systemd: `journalctl -u chispa`. Guarde al menos el log de arranque: es la única pista de que L2 quedó en stub.
 
 ## 6. Actualizar el modelo, la config y el binario
-**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `-admin-addr`, activar la ruta de admin si arrancó sin ella y cambiar el binario (el token de admin se rota recargando) (`api_keys` no: se relee). Apagado ordenado sigue **pendiente de producto**.
+**No hace falta reiniciar** para cambiar el `.chispa`, el `-tok` ni la config: el servidor recarga en caliente (`server/decide/recarga.go`). Lo que sí exige reinicio: `-addr`, `-admin-addr`, activar la ruta de admin si arrancó sin ella y cambiar el binario (el token de admin se rota recargando) (`api_keys` no: se relee). El apagado ordenado existe (SIGTERM/SIGINT, `-pre-drenaje`, `-apagado`; [`docs/09` §10](../docs/09-despliegue-piloto.md#10-apagado-ordenado)); falta medirlo bajo carga.
 
 1. Entrene el nuevo `.chispa` con `chispa train` (ver [`guia-integracion.md`](guia-integracion.md)) y déjelo con otro nombre: `modelo-AAAAMMDD.chispa`. Nunca sobrescriba en sitio el fichero abierto (**no use `cp` sobre el `.chispa` en uso**: se escribe en sitio: con mmap el servidor cae con SIGBUS y sin él una recarga puede leer el fichero a medias); escriba aparte y `mv`.
 2. Pruebe el nuevo en otro puerto: `./chispa-server -addr 127.0.0.1:18090 -modelo modelo-AAAAMMDD.chispa …` y pase la prueba de humo (§7) y `chispa evaluar` contra esa URL.
@@ -153,6 +155,8 @@ curl -fsS $URL/metrics | grep -E '^chispa_(peticiones|preguntas|escalados)_total
 curl -fsS $URL/v1/decide -d '{"state":"Me cobraron dos veces la cuota y quiero que me devuelvan la plata","questions":[{"id":"q1","question":"¿Qué tipo de PQRS es este mensaje?","kind":"choice","options":[{"id":"peticion","description":"la persona solicita algo que la empresa puede hacer"},{"id":"queja","description":"la persona expresa inconformidad por el trato recibido"},{"id":"reclamo","description":"la persona exige que se corrija algo que falló"},{"id":"sugerencia","description":"la persona propone una mejora"},{"id":"felicitacion","description":"la persona agradece o elogia la atención"}]}]}'
 chispa decide --url $URL --estado "¿cuánto vale el cemento?" --pregunta "¿Qué necesita?" --opciones cotizacion pedido factura
 ```
+**Con `api_keys` en la config, añada `-H "Authorization: Bearer $CLAVE"` a los `curl`; `chispa decide` y `chispa evaluar` no envían clave (pendiente de producto) y dan 401: úselos contra una instancia auxiliar en loopback sin claves** (receta en [`docs/09` §7](../docs/09-despliegue-piloto.md#7-prueba-de-humo)).
+
 Qué esperar: `/v1/decide` da 200 con `results[0]` con `layer`, `answer`, `probs` y `escalate`. **`"layer":"escalar"` con `"escalate":true` en todas las preguntas no es un éxito:** con un modelo sin
 secciones de L1/L2 o con L2 en stub la respuesta correcta es escalar y valida solo el contrato, no la calidad (`deploy/kindling/README.md`). Pruebe con el `.chispa` del cliente y compruebe que algunas decisiones salen de L0/L1/L2.
 

@@ -433,6 +433,8 @@ func TestValidacionLocalEnBytes(t *testing.T) {
 		"pocas opciones":     {"x", mk(func(q *Pregunta) { q.Opciones = q.Opciones[:1] }), "too_few_options"},
 		"opcion repetida":    {"x", mk(func(q *Pregunta) { q.Opciones[1].ID = q.Opciones[0].ID }), "duplicate_option_id"},
 		"opcion sin id":      {"x", mk(func(q *Pregunta) { q.Opciones[1].ID = "" }), "missing_option_id"},
+		"multi con 1 opcion": {"x", mk(func(q *Pregunta) { q.Kind = KindMulti; q.Opciones = q.Opciones[:1] }), "too_few_options"},
+		"multi repetida":     {"x", mk(func(q *Pregunta) { q.Kind = KindMulti; q.Opciones[1].ID = q.Opciones[0].ID }), "duplicate_option_id"},
 		"noul con otros ids": {"x", mk(func(q *Pregunta) { q.Kind = KindNoul }), "invalid_options"},
 		"ids repetidos":      {"x", append(mk(func(*Pregunta) {}), ferreteria), "duplicate_question_id"},
 	}
@@ -566,5 +568,35 @@ func TestR6LimiteCuentaBytesTrasSaneadoUTF8(t *testing.T) {
 	_, err := clienteDe("http://127.0.0.1:1", nil).Decidir(context.Background(), "x", []Pregunta{q}, nil)
 	if e := comoError(t, err); e.Codigo != "field_too_long" || e.Status != 0 {
 		t.Errorf("se esperaba field_too_long local: %v", err)
+	}
+}
+
+func TestMultiRespuestaConAnswers(t *testing.T) {
+	s, reg := servidor(t, func(_ int, w http.ResponseWriter, _ *http.Request) {
+		json200(w, `{"results":[{"id":"m","kind":"multi","answer":"cobro","answers":["cobro","atencion"],"probs":{"cobro":0.93,"atencion":0.81,"fraude":0.07},"layer":"L1","escalate":false,"ms":0.5},`+
+			`{"id":"v","kind":"multi","answer":"","answers":[],"probs":{"cobro":0.1,"atencion":0.2,"fraude":0.07},"layer":"L1","escalate":false,"ms":0.5},`+
+			`{"id":"c","kind":"choice","answer":"a","probs":{"a":0.6,"b":0.4},"layer":"L1","escalate":false,"ms":0.1}]}`)
+	})
+	ops := []Opcion{{ID: "cobro", Description: "habla de un cobro"}, {ID: "atencion"}, {ID: "fraude"}}
+	qs := []Pregunta{
+		{ID: "m", Texto: "¿Qué temas toca?", Kind: KindMulti, Opciones: ops},
+		{ID: "v", Texto: "¿Qué temas toca?", Kind: KindMulti, Opciones: ops},
+		{ID: "c", Texto: "¿Área?", Kind: KindChoice, Opciones: []Opcion{{ID: "a"}, {ID: "b"}}},
+	}
+	rs, err := clienteDe(s.URL, nil).Decidir(context.Background(), "me cobraron dos veces", qs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rs[0].Kind != KindMulti || len(rs[0].Answers) != 2 || rs[0].Answers[1] != "atencion" || rs[0].Answer != "cobro" || len(rs[0].Probs) != 3 {
+		t.Fatalf("multi: %+v", rs[0])
+	}
+	if rs[1].Answers == nil || len(rs[1].Answers) != 0 || rs[1].Answer != "" {
+		t.Fatalf("multi sin activas: %+v", rs[1])
+	}
+	if rs[2].Answers != nil {
+		t.Fatalf("choice no lleva answers: %+v", rs[2])
+	}
+	if reg.cuerpos[0].Questions[0].Kind != KindMulti {
+		t.Fatalf("petición: %+v", reg.cuerpos[0])
 	}
 }

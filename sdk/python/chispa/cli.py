@@ -6,10 +6,10 @@ import json
 import sys
 
 from .cliente import Chispa, ChispaError
-from .tipos import Choice, Noul, Score
+from .tipos import Choice, Multi, Noul, Score
 
 
-DESCRIPCION = """Chispa: clasificador tipado (choice, score, noul) de bajo coste. Decide sobre esquemas y opciones que no ha visto.
+DESCRIPCION = """Chispa: clasificador tipado (choice, score, noul, multi) de bajo coste. Decide sobre esquemas y opciones que no ha visto.
 
   chispa train    arma un fichero .chispa en CPU (zero-shot, few-shot o con datos del cliente)
   chispa decide   hace una pregunta a un servidor chispa-server (/v1/decide)
@@ -97,9 +97,9 @@ def main(argv=None) -> int:
                        formatter_class=argparse.RawDescriptionHelpFormatter)
     d.add_argument("--url", required=True, help="base del servidor, p. ej. http://127.0.0.1:8090")
     d.add_argument("--estado", required=True, help="el texto a clasificar")
-    d.add_argument("--tipo", choices=["choice", "noul", "score"], default="choice")
+    d.add_argument("--tipo", choices=["choice", "noul", "score", "multi"], default="choice")
     d.add_argument("--pregunta", required=True, help="el texto de la pregunta")
-    d.add_argument("--opciones", nargs="*", default=[], help="choice: ids; score: el número de niveles")
+    d.add_argument("--opciones", nargs="*", default=[], help="choice y multi: ids; score: el número de niveles")
     e = sub.add_parser("evaluar", help="mide un chispa-server con una muestra etiquetada (informe markdown + JSON)",
                        description="Manda cada fila (texto, etiqueta) a /v1/decide y calcula las métricas de pilotos/metrica.md: exactitud, F1 macro, "
                                    "matriz de confusión, escalado, cobertura y precisión de lo aceptado, capas, p50/p99 y, con score, MAE.",
@@ -107,7 +107,7 @@ def main(argv=None) -> int:
                               "Escribe informe.md e informe.json; sin --salida imprime el markdown. Cada fila es una petición (un state por petición).",
                        formatter_class=argparse.RawDescriptionHelpFormatter)
     e.add_argument("--url", required=True, help="base del servidor, p. ej. http://127.0.0.1:8090")
-    e.add_argument("--esquema", required=True, help="el mismo YAML/JSON de chispa train (choice, noul o score)")
+    e.add_argument("--esquema", required=True, help="el mismo YAML/JSON de chispa train (choice, noul, score o multi)")
     e.add_argument("--datos", required=True, help="CSV/JSONL con columnas texto|text y etiqueta|label (noul: true/false; score: 1..K)")
     e.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
     e.add_argument("--precision-objetivo", type=float, default=0.95, help="precisión a la que se da la cobertura (0,95)")
@@ -140,7 +140,7 @@ def main(argv=None) -> int:
             else:
                 print(r["informe"], end="")
         else:
-            q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
+            q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta), "multi": lambda: Multi("q", a.pregunta, a.opciones),
                  "score": lambda: Score("q", a.pregunta, int(a.opciones[0]))}[a.tipo]()
             r = Chispa(a.url).decidir(a.estado, [q])[0]
             print(json.dumps(r.__dict__, ensure_ascii=False))

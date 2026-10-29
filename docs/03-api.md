@@ -19,8 +19,8 @@ Ejemplo real: [`choice.req.json`](../server/decide/testdata/choice.req.json).
 | `questions` | de 1 a 256 |
 | `questions[].id` | obligatorio; único en la petición |
 | `questions[].question` | obligatorio |
-| `questions[].kind` | `choice`, `score` o `noul` |
-| `questions[].options` | `choice`: ≥ 2 y ≤ 256, con `id` único y `description` opcional. `score`: ≥ 2; el servidor no exige ids concretos: L0 y L1 aceptan ids libres, y la cabeza CORAL de L2 solo opina si los ids son `"1"` … `"K"` en orden. `noul`: opcional; si va, solo `"false"` y `"true"` |
+| `questions[].kind` | `choice`, `score`, `noul` o `multi` |
+| `questions[].options` | `choice`: ≥ 2 y ≤ 256, con `id` único y `description` opcional. `score`: ≥ 2; el servidor no exige ids concretos: L0 y L1 aceptan ids libres, y la cabeza CORAL de L2 solo opina si los ids son `"1"` … `"K"` en orden. `multi`: ≥ 2 y ≤ 256, con `id` único y `description` opcional; cada opción es una etiqueta que puede estar activa o no. `noul`: opcional; si va, solo `"false"` y `"true"` |
 | `questions[].nonce` | opcional; clave de idempotencia |
 
 Los campos desconocidos dan 400.
@@ -42,8 +42,9 @@ Ejemplo real: [`choice.resp.json`](../server/decide/testdata/choice.resp.json). 
 ```
 
 - Los resultados van en el orden de `questions`.
-- `answer`: el id de la opción elegida.
-- `probs`: probabilidad calibrada de cada opción, la de la capa que respondió.
+- `answer`: el id de la opción elegida (en `multi`, la activa de mayor probabilidad, o `""` si no hay ninguna).
+- `answers`: **solo en `multi`** (y siempre en `multi`): los ids de las opciones activas, en el orden de la pregunta; `[]` si ninguna. Campo aditivo: los demás tipos no lo llevan.
+- `probs`: probabilidad calibrada de cada opción, la de la capa que respondió. Suman 1 en `choice`, `score` y `noul`; en `multi` cada opción lleva la suya, en [0, 1], y **no** suman 1.
 - `layer`: la capa que contestó (`L0`…`L3`). Si `escalate` es true, vale `"escalar"`: ninguna capa llegó a su τ.
 - `escalate`: ninguna capa llegó a su τ. `answer` y `probs` son entonces la mejor pista, o `""` y `{}` si nadie opinó.
 - `ms`: tiempo de la cascada para esa pregunta. `nonce` vuelve tal cual.
@@ -65,9 +66,48 @@ En `score`, `answer` depende de la capa que respondió:
 - **L2:** cabeza CORAL (`server/decide/l2.go`, `score`). `answer` es la **mediana**: el nivel 1 + el número de umbrales
   con P(y > j) > 0,5, igual que en L1. `probs` sale de las diferencias entre las probabilidades acumuladas de sus
   umbrales, P(y = k) = P(y > k−1) − P(y > k), recortadas a ≥ 0; la confianza es `probs[answer]`.
-- **L0:** el clasificador entrenado con los ejemplos; `answer` es su nivel más probable.
+- **L0:** el clasificador entrenado con los ejemplos; `probs` es su distribución sobre los niveles y `answer` la **mediana**, como en L1 y L2.
+- **L3:** `answer` es la mediana de las `probs` normalizadas.
 
-En los tres casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
+En todos los casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
+
+### Un ejemplo por tipo
+Petición y respuesta de cada `kind` (la de `multi` está también en [`openapi.yaml`](../server/api/openapi.yaml), validada contra su esquema por `server/decide/contrato_test.go`):
+
+```json
+{"id":"u1","kind":"choice","answer":"alta","probs":{"alta":0.9,"baja":0.1},"layer":"L1","escalate":false,"ms":0.3}
+{"id":"n1","kind":"noul","answer":"true","probs":{"false":0.1,"true":0.9},"layer":"L1","escalate":false,"ms":0.2}
+{"id":"s1","kind":"score","answer":"2","probs":{"1":0.1,"2":0.6,"3":0.3},"layer":"L1","escalate":false,"ms":0.3}
+{"id":"t1","kind":"multi","answer":"cobro","answers":["cobro","atencion"],"probs":{"cobro":0.93,"atencion":0.81,"fraude":0.07},"layer":"L1","escalate":false,"ms":0.5}
+```
+
+La petición de `multi` es la de `choice` con `"kind": "multi"`:
+
+```json
+{"state":"Me cobraron dos veces y nadie contesta el telefono","questions":[{"id":"t1","question":"Que temas toca el mensaje?","kind":"multi",
+  "options":[{"id":"cobro","description":"Habla de un cobro"},{"id":"atencion","description":"Se queja de la atencion"},{"id":"fraude","description":"Sospecha de fraude"}]}]}
+```
+
+### `multi`: varias etiquetas a la vez
+Cada opción es un sí/no **independiente** sobre «pregunta · opción · descripción».
+
+- **Cómo puntúa:** L1 usa el coseno entre el mensaje y la opción; L2, el MaxSim contra la torre de **esa** opción (una por opción, como en `choice`, y al vuelo con `TORR`). Cada una pasa por su sigmoide σ(a·s + b) con θ propio: `probs[id]` es esa p y la opción está activa si p ≥ θ.
+- **Calibración:** `CALIB.tipos.multi` trae (a, b, θ) de todas las opciones; `multi#<id>` los de una opción (θ por opción). Sin ellos se usa la calibración de `noul` como aproximación, y sin ninguna, la de por defecto (a = 4, b = −2, θ = 0,5). Zero-shot va, pues, sin calibrar para `multi` hasta que `chispa train` con ejemplos ajuste `multi`.
+- **Confianza (la que se compara con τ):** la de la opción más dudosa, el mínimo de p (si está activa) o 1 − p (si no). Una capa solo acepta la respuesta si **todas** sus decisiones superan τ; si no, se pasa a la siguiente y, al final, escala.
+- **Ninguna activa** es una respuesta válida: `answers: []`, `answer: ""` y `escalate: false`. Lo que sí es «sin respuesta» es `escalate: true` con `probs: {}`.
+- **L0 no opina en `multi`**: el L0 entrenado es multiclase (probabilidades que suman 1) y no da una p por opción. Aunque haya un modelo con las mismas etiquetas, el servidor no lo usa para `multi`.
+
+### Qué devuelve cada capa
+Probabilidades en `probs` y respuesta por tipo y capa. «Zero-shot» es un esquema que solo llega en la petición; «few-shot» es un `.chispa` entrenado con pocos ejemplos (`chispa train --ejemplos`).
+
+| Tipo | L0 | L1 (zero-shot y few-shot) | L2 / L2c | L3 (opcional) |
+|---|---|---|---|---|
+| `choice` | few-shot (≥ 10 por opción): softmax del modelo, suma 1. Zero-shot: no opina | softmax(cos / T), suma 1 | softmax(MaxSim / T), suma 1; con `CONJ` (L2c) la cabeza conjunta, suma 1 | normalizada, suma 1 |
+| `noul` | few-shot: modelo `false`/`true`, suma 1. Zero-shot: no opina | σ(a·cos + b) con θ; `true` y `false` suman 1 | σ(a·MaxSim + b) con θ, suma 1 | normalizada, suma 1 |
+| `score` | few-shot: distribución del modelo sobre los niveles, suma 1; `answer` = mediana. Zero-shot: no opina | softmax sobre los niveles en el orden de la pregunta, suma 1; `answer` = mediana | CORAL, solo con ids `"1"`…`"K"` en orden y `scoreK` en `CALIB`; si no, no opina. Suma 1 (se normaliza); `answer` = mediana | normalizada; `answer` = mediana |
+| `multi` | **no opina** (el L0 es multiclase) | σ(a·cos + b) por opción con θ por opción; una p en [0,1] por opción | σ(a·MaxSim + b) por opción, torre por opción | p por opción, sin normalizar |
+
+«No opina» significa confianza 0: la cascada pasa a la siguiente capa. Con `SOPL1` (few-shot), L1 mezcla el prototipo de cada opción con la media de sus ejemplos en todos los tipos.
 
 ### Clave de API (opcional)
 Si la config trae `api_keys` (ver [Configuración](#configuración--config)), `POST /v1/decide` exige `Authorization: Bearer <clave>` y cada clave tiene
@@ -83,7 +123,7 @@ petición HTTP gasta un token, tenga las preguntas que tenga. Al agotarse respon
 Todo error lleva el mismo cuerpo tipado. `code` es estable y pensado para programas; `message` es para humanos (lleva la ruta del campo) y puede cambiar. `question_id` solo aparece cuando el error es de una pregunta con id.
 
 ```json
-{"error": {"code": "invalid_kind", "message": "questions[0].kind: \"raro\" no válido (choice, score o noul)", "question_id": "1"}}
+{"error": {"code": "invalid_kind", "message": "questions[0].kind: \"raro\" no válido (choice, score, noul o multi)", "question_id": "1"}}
 ```
 Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_invalido_400.resp.json).
 
@@ -96,8 +136,8 @@ Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_inv
 | 400 | `missing_id` | pregunta sin `id` |
 | 400 | `duplicate_question_id` | `id` de pregunta repetido |
 | 400 | `missing_question` | pregunta sin `question` |
-| 400 | `missing_kind` / `invalid_kind` | `kind` ausente / distinto de `choice`, `score`, `noul` |
-| 400 | `too_few_options` | `choice` o `score` con menos de 2 opciones |
+| 400 | `missing_kind` / `invalid_kind` | `kind` ausente / distinto de `choice`, `score`, `noul`, `multi` |
+| 400 | `too_few_options` | `choice`, `score` o `multi` con menos de 2 opciones |
 | 400 | `too_many_options` | más de `max_opciones` |
 | 400 | `invalid_options` | `noul` con opciones distintas de `false` y `true` |
 | 400 | `missing_option_id` / `duplicate_option_id` | opción sin `id` / `id` repetido |
@@ -151,8 +191,30 @@ Constantes de [`server/decide/http.go`](../server/decide/http.go):
 - **Torres al vuelo (sección `TORR`)**: la clave sí incluye la descripción (`HashEsquema(question, [id, description])`, una por opción).
 - **Caché de L1 (embeddings de opciones por esquema)** y **nonce**: ver `cache_esquemas` y `cache_respuestas` más abajo.
 
+## L3: escalado opcional a un LLM
+Apagada por defecto. Con la sección `l3` en la config, lo que L0, L1 y L2 no resuelven (confianza < su τ) se manda a un endpoint
+compatible con OpenAI (`POST {url}/chat/completions`) y la respuesta mantiene el contrato: `layer: "L3"`, `answer` y `probs`
+normalizadas (suma 1) por opción, para `choice`, `noul` (`false`/`true`) y `score` (`answer` = mediana, como en L1 y L2). En `multi` el LLM da una probabilidad independiente por opción (no se normaliza: cada una en [0,1], y deben venir todas); se activan las de p ≥ 0,5.
+
+```json
+"l3": {"url": "http://127.0.0.1:11434/v1", "modelo": "qwen3:4b-instruct", "api_key_env": "CHISPA_L3_CLAVE",
+       "timeout": "10s", "max_por_peticion": 8, "tau": 0.6}
+```
+| Clave | Efecto |
+|---|---|
+| `url`, `modelo` | Obligatorios. `url` es la base (se añade `/chat/completions`); http o https |
+| `api_key_env` | Nombre de la variable de entorno con la clave (`Authorization: Bearer`). La clave no va en la config; si el nombre está y la variable vacía, el arranque falla. Ollama no la necesita |
+| `timeout` | Plazo de cada llamada: `"10s"` o segundos. 0/ausente = 10 s. Al vencer, L3 no opina y la pregunta sigue escalada (`chispa_l3_llamadas_total{resultado="timeout"}`, `chispa_capa_errores_total{capa="L3"}`) |
+| `max_por_peticion` | Llamadas al LLM que una petición HTTP puede hacer entre todas sus preguntas. 0/ausente = 8. Pasado el tope, las preguntas restantes quedan escaladas sin llamar |
+| `tau` | τ de L3; si falta, el de la capa `"L3"` de `capas` (0,60 por defecto). `capas` debe seguir incluyendo `"L3"` |
+
+Qué se manda al LLM: un mensaje de sistema fijo y uno de usuario con un JSON `{"pregunta","tipo","opciones":[{"id","descripcion"}],"texto"}` (temperatura 0, `response_format: json_object`, `stream: false`).
+Qué se espera: `{"probs": {"<id>": <p>, ...}}`. Se acepta con vallas ```` ``` ```` o texto alrededor; se valida (solo ids de las opciones, números finitos ≥ 0, suma > 0), las opciones que falten valen 0 y se normaliza a suma 1. Si no cumple, **L3 no opina** (sin error) y la respuesta queda `escalar`. Un fallo del endpoint (red, timeout, no 2xx) deja la respuesta igual y no se guarda bajo el `nonce`.
+
+Límites que conviene saber: (1) las probabilidades de un LLM son **autodeclaradas, no calibradas**: τ de L3 no se ha calibrado contra datos y debe ajustarse con tráfico propio antes de fiarse de `escalate: false`; (2) no se usan `logprobs`: el contrato por opción se obtiene del JSON, que funciona igual en cualquier endpoint; (3) la caché de esquemas y las torres no intervienen: cada pregunta escalada es una llamada nueva (salvo un `nonce` repetido). **Privacidad:** el `state` y el esquema de las preguntas escaladas salen del servidor hacia el endpoint configurado; Chispa no los registra, pero el endpoint sí puede. Con Ollama local no salen de la máquina ([06-despliegue.md](06-despliegue.md#l3-ollama-local-o-un-llm-remoto)).
+
 ## Valores de `layer`
-`L0`, `L1`, `L2`, `L3` y `escalar` (cuando `escalate` es true). El audio (`A1`) no entra por `/v1/decide`; ver `audio/README.md`.
+`L0`, `L1`, `L2`, `L3` y `escalar` (cuando `escalate` es true). `L3` solo sale si el servidor tiene la sección `l3` en la config (ver [L3](#l3-escalado-opcional-a-un-llm)); sin ella, L3 no opina nunca. El audio (`A1`) no entra por `/v1/decide`; ver `audio/README.md`.
 
 ## `GET /healthz`
 ```
@@ -175,6 +237,8 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_cache_nonce_aciertos_total` | respuestas servidas por nonce |
 | `chispa_auth_rechazos_total` | 401 de `/v1/decide` (clave ausente o mala); con `api_keys` |
 | `chispa_clave_peticiones_total{clave,resultado}` | peticiones por **id** de clave (nunca la clave): `ok` o `limitada` (429) |
+| `chispa_l3_llamadas_total{resultado}` | llamadas de L3 al LLM: `ok`, `invalida` (respuesta que no sirve; L3 no opina), `error`, `timeout`, `presupuesto` (tope por petición agotado; no se llamó). Sin L3, todo 0 |
+| `chispa_l3_latencia_segundos` | histograma de la latencia de cada llamada al LLM |
 
 Tras una petición válida y una rota, el test de métricas
 ([`decide_test.go`](../server/decide/decide_test.go)) espera líneas como `chispa_peticiones_total{codigo="200"} 1`,
@@ -206,5 +270,4 @@ así que se rotan sin reiniciar; los cubos empiezan llenos tras una recarga.
 Con `-modelo` y sin `-config`, el τ de L1 y L2 sale de `CALIB`. Con `-config`, manda la config.
 
 `tau_l2_esquema_nuevo` (opcional, en [0,1]): τ de L2 solo para las preguntas cuyas torres no están en `ESQUEMAS` y salen al vuelo (sección `TORR`);
-las que L2 conoce siguen con el τ de L2 de siempre. Ausente, no cambia nada. Si falta aquí se toma del campo
-`tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`), haya o no `-config` (la config no lo desactiva); si viene en la config, manda la config. Ojo: el de `CALIB` se calibró contra el τ base de `CALIB`, no contra el de la config. Es interno: la respuesta JSON no cambia. Guía: `tau_l2_esquema_nuevo`, medido sobre tareas no vistas: τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Son dos puntos de la curva como guía, no una recomendación: el default no cambia (ausente = el τ de L2 de siempre) y lo decide el dueño del producto. Fuente: `model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8).
+las que L2 conoce siguen con el τ de L2 de siempre. **Default 0,846.** Prioridad: la config > el campo `tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`), que se toma haya o no `-config` > 0,846. `"tau_l2_esquema_nuevo_apagado": true` vuelve a «sin τ propio» (L2 usa su τ de siempre) e ignora también `CALIB`; apagado + `tau_l2_esquema_nuevo` es error de arranque. Ojo: el de `CALIB` se calibró contra el τ base de `CALIB`, no contra el de la config. Es interno: la respuesta JSON no cambia. Medido sobre tareas no vistas (`model/l2/resultados/barrido-20261029/LEEME.md`, rama de modelos; G.8b, checkpoint de G.8): τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Se eligió 0,846 como default por prudente: ante un esquema que L2 no ha visto, prefiere escalar a acertar a medias (decisión del dueño del producto); 0,276 queda como alternativa si se prioriza no escalar.

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: chispa-server
   version: "1.0.0"
-  description: Clasificador tipado (choice, score, noul) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion. Las longitudes se cuentan en BYTES UTF-8 como hace el servidor, y por eso se declaran con la extension x-max-bytes y no con maxLength (que cuenta caracteres). Presupuesto de torres: el servidor calcula como mucho max_torres_nuevas (64 por defecto) torres de esquemas nuevos POR PETICION, sumando todas sus preguntas; agotado, L2 no opina y la pregunta sube a la capa siguiente.
+  description: "Clasificador tipado (choice, score, noul y multi) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion. Las longitudes se cuentan en BYTES UTF-8 como hace el servidor, y por eso se declaran con la extension x-max-bytes y no con maxLength (que cuenta caracteres). Presupuesto de torres: el servidor calcula como mucho max_torres_nuevas (64 por defecto) torres de esquemas nuevos POR PETICION, sumando todas sus preguntas; agotado, L2 no opina y la pregunta sube a la capa siguiente."
 servers:
   - url: http://127.0.0.1:8090
 paths:
@@ -26,6 +26,9 @@ paths:
               noul_y_score:
                 summary: Una pregunta si/no y una escala del 1 al 3
                 value: {"state":"El pedido llego roto y nadie contesta","questions":[{"id":"n1","question":"Hay una queja?","kind":"noul"},{"id":"s1","question":"Que tan urgente es?","kind":"score","options":[{"id":"1"},{"id":"2"},{"id":"3"}],"nonce":"abc-1"}]}
+              multi:
+                summary: Multietiqueta - varias opciones a la vez, cada una con su probabilidad
+                value: {"state":"Me cobraron dos veces y nadie contesta el telefono","questions":[{"id":"temas","question":"Que temas toca el mensaje?","kind":"multi","options":[{"id":"cobro","description":"Habla de un cobro"},{"id":"atencion","description":"Se queja de la atencion"},{"id":"fraude","description":"Sospecha de fraude"}]}]}
               kind_invalido:
                 value: {"state":"hola","questions":[{"id":"q1","question":"Tema?","kind":"raro","options":[{"id":"a"},{"id":"b"}]}]}
               opciones_repetidas:
@@ -44,6 +47,8 @@ paths:
               examples:
                 zero_shot:
                   value: {"results":[{"id":"intencion","kind":"choice","answer":"disputar_cobro","probs":{"cancelar_producto":0.2,"disputar_cobro":0.7,"consultar_saldo":0.1},"layer":"L2","escalate":false,"ms":3.2}]}
+                multi:
+                  value: {"results":[{"id":"temas","kind":"multi","answer":"cobro","answers":["cobro","atencion"],"probs":{"cobro":0.93,"atencion":0.81,"fraude":0.07},"layer":"L1","escalate":false,"ms":0.5}]}
                 noul_y_score:
                   value: {"results":[{"id":"n1","kind":"noul","answer":"true","probs":{"false":0.1,"true":0.9},"layer":"L0","escalate":false,"ms":0.1},{"id":"s1","kind":"score","answer":"3","probs":{"1":0.1,"2":0.2,"3":0.7},"layer":"L1","escalate":false,"ms":0.4,"nonce":"abc-1"}]}
         "400":
@@ -54,7 +59,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               examples:
                 kind_invalido:
-                  value: {"error":{"code":"invalid_kind","message":"questions[0].kind: \"raro\" no valido (choice, score o noul)","question_id":"q1"}}
+                  value: {"error":{"code":"invalid_kind","message":"questions[0].kind: \"raro\" no valido (choice, score, noul o multi)","question_id":"q1"}}
                 opciones_repetidas:
                   value: {"error":{"code":"duplicate_option_id","message":"questions[0].options[1].id: \"a\" repetido","question_id":"q1"}}
                 sin_preguntas:
@@ -88,7 +93,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "429":
-          description: Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar. Semantica de rps: el cubo cobra 1 token por peticion mas 1 por cada pregunta adicional, sin bajar de 0 (un lote valido vacia el cubo pero no deja deuda: tras esperar lo que tarde en llegar un token la clave vuelve a pasar). Con rps pequeno y lotes grandes, la tasa efectiva de preguntas es de unas rps por segundo mas la rafaga. Tambien sale como 429 con Retry-After cuando el servidor esta saturado (tope de peticiones en curso, que se toma tras leer el cuerpo)
+          description: "Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar. Semantica de rps: el cubo cobra 1 token por peticion mas 1 por cada pregunta adicional, sin bajar de 0 (un lote valido vacia el cubo pero no deja deuda: tras esperar lo que tarde en llegar un token la clave vuelve a pasar). Con rps pequeno y lotes grandes, la tasa efectiva de preguntas es de unas rps por segundo mas la rafaga. Tambien sale como 429 con Retry-After cuando el servidor esta saturado (tope de peticiones en curso, que se toma tras leer el cuerpo)"
           headers:
             Retry-After:
               description: Segundos a esperar antes de reintentar
@@ -129,7 +134,7 @@ paths:
       summary: Metricas en formato de texto Prometheus
       responses:
         "200":
-          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) recargas del modelo (chispa_recargas_total{resultado="ok"|"error"}) y, con api_keys, chispa_auth_rechazos_total y chispa_clave_peticiones_total{clave="<id>",resultado="ok"|"limitada"}. Con la opcion ConMetricasProtegidas del servidor pide Authorization Bearer con el admin_token o una clave de API (401 unauthorized si no); por defecto sigue abierto. Sin clave de API (publico)
+          description: "Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) recargas del modelo (chispa_recargas_total{resultado=\"ok\"|\"error\"}) y, con api_keys, chispa_auth_rechazos_total y chispa_clave_peticiones_total{clave=\"<id>\",resultado=\"ok\"|\"limitada\"}. Con la opcion ConMetricasProtegidas del servidor pide Authorization Bearer con el admin_token o una clave de API (401 unauthorized si no); por defecto sigue abierto. Sin clave de API (publico)"
           content:
             text/plain:
               schema:
@@ -223,11 +228,11 @@ components:
           description: Max max_texto BYTES UTF-8 (x-max-bytes), no caracteres; con tildes y enes un caracter ocupa 2 bytes o mas.
         kind:
           type: string
-          enum: [choice, score, noul]
+          enum: [choice, score, noul, multi]
         options:
           type: array
           maxItems: 256
-          description: "choice y score: al menos 2, con id unico (max_opciones). En score los ids son libres para L0 y L1; la cabeza CORAL de L2 solo opina si son \"1\"..\"K\" en orden. noul: opcional; si va, solo los ids false y true."
+          description: "choice, score y multi: al menos 2, con id unico (max_opciones). En multi cada opcion es un si/no independiente: la lista de opciones es el vocabulario de etiquetas, que pueden darse varias a la vez o ninguna. En score los ids son libres para L0 y L1; la cabeza CORAL de L2 solo opina si son \"1\"..\"K\" en orden. noul: opcional; si va, solo los ids false y true."
           items:
             $ref: "#/components/schemas/Option"
         nonce:
@@ -246,7 +251,7 @@ components:
         description:
           type: string
           x-max-bytes: 4096
-          description: Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion. Ojo: si el modelo trae torres precalculadas (ESQUEMAS/CONJ), se buscan por hash(question, ids de opciones), que NO incluye description ni kind: con la misma pregunta e ids, L2 usa esas torres y no tiene en cuenta una description distinta (ver docs/03-api.md, "Qué identifica a un esquema").
+          description: "Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion. Ojo: si el modelo trae torres precalculadas (ESQUEMAS/CONJ), se buscan por hash(question, ids de opciones), que NO incluye description ni kind: con la misma pregunta e ids, L2 usa esas torres y no tiene en cuenta una description distinta (ver docs/03-api.md, \"Qué identifica a un esquema\")."
     DecideResponse:
       type: object
       additionalProperties: false
@@ -265,17 +270,25 @@ components:
           type: string
         kind:
           type: string
-          enum: [choice, score, noul]
+          enum: [choice, score, noul, multi]
         answer:
           type: string
-          description: Id de la opcion elegida, o vacio si ninguna capa opino.
+          description: "Id de la opcion elegida, o vacio si ninguna capa opino. noul: \"true\" o \"false\". score: la mediana de la distribucion. multi: la opcion activa de mayor probabilidad, o vacio si no hay ninguna activa (la lista completa va en answers)."
+        answers:
+          type: array
+          items:
+            type: string
+          description: "Solo en multi (y siempre en multi): ids de las opciones activas (p >= theta), en el orden de la pregunta; [] si ninguna. No aparece en los demas tipos."
         probs:
           type: object
+          description: "Una probabilidad por opcion, en [0,1] y calibrada. choice y score: suman 1. noul: claves false y true, suman 1. multi: cada opcion lleva su propia probabilidad de estar activa y NO suman 1. Vacio solo si escalate es true y ninguna capa opino."
           additionalProperties:
             type: number
+            minimum: 0
+            maximum: 1
         layer:
           type: string
-          description: Capa que contesto de esta API (L0, L1, L2, L3). Vale "escalar" cuando escalate es true, es decir, ninguna capa llego a su tau. El audio (A1) no entra por esta API y no aparece aqui; ver audio/README.md.
+          description: Capa que contesto de esta API (L0, L1, L2, L3). L3 es opcional (apagada por defecto), escala lo no resuelto a un LLM compatible con OpenAI configurado en el servidor y devuelve el mismo contrato, con probs normalizadas por opcion; el texto del cliente sale del servidor hacia ese endpoint. Vale "escalar" cuando escalate es true, es decir, ninguna capa llego a su tau (tambien si L3 esta apagada, no opino o fallo). El audio (A1) no entra por esta API y no aparece aqui; ver audio/README.md.
         escalate:
           type: boolean
         ms:

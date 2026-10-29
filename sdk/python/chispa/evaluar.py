@@ -223,6 +223,8 @@ def evaluar(url: str, esquema: str, datos: str, pregunta: Optional[str] = None, 
             timeout: float = 10.0, reintentos: int = 3) -> dict:
     """Lee esquema y muestra, mide contra `url` y devuelve {"metricas", "filas", "informe"}."""
     q, _ = cargar_esquema(esquema, pregunta)
+    if q.kind == "multi":
+        raise ChispaError("evaluar: las métricas de multi (F1 por opción, coincidencia exacta) todavía no están: usa chispa decidir o tu propio recuento")
     ej = [(t, _etiqueta(q, e)) for t, e in cargar_ejemplos(datos, q.id)]
     filas = medir(q, ej, Chispa(url, timeout=timeout, reintentos=reintentos), concurrencia)
     if all(f["error"] for f in filas):

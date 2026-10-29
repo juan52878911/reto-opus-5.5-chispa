@@ -68,8 +68,8 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 		if q.Kind == "" {
 			return falla("missing_kind", r+".kind: obligatorio", q.ID)
 		}
-		if q.Kind != KindChoice && q.Kind != KindScore && q.Kind != KindNoul {
-			return falla("invalid_kind", fmt.Sprintf("%s.kind: %q no válido (choice, score o noul)", r, q.Kind), q.ID)
+		if q.Kind != KindChoice && q.Kind != KindScore && q.Kind != KindNoul && q.Kind != KindMulti {
+			return falla("invalid_kind", fmt.Sprintf("%s.kind: %q no válido (choice, score, noul o multi)", r, q.Kind), q.ID)
 		}
 		if lon(q.Nonce) > l.MaxID {
 			return falla("field_too_long", fmt.Sprintf("%s.nonce: %d bytes, máximo %d", r, lon(q.Nonce), l.MaxID), q.ID)

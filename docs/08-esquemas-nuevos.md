@@ -52,7 +52,7 @@ El runtime mezcla `p = normaliza((1−w)·p_desc + w·media)` con `w = k/(k+λ)`
 - `score` en L1: la confianza es P(mediana); si la masa se reparte entre niveles lejanos, escala.
 
 ## τ de esquema nuevo (`tau_l2_esquema_nuevo`)
-`tau_l2_esquema_nuevo`, medido sobre tareas no vistas: τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Son dos puntos de la curva como guía, no una recomendación: el default no cambia (ausente = el τ de L2 de siempre) y lo decide el dueño del producto. Fuente: `model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8).
+**Default 0,846.** Medido sobre tareas no vistas (`model/l2/resultados/barrido-20261029/LEEME.md`, rama de modelos; G.8b, checkpoint de G.8): τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Se eligió 0,846 como default por prudente: ante un esquema que L2 no ha visto, prefiere escalar a acertar a medias (decisión del dueño del producto); 0,276 queda como alternativa si se prioriza no escalar. Prioridad: `-config` > `tau_l2_esquema_nuevo` de `CALIB` > 0,846. Para volver al comportamiento anterior (L2 usa su τ de siempre), `"tau_l2_esquema_nuevo_apagado": true` en `-config` (ignora también el de `CALIB`; junto con un τ es error). En móvil, `SinTauEsquemaNuevo(true)` en el motor antes de construir la cascada.
 
 ## Qué falta
 1. **El ONNX real de la torre.** En esta base `model/l2/exportar.py` solo exporta el lado de la consulta; no hay exportador de la torre (e5 de pasaje + `Torre`) ni paridad medida contra PyTorch. Sin medir. (`server/torre/README.md` cita `model/l2/contrato-torre.md`, que no está en el repo.)

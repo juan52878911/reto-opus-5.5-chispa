@@ -55,7 +55,7 @@ Los valores de `answer` y `probs` dependen de tu modelo.
 | `dormir` | `setTimeout` | para pruebas: recibe los ms de espera entre reintentos |
 
 - `await chispa.decidir(estado, preguntas, { nonce })` → `Resultado[]` en el orden de `preguntas`. `Pregunta` es
-  `{ id, question, kind: "choice" | "score" | "noul", options?: [{ id, description? }], nonce? }`;
+  `{ id, question, kind: "choice" | "score" | "noul" | "multi", options?: [{ id, description? }], nonce? }`;
   `Resultado` es `{ id, kind, answer, probs, layer, escalate, ms, nonce? }`.
 - `await chispa.salud()` → `true` si `/healthz` dice `ok`; `false` ante cualquier fallo (no lanza, sin reintentos).
 
@@ -99,7 +99,7 @@ catch (e) {
 
 Antes de enviar, el cliente comprueba los límites del OpenAPI **en bytes UTF-8** (una `ñ` o una tilde pesan 2 bytes): `state` 262144,
 `id`, `nonce` e ids de opción 256, `question` y `description` 4096, 256 preguntas y 256 opciones; ids únicos; al menos 2 opciones en
-`choice` y `score`; en `noul` solo `false` y `true`. Falla con el mismo `codigo` que daría el servidor y `status: 0`, sin tocar la red.
+`choice`, `score` y `multi`; en `noul` solo `false` y `true`. Falla con el mismo `codigo` que daría el servidor y `status: 0`, sin tocar la red.
 Todo o nada, como el servidor.
 
 ## Pruebas

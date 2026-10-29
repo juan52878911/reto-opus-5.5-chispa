@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Union
 
-KINDS = ("choice", "noul", "score")
+KINDS = ("choice", "noul", "score", "multi")
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ def _opciones(ops: Sequence[Union[str, Opcion, tuple, dict]]) -> List[Opcion]:
 
 @dataclass(frozen=True)
 class Pregunta:
-    """Una pregunta; usa `Choice`, `Noul` o `Score`."""
+    """Una pregunta; usa `Choice`, `Noul`, `Score` o `Multi`."""
     id: str
     question: str
     kind: str
@@ -61,6 +61,16 @@ def Choice(id: str, question: str, options, nonce: Optional[str] = None) -> Preg
     return Pregunta(id, question, "choice", tuple(ops), nonce)
 
 
+def Multi(id: str, question: str, options, nonce: Optional[str] = None) -> Pregunta:
+    """Multietiqueta: varias opciones a la vez (o ninguna). Cada opción es un sí/no independiente con su probabilidad; ≥ 2 con `id` único."""
+    ops = _opciones(options)
+    if len(ops) < 2:
+        raise ValueError("multi necesita ≥ 2 opciones")
+    if len({o.id for o in ops}) != len(ops):
+        raise ValueError("multi: ids de opción repetidos")
+    return Pregunta(id, question, "multi", tuple(ops), nonce)
+
+
 def Noul(id: str, question: str, nonce: Optional[str] = None) -> Pregunta:
     """Pregunta booleana: la respuesta es `"true"` o `"false"`."""
     return Pregunta(id, question, "noul", (), nonce)
@@ -77,18 +87,19 @@ def Score(id: str, question: str, niveles: int, nonce: Optional[str] = None) -> 
 class Resultado:
     id: str
     kind: str
-    answer: str  # "" si ninguna capa opinó
-    probs: Dict[str, float] = field(default_factory=dict)
+    answer: str  # "" si ninguna capa opinó; en multi, la opción activa de mayor probabilidad ("" si no hay ninguna activa)
+    probs: Dict[str, float] = field(default_factory=dict)  # una por opción; suman 1 salvo en multi (cada opción, la suya)
     layer: str = ""
     escalate: bool = False
     ms: float = 0.0
     nonce: Optional[str] = None
+    answers: Optional[List[str]] = None  # solo en multi: las opciones activas (p ≥ θ), en el orden de la pregunta; [] si ninguna
 
     @classmethod
     def de_json(cls, d: dict) -> "Resultado":
         return cls(id=d["id"], kind=d["kind"], answer=d.get("answer", ""), probs=dict(d.get("probs") or {}),
                    layer=d.get("layer", ""), escalate=bool(d.get("escalate", False)), ms=float(d.get("ms", 0.0)),
-                   nonce=d.get("nonce"))
+                   nonce=d.get("nonce"), answers=list(d["answers"]) if d.get("answers") is not None else None)
 
     @property
     def verdadero(self) -> Optional[bool]:

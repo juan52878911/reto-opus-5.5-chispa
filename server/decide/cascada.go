@@ -2,22 +2,42 @@ package decide
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
 
 // Resultado es la decisión final de una pregunta.
 type Resultado struct {
-	ID       string             `json:"id"`
-	Kind     string             `json:"kind"`
-	Answer   string             `json:"answer"`
-	Probs    map[string]float64 `json:"probs"`
-	Layer    string             `json:"layer"`
-	Escalate bool               `json:"escalate"`
-	Ms       float64            `json:"ms"`
-	Nonce    string             `json:"nonce,omitempty"`
+	ID     string             `json:"id"`
+	Kind   string             `json:"kind"`
+	Answer string             `json:"answer"`
+	Probs  map[string]float64 `json:"probs"`
+	// Answers: solo en multi, las opciones activas (puede ir vacía); en los demás tipos no sale.
+	Answers  []string `json:"answers,omitempty"`
+	Layer    string   `json:"layer"`
+	Escalate bool     `json:"escalate"`
+	Ms       float64  `json:"ms"`
+	Nonce    string   `json:"nonce,omitempty"`
 	// Incompleto: una capa falló o el ctx se canceló; no debe guardarse bajo un nonce.
 	Incompleto bool `json:"-"`
+}
+
+// MarshalJSON añade «answers» solo en multi (y siempre, aunque vacía: [] = ninguna opción activa).
+func (r Resultado) MarshalJSON() ([]byte, error) {
+	type plano Resultado // sin métodos: evita la recursión
+	out := struct {
+		plano
+		Answers *[]string `json:"answers,omitempty"`
+	}{plano: plano(r)}
+	if r.Kind == KindMulti {
+		a := r.Answers
+		if a == nil {
+			a = []string{}
+		}
+		out.Answers = &a
+	}
+	return json.Marshal(out)
 }
 
 // CapaEscalar es el valor de «layer» cuando ninguna capa acepta: no contestó ninguna, así que no se atribuye a la última.
@@ -108,7 +128,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			if r.EsquemaNuevo {
 				c.met.EsquemaNuevoDecididas.Add(1)
 			}
-			res.Answer, res.Probs, res.Layer = r.Answer, r.Probs, l.d.Nombre()
+			res.Answer, res.Answers, res.Probs, res.Layer = r.Answer, r.Answers, r.Probs, l.d.Nombre()
 			c.met.Decidida(res.Layer, false)
 			res.Ms = ms(time.Since(t0))
 			return res
@@ -116,7 +136,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	}
 	res.Escalate = true
 	res.Layer = CapaEscalar
-	res.Answer = mejor.Answer
+	res.Answer, res.Answers = mejor.Answer, mejor.Answers
 	if mejor.Probs != nil {
 		res.Probs = mejor.Probs
 	}

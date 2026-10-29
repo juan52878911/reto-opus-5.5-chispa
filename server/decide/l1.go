@@ -15,7 +15,7 @@ const tDefecto = 0.05
 
 // L1 es el embedding estático (Model2Vec en Go puro): puntúa cada opción por
 // coseno entre el mensaje y «pregunta · opción · descripción». choice: softmax
-// del coseno / T; noul: σ(a·coseno + b) con el umbral θ; score: el mismo softmax
+// del coseno / T; noul: σ(a·coseno + b) con el umbral θ; multi: esa misma sigmoide por opción (CALIB «multi», θ por opción en «multi#id»); score: el mismo softmax
 // sobre los niveles (en el orden de la pregunta) y la respuesta es la mediana de
 // esa distribución, con confianza P(mediana).
 type L1 struct {
@@ -150,6 +150,9 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	}
 	if p.Kind == KindScore {
 		return respuestaScore(p, sims, l.paramsScore().T), nil
+	}
+	if p.Kind == KindMulti { // cada opción, un sí/no sobre su propia similitud
+		return respuestaMulti(p, sims, l.calib), nil
 	}
 	return respuestaSoftmax(p, sims, l.params("choice").T), nil
 }

@@ -386,7 +386,14 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 	if l1, ok := capaL1.(interface{ ConCacheBytes(int) *decide.L1 }); ok {
 		l1.ConCacheBytes(cfg.CacheEsquemasMB)
 	}
-	casc, err := decide.NuevaCascadaConTauNuevo(cfg.Capas, []decide.Decisor{l0, capaL1, capaL2, decide.NuevoL3()}, met, cfg.TauL2EsquemaNuevo)
+	capaL3, err := cfg.DecisorL3()
+	if err != nil {
+		if cerrar != nil {
+			cerrar()
+		}
+		return nil, err
+	}
+	casc, err := decide.NuevaCascadaConTauNuevo(cfg.CapasEfectivas(), []decide.Decisor{l0, capaL1, capaL2, capaL3}, met, cfg.TauL2EsquemaNuevo)
 	if err != nil {
 		if cerrar != nil {
 			cerrar()

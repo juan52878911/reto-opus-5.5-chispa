@@ -47,8 +47,8 @@ Los valores de `Answer` y `Probs` dependen de tu modelo.
 - `Decidir(ctx, estado, preguntas, *DecidirOpts) ([]Resultado, error)`: resultados en el orden de `preguntas`. `opts` puede ser `nil`;
   `DecidirOpts{Nonce}` da nonce a las preguntas que no traen uno (tal cual con una; `nonce:id` con varias).
 - `Salud(ctx) error`: `nil` si `/healthz` dice `ok`. Sin reintentos.
-- Tipos: `Pregunta{ID, Texto, Kind, Opciones, Nonce}`, `Opcion{ID, Description}`, `Resultado{ID, Kind, Answer, Probs, Layer, Escalate, MS, Nonce}`;
-  `KindChoice`, `KindScore`, `KindNoul`.
+- Tipos: `Pregunta{ID, Texto, Kind, Opciones, Nonce}`, `Opcion{ID, Description}`, `Resultado{ID, Kind, Answer, Answers (solo multi), Probs, Layer, Escalate, MS, Nonce}`;
+  `KindChoice`, `KindScore`, `KindNoul`, `KindMulti`.
 - `ConAPIKey("…")` añade `Authorization: Bearer …` a todas las llamadas, por si el servidor la pide.
 
 ## Errores

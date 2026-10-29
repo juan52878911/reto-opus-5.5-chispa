@@ -60,23 +60,44 @@ type respuesta struct {
 	Conf   float64            `json:"conf"`
 	Probs  map[string]float64 `json:"probs"`
 	Error  string             `json:"error,omitempty"`
+	// Multi: la respuesta es de una pregunta multi; entonces «answers» sale siempre (las opciones activas, [] si ninguna).
+	Multi   bool     `json:"-"`
+	Answers []string `json:"-"`
+}
+
+// MarshalJSON añade «answers» solo en multi (como Resultado en server/decide).
+func (r respuesta) MarshalJSON() ([]byte, error) {
+	type plano respuesta // sin métodos: evita la recursión
+	out := struct {
+		plano
+		Answers *[]string `json:"answers,omitempty"`
+	}{plano: plano(r)}
+	if r.Multi && r.Opina {
+		a := r.Answers
+		if a == nil {
+			a = []string{}
+		}
+		out.Answers = &a
+	}
+	return json.Marshal(out)
 }
 
 // Chispa es un .chispa v3 abierto.
 type Chispa struct {
-	f       *chispa3.Fichero
-	e       embebedor
-	l0      []modeloL0
-	esq     *chispa3.Esquemas
-	calib   chispa3.Calib
-	tieneL2 bool
-	maxLenQ int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
-	conj    *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
-	tok     *tok.Tokenizador   // tokenizador de e5, o nil
-	torre   *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
-	dyn     map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
-	dynUso  map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
-	dynTic  uint64
+	f           *chispa3.Fichero
+	e           embebedor
+	l0          []modeloL0
+	esq         *chispa3.Esquemas
+	calib       chispa3.Calib
+	tieneL2     bool
+	sinTauNuevo bool               // SinTauEsquemaNuevo(true): TauL2EsquemaNuevo devuelve −1 (L2 usa su τ de siempre)
+	maxLenQ     int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
+	conj        *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
+	tok         *tok.Tokenizador   // tokenizador de e5, o nil
+	torre       *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
+	dyn         map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
+	dynUso      map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
+	dynTic      uint64
 
 	sopl        *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
 	lambdaL1    *float64       // λ del encogimiento del soporte en L1; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
@@ -324,14 +345,26 @@ func (c *Chispa) TauL2c() float64 {
 	return *c.calib.TauL2c
 }
 
-// TauL2EsquemaNuevo es el τ de CALIB para L2 cuando la pregunta no está en ESQUEMAS (torre al vuelo); −1 si el fichero no lo trae
-// (L2 usa entonces TauEscalate, o TauL2c con CONJ). La cascada de Kotlin/Swift decide qué τ aplica.
+// TauL2EsquemaNuevoPorDefecto: τ de L2 para esquemas nuevos cuando CALIB no trae tau_l2_esquema_nuevo. Punto prudente medido sobre
+// tareas no vistas: precisión 0,95 con ~97 % de escalado (el otro punto medido, 0,276, escala ≤ 20 % con precisión ~0,53).
+const TauL2EsquemaNuevoPorDefecto = 0.846
+
+// TauL2EsquemaNuevo es el τ efectivo de L2 cuando la pregunta no está en ESQUEMAS (torre al vuelo): el de CALIB si lo trae y, si no,
+// TauL2EsquemaNuevoPorDefecto (0,846). Devuelve −1 solo tras SinTauEsquemaNuevo(true): sin τ propio, L2 usa TauEscalate (o TauL2c con
+// CONJ). La cascada de Kotlin/Swift lee este valor al construirse, así que SinTauEsquemaNuevo debe llamarse antes.
 func (c *Chispa) TauL2EsquemaNuevo() float64 {
-	if c.calib.TauL2EsquemaNuevo == nil {
+	if c.sinTauNuevo {
 		return -1
+	}
+	if c.calib.TauL2EsquemaNuevo == nil {
+		return TauL2EsquemaNuevoPorDefecto
 	}
 	return *c.calib.TauL2EsquemaNuevo
 }
+
+// SinTauEsquemaNuevo(true) vuelve al comportamiento anterior al default: sin τ propio para esquemas nuevos, ignorando también el de
+// CALIB (como `tau_l2_esquema_nuevo_apagado` en el servidor). Con false se restablece la prioridad CALIB > default.
+func (c *Chispa) SinTauEsquemaNuevo(apagar bool) { c.sinTauNuevo = apagar }
 
 func salida(r respuesta) string {
 	b, _ := json.Marshal(r)
@@ -365,9 +398,9 @@ func leerPregunta(js string) (pregunta, error) {
 
 func comprobarPregunta(p *pregunta) error {
 	switch p.Kind {
-	case "choice", "noul", "score":
+	case "choice", "noul", "score", "multi":
 	case "":
-		return errors.New("kind: obligatorio (choice, score o noul)")
+		return errors.New("kind: obligatorio (choice, score, noul o multi)")
 	default:
 		return fmt.Errorf("kind no válido: %q", p.Kind)
 	}
@@ -388,7 +421,7 @@ const (
 	maxIDByte    = 256
 )
 
-// validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score con ≥2 opciones, noul solo
+// validarPregunta aplica las reglas de server/decide (validarPeticion): choice/score/multi con ≥2 opciones, noul solo
 // {false,true} (vacío → por defecto), ids de opción no vacíos ni repetidos, y MaxOpciones.
 func validarPregunta(p *pregunta) error {
 	if p.Texto == "" {
@@ -401,7 +434,7 @@ func validarPregunta(p *pregunta) error {
 		return fmt.Errorf("nonce: más de %d bytes", maxIDByte)
 	}
 	switch p.Kind {
-	case "choice", "score":
+	case "choice", "score", "multi":
 		if len(p.Opciones) < 2 {
 			return fmt.Errorf("%s necesita al menos 2 opciones", p.Kind)
 		}
@@ -529,6 +562,9 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 	if p.Kind == "score" {
 		return salida(puntuarNiveles(p, sims, c.tScore()))
 	}
+	if p.Kind == "multi" {
+		return salida(c.multi(p, sims))
+	}
 	return salida(softmax(p, sims, c.params("choice").T))
 }
 
@@ -579,6 +615,42 @@ func softmax(p pregunta, sims []float64, T float64) respuesta {
 	return r
 }
 
+// paramsMulti son (a, b, θ) de una opción de multi: CALIB «multi#<id>», si no «multi» y si no la de «noul» (como server/decide/multi.go).
+func (c *Chispa) paramsMulti(id string) chispa3.ParamsTipo {
+	if p, ok := c.calib.Tipos["multi#"+id]; ok {
+		return p
+	}
+	if p, ok := c.calib.Tipos["multi"]; ok {
+		return p
+	}
+	return c.params("noul")
+}
+
+// multi: cada opción es un sí/no con su σ(a·s + b) y su θ; answers son las activas, probs la p de cada una (no suman 1) y conf la de la
+// opción más dudosa (min de p si activa, 1−p si no), como server/decide.respuestaMulti.
+func (c *Chispa) multi(p pregunta, s []float64) respuesta {
+	r := respuesta{Ok: true, Opina: true, Multi: true, Probs: make(map[string]float64, len(s)), Answers: []string{}, Conf: 1}
+	var top float64
+	for i, o := range p.Opciones {
+		prm := c.paramsMulti(o.ID)
+		pr := 1 / (1 + math.Exp(-(prm.A*s[i] + prm.B)))
+		r.Probs[o.ID] = pr
+		cf := 1 - pr
+		if pr >= prm.Theta {
+			cf = pr
+			r.Answers = append(r.Answers, o.ID)
+			if pr > top {
+				top, r.Answer = pr, o.ID
+			}
+		}
+		r.Conf = math.Min(r.Conf, cf)
+	}
+	if !(r.Conf > 0) {
+		r.Conf = math.SmallestNonzeroFloat64
+	}
+	return r
+}
+
 func noul(z, theta float64) respuesta {
 	pt := 1 / (1 + math.Exp(-z))
 	r := respuesta{Ok: true, Probs: map[string]float64{"true": pt, "false": 1 - pt}}
@@ -609,6 +681,9 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 	if err != nil {
 		return fallo(err)
 	}
+	if p.Kind == "multi" { // L0 es multiclase (probs que suman 1): no da una p por opción, no opina en multi
+		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
+	}
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
@@ -619,16 +694,31 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 			continue
 		}
 		if x.tf != nil {
-			return salida(respuestaTF(x.tf, texto))
+			return salida(ordinal(p, respuestaTF(x.tf, texto)))
 		}
 		pred := x.m.PredictFull(chispa.Input{Text: texto}, 0)
 		probs := make(map[string]float64, len(pred.Probs))
 		for _, cp := range pred.Probs {
 			probs[cp.Label] = cp.Prob
 		}
-		return salida(respuesta{Ok: true, Opina: pred.Prob > 0, Answer: pred.Label, Conf: pred.Prob, Probs: probs})
+		return salida(ordinal(p, respuesta{Ok: true, Opina: pred.Prob > 0, Answer: pred.Label, Conf: pred.Prob, Probs: probs}))
 	}
 	return salida(respuesta{Ok: true, Probs: map[string]float64{}})
+}
+
+// ordinal: en score la respuesta de L0 es la mediana de la distribución (como L1, L2 y server/decide/l0.go), no el argmax.
+func ordinal(p pregunta, r respuesta) respuesta {
+	if p.Kind != "score" || r.Conf == 0 {
+		return r
+	}
+	var acc float64
+	for _, o := range p.Opciones {
+		if acc += r.Probs[o.ID]; acc >= 0.5 {
+			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
+			break
+		}
+	}
+	return r
 }
 
 // respuestaTF: las probabilidades del TF-IDF con regresión logística; la respuesta es el primer máximo, como en
@@ -711,35 +801,49 @@ type torreL2 struct {
 }
 
 func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
-	buscar := func(ops []string) (torreL2, bool) {
-		v, e, ok := c.esq.Buscar(chispa3.HashEsquema(p.Texto, ops))
+	// La clave la elige la versión de ESQUEMAS (HashEsquema en v1, HashEsquema2 en v2: con v2 otra descripción u otro kind
+	// es otro esquema y sus torres las instala la app).
+	buscar := func(ops []opcion) (torreL2, bool) {
+		v, e, ok := c.esq.BuscarEsquema(p.Texto, p.Kind, clavesDe(ops))
 		return torreL2{v, e}, ok
 	}
 	var ts []torreL2
 	switch p.Kind {
-	case "choice":
+	case "choice", "multi": // una torre por opción
 		for _, o := range p.Opciones {
-			t, ok := buscar([]string{o.ID})
+			t, ok := buscar([]opcion{o})
 			if !ok {
 				return c.torresNuevas(p)
 			}
 			ts = append(ts, t)
 		}
 	default:
-		ids := make([]string, len(p.Opciones))
-		for i, o := range p.Opciones {
-			ids[i] = o.ID
-		}
+		ops := p.Opciones
 		if p.Kind == "noul" {
-			ids = []string{"false", "true"}
+			ops = []opcion{{ID: "false"}, {ID: "true"}}
+			for _, o := range p.Opciones {
+				for i := range ops {
+					if o.ID == ops[i].ID {
+						ops[i].Description = o.Description
+					}
+				}
+			}
 		}
-		t, ok := buscar(ids)
+		t, ok := buscar(ops)
 		if !ok {
 			return c.torresNuevas(p)
 		}
 		ts = []torreL2{t}
 	}
 	return ts, nil
+}
+
+func clavesDe(ops []opcion) []chispa3.OpcionClave {
+	out := make([]chispa3.OpcionClave, len(ops))
+	for i, o := range ops {
+		out[i] = chispa3.OpcionClave{ID: o.ID, Descripcion: o.Description}
+	}
+	return out
 }
 
 // ranurasDe lee las ranuras K×d float32 little endian que salen del ONNX.
@@ -801,6 +905,8 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	case "noul":
 		prm := c.params("noul")
 		return salida(noul(prm.A*sims[0]+prm.B, prm.Theta))
+	case "multi":
+		return salida(c.multi(p, sims))
 	}
 	return salida(c.score(p, sims[0]))
 }
@@ -832,6 +938,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		sup[j] = 1 / (1 + math.Exp(-(base.A*s - b)))
 	}
 	r := respuesta{Ok: true, Probs: make(map[string]float64, K)}
+	var suma float64
 	for i := 0; i < K; i++ {
 		hi, lo := 1.0, 0.0
 		if i > 0 {
@@ -840,7 +947,12 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		if i < K-1 {
 			lo = sup[i]
 		}
-		r.Probs[p.Opciones[i].ID] = math.Max(hi-lo, 0)
+		d := math.Max(hi-lo, 0)
+		r.Probs[p.Opciones[i].ID] = d
+		suma += d
+	}
+	for id, d := range r.Probs { // acumuladas no monótonas: las diferencias recortadas suman > 1; se normaliza (como el servidor)
+		r.Probs[id] = d / suma
 	}
 	// Mediana CORAL: nivel 1 + número de umbrales con P(y > j) > 0,5 (como L1 y el servidor).
 	k := 0
@@ -897,7 +1009,7 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
 	}
-	e, ok := c.conj.Buscar(chispa3.ClaveConj(p.Texto, ids))
+	e, ok := c.conj.BuscarEsquema(p.Texto, p.Kind, clavesDe(p.Opciones)) // clave de la versión de CONJ
 	if !ok {
 		return sinOpinar
 	}

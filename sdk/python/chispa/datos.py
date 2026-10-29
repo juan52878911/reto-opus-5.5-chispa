@@ -21,9 +21,22 @@ def _pick(fila: dict, nombres, donde: str):
     raise ChispaError(f"{donde}: falta la columna {' | '.join(nombres)}")
 
 
-def cargar_ejemplos(ruta, pregunta_id: Optional[str] = None) -> List[Tuple[str, str]]:
+SEP_MULTI = "|"
+
+
+def etiquetas_multi(v) -> Tuple[str, ...]:
+    """Las etiquetas de un ejemplo multietiqueta: «a|b» (o una lista JSON) → ("a", "b"); vacío = ninguna. Sin repetidas, en orden."""
+    if isinstance(v, (list, tuple)):
+        partes = [str(x).strip() for x in v]
+    else:
+        partes = [x.strip() for x in str(v or "").split(SEP_MULTI)]
+    return tuple(dict.fromkeys(p for p in partes if p))
+
+
+def cargar_ejemplos(ruta, pregunta_id: Optional[str] = None, multi: bool = False) -> List[Tuple[str, str]]:
     """[(texto, etiqueta)]. CSV (con cabecera) o JSONL; columnas `texto|text` y `etiqueta|label`. Con una columna
-    `pregunta`, se queda con las filas de `pregunta_id`."""
+    `pregunta`, se queda con las filas de `pregunta_id`. Con `multi=True` la etiqueta es una tupla: las etiquetas separadas por
+    `|` en el CSV (o una lista en el JSONL); la celda vacía es «ninguna etiqueta»."""
     p = Path(ruta)
     filas = []
     with open(p, encoding="utf-8-sig", newline="") as f:
@@ -42,7 +55,13 @@ def cargar_ejemplos(ruta, pregunta_id: Optional[str] = None) -> List[Tuple[str, 
             raise ChispaError(f"{donde}: se esperaba un objeto")
         if pregunta_id and r.get("pregunta") not in (None, "", pregunta_id) and "pregunta" in r:
             continue
-        out.append((_pick(r, _TEXTO, donde), _pick(r, _ETIQ, donde)))
+        if multi:
+            col = next((n for n in _ETIQ if n in r), None)
+            if col is None:
+                raise ChispaError(f"{donde}: falta la columna {' | '.join(_ETIQ)}")
+            out.append((_pick(r, _TEXTO, donde), etiquetas_multi(r[col])))
+        else:
+            out.append((_pick(r, _TEXTO, donde), _pick(r, _ETIQ, donde)))
     if not out:
         raise ChispaError(f"{p}: sin ejemplos")
     return out
@@ -98,6 +117,8 @@ def cargar_esquema(ruta, pregunta_id: Optional[str] = None) -> Tuple[Pregunta, d
     ids = [o.id for o in lista]
     if len(ids) < 2 or len(set(ids)) != len(ids):
         raise ChispaError("esquema: ≥ 2 opciones con id único")
+    if kind == "multi" and any(SEP_MULTI in i for i in ids):
+        raise ChispaError(f"esquema: en multi los ids no pueden llevar «{SEP_MULTI}» (separa las etiquetas de los ejemplos)")
     if kind == "noul" and sorted(ids) != ["false", "true"]:
         raise ChispaError("esquema: noul solo admite las opciones false y true")
     return Pregunta(str(d["id"]), str(d["pregunta"]), kind, tuple(lista)), extra
@@ -112,4 +133,15 @@ def validar(ejemplos, q: Pregunta) -> Counter:
     faltan = sorted(ids - set(cuenta))
     if faltan:
         raise ChispaError(f"opciones sin ningún ejemplo: {faltan}")
+    return cuenta
+
+
+def validar_multi(ejemplos, q: Pregunta) -> Counter:
+    """Cuenta los ejemplos positivos de cada opción (puede haber opciones con 0: en multi no es un error). Las etiquetas deben ser opciones."""
+    ids = {o.id for o in q.options}
+    desconocidas = Counter(e for _, es in ejemplos for e in es if e not in ids)
+    if desconocidas:
+        raise ChispaError(f"etiquetas que no son opciones del esquema: {dict(desconocidas.most_common(5))}")
+    cuenta = Counter({i: 0 for i in ids})
+    cuenta.update(e for _, es in ejemplos for e in es)
     return cuenta

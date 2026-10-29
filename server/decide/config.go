@@ -43,10 +43,20 @@ type Config struct {
 	L1ShrinkageLambda  *float64 `json:"l1_shrinkage_lambda,omitempty"`
 	L1ShrinkageApagado bool     `json:"l1_shrinkage_apagado,omitempty"`
 	L2ShrinkageLambda  *float64 `json:"l2_shrinkage_lambda,omitempty"`
-	// τ de L2 solo para preguntas cuyas torres no estaban en ESQUEMAS (salieron al vuelo). Ausente (nil) = el τ de L2 de siempre.
-	// Si viene aquí, manda sobre el tau_l2_esquema_nuevo de CALIB; si no, se usa el de CALIB aunque haya -config.
-	TauL2EsquemaNuevo *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
+	// τ de L2 solo para preguntas cuyas torres no estaban en ESQUEMAS (salieron al vuelo).
+	// Prioridad: config > tau_l2_esquema_nuevo de CALIB (se usa aunque haya -config) > TauL2EsquemaNuevoPorDefecto (0,846).
+	// Para volver al comportamiento de antes (sin τ propio: L2 usa su τ de siempre) `"tau_l2_esquema_nuevo_apagado": true`, que
+	// ignora también el de CALIB; mismo patrón que l1_shrinkage_apagado (un booleano, porque null y ausente no se distinguen).
+	// Apagado junto con un τ es error.
+	TauL2EsquemaNuevo        *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
+	TauL2EsquemaNuevoApagado bool     `json:"tau_l2_esquema_nuevo_apagado,omitempty"`
+	// L3 (opcional): escalado a un LLM compatible con OpenAI; ver ConfigL3. Ausente = apagada. Exige una capa "L3" en capas.
+	L3 *ConfigL3 `json:"l3,omitempty"`
 }
+
+// TauL2EsquemaNuevoPorDefecto: τ de L2 para esquemas nuevos cuando ni la config ni CALIB lo dicen. Punto prudente medido sobre
+// tareas no vistas: precisión 0,95 con ~97 % de escalado (el otro punto medido, 0,276, escala ≤ 20 % con precisión ~0,53).
+const TauL2EsquemaNuevoPorDefecto = 0.846
 
 // L1ShrinkageLambdaPorDefecto: λ de L1 cuando la config no lo dice (G.8b: massive 0,395 vs 0,266; inyecciones 0,740 vs 0,326;
 // hatecheck 0,492 vs 0,224; JevBench 0,379 vs 0,398). Sin SOPL1 en el .chispa no tiene efecto.
@@ -128,6 +138,9 @@ func (c Config) Validar() error {
 	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
 		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)
 	}
+	if c.TauL2EsquemaNuevoApagado && c.TauL2EsquemaNuevo != nil {
+		return fmt.Errorf("config: tau_l2_esquema_nuevo_apagado y tau_l2_esquema_nuevo a la vez; elige uno")
+	}
 	if c.L1ShrinkageApagado && c.L1ShrinkageLambda != nil {
 		return fmt.Errorf("config: l1_shrinkage_apagado y l1_shrinkage_lambda a la vez; elige uno")
 	}
@@ -148,6 +161,14 @@ func (c Config) Validar() error {
 	if h := c.AdminTokenSHA256; h != "" {
 		if b, err := hex.DecodeString(h); err != nil || len(b) != sha256.Size {
 			return fmt.Errorf("config: admin_token_sha256 debe ser un SHA-256 en hex de 64 caracteres (use chispa-server -hash-clave)")
+		}
+	}
+	if c.L3 != nil {
+		if err := c.L3.validar(); err != nil {
+			return err
+		}
+		if !seen["L3"] {
+			return fmt.Errorf("config: l3 está configurada pero falta la capa \"L3\" en capas")
 		}
 	}
 	if err := validarClaves(c.APIKeys); err != nil {
