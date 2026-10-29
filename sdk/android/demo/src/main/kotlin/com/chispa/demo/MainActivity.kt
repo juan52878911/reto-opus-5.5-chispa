@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.ViewGroup
+import android.content.Intent
+import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -35,6 +37,10 @@ class MainActivity : Activity() {
             setPadding(32, 32, 32, 32)
             addView(caja, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             addView(salida)
+            addView(Button(this@MainActivity).apply {
+                text = "Medir"
+                setOnClickListener { startActivity(Intent(this@MainActivity, MedirActivity::class.java)) }
+            })
         })
 
         try {

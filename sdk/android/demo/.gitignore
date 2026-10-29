@@ -1,0 +1,4 @@
+# Modelos y tokenizador: no se commitean (se copian al teléfono; ver MEDIR.md).
+src/main/assets/*.chispa
+src/main/assets/*.chispa-tok
+src/main/assets/esquema.json
