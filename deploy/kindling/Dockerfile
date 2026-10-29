@@ -10,10 +10,13 @@
 #   ORT_SHA256_X64 / ORT_SHA256_AARCH64 (sha256 del .tgz de la release de ORT; imagen-ort)
 ARG GO_VERSION=1.27
 ARG ORT_VERSION=1.31.1
-ARG GO_DIGEST=
-ARG DEBIAN_DIGEST=
-ARG ORT_SHA256_X64=
-ARG ORT_SHA256_AARCH64=
+# Sin BuildKit (docker build clásico, sin buildx) las variables automáticas llegan vacías: estos valores solo cubren ese caso;
+# BuildKit/buildx los sustituye por los suyos.
+ARG BUILDPLATFORM=linux/amd64
+ARG GO_DIGEST=sha256:d9b6a1beb9474adc2a1ce842573639b44b2a0dd49b6669f51d3821baf9ec37c9
+ARG DEBIAN_DIGEST=sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+ARG ORT_SHA256_X64=c849e36a1ef3e22d4ff217b9d1ce4a3cf5b9467b975610913ae959ad5b16bdc9
+ARG ORT_SHA256_AARCH64=5317505e2da99be65f8e2775ba3c2afd6d2961fd78aba1bd8f56159f48820c78
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-bookworm@${GO_DIGEST} AS cpu
 ARG TARGETOS TARGETARCH

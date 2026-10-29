@@ -1,6 +1,7 @@
 #!/bin/sh
 # Valida chispa-server como lo arrancaría la imagen (entrada.sh + sondeo), sin contenedor ni kindling.
 #   deploy/kindling/comprobar.sh [modelo.chispa]   (por defecto server/testdata/intencion.chispa)
+#   CHISPA_IMAGEN=chispa-server:ort deploy/kindling/comprobar.sh [modelo.chispa]   contra un contenedor Docker de imagen-cpu o imagen-ort
 set -eu
 RAIZ=$(cd "$(dirname "$0")/../.." && pwd)
 MODELO=${1:-$RAIZ/server/testdata/intencion.chispa}
@@ -8,6 +9,45 @@ PUERTO=${CHISPA_PUERTO:-$((20000 + $$ % 20000))}
 T=$(mktemp -d)
 trap 'kill "${PID:-}" 2>/dev/null || true; rm -rf "$T"' EXIT
 fallo() { echo "FALLO: $*" >&2; [ -f "$T/log" ] && sed 's/^/  log: /' "$T/log" >&2; exit 1; }
+
+# Modo contenedor: arranca la imagen con entrada.sh de verdad (modelo y config montados) y hace las mismas peticiones.
+if [ -n "${CHISPA_IMAGEN:-}" ]; then
+  CLAVE=clave-de-prueba
+  chmod 755 "$T"; mkdir "$T/m"; chmod 755 "$T/m"
+  cp "$MODELO" "$T/m/modelo.chispa"
+  printf '{"api_keys":[{"id":"prueba","hash_sha256":"%s","rps":10}]}\n' "$(printf %s "$CLAVE" | sha256sum | cut -d' ' -f1)" >"$T/m/config.json"
+  chmod 644 "$T/m/"*
+  NOM=chispa-comprobar-$$
+  trap 'docker rm -f "$NOM" >/dev/null 2>&1 || true; rm -rf "$T"' EXIT
+  docker run -d --name "$NOM" --stop-timeout 40 -p "127.0.0.1:$PUERTO:8090" -v "$T/m:/modelos:ro" \
+    -e CHISPA_CONFIG=/modelos/config.json "$CHISPA_IMAGEN" >/dev/null
+  ok=0
+  for _ in $(seq 1 50); do
+    [ "$(docker inspect -f '{{.State.Running}}' "$NOM")" = true ] || { docker logs "$NOM" >"$T/log" 2>&1; fallo "el contenedor murió al arrancar"; }
+    if [ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PUERTO/healthz")" = 200 ]; then ok=1; break; fi
+    sleep 0.2
+  done
+  [ "$ok" = 1 ] || fallo "/healthz no dio 200 en 10 s"
+  docker exec "$NOM" /usr/local/bin/sondeo || fallo "el sondeo del HEALTHCHECK falla dentro del contenedor"
+  echo "healthz 200 y sondeo OK en el contenedor (puerto $PUERTO)"
+  cat >"$T/req.json" <<'J'
+{"state":"Necesito cambiar la dirección de entrega de mi pedido, por favor",
+ "questions":[{"id":"q1","question":"¿Qué quiere el cliente?","kind":"choice",
+  "options":[{"id":"cambio_direccion","description":"Cambiar la dirección de entrega"},
+             {"id":"cancelar","description":"Cancelar el pedido"},
+             {"id":"queja","description":"Presentar una queja"}]}]}
+J
+  CODE=$(curl -s -o "$T/resp.json" -H "Authorization: Bearer $CLAVE" -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+    --data @"$T/req.json" "http://127.0.0.1:$PUERTO/v1/decide")
+  cat "$T/resp.json"; echo
+  [ "$CODE" = 200 ] || fallo "/v1/decide respondió HTTP $CODE"
+  grep -q '"layer"' "$T/resp.json" || fallo "respuesta sin layer"
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data @"$T/req.json" "http://127.0.0.1:$PUERTO/v1/decide")
+  [ "$CODE" = 401 ] || fallo "/v1/decide sin clave respondió HTTP $CODE, esperaba 401"
+  curl -sf "http://127.0.0.1:$PUERTO/metrics" | grep -q . || fallo "/metrics vacío"
+  echo "comprobar.sh (contenedor $CHISPA_IMAGEN): TODO OK"
+  exit 0
+fi
 
 # Contexto mínimo con lo que copian los Dockerfiles (sus líneas COPY): si falta un módulo del `replace` de
 # server/go.mod en un COPY, aquí no compila, como en `docker build`.

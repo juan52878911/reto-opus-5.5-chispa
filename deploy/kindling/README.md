@@ -1,6 +1,6 @@
 # chispa-server en una microVM de kindling
 
-Solo ficheros: nada de esto se ha lanzado ni construido aquí (sin red, y kling solo se usó con `--help`).
+Construido y arrancado con Docker 29 (amd64, builder clásico, sin buildx): `imagen-cpu` 133 MB y `imagen-ort` 221 MB (tamaño en disco). arm64 no se construyó (sin buildx). Con kling solo se leyó `--help`.
 
 ## Qué hay
 - `Dockerfile`: dos destinos. `imagen-cpu` (binario estático `CGO_ENABLED=0`, linux/amd64 y arm64, sin L2 ONNX) e
@@ -12,12 +12,16 @@ Solo ficheros: nada de esto se ha lanzado ni construido aquí (sin red, y kling 
 
 ## Construir (contexto = raíz del repo; requiere `gomod-proxy/`, igual que `server/deploy/Dockerfile`)
 `GOPROXY` es solo `file:///gomod-proxy` (`-mod=readonly`, sin `GONOSUMDB`): `gomod-proxy/` debe traer todos los módulos de `server/go.sum`.
-Rellena antes de construir (vacíos, el build falla): `--build-arg GO_DIGEST=sha256:… DEBIAN_DIGEST=sha256:…` y, para ort,
-`ORT_SHA256_X64=… ORT_SHA256_AARCH64=…` (sha256 de los `.tgz` de la release de ORT).
+Bases por digest y SHA-256 de ORT 1.31.1 ya fijados como `ARG` por defecto (x64 `c849e36a…bdc9`, aarch64 `5317505e…0c78`; el build los verifica con `sha256sum -c`).
+`gomod-proxy/` se arma desde la caché de módulos (`$(go env GOMODCACHE)/cache/download/github.com`, con kindling v0.17.0 y onnxruntime_go v1.38.0; sin `*.lock`).
+Sin buildx (builder clásico), las variables automáticas llegan vacías: pásalas a mano.
 ```
-docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-cpu -t chispa-server:cpu .
-docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-ort -t chispa-server:ort .
+docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f deploy/kindling/Dockerfile --target imagen-cpu -t chispa-server:cpu .
+docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f deploy/kindling/Dockerfile --target imagen-ort -t chispa-server:ort .
+# con buildx (no probado aquí): docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-ort -t chispa-server:ort .
 ```
+Arranque verificado: `docker run -d --stop-timeout 40 -p 127.0.0.1:8090:8090 -v DIR:/modelos:ro -e CHISPA_CONFIG=/modelos/config.json chispa-server:ort`
+(`DIR` con `modelo.chispa` y `config.json` legibles por el uid 10001), o `-e CHISPA_ABIERTO=1` sin config. `/healthz` 200 y decisión zero-shot (`layer: escalar` con `intencion.chispa`, sin L1).
 `ORT_VERSION` (1.31.1, la libonnxruntime con la que se probó; `--build-arg`) debe ser compatible con `onnxruntime_go` v1.38.0, que fija `server/go.mod`; el build no hace `go get`. Para ort, cgo compila
 en la plataforma destino (qemu o builder arm64 nativo). Para kling, una arquitectura por vez (`--load` / `--output type=oci`).
 
@@ -44,6 +48,7 @@ Nota: `-egress` por defecto es `none`; el servidor no necesita red saliente. Có
 kindling (no está en lo leído). Alternativa a la ruta de Docker: `kling image import <ref de registro>`.
 
 ## Comprobar sin kindling
+`CHISPA_IMAGEN=chispa-server:ort deploy/kindling/comprobar.sh` hace lo mismo contra un contenedor Docker de la imagen (healthz, sondeo dentro, decisión, 401 sin clave, `/metrics`) y lo borra al salir.
 `. ~/orquestador/herr/env.sh && deploy/kindling/comprobar.sh [modelo.chispa]` compila `chispa-server` y `sondeo`, arranca con
 `entrada.sh`, espera el healthcheck, comprueba que el sondeo falla sin servidor y manda una decisión zero-shot a `/v1/decide`.
 Con `server/testdata/intencion.chispa` (sin L1/L2/TORR) la respuesta correcta es escalar (`layer: escalar`): valida el contrato, no la calidad.
