@@ -60,6 +60,8 @@ export interface Limites {
   maxId: number;
   maxTexto: number;
   maxOpciones: number;
+  /** Bytes del cuerpo HTTP (max_cuerpo del servidor, 1 MiB por defecto). */
+  maxCuerpo: number;
 }
 
 export const LIMITES: Readonly<Limites>;

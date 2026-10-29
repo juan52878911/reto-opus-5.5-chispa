@@ -10,6 +10,7 @@ export const LIMITES = Object.freeze({
   maxId: 256,
   maxTexto: 4096,
   maxOpciones: 256,
+  maxCuerpo: 1048576,
 });
 
 const KINDS = ["choice", "score", "noul"];
@@ -74,11 +75,18 @@ export function validar(estado, preguntas, lim = LIMITES) {
 function validarOpciones(q, r, id, lim) {
   const ops = q.options ?? [];
   if (!Array.isArray(ops)) throw falla("invalid_options", `${r}.options: debe ser una lista`, id);
-  if (ops.length > lim.maxOpciones) {
-    throw falla("too_many_options", `${r}.options: ${ops.length}, máximo ${lim.maxOpciones}`, id);
-  }
   if (q.kind !== "noul" && ops.length < 2) {
     throw falla("too_few_options", `${r}.options: ${q.kind} necesita al menos 2 opciones`, id);
+  }
+  // como el servidor: noul admite 0 opciones o exactamente {false, true}
+  if (q.kind === "noul" && ops.length !== 0) {
+    const ids = ops.map((o) => o?.id).sort();
+    if (ops.length !== 2 || ids[0] !== "false" || ids[1] !== "true") {
+      throw falla("invalid_options", `${r}.options: noul solo admite los ids "false" y "true"`, id);
+    }
+  }
+  if (ops.length > lim.maxOpciones) {
+    throw falla("too_many_options", `${r}.options: ${ops.length}, máximo ${lim.maxOpciones}`, id);
   }
   const vistas = new Set();
   ops.forEach((o, j) => {

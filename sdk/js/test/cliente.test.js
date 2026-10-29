@@ -297,3 +297,36 @@ test("error de red: reintenta con el mismo nonce y backoff", async () => {
   assert.equal(esperas.length, 2);
   assert.ok(esperas[1] >= 100 && esperas[1] <= 200);
 });
+
+test("noul con una sola opción se rechaza en local con invalid_options", async () => {
+  const f = await falso((_q, _b, res) => json(res, 200, { results: [] }));
+  const c = new ChispaCliente({ url: f.url });
+  for (const options of [[{ id: "true" }], [{ id: "true" }, { id: "true" }], [{ id: "false" }, { id: "true" }, { id: "x" }]]) {
+    await assert.rejects(
+      c.decidir("t", [{ id: "q", question: "?", kind: "noul", options }]),
+      (e) => e instanceof ErrorChispa && e.codigo === "invalid_options" && e.status === 0,
+    );
+  }
+  assert.equal(f.vistas.length, 0);
+});
+
+test("noul acepta 0 opciones o {true,false} en cualquier orden", async () => {
+  const f = await falso((_q, b, res) => json(res, 200, { results: b.questions.map((q) => ({ id: q.id })) }));
+  const c = new ChispaCliente({ url: f.url });
+  await c.decidir("t", [
+    { id: "a", question: "?", kind: "noul" },
+    { id: "b", question: "?", kind: "noul", options: [{ id: "true" }, { id: "false" }] },
+  ]);
+  assert.equal(f.vistas.length, 1);
+});
+
+test("cuerpo mayor que maxCuerpo (1 MiB por defecto) falla en local con request_too_large", async () => {
+  const f = await falso((_q, _b, res) => json(res, 200, { results: [] }));
+  const c = new ChispaCliente({ url: f.url });
+  const options = Array.from({ length: 256 }, (_, i) => ({ id: `o${i}`, description: "x".repeat(4096) }));
+  const qs = Array.from({ length: 2 }, (_, i) => ({ id: `q${i}`, question: "?", kind: "choice", options }));
+  await assert.rejects(c.decidir("t", qs), (e) => e.codigo === "request_too_large" && e.status === 0);
+  assert.equal(f.vistas.length, 0);
+  const c2 = new ChispaCliente({ url: f.url, limites: { maxCuerpo: 100 } });
+  await assert.rejects(c2.decidir("t", [{ id: "q", question: "x".repeat(200), kind: "noul" }]), (e) => e.codigo === "request_too_large");
+});
