@@ -237,6 +237,10 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		}
 		out.Results[i] = b
 	}
+	if ctx.Err() != nil { // el plazo pudo vencer tras el último Decidir: el cliente recibe el 503 del timeout
+		s.cuentaTimeout(ctx)
+		return
+	}
 	s.Met.Peticion(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
@@ -332,21 +336,30 @@ const RetryAfterTimeout = 5
 
 // ConTimeout limita cada petición a d (cancela su ctx). Al vencer responde 503 con
 // Content-Type application/json, Retry-After y el código de error «timeout».
-func ConTimeout(h http.Handler, d time.Duration) http.Handler {
+func ConTimeout(h http.Handler, d time.Duration) http.Handler { return ConTimeoutMet(h, d, nil) }
+
+// ConTimeoutMet es ConTimeout y además cuenta cada 503 de timeout en chispa_peticiones_total{codigo="503"} (met puede ser nil).
+func ConTimeoutMet(h http.Handler, d time.Duration, met *Metricas) http.Handler {
 	cuerpo := `{"error":{"code":"timeout","message":"la petición superó el tiempo máximo"}}`
 	th := http.TimeoutHandler(h, d, cuerpo)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		th.ServeHTTP(&escrituraTimeout{ResponseWriter: w}, r)
+		th.ServeHTTP(&escrituraTimeout{ResponseWriter: w, met: met}, r)
 	})
 }
 
 // escrituraTimeout añade las cabeceras de timeout cuando http.TimeoutHandler escribe su 503.
-type escrituraTimeout struct{ http.ResponseWriter }
+type escrituraTimeout struct {
+	http.ResponseWriter
+	met *Metricas
+}
 
 func (e *escrituraTimeout) WriteHeader(status int) {
 	if status == http.StatusServiceUnavailable {
 		e.Header().Set("Content-Type", "application/json")
 		e.Header().Set("Retry-After", strconv.Itoa(RetryAfterTimeout))
+		if e.met != nil {
+			e.met.Peticion(status)
+		}
 	}
 	e.ResponseWriter.WriteHeader(status)
 }

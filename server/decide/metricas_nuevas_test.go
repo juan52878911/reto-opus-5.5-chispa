@@ -111,6 +111,7 @@ func TestMetricasEsquemaNuevo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	m.FijaTauNuevo(c.tauNuevo)
 	c.Decidir(context.Background(), Pregunta{ID: "q", Kind: KindChoice})
 	quiero(t, m, "chispa_esquema_nuevo_preguntas_total 1")
 	quiero(t, m, "chispa_esquema_nuevo_decididas_total 1")

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"log"
 	"net/http"
@@ -26,6 +27,11 @@ func main() {
 		return func() (*decide.Armado, error) { return armarModelo(met, *cfgPath, *modelo, *rutaTok) }
 	}
 	met := decide.NuevasMetricas()
+	// SIGHUP se registra antes de armar (tarda segundos): sin Notify, Go lo trataría como salida. Un HUP durante el arranque
+	// queda encolado y se atiende cuando el servidor está listo (el modelo recién armado ya es el de la config actual,
+	// así que ese primer HUP se descarta en lugar de armar dos veces).
+	sighup := make(chan os.Signal, 1)
+	signal.Notify(sighup, syscall.SIGHUP)
 	// Arranque: cualquier fallo es fatal. Recargas: el servidor conserva el modelo anterior.
 	inicial, err := armar(met)()
 	if err != nil {
@@ -33,13 +39,12 @@ func main() {
 	}
 	srv0 := decide.NuevoServidorDe(inicial, met)
 	srv0.ConRecarga(armar(met), inicial.AdminToken)
-	var handler http.Handler = srv0.Handler()
-	if *timeout > 0 {
-		handler = decide.ConTimeout(handler, *timeout)
-	}
-	sighup := make(chan os.Signal, 1)
-	signal.Notify(sighup, syscall.SIGHUP)
+	handler := montarHandler(srv0, inicial.AdminToken, *timeout, met)
 	go func() {
+		select {
+		case <-sighup: // llegó durante el arranque: el modelo recién armado ya lo refleja
+		default:
+		}
 		for range sighup {
 			log.Print("SIGHUP: recargando el modelo")
 			srv0.Recargar() // ya registra el error y cuenta la métrica
@@ -92,6 +97,11 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 			log.Print(a)
 		}
 		capaL1, capaL2 = mt.L1, mt.L2
+		if mt.Cerrar != nil {
+			// Las sesiones ORT (L2 y torre) se cierran antes que el .chispa que las alimentó.
+			cerrarSesiones := mt.Cerrar
+			cerrar = func() error { return errors.Join(cerrarSesiones(), f.Close()) }
+		}
 	}
 	casc, err := decide.NuevaCascadaConTauNuevo(cfg.Capas, []decide.Decisor{l0, capaL1, capaL2, decide.NuevoL3()}, met, cfg.TauL2EsquemaNuevo)
 	if err != nil {
@@ -101,4 +111,21 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 		return nil, err
 	}
 	return &decide.Armado{Cascada: casc, CacheRespuestas: cfg.CacheRespuestas, Limites: cfg.Limites, AdminToken: cfg.AdminToken, L0: l0, Cerrar: cerrar}, nil
+}
+
+// montarHandler envuelve el mux del servidor en el -timeout (503 contado en las métricas), salvo /v1/admin/recargar: una recarga
+// puede tardar más (L1 grande + ORT en disco lento) y cortarla con 503 invita al operador a reintentar y recargar dos veces.
+func montarHandler(srv *decide.Servidor, adminToken string, timeout time.Duration, met *decide.Metricas) http.Handler {
+	handler := srv.Handler()
+	if timeout <= 0 {
+		return handler
+	}
+	con := decide.ConTimeoutMet(handler, timeout, met)
+	if adminToken == "" {
+		return con
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/v1/admin/recargar", handler)
+	mux.Handle("/", con)
+	return mux
 }

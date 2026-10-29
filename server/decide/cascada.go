@@ -34,6 +34,8 @@ type capa struct {
 type Cascada struct {
 	capas []capa
 	met   *Metricas
+	// tauNuevo es el τ de esquema nuevo de la config; el gauge lo fija Recargar al hacer el cambio (nuevoVivo), no el armado.
+	tauNuevo *float64
 }
 
 // NuevaCascada empareja decisores y umbrales por posición y nombre.
@@ -47,12 +49,7 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 	if len(cfg) != len(ds) || len(ds) == 0 {
 		return nil, fmt.Errorf("cascada: %d capas en la config y %d decisores", len(cfg), len(ds))
 	}
-	c := &Cascada{met: met}
-	if met != nil {
-		met.mu.Lock()
-		met.tauEsquemaNuevo = tauNuevo
-		met.mu.Unlock()
-	}
+	c := &Cascada{met: met, tauNuevo: tauNuevo}
 	for i, d := range ds {
 		if u, ok := d.(UsaMetricas); ok && met != nil {
 			u.UsaMetricas(met)

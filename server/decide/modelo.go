@@ -2,7 +2,10 @@ package decide
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
+	"sync"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
@@ -53,6 +56,8 @@ func ConCodificadorTorre(c CodificadorTorre) OpcionArmado {
 type Montaje struct {
 	L1, L2 Decisor
 	Avisos []string // capas que se quedan como stub y por qué
+	// Cerrar libera las sesiones (L2 y torre) que abrió ArmarDesde; nil si no hay nada que cerrar. Idempotente.
+	Cerrar func() error
 }
 
 // ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y monta L1 y L2 con las secciones presentes;
@@ -156,11 +161,14 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {
+			cerrables := []any{base.ses}
 			if f.Tiene(chispa3.TORR) {
 				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas); err != nil {
 					mt.Avisos = append(mt.Avisos, "sin torres al vuelo: "+err.Error())
 				}
 			}
+			cerrables = append(cerrables, base.torres)
+			mt.Cerrar = cierraTodo(cerrables...)
 			mt.L2 = Decisor(base)
 			if conj != nil {
 				mt.L2 = NuevoL2cCon(base, base, conj).ConSoporte(sopl, cfg.L2ShrinkageLambda)
@@ -230,5 +238,21 @@ func aplicarTauL2c(cfg *Config, calib chispa3.Calib, esL2c, tauDeCalib bool) {
 		if cfg.Capas[i].Nombre == "L2" {
 			cfg.Capas[i].Tau = *calib.TauL2c
 		}
+	}
+}
+
+// cierraTodo devuelve una función que cierra, una sola vez, los io.Closer de la lista (los que no lo son se saltan).
+func cierraTodo(xs ...any) func() error {
+	var once sync.Once
+	var err error
+	return func() error {
+		once.Do(func() {
+			for _, x := range xs {
+				if c, ok := x.(io.Closer); ok {
+					err = errors.Join(err, c.Close())
+				}
+			}
+		})
+		return err
 	}
 }

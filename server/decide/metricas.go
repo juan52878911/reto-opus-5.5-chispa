@@ -67,6 +67,9 @@ type Metricas struct {
 	EsquemaNuevoDecididas atomic.Uint64 // las que L2 resolvió con su τ de esquema nuevo (el resto subió o escaló)
 	tauEsquemaNuevo       *float64      // τ propio de L2 para esquemas nuevos, si la cascada lo tiene
 
+	// Totales de los L0 retirados por recargas: la caché de esquemas se muestra acumulada, sin bajar.
+	esqBaseHits, esqBaseMisses uint64
+
 	recargas map[string]*atomic.Uint64 // chispa_recargas_total{resultado}, bajo mu
 
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
@@ -98,7 +101,18 @@ func (m *Metricas) sube(c func(*Metricas) *atomic.Uint64) {
 // FijaEsquemas apunta la métrica de la caché de esquemas a los contadores del L0 en servicio (cambia con cada recarga).
 func (m *Metricas) FijaEsquemas(hits, misses func() uint64) {
 	m.mu.Lock()
+	if m.EsquemaHits != nil {
+		m.esqBaseHits += m.EsquemaHits()
+		m.esqBaseMisses += m.EsquemaMisses()
+	}
 	m.EsquemaHits, m.EsquemaMisses = hits, misses
+	m.mu.Unlock()
+}
+
+// FijaTauNuevo fija el gauge chispa_esquema_nuevo_tau (nil = sin gauge); lo llama el servidor al poner un modelo en servicio.
+func (m *Metricas) FijaTauNuevo(tau *float64) {
+	m.mu.Lock()
+	m.tauEsquemaNuevo = tau
 	m.mu.Unlock()
 }
 
@@ -190,10 +204,11 @@ func (m *Metricas) Escribe(w io.Writer) {
 	fmt.Fprintln(w, "# TYPE chispa_cache_esquemas_total counter")
 	m.mu.Lock()
 	hits, misses, tauNuevo := m.EsquemaHits, m.EsquemaMisses, m.tauEsquemaNuevo
+	baseH, baseM := m.esqBaseHits, m.esqBaseMisses
 	m.mu.Unlock()
 	if hits != nil {
-		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"acierto\"} %d\n", hits())
-		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"fallo\"} %d\n", misses())
+		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"acierto\"} %d\n", baseH+hits())
+		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"fallo\"} %d\n", baseM+misses())
 	}
 	fmt.Fprintln(w, "# HELP chispa_recargas_total Recargas en caliente del .chispa por resultado (ok, error).")
 	fmt.Fprintln(w, "# TYPE chispa_recargas_total counter")
