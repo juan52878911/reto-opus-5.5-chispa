@@ -1,7 +1,8 @@
 import Foundation
 import OnnxRuntimeBindings
 
-/// El ONNX int8 de L2 sobre ONNX Runtime con el EP de CoreML (si el dispositivo no lo admite, ORT cae a la CPU).
+/// El ONNX int8 de L2 sobre ONNX Runtime con el EP de CoreML; si no se puede añadir o la sesión no se crea con él, se reabre en CPU
+/// (`proveedorEfectivo` dice cuál quedó).
 /// Entradas `input_ids` y `attention_mask` (int64, [1, n]); salida `S` (float32, [1, K, d]).
 /// Las llamadas a `run` se serializan, como en el servidor.
 public final class SesionOrt: SesionRanuras {
@@ -9,13 +10,22 @@ public final class SesionOrt: SesionRanuras {
     private let sesion: ORTSession
     private let cerrojo = NSLock()
 
-    public init(rutaOnnx: String, coreML: Bool = true) throws {
-        entorno = try ORTEnv(loggingLevel: .warning)
-        let opciones = try ORTSessionOptions()
-        if coreML {
-            try opciones.appendCoreMLExecutionProvider(with: ORTCoreMLExecutionProviderOptions())
+    /// El proveedor con el que quedó la sesión (`.cpu` si el pedido falló).
+    public let proveedorEfectivo: ProveedorOrt
+
+    public init(rutaOnnx: String, proveedor: ProveedorOrt = proveedorOrtPorDefecto) throws {
+        let env = try ORTEnv(loggingLevel: .warning)
+        entorno = env
+        let (s, efectivo) = try abrirConRespaldo(proveedor, etiqueta: "L2") { p in
+            try ORTSession(env: env, modelPath: rutaOnnx, sessionOptions: try opcionesOrt(p))
         }
-        sesion = try ORTSession(env: entorno, modelPath: rutaOnnx, sessionOptions: opciones)
+        sesion = s
+        proveedorEfectivo = efectivo
+    }
+
+    /// Compatibilidad con `coreML: Bool`.
+    public convenience init(rutaOnnx: String, coreML: Bool) throws {
+        try self.init(rutaOnnx: rutaOnnx, proveedor: coreML ? .coreML : .cpu)
     }
 
     public func ranuras(_ ids: [Int64]) throws -> Ranuras {

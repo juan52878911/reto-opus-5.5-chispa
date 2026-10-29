@@ -9,9 +9,20 @@ import java.nio.LongBuffer
  * El ONNX int8 de L2 sobre ONNX Runtime Mobile. Entradas `input_ids` y `attention_mask` (int64, [1, n]); salida `S`
  * (float32, [1, K, d]). Como en el servidor, las llamadas a Run se serializan.
  */
-class SesionOrt(rutaOnnx: String) : SesionRanuras {
+class SesionOrt(rutaOnnx: String, proveedor: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO) : SesionRanuras {
     private val entorno = OrtEnvironment.getEnvironment()
-    private val sesion: OrtSession = entorno.createSession(rutaOnnx, OrtSession.SessionOptions())
+    private val sesion: OrtSession
+
+    /** El proveedor con el que quedó la sesión (CPU si el pedido falló). */
+    val proveedorEfectivo: ProveedorOrt
+
+    init {
+        val (s, p) = abrirConRespaldo(proveedor, "L2") { prov ->
+            opcionesOrt(prov).use { entorno.createSession(rutaOnnx, it) }
+        }
+        sesion = s
+        proveedorEfectivo = p
+    }
 
     @Synchronized
     override fun ranuras(ids: LongArray): Ranuras {

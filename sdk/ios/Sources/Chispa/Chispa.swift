@@ -30,12 +30,18 @@ public final class Chispa {
     /// Capas que han quedado montadas, en orden.
     public var capas: [String] { motor.capas().filter { $0 != "L2" || sesion != nil } }
 
+    /// El proveedor de ORT con el que quedó L2 (`.cpu` si CoreML falló); nil sin L2 o con una sesión de otro tipo.
+    public var proveedorOrt: ProveedorOrt? { (sesion as? SesionOrt)?.proveedorEfectivo }
+
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
-                             coreML: Bool = true, codificadorTorres: CodificadorTorre? = nil,
+                             coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
+                             codificadorTorres: CodificadorTorre? = nil,
                              alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
         let motor = try MotorNativo.abrir(ruta: ruta)
+        // `proveedorOrt` manda; sin él, `coreML` (true por defecto) elige entre CoreML y CPU.
+        let proveedor = proveedorOrt ?? (coreML ? .coreML : .cpu)
         do {
             var tok = tokenizador
             if tok == nil, let rt = rutaTokenizador {
@@ -45,7 +51,8 @@ public final class Chispa {
             return try montar(motor: motor, tokenizador: tok, onnx: {
                 // nombre por hash de la sección L2 (no por tamaño) y extracción atómica: no se repite en cada arranque
                 try CacheFicheros.rutaOnnxL2(motor: motor, dir: FileManager.default.temporaryDirectory, modelo: ruta)
-            }, crearSesion: { try SesionOrt(rutaOnnx: $0, coreML: coreML) }, codificadorTorres: codificadorTorres,
+            }, crearSesion: { try SesionOrt(rutaOnnx: $0, proveedor: proveedor) }, codificadorTorres: codificadorTorres,
+                              crearSesionTorre: { try SesionTorreOrt(onnx: $0, proveedor: proveedor) },
                               alErrorCapa: alErrorCapa)
         } catch {
             motor.cerrar()

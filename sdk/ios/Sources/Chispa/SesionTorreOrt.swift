@@ -1,7 +1,7 @@
 import Foundation
 import OnnxRuntimeBindings
 
-/// El ONNX de la torre (sección TORR) sobre ONNX Runtime con el EP de CoreML (si no lo admite, cae a la CPU).
+/// El ONNX de la torre (sección TORR) sobre ONNX Runtime con el EP de CoreML; si no se puede añadir o la sesión no se crea con él, se reabre en CPU.
 /// `ORTSession` solo abre rutas: los bytes de `Motor.onnxTorre` se escriben una vez (nombre por sha256, escritura atómica) en el
 /// directorio temporal. Entradas `input_ids` y `attention_mask` (int64, [1, n]); salida `h` (float32, [1, d]).
 /// Las llamadas a `run` se serializan.
@@ -10,14 +10,23 @@ public final class SesionTorreOrt: SesionTorre {
     private let sesion: ORTSession
     private let cerrojo = NSLock()
 
-    public init(onnx: Data, coreML: Bool = true) throws {
+    /// El proveedor con el que quedó la sesión (`.cpu` si el pedido falló).
+    public let proveedorEfectivo: ProveedorOrt
+
+    public init(onnx: Data, proveedor: ProveedorOrt = proveedorOrtPorDefecto) throws {
         let ruta = try CacheFicheros.rutaOnnxTorre(onnx, dir: FileManager.default.temporaryDirectory)
-        entorno = try ORTEnv(loggingLevel: .warning)
-        let opciones = try ORTSessionOptions()
-        if coreML {
-            try opciones.appendCoreMLExecutionProvider(with: ORTCoreMLExecutionProviderOptions())
+        let env = try ORTEnv(loggingLevel: .warning)
+        entorno = env
+        let (s, efectivo) = try abrirConRespaldo(proveedor, etiqueta: "torre") { p in
+            try ORTSession(env: env, modelPath: ruta, sessionOptions: try opcionesOrt(p))
         }
-        sesion = try ORTSession(env: entorno, modelPath: ruta, sessionOptions: opciones)
+        sesion = s
+        proveedorEfectivo = efectivo
+    }
+
+    /// Compatibilidad con `coreML: Bool`.
+    public convenience init(onnx: Data, coreML: Bool) throws {
+        try self.init(onnx: onnx, proveedor: coreML ? .coreML : .cpu)
     }
 
     public func embeber(_ ids: [Int64]) throws -> [Float] {

@@ -32,8 +32,9 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 | 22 | Copia del asset a `filesDir`: carpeta por `lastUpdateTime` de la app, temporal + rename comprobado (si falla, borra y reintenta; si sigue fallando lanza) | K:Chispa 100-120 | — (iOS abre el fichero del bundle) | arreglado (FG #19), solo Android |
 | 23 | ONNX de TORR en `tmp`: `chispa-torre-<sha256>.onnx` atómico (antes `<bytes>`) | — (Android abre la sesión desde los bytes) | S:SesionTorreOrt 14 | arreglado (FG #2), solo iOS |
 | 24 | Torre al vuelo que falla (excepción, dimensiones o `instalarTorresL2` false) → se lanza una vez (se registra) y el esquema queda en caché negativa 60 s; sin recalcular torres | K:Capas 190-215 | S:Capas 200-225 | arreglado (FG #14) |
+| 25 | Proveedor de ORT (L2 y torre): `Chispa.abrir(..., proveedorOrt)` opcional; respaldo a CPU si falla al crear la sesión (registrado); `Chispa.proveedorOrt` dice cuál quedó | K:ProveedorOrt, SesionOrt, SesionTorreOrt; enum `CPU/XNNPACK/NNAPI`, por defecto XNNPACK (`addXnnpack`/`addNnapi`), `Log.w` | S:ProveedorOrt, OpcionesOrt, SesionOrt, SesionTorreOrt; enum `cpu/coreML`, por defecto CoreML (`appendCoreMLExecutionProvider`), `os_log`; `coreML: Bool` se conserva | distinto a propósito (NNAPI y XNNPACK solo existen en Android; CoreML solo en iOS). Antes la torre de iOS no recibía `coreML: false` ni tenía respaldo. Tests `ProveedorOrtTest` / `ProveedorOrtTests` (sin compilar) |
 
-Resumen: 24 filas, ninguna pendiente (arregladas: 6, 7, 9, 11, 14, 19, 21 y 22 a 24; el resto igual), **0 faltan** en los SDK. Lo abierto está en el motor Go
+Resumen: 25 filas, ninguna pendiente (arregladas: 6, 7, 9, 11, 14, 19, 21 y 22 a 24; la 25 es nueva y distinta a propósito; el resto igual), **0 faltan** en los SDK. Lo abierto está en el motor Go
 (sección siguiente), no en la paridad.
 
 ## FG: `chispamovil` TauL2c y HashSeccion

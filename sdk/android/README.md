@@ -20,6 +20,10 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
 - **L2 necesita el tokenizador de e5**: el del motor (`Chispa.abrir(contexto, ruta, rutaTokenizador = "e5.chispa-tok")`, el
   `.chispa-tok` de `runtime/tok/exportar.py`, ~12 MB, como asset o ruta) o uno de la app (`Tokenizador`, `fun interface`).
   Sin ninguno, `Chispa.abrir` monta solo L0 y L1. La demo va así.
+- **Proveedor de ORT** (`ProveedorOrt.kt`): `Chispa.abrir(contexto, ruta, proveedorOrt = ProveedorOrt.NNAPI)` con `CPU`, `XNNPACK`
+  (por defecto) o `NNAPI`; se aplica a L2 y a la torre. Si `addXnnpack`/`addNnapi` o la creación de la sesión lanzan, se
+  reabre en CPU y se registra con `Log.w` (etiqueta `Chispa`); `chispa.proveedorOrt` dice cuál quedó. XNNPACK recibe
+  `intra_op_num_threads` = núcleos (máx. 4). La API anterior no cambia (parámetro opcional al final).
 - Los tests JVM (`chispa/src/test`) usan un `Motor` falso: la cascada y el parsing no dependen del AAR.
 
 ## Construir (en AWS, nunca en el Mac)
@@ -35,3 +39,18 @@ Se apaga solo (`shutdown -h +120`). La demo espera `demo/src/main/assets/modelo.
 sin él, arranca y lo dice en pantalla.
 
 Prueba en seco en kindling (solo la parte de Go): `CHISPA_LOCAL=1 bash arranque.sh` con el tgz en `/tmp/chispa/s3/<prefijo>/`.
+
+## Sitios que probablemente fallen (sin compilar: no hay JDK aquí)
+API de `onnxruntime-android` 1.19.2 (`build.gradle.kts`) escrita de memoria, sin AAR delante:
+1. `OrtSession.SessionOptions.addXnnpack(Map<String, String>)`: los valores son **cadenas** (`"4"`, no `4`). Si el AAR no lo
+   trae (paquete «mobile» sin XNNPACK) falla en ejecución con `OrtException`, no al compilar: el respaldo lo cubre, pero
+   la medida saldría como CPU. Comprobarlo con `OrtEnvironment.getAvailableProviders()` (el JSON de Medir lo lista).
+2. `addNnapi()` (sin argumentos) y `addNnapi(EnumSet<NNAPIFlags>)`: existen en 1.19; `OrtException` si no hay NNAPI. NNAPI está
+   en desuso desde Android 15; algunos SoC lo aceptan y luego van más lento que la CPU: por eso Medir lo mide aparte.
+3. `SessionOptions` es `AutoCloseable`: `opcionesOrt(...).use { createSession(...) }` cierra las opciones tras crear la
+   sesión (vale en ORT Java; si diera un fallo nativo, quitar el `use` y cerrar en `close()`).
+4. `abrirConRespaldo` captura `Exception`; `OrtException` hereda de `Exception`, pero `UnsatisfiedLinkError` (Error) no se
+   captura y subiría.
+5. `Pair<T, ProveedorOrt>` desestructurado en `init` de `SesionOrt`/`SesionTorreOrt` con `val` asignados después: Kotlin lo admite.
+6. Test: `abrirConRespaldo<String>(…)` con lambda final de `crear`; si Kotlin no infiere `T`, ya va explícito donde el cierre solo lanza.
+7. Demo: `Medidor.conProveedor` y los parámetros nuevos de `ResultadoEscenario` (con valor por defecto) no rompen `EstadisticasTest`.

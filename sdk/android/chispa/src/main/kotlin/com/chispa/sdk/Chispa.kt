@@ -24,6 +24,9 @@ class Chispa private constructor(
     private val torreOrt: AutoCloseable? = null,
 ) : AutoCloseable {
 
+    /** El proveedor de ORT con el que quedó L2 (CPU si el pedido falló); null si no hay L2 o la sesión es de otro tipo. */
+    val proveedorOrt: ProveedorOrt? get() = (sesion as? SesionOrt)?.proveedorEfectivo
+
     /** Capas que han quedado montadas, en orden. */
     val capas: List<String> get() = motor.capas().filter { it != "L2" || sesion != null }
 
@@ -41,6 +44,7 @@ class Chispa private constructor(
         /**
          * Abre el modelo. [rutaModelo] es la ruta absoluta de un fichero, o el nombre de un asset (se copia una vez a
          * `filesDir`, porque el motor lo mapea en memoria y necesita un fichero de verdad).
+         * [proveedorOrt] elige el proveedor de ORT de L2 y de la torre (XNNPACK por defecto; si falla al crear la sesión, CPU).
          */
         fun abrir(
             contexto: Context,
@@ -49,6 +53,7 @@ class Chispa private constructor(
             rutaTokenizador: String? = null,
             codificadorTorres: CodificadorTorre? = null,
             alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
+            proveedorOrt: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
             val motor = MotorNativo.abrir(fichero.absolutePath)
@@ -58,7 +63,8 @@ class Chispa private constructor(
                     motor.cargarTokenizadorE5(resolver(contexto, rutaTokenizador).absolutePath)
                     tok = TokenizadorMotor(motor)
                 }
-                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) }, codificadorTorres = codificadorTorres, alErrorCapa = alErrorCapa)
+                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) }, codificadorTorres = codificadorTorres, alErrorCapa = alErrorCapa,
+                    crearSesion = { SesionOrt(it, proveedorOrt) }, crearSesionTorre = { SesionTorreOrt(it, proveedorOrt) })
             } catch (e: Throwable) {
                 motor.close()
                 throw e
