@@ -45,6 +45,8 @@ type EntradaConj struct {
 	Clases  []string
 	Escala  []float32 // C·K
 	Proto   []byte    // C·K·d
+
+	celda *celdaPk // caché de protos empaquetados (solo en entradas decodificadas)
 }
 
 func finito32(x float32) bool { return !math.IsNaN(float64(x)) && !math.IsInf(float64(x), 0) }
@@ -170,7 +172,7 @@ func DecodificarConj(b []byte) (*Conj, error) {
 	}
 	c := &Conj{es: make([]EntradaConj, 0, n)}
 	for i := uint32(0); i < n; i++ {
-		var e EntradaConj
+		e := EntradaConj{celda: new(celdaPk)}
 		copy(e.Hash[:], l.toma(32))
 		e.Cabeza = l.u32()
 		k, d, nc, nw := l.u32(), l.u32(), l.u32(), l.u32()
