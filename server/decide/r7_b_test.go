@@ -187,7 +187,7 @@ func TestR7MaxEnCurso(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != 429 || resp.Header.Get("Retry-After") == "" {
-		t.Fatalf("%d, Retry-After %q", resp.StatusCode, resp.Header.Get("Retry-After"))
+	if resp.StatusCode != 200 { // H6 (R8): el cuerpo lento no retiene el hueco; el 503 overloaded se prueba en TestR8SemaforoTrasLeerCuerpo
+		t.Fatalf("%d", resp.StatusCode)
 	}
 }
