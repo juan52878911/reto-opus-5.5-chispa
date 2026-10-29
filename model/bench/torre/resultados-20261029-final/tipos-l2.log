@@ -1,0 +1,2 @@
+{"tipos_l2": ["choice", "noul", "score2", "score3", "score3#1", "score4", "score4#1", "score4#2", "score5", "score5#1", "score5#2", "score5#3"], "checkpoint": ["choice", "noul", "score4", "score4#1", "score4#2", "score5", "score5#1", "score5#2", "score5#3"], "distintas": [], "tau_escalate_l2": 0.9325805902481079, "tau_l2c": null, "tau_escalate": 1}
+OK tipos_l2 idéntico al checkpoint
