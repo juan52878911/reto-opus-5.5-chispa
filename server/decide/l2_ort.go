@@ -3,9 +3,9 @@
 package decide
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	ort "github.com/yalue/onnxruntime_go"
 
@@ -17,15 +17,34 @@ import (
 var RutaORT string
 
 // sesionORT serializa Run: la sesión dinámica de onnxruntime_go no promete ser reentrante con el mismo objeto.
+// El turno es un semáforo de capacidad 1 (no un mutex) para poder esperarlo con select sobre ctx.Done(): una petición
+// cuyo plazo vence en la cola se va sin ejecutar ORT.
 type sesionORT struct {
-	mu sync.Mutex
-	s  *ort.DynamicAdvancedSession
+	sem chan struct{}
+	s   *ort.DynamicAdvancedSession
+}
+
+// turno espera el semáforo o el ctx, lo que pase antes; tras ganar el semáforo comprueba otra vez el ctx (select elige al azar si ambos están listos).
+func (o *sesionORT) turno(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case o.sem <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-o.sem
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Close destruye la sesión de ORT; idempotente y seguro frente a un Run en curso (espera a que termine).
 func (o *sesionORT) Close() error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
+	o.sem <- struct{}{} // sin ctx: Close espera a que termine el Run en curso
+	defer func() { <-o.sem }()
 	if o.s == nil {
 		return nil
 	}
@@ -35,6 +54,11 @@ func (o *sesionORT) Close() error {
 }
 
 func (o *sesionORT) Ranuras(ids []int64) ([][]float32, error) {
+	return o.RanurasCtx(context.Background(), ids)
+}
+
+// RanurasCtx es Ranuras que deja de esperar el turno de ORT cuando el ctx vence (SesionSCtx).
+func (o *sesionORT) RanurasCtx(ctx context.Context, ids []int64) ([][]float32, error) {
 	n := int64(len(ids))
 	if n == 0 {
 		return nil, errors.New("L2: mensaje sin tokens")
@@ -54,13 +78,15 @@ func (o *sesionORT) Ranuras(ids []int64) ([][]float32, error) {
 	}
 	defer tm.Destroy()
 	salida := []ort.Value{nil}
-	o.mu.Lock()
+	if err := o.turno(ctx); err != nil {
+		return nil, err
+	}
 	if o.s == nil {
-		o.mu.Unlock()
+		<-o.sem
 		return nil, errors.New("L2: sesión cerrada")
 	}
 	err = o.s.Run([]ort.Value{tid, tm}, salida)
-	o.mu.Unlock()
+	<-o.sem
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +118,7 @@ func NuevaSesionORT(onnx []byte) (SesionS, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sesionORT{s: s}, nil
+	return &sesionORT{s: s, sem: make(chan struct{}, 1)}, nil
 }
 
 // NuevoL2ORT abre el ONNX de la sección L2 con ONNX Runtime y monta el decisor.

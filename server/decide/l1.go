@@ -30,7 +30,32 @@ type L1 struct {
 
 // NuevoL1Modelo monta L1 sobre un modelo ya abierto. calib puede estar vacía (T por defecto).
 func NuevoL1Modelo(m *l1.Modelo, calib chispa3.Calib, cacheEsquemas int) *L1 {
-	return &L1{m: m, calib: calib, cache: NewLRU[map[string][]float32](cacheEsquemas)}
+	c := newLRU[map[string][]float32](cacheEsquemas, BytesCacheL1Defecto, costeEmbeddings)
+	return &L1{m: m, calib: calib, cache: c}
+}
+
+// costeEmbeddings es el tamaño de los embeddings de opción de un esquema: float32 por componente más id y cabeceras.
+func costeEmbeddings(v map[string][]float32) (n int) {
+	for id, e := range v {
+		n += len(id) + 4*len(e) + 24 + 48
+	}
+	return n
+}
+
+// ConCacheBytes cambia el tope en bytes de la caché de esquemas (descarta lo cacheado); mb <= 0 deja el de por defecto.
+// Debe llamarse antes de usar L1.
+func (l *L1) ConCacheBytes(mb int) *L1 {
+	if mb > 0 {
+		l.cache = newLRU[map[string][]float32](0, mb<<20, costeEmbeddings)
+	}
+	return l
+}
+
+// UsaMetricas conecta L1 con /metrics (chispa_cache_bytes{cache="l1"}); lo hace NuevaCascada.
+func (l *L1) UsaMetricas(m *Metricas) {
+	if m != nil {
+		m.FijaCacheBytes("l1", func() int64 { return l.cache.Bytes() })
+	}
 }
 
 // ConSoporte activa el prototipo encogido: con una pregunta presente en sopl (SOPL1), el prototipo de cada opción es

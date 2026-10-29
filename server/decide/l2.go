@@ -43,10 +43,63 @@ type L2 struct {
 	// Hits y Misses cuentan las peticiones de esquema nuevo con todas sus torres en caché / con alguna por calcular.
 	Hits, Misses atomic.Uint64
 	met          *Metricas // nil = sin contadores en /metrics
+
+	// Presupuesto global de torres por segundo (ConTorresPorSegundo); tasa 0 = sin tope.
+	cuboMu               sync.Mutex
+	cuboTasa, cuboFichas float64
+	cuboT                time.Time
+}
+
+// SesionSCtx es SesionS que espera su turno de ORT respetando el ctx; L2 la usa si la sesión la implementa.
+type SesionSCtx interface {
+	RanurasCtx(ctx context.Context, ids []int64) ([][]float32, error)
+}
+
+// CodificadorTorreCtx es CodificadorTorre que espera su turno de ORT respetando el ctx; L2 lo usa si el codificador lo implementa.
+type CodificadorTorreCtx interface {
+	TorreCtx(ctx context.Context, texto string) ([]float32, error)
+}
+
+// ErrPresupuestoTorres: se agotó el presupuesto global de torres por segundo (L2.ConTorresPorSegundo); L2 no opina.
+var ErrPresupuestoTorres = errors.New("L2: presupuesto de torres por segundo agotado")
+
+// ConTorresPorSegundo fija un tope global de torres calculadas por segundo (cubo con ráfaga de igual tamaño); n <= 0 lo
+// quita. Por encima, L2 no opina (como con el tope por petición) en vez de saturar el único ORT con textos únicos.
+func (l *L2) ConTorresPorSegundo(n float64) *L2 {
+	l.cuboMu.Lock()
+	l.cuboTasa, l.cuboFichas, l.cuboT = n, n, time.Now()
+	l.cuboMu.Unlock()
+	return l
+}
+
+func (l *L2) tomaFichaTorre() bool {
+	l.cuboMu.Lock()
+	defer l.cuboMu.Unlock()
+	if l.cuboTasa <= 0 {
+		return true
+	}
+	ahora := time.Now()
+	l.cuboFichas = math.Min(l.cuboTasa, l.cuboFichas+ahora.Sub(l.cuboT).Seconds()*l.cuboTasa)
+	l.cuboT = ahora
+	if l.cuboFichas < 1 {
+		return false
+	}
+	l.cuboFichas--
+	return true
 }
 
 // UsaMetricas conecta L2 con /metrics (lo hace NuevaCascada).
-func (l *L2) UsaMetricas(m *Metricas) { l.met = m }
+func (l *L2) UsaMetricas(m *Metricas) {
+	l.met = m
+	if m != nil {
+		m.FijaCacheBytes("torres", func() int64 {
+			if l.cache == nil {
+				return 0
+			}
+			return l.cache.Bytes()
+		})
+	}
+}
 
 // CodificadorTorre calcula la torre de opción h (d floats, normalizada) de un texto de pasaje «passage: pregunta · opción ·
 // descripción» (model/l2/modelo.py, texto_opcion). Es el e5 de pasaje más la cabeza de torre: la implementación real es
@@ -73,7 +126,7 @@ const MaxTorresNuevasPorDefecto = 64
 // (capacidad aproximada: el LRU se reparte en fragmentos).
 func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 	l.torres = c
-	l.cache = NewLRU[torreDin](cacheTorres)
+	l.cache = newLRU[torreDin](cacheTorres, BytesCacheTorresDefecto, func(t torreDin) int { return len(t.v) + 4 + 24 })
 	l.vuelo = map[string]*llamadaTorre{}
 	if l.maxNuevas == 0 {
 		l.maxNuevas = MaxTorresNuevasPorDefecto
@@ -127,8 +180,17 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, err e
 		l.muVuelo.Unlock()
 		close(c.done)
 	}()
+	if !l.tomaFichaTorre() {
+		c.err = ErrPresupuestoTorres
+		return torreDin{}, c.err
+	}
 	t0 := time.Now()
-	h, err := l.torres.Torre(texto)
+	var h []float32
+	if tc, ok := l.torres.(CodificadorTorreCtx); ok {
+		h, err = tc.TorreCtx(ctx, texto)
+	} else {
+		h, err = l.torres.Torre(texto)
+	}
 	l.met.ObservaTorre(time.Since(t0), err)
 	if err == nil {
 		c.t = cuantizarTorre(h)
@@ -182,6 +244,10 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 			return nil, false, err
 		}
 		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(p.Texto, o)); err != nil {
+			if errors.Is(err, ErrPresupuestoTorres) {
+				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
+				return nil, false, nil
+			}
 			return nil, false, err
 		}
 	}
@@ -252,7 +318,7 @@ func (l *L2) similitudesTorres(ctx context.Context, p Pregunta) ([][]float32, []
 		}
 		ts = []vt{{v, e}}
 	}
-	return l.simsConTorres(p, ts)
+	return l.simsConTorres(ctx, p, ts)
 }
 
 // similitudesNuevas: esquema ausente de ESQUEMAS. Sin CodificadorTorre, sin opinión; con él, torres al vuelo.
@@ -264,11 +330,11 @@ func (l *L2) similitudesNuevas(ctx context.Context, p Pregunta) ([][]float32, []
 	if err != nil || !ok {
 		return nil, nil, nil, false, err
 	}
-	return l.simsConTorres(p, ts)
+	return l.simsConTorres(ctx, p, ts)
 }
 
-func (l *L2) simsConTorres(p Pregunta, ts []torreDin) ([][]float32, []float64, []torreDin, bool, error) {
-	S, sims, ok, err := l.simsDe(p, ts)
+func (l *L2) simsConTorres(ctx context.Context, p Pregunta, ts []torreDin) ([][]float32, []float64, []torreDin, bool, error) {
+	S, sims, ok, err := l.simsDeCtx(ctx, p, ts)
 	if err != nil || !ok {
 		return nil, nil, nil, ok, err
 	}
@@ -276,10 +342,20 @@ func (l *L2) simsConTorres(p Pregunta, ts []torreDin) ([][]float32, []float64, [
 }
 
 func (l *L2) simsDe(p Pregunta, ts []torreDin) ([][]float32, []float64, bool, error) {
+	return l.simsDeCtx(context.Background(), p, ts)
+}
+
+func (l *L2) simsDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([][]float32, []float64, bool, error) {
 	if l.tok == nil {
 		return nil, nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}
-	S, err := l.ses.Ranuras(l.tok.IDs(p.Estado))
+	var S [][]float32
+	var err error
+	if sc, ok := l.ses.(SesionSCtx); ok {
+		S, err = sc.RanurasCtx(ctx, l.tok.IDs(p.Estado))
+	} else {
+		S, err = l.ses.Ranuras(l.tok.IDs(p.Estado))
+	}
 	if err != nil {
 		return nil, nil, false, err
 	}
