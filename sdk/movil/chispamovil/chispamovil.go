@@ -79,6 +79,7 @@ type Chispa struct {
 	sopl     *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
 	lambdaL1 *float64       // λ del encogimiento del soporte en L1; nil = ∞ (sin mezcla)
 	lambdaL2 *float64       // ídem en L2c
+	avisos   []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con λ finito)
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -122,10 +123,13 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
-	if f.Tiene(chispa3.SOPL1) {
-		var err error
-		if c.sopl, err = f.Sopl1(); err != nil {
-			return fmt.Errorf("sección SOPL1: %w", err)
+	// SOPL1 solo hace falta con un λ finito: con ∞ (el defecto) no se decodifica, y si está mal el fichero abre igual.
+	if f.Tiene(chispa3.SOPL1) && (c.lambdaL1 != nil || c.lambdaL2 != nil) {
+		sopl, err := f.Sopl1()
+		if err != nil {
+			c.avisos = append(c.avisos, "SOPL1 inválida, sin mezcla de soporte: "+err.Error())
+		} else {
+			c.sopl = sopl
 		}
 	}
 	if f.Tiene(chispa3.CALIB) {
@@ -184,6 +188,9 @@ func (c *Chispa) montar() error {
 }
 
 // Cerrar libera el fichero. Tras Cerrar no se puede llamar a nada más.
+// Avisos son los problemas no fatales de la apertura, uno por línea ("" si no hubo).
+func (c *Chispa) Avisos() string { return strings.Join(c.avisos, "\n") }
+
 func (c *Chispa) Cerrar() error { return c.f.Close() }
 
 // Capas devuelve en JSON las capas presentes en el fichero, p. ej. ["L0","L1","L2"].
