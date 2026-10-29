@@ -2,18 +2,18 @@
 
 `Dockerfile` multietapa: `golang:1.27-bookworm` compila `chispa-server -tags ort` (cgo, `onnxruntime_go`) y la
 imagen final es `gcr.io/distroless/cc-debian12:nonroot` + `libonnxruntime.so` de la release oficial de ORT +
-los binarios `chispa-server` y `carga`. Versiones fijadas en `ARG`: `GO_VERSION` (1.27), `ORT_VERSION` (1.22.0) y
-`ORT_GO_VERSION` (v1.19.0, de `github.com/yalue/onnxruntime_go`; hay que mantenerlo en una API ≤ `ORT_VERSION`).
+los binarios `chispa-server` y `carga`. Versiones fijadas en `ARG`: `GO_VERSION` (1.27), `ORT_VERSION` (1.31.1; `onnxruntime_go` lo fija `server/go.mod`, v1.38.0). Bases por digest y SHA-256 del `.tgz` de ORT x64 (`c849e36a…bdc9`) fijados en los `ARG`; el build los verifica.
 La ruta de la `.so` entra con `-ldflags -X …/decide.RutaORT=/usr/lib/libonnxruntime.so`.
-Objetivo: ≤ 150 MB (estimado ~60 MB; **sin medir**: aquí no hay docker, lo mide `arranque.sh` en AWS).
+Construida y arrancada con Docker 29 (amd64): 98.8 MB en disco, `/healthz` 200 y decisión zero-shot con `server/testdata/intencion.chispa`. Solo variante `-tags ort`; la de CPU sin cgo es el destino `imagen-cpu` de `deploy/kindling/Dockerfile`.
 
 ## Construir
 El contexto necesita `server/`, `runtime/l1/`, `format/chispa3/` (los `replace` de `server/go.mod`) y `gomod-proxy/`,
 la caché de módulos de `kindling` (`bash server/deploy/aws/empaquetar.sh > codigo.tgz` lo prepara todo):
 ```
 mkdir ctx && tar -xzf codigo.tgz -C ctx
-docker build -f ctx/server/deploy/Dockerfile --build-arg ORT_VERSION=1.22.0 -t chispa-server ctx
+docker build -f ctx/server/deploy/Dockerfile -t chispa-server ctx
 ```
+`empaquetar.sh` solo copia kindling a `gomod-proxy/`: el build también necesita `onnxruntime_go` v1.38.0; si falta, copia `$(go env GOMODCACHE)/cache/download/github.com` entero (sin `*.lock`) en `ctx/gomod-proxy/`. Así se construyó aquí, con `docker build -f server/deploy/Dockerfile -t chispa-server .` desde un contexto con `gomod-proxy/`.
 Hace falta red (descarga ORT de GitHub y `onnxruntime_go` de proxy.golang.org).
 
 ## Usar
@@ -32,8 +32,7 @@ Contrato y endpoints: `server/README.md`. `carga` va en la imagen (`--entrypoint
 - **L2 responde si se pasa `-tok`** (`.chispa-tok` de e5, `runtime/tok/exportar.py`; `main.go`); sin él, L2 queda en stub.
   Otros flags: `-addr`, `-config`, `-modelo` y `-timeout` (tope por petición, 30 s por defecto; responde 503; 0 = sin tope). `chispa-server` solo admite un `-modelo`;
   `arranque.sh` fusiona `l0l1.chispa` y `l2.chispa` con `deploy/mkmodelo -unir` (gana el primero si repiten sección).
-- `go build -tags ort` está **sin compilar**: `l2_ort.go` se escribió de memoria contra `onnxruntime_go`. La prueba
-  en AWS lo decide; si falla, `FALLO` en el log lo dice con el error del compilador.
+- `go build -tags ort` compila en la imagen (verificado en Docker local); L2 real con modelo e5 sin probar en contenedor.
 - Nix: `nix build ./nix#chispa-server` (variante sin cgo ni ORT). No probado (sin nix aquí); `vendorHash` es un marcador.
 
 ## Prueba en AWS (`aws/`)

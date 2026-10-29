@@ -17,8 +17,8 @@ set -uo pipefail
 export HOME="${HOME:-/root}"
 
 GO_VERSION=1.27.1        # tar de go.dev para el Go del anfitrión
-ORT_VERSION=1.22.0       # release de microsoft/onnxruntime (la misma que pasa al Dockerfile)
-ORT_GO_VERSION=v1.19.0   # github.com/yalue/onnxruntime_go; tiene que ser de una API <= ORT_VERSION
+ORT_VERSION=1.31.1       # release de microsoft/onnxruntime (la misma que pasa al Dockerfile)
+ORT_GO_VERSION=v1.38.0   # github.com/yalue/onnxruntime_go; tiene que ser de una API <= ORT_VERSION
 PUERTO=8090
 
 if [ "${CHISPA_LOCAL:-}" = 1 ]; then BASE=/tmp/chispa-srv; else BASE=/opt/chispa; fi
