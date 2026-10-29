@@ -3,7 +3,6 @@ package decide
 import (
 	"encoding/binary"
 	"fmt"
-	"math"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
@@ -102,13 +101,13 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 	}
 	var sopl *chispa3.Sopl1
-	if f.Tiene(chispa3.SOPL1) && (lambdaFinita(cfg.L1ShrinkageLambda) || lambdaFinita(cfg.L2ShrinkageLambda)) {
+	if f.Tiene(chispa3.SOPL1) && (cfg.L1ShrinkageLambda != nil || cfg.L2ShrinkageLambda != nil) {
 		var err error
 		if sopl, err = f.Sopl1(); err != nil {
 			return mt, fmt.Errorf("sección SOPL1: %w", err)
 		}
 	} else if f.Tiene(chispa3.SOPL1) {
-		// Con λ = ∞ en las dos capas el soporte no se usa: una SOPL1 ilegible no impide arrancar.
+		// Con el encogimiento apagado (λ ausente en las dos capas) el soporte no se usa: una SOPL1 ilegible no impide arrancar.
 		if _, err := f.Sopl1(); err != nil {
 			mt.Avisos = append(mt.Avisos, "SOPL1 inválida, se ignora (el encogimiento está apagado): "+err.Error())
 		}
@@ -177,9 +176,6 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 }
 
 // montarL2 monta el L2 base sobre ses, o sobre el ONNX de la sección L2 si ses es nil.
-// lambdaFinita dice si λ activa la mezcla con el soporte (nil y +Inf la apagan).
-func lambdaFinita(l *float64) bool { return l != nil && !math.IsInf(*l, 0) }
-
 func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador, ses SesionS) (*L2, error) {
 	if tok == nil {
 		return nil, ErrSinTokenizador

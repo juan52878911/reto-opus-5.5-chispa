@@ -55,13 +55,14 @@ func soporteL1(t *testing.T, lambda float64, textos map[string]string, k map[str
 	return c
 }
 
-func TestSoporteL1LambdaInfinitoNoCambiaNada(t *testing.T) {
+func TestSoporteL1ApagadoNoCambiaNada(t *testing.T) {
 	base := conFalso()
 	textos, k := map[string]string{"compra": "necesito ayuda con algo"}, map[string]uint32{"compra": 5, "soporte": 2}
-	for _, l := range []float64{math.Inf(1), -1, math.NaN()} {
+	// Apagado (negativo, NaN, SoporteApagado) = nil; +Inf es «solo descripción», que en L1 da lo mismo que el modelo sin soporte.
+	for _, l := range []float64{SoporteApagado, -1, math.NaN(), math.Inf(1)} {
 		c := soporteL1(t, l, textos, k)
-		if c.lambdaL1 != nil {
-			t.Fatalf("λ=%v debería ser ∞ (nil)", l)
+		if (c.lambdaL1 == nil) != (l != math.Inf(1)) {
+			t.Fatalf("λ=%v: apagado=%v", l, c.lambdaL1 == nil)
 		}
 		for _, msg := range []string{"quiero comprar un producto", "necesito ayuda con algo", "hola"} {
 			if got, want := c.Decidir(msg, preguntaCompra), base.Decidir(msg, preguntaCompra); got != want {
@@ -106,13 +107,13 @@ func TestAbrirConSoporteLeeSOPL1(t *testing.T) {
 	}
 	c := ficheroV3(t, chispa3.Seccion{Tipo: chispa3.SOPL1, Datos: b})
 	if c.sopl != nil || c.lambdaL1 != nil || c.lambdaL2 != nil {
-		t.Fatalf("Abrir (λ=∞) no decodifica SOPL1: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
+		t.Fatalf("Abrir (apagado) no decodifica SOPL1: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
 	}
 	ruta := filepath.Join(t.TempDir(), "s.chispa")
 	if err := os.WriteFile(ruta, mustEscribir(t, b), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c2, err := AbrirConSoporte(ruta, 3, math.Inf(1))
+	c2, err := AbrirConSoporte(ruta, 3, SoporteApagado)
 	if err != nil || c2.sopl == nil || c2.sopl.Len() != 1 || c2.lambdaL1 == nil || *c2.lambdaL1 != 3 || c2.lambdaL2 != nil || c2.Avisos() != "" {
 		t.Fatalf("%v %v", c2, err)
 	}
@@ -163,57 +164,59 @@ func TestCabezaConjuntaConSoporteParidadConServidor(t *testing.T) {
 		c.sopl = sopl
 		c.lambdaL2 = nil
 		if got := leer(t, c.CabezaConjunta(string(js))); got.Conf != sinSoporte.Conf || got.Answer != sinSoporte.Answer {
-			t.Fatalf("caso %d: λ=∞ cambió la respuesta: %+v ≠ %+v", n, got, sinSoporte)
+			t.Fatalf("caso %d: apagado cambió la respuesta: %+v ≠ %+v", n, got, sinSoporte)
 		}
-		lam := 0.5
-		c.lambdaL2 = &lam
-		got := leer(t, c.CabezaConjunta(string(js)))
+		for _, lam := range []float64{0.5, 0, math.Inf(1)} { // λ = 0: solo ejemplos; λ = +Inf: solo descripción
+			lam := lam
+			c.lambdaL2 = &lam
+			got := leer(t, c.CabezaConjunta(string(js)))
 
-		e, _ := chispa3.DecodificarEsquemas(esq)
-		base := decide.NuevoL2Con(nil, e, chispa3.Calib{}, nil)
-		sims := make([]float64, len(fx.Opciones))
-		for i, id := range fx.Opciones {
-			v, esc, _ := e.Buscar(chispa3.HashEsquema(fx.Pregunta, []string{id}))
-			sims[i] = chispa3.MaxSim(S, v, esc)
-		}
-		want, err := decide.NuevoL2cCon(base, simsFijas{S, sims}, conj).ConSoporte(sopl, &lam).
-			DecidirCon(context.Background(), p, decide.Previas{"L0": {Probs: caso.L0, Conf: 0.5}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		var peor, mueve float64
-		for _, id := range fx.Opciones {
-			peor = math.Max(peor, math.Abs(got.Probs[id]-want.Probs[id]))
-			mueve = math.Max(mueve, math.Abs(got.Probs[id]-sinSoporte.Probs[id]))
-		}
-		if peor > tolParidad || got.Answer != want.Answer {
-			t.Fatalf("caso %d: |Δp| frente al servidor %g (%s frente a %s)", n, peor, got.Answer, want.Answer)
-		}
-		if mueve == 0 {
-			t.Errorf("caso %d: con λ=0,5 la mezcla debería mover las probabilidades", n)
+			e, _ := chispa3.DecodificarEsquemas(esq)
+			base := decide.NuevoL2Con(nil, e, chispa3.Calib{}, nil)
+			sims := make([]float64, len(fx.Opciones))
+			for i, id := range fx.Opciones {
+				v, esc, _ := e.Buscar(chispa3.HashEsquema(fx.Pregunta, []string{id}))
+				sims[i] = chispa3.MaxSim(S, v, esc)
+			}
+			want, err := decide.NuevoL2cCon(base, simsFijas{S, sims}, conj).ConSoporte(sopl, &lam).
+				DecidirCon(context.Background(), p, decide.Previas{"L0": {Probs: caso.L0, Conf: 0.5}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var peor, mueve float64
+			for _, id := range fx.Opciones {
+				peor = math.Max(peor, math.Abs(got.Probs[id]-want.Probs[id]))
+				mueve = math.Max(mueve, math.Abs(got.Probs[id]-sinSoporte.Probs[id]))
+			}
+			if peor > tolParidad || got.Answer != want.Answer {
+				t.Fatalf("caso %d: |Δp| frente al servidor %g (%s frente a %s)", n, peor, got.Answer, want.Answer)
+			}
+			if mueve == 0 && lam == 0.5 {
+				t.Errorf("caso %d: con λ=0,5 la mezcla debería mover las probabilidades", n)
+			}
 		}
 	}
 }
 
-func TestSOPL1InvalidaConLambdaInfinitoAbreSinAviso_YConFinitoAvisa(t *testing.T) {
+func TestSOPL1InvalidaApagadaAbreSinAviso_YActivaAvisa(t *testing.T) {
 	ruta := filepath.Join(t.TempDir(), "mala.chispa")
 	if err := os.WriteFile(ruta, mustEscribir(t, []byte{9, 9, 9}), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c, err := Abrir(ruta)
 	if err != nil {
-		t.Fatalf("λ=∞ no debe fallar por una SOPL1 inválida: %v", err)
+		t.Fatalf("apagado no debe fallar por una SOPL1 inválida: %v", err)
 	}
 	if c.sopl != nil || c.Avisos() != "" {
-		t.Fatalf("λ=∞: sopl=%v avisos=%q", c.sopl, c.Avisos())
+		t.Fatalf("apagado: sopl=%v avisos=%q", c.sopl, c.Avisos())
 	}
 	c.Cerrar()
 	c, err = AbrirConSoporte(ruta, 2, 2)
 	if err != nil {
-		t.Fatalf("con λ finito una SOPL1 inválida se ignora con aviso: %v", err)
+		t.Fatalf("con el encogimiento activo una SOPL1 inválida se ignora con aviso: %v", err)
 	}
 	defer c.Cerrar()
 	if c.sopl != nil || !strings.Contains(c.Avisos(), "SOPL1") {
-		t.Fatalf("λ finito: sopl=%v avisos=%q", c.sopl, c.Avisos())
+		t.Fatalf("activo: sopl=%v avisos=%q", c.sopl, c.Avisos())
 	}
 }

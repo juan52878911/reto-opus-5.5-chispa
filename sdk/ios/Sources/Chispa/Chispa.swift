@@ -34,6 +34,8 @@ public final class Chispa {
     public var proveedorOrt: ProveedorOrt? { (sesion as? SesionOrt)?.proveedorEfectivo }
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
+    /// `lambdaSoporteL1`/`lambdaSoporteL2`: λ del soporte few-shot (mismo nombre y semántica que `l1_shrinkage_lambda`/`l2_shrinkage_lambda`
+    /// del servidor): nil = apagado, 0 = solo ejemplos, `.infinity` = solo descripción.
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
                              coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
                              codificadorTorres: CodificadorTorre? = nil,
@@ -61,10 +63,14 @@ public final class Chispa {
         }
     }
 
-    /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es ∞ (sin mezcla); sin ninguno, nil = `Abrir` de siempre.
+    /// `chispamovil.SoporteApagado`: el λ negativo que apaga el encogimiento en el puente (que no tiene opcionales).
+    static let lambdaApagado: Double = -1
+
+    /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es apagado (`lambdaApagado`); sin ninguno, nil = `Abrir` de siempre.
+    /// 0 = solo ejemplos; `.infinity` = solo descripción (ya no apaga).
     static func soporteDe(_ l1: Double?, _ l2: Double?) -> (Double, Double)? {
         if l1 == nil && l2 == nil { return nil }
-        return (l1 ?? .infinity, l2 ?? .infinity)
+        return (l1 ?? lambdaApagado, l2 ?? lambdaApagado)
     }
 
     /// Monta la cascada sobre cualquier `Motor` (los tests usan uno falso). `onnx` da la ruta del ONNX de L2.

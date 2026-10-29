@@ -16,7 +16,7 @@ import (
 // p = normaliza((1−w)·p_desc + w·media), w = k/(k+λ) (PesoSoporte). El k de la sección también sirve a la mezcla de
 // L2 (CONJ no lo guarda; la media de L2 sale de sus prototipos). Disposición (little endian):
 //
-//	u32 versión(1) · u32 dim · u32 n · n entradas con hash estrictamente creciente
+//	u32 versión(1 o 2) · u32 dim · u32 n · n entradas con hash estrictamente creciente
 //
 // Entrada (hash = ClaveConj: HashEsquema de la pregunta y los ids de las opciones ordenados, la misma clave que CONJ):
 //
@@ -25,12 +25,19 @@ import (
 // La media va en int8 con escala máx|x|/127 por opción (como las torres de ESQUEMAS): 4× menos que f32 y el error de
 // cuantización (≤ 0,4 % por componente) queda muy por debajo del ruido de unos pocos ejemplos. Una opción sin ejemplos
 // lleva k=0, escala 0 y ceros.
+//
+// Versión 2 (misma cabecera con versión = 2): cada entrada añade al final u32 K · C×K×f32 normas (K = 0 ⇒ sin normas, y no
+// siguen los f32). normas[c·K+j] es la norma de la ranura j de la media SIN normalizar de L2c de la clase c (‖(1/n)·Σ S_i,j‖ ≤ 1);
+// CONJ guarda las ranuras ya normalizadas y con ellas el runtime reconstruye la media de modelo.py (Proto·escala·norma). El escritor
+// emite la versión 2 solo si alguna entrada trae normas (si no, los bytes son los de la versión 1); el lector acepta las dos.
 const (
-	Sopl1Version = 1
-	maxSoplDim   = 4096
-	maxSoplN     = 1 << 16
-	maxSoplC     = 1 << 16
-	soplFijoEntr = 32 + 4
+	Sopl1Version  = 1 // versión sin normas
+	Sopl1Version2 = 2 // con normas por ranura
+	maxSoplK      = 256
+	maxSoplDim    = 4096
+	maxSoplN      = 1 << 16
+	maxSoplC      = 1 << 16
+	soplFijoEntr  = 32 + 4
 )
 
 // EntradaSopl1 es el soporte de una pregunta. Media son C·dim bytes int8 en crudo (en la lectura apunta a la sección).
@@ -40,6 +47,9 @@ type EntradaSopl1 struct {
 	K      []uint32
 	Escala []float32
 	Media  []int8
+	// Ranuras (K) y Normas (versión 2): ranuras por clase y C·K normas de la media sin normalizar de L2c. Ranuras = 0 / Normas nil = sin normas.
+	Ranuras int
+	Normas  []float32
 }
 
 // CuantizarMedia cuantiza una media a int8 con escala máx|x|/127 (0 si es toda ceros), redondeo a par.
@@ -74,6 +84,14 @@ func (e *EntradaSopl1) validar(dim int) error {
 			return fmt.Errorf("%w: SOPL1 escala %v", ErrContenido, x)
 		}
 	}
+	if e.Ranuras < 0 || e.Ranuras > maxSoplK || len(e.Normas) != c*e.Ranuras {
+		return fmt.Errorf("%w: SOPL1 normas K=%d con %d valores para C=%d", ErrContenido, e.Ranuras, len(e.Normas), c)
+	}
+	for _, x := range e.Normas {
+		if !(x >= 0) || x > 1.001 || !finito32(x) {
+			return fmt.Errorf("%w: SOPL1 norma de ranura %v", ErrContenido, x)
+		}
+	}
 	return nil
 }
 
@@ -85,7 +103,13 @@ func CodificarSopl1(dim int, es []EntradaSopl1) ([]byte, error) {
 	s := append([]EntradaSopl1(nil), es...)
 	sort.Slice(s, func(i, j int) bool { return bytes.Compare(s[i].Hash[:], s[j].Hash[:]) < 0 })
 	le := binary.LittleEndian
-	b := le.AppendUint32(nil, Sopl1Version)
+	ver := uint32(Sopl1Version)
+	for i := range s {
+		if s[i].Ranuras > 0 {
+			ver = Sopl1Version2
+		}
+	}
+	b := le.AppendUint32(nil, ver)
 	b = le.AppendUint32(b, uint32(dim))
 	b = le.AppendUint32(b, uint32(len(s)))
 	for i := range s {
@@ -111,6 +135,12 @@ func CodificarSopl1(dim int, es []EntradaSopl1) ([]byte, error) {
 		for _, v := range e.Media {
 			b = append(b, byte(v))
 		}
+		if ver == Sopl1Version2 {
+			b = le.AppendUint32(b, uint32(e.Ranuras))
+			for _, x := range e.Normas {
+				b = le.AppendUint32(b, math.Float32bits(x))
+			}
+		}
 	}
 	return b, nil
 }
@@ -123,8 +153,9 @@ type Sopl1 struct {
 
 func DecodificarSopl1(b []byte) (*Sopl1, error) {
 	l := &lector{b: b}
-	if v := l.u32(); l.err == nil && v != Sopl1Version {
-		return nil, fmt.Errorf("%w: SOPL1 versión %d", ErrContenido, v)
+	ver := l.u32()
+	if l.err == nil && ver != Sopl1Version && ver != Sopl1Version2 {
+		return nil, fmt.Errorf("%w: SOPL1 versión %d", ErrContenido, ver)
 	}
 	dim, n := l.u32(), l.u32()
 	if l.err != nil {
@@ -171,6 +202,25 @@ func DecodificarSopl1(b []byte) (*Sopl1, error) {
 		for j, v := range m {
 			e.Media[j] = int8(v)
 		}
+		if ver == Sopl1Version2 {
+			kk := l.u32()
+			if l.err != nil {
+				return nil, l.err
+			}
+			if kk > maxSoplK || uint64(nc)*uint64(kk)*4 > uint64(len(l.b)) {
+				return nil, fmt.Errorf("%w: SOPL1 K=%d", ErrContenido, kk)
+			}
+			e.Ranuras = int(kk)
+			if kk > 0 {
+				e.Normas = make([]float32, int(nc)*int(kk))
+				for j := range e.Normas {
+					e.Normas[j] = l.f32()
+				}
+				if l.err != nil {
+					return nil, l.err
+				}
+			}
+		}
 		if err := e.validar(int(dim)); err != nil {
 			return nil, err
 		}
@@ -210,6 +260,15 @@ func (e *EntradaSopl1) Opcion(id string, dim int) (k int, media []float32, ok bo
 	return int(e.K[c]), media, true
 }
 
+// NormasDe devuelve las K normas de ranura de la clase id (versión 2); nil si la entrada no las trae o no tiene la clase.
+func (e *EntradaSopl1) NormasDe(id string) []float32 {
+	c := sort.SearchStrings(e.Ids, id)
+	if e.Ranuras == 0 || c == len(e.Ids) || e.Ids[c] != id {
+		return nil
+	}
+	return e.Normas[c*e.Ranuras : (c+1)*e.Ranuras]
+}
+
 // Sopl1 devuelve la sección SOPL1; ErrNoHay si el fichero no la trae.
 func (f *Fichero) Sopl1() (*Sopl1, error) {
 	b, err := f.Bytes(SOPL1)
@@ -220,8 +279,8 @@ func (f *Fichero) Sopl1() (*Sopl1, error) {
 }
 
 // PesoSoporte es el peso de los ejemplos w = k/(k+λ) = 1 − λ_c. Equivalencia con model/l2/formula-shrinkage.md: κ ≡ nuestra λ
-// y el peso de la descripción es κ/(κ+n) = LambdaClase. lambda nil o infinito ⇒ 0 (sin mezcla: el comportamiento de antes del soporte);
-// k ≤ 0 ⇒ 0; λ = 0 ⇒ 1.
+// y el peso de la descripción es κ/(κ+n) = LambdaClase. lambda nil ⇒ 0 (apagado: el comportamiento de antes del soporte);
+// k ≤ 0 ⇒ 0; λ = 0 ⇒ 1 (solo ejemplos); λ = +∞ ⇒ 0 (solo descripción).
 func PesoSoporte(k int, lambda *float64) float64 {
 	if lambda == nil || math.IsInf(*lambda, 1) || k <= 0 {
 		return 0
@@ -270,14 +329,18 @@ func LambdaClase(n int, kappa *float64) float64 {
 //
 //	Q_k = λ·h + (1−λ)·M_k  (el mismo h en las K ranuras)  ·  P_k = Q_k/‖Q_k‖  (por ranura; si ‖Q_k‖ = 0, queda en 0)
 //
-// h es la torre de la descripción (norma 1) y M_k la ranura k de la clase en CONJ, desescalada. Diferencia conocida con el
-// entrenamiento: allí M_k es la media SIN normalizar de las ranuras de los ejemplos (norma ≤ 1) y CONJ solo guarda su
-// normalizada (norma 1), así que con n ≥ 2 el runtime da a la media algo más de peso del que da modelo.py; con n = 1 coincide.
-// λ = 0 devuelve la media normalizada, es decir, los prototipos de CONJ tal cual.
-func (e *EntradaConj) ProtosMezclados(c int, h []float32, lambda float64) []float32 {
+// h es la torre de la descripción (norma 1) y M_k la ranura k de la clase en CONJ, desescalada y multiplicada por normas[k]: en
+// el entrenamiento M_k es la media SIN normalizar de las ranuras de los ejemplos (norma ≤ 1) y CONJ solo guarda su normalizada,
+// de modo que normas (SOPL1 v2, ver EntradaSopl1.NormasDe) devuelve a la media su norma y la fórmula coincide con modelo.py. normas
+// nil (SOPL1 v1 o sin SOPL1 v2) usa la media normalizada: con n ≥ 2 da a los ejemplos algo más de peso que modelo.py; con n = 1
+// coincide. λ = 0 devuelve la media normalizada, es decir, los prototipos de CONJ tal cual.
+func (e *EntradaConj) ProtosMezclados(c int, h []float32, lambda float64, normas []float32) []float32 {
 	out := make([]float32, e.K*e.D)
 	for j := 0; j < e.K; j++ {
 		esc := float64(e.Escala[c*e.K+j])
+		if len(normas) == e.K {
+			esc *= float64(normas[j])
+		}
 		m := e.Proto[(c*e.K+j)*e.D : (c*e.K+j+1)*e.D]
 		q := out[j*e.D : (j+1)*e.D]
 		var n float64
@@ -337,7 +400,7 @@ func SimprotoMezclado(e *EntradaConj, sop *EntradaSopl1, kappa *float64, ids []s
 		if out == nil {
 			out = SimprotoActual(e, S, ids)
 		}
-		out[i] = simprotoF(S, e.ProtosMezclados(c, TorreFloat(vec, esc), LambdaClase(k, kappa)), e.D)
+		out[i] = simprotoF(S, e.ProtosMezclados(c, TorreFloat(vec, esc), LambdaClase(k, kappa), sop.NormasDe(id)), e.D)
 	}
 	return out
 }

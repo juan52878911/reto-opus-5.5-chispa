@@ -204,7 +204,9 @@ def leer_torr(b: bytes) -> dict:
 
 
 # --- SOPL1 (ver format/chispa3/sopl1.go para la disposición) ---
-SOPL1_VERSION = 1
+SOPL1_VERSION = 1   # sin normas
+SOPL1_VERSION2 = 2  # cada entrada añade u32 K · C×K×f32 normas de la media sin normalizar de L2c (K = 0: sin normas)
+SOPL1_MAX_K = 256
 
 
 def clave_conj(pregunta: str, ids) -> bytes:
@@ -228,11 +230,13 @@ def cuantizar_media(M):
 def sopl1(dim: int, entradas) -> bytes:
     """Sección SOPL1: soporte few-shot por pregunta (k y media int8 de los embeddings de L1 por opción). Cada entrada:
     dict con `hash` (32 bytes, `clave_conj`), `ids` (estrictamente crecientes), `k` (C,), `escala` (C,) y `media` (C,dim) int8.
-    Se ordenan por hash."""
+    Opcional `normas` (C,K) float: norma de cada ranura de la media SIN normalizar de L2c (‖(1/n)·Σ S_i,j‖ ≤ 1); con normas en alguna
+    entrada la sección es la versión 2 (las entradas sin ellas llevan K = 0), si no es la versión 1 de siempre. Se ordenan por hash."""
     import numpy as np
     if not 0 < dim <= 4096:
         raise ValueError("SOPL1: dim fuera de rango")
-    out = [struct.pack("<III", SOPL1_VERSION, dim, len(entradas))]
+    con_normas = any(e.get("normas") is not None for e in entradas)
+    out = [struct.pack("<III", SOPL1_VERSION2 if con_normas else SOPL1_VERSION, dim, len(entradas))]
     for e in sorted(entradas, key=lambda e: e["hash"]):
         media = np.ascontiguousarray(e["media"], dtype=np.int8)
         c = len(e["ids"])
@@ -247,16 +251,22 @@ def sopl1(dim: int, entradas) -> bytes:
         out.append(np.asarray(e["k"], dtype="<u4").tobytes())
         out.append(np.asarray(e["escala"], dtype="<f4").tobytes())
         out.append(media.tobytes())
+        if con_normas:
+            nm = e.get("normas")
+            nm = np.zeros((c, 0), dtype="<f4") if nm is None else np.ascontiguousarray(nm, dtype="<f4")
+            if nm.ndim != 2 or nm.shape[0] != c or nm.shape[1] > SOPL1_MAX_K or not np.all((nm >= 0) & (nm <= 1.001)):
+                raise ValueError("SOPL1: normas mal formadas (C×K, en [0, 1])")
+            out.append(struct.pack("<I", nm.shape[1]) + nm.tobytes())
     return b"".join(out)
 
 
 def leer_sopl1(b: bytes) -> dict:
-    """Inversa de `sopl1` (`chispa3.DecodificarSopl1`): {dim, entradas: [{hash, ids, k, escala, media}]}."""
+    """Inversa de `sopl1` (`chispa3.DecodificarSopl1`): {dim, entradas: [{hash, ids, k, escala, media, normas}]}; `normas` es (C,K) o None (versión 1 o K = 0)."""
     import numpy as np
     if len(b) < 12:
         raise ValueError("SOPL1 truncada")
     ver, dim, n = struct.unpack("<III", b[:12])
-    if ver != SOPL1_VERSION or not 0 < dim <= 4096:
+    if ver not in (SOPL1_VERSION, SOPL1_VERSION2) or not 0 < dim <= 4096:
         raise ValueError("SOPL1 inválida")
     pos, es = 12, []
     for _ in range(n):
@@ -270,7 +280,15 @@ def leer_sopl1(b: bytes) -> dict:
         k = np.frombuffer(b, "<u4", c, pos); pos += 4 * c
         esc = np.frombuffer(b, "<f4", c, pos); pos += 4 * c
         media = np.frombuffer(b, np.int8, c * dim, pos).reshape(c, dim); pos += c * dim
-        es.append({"hash": h, "ids": ids, "k": k, "escala": esc, "media": media})
+        normas = None
+        if ver == SOPL1_VERSION2:
+            kk = struct.unpack("<I", b[pos:pos + 4])[0]
+            pos += 4
+            if kk > SOPL1_MAX_K:
+                raise ValueError("SOPL1 inválida")
+            if kk:
+                normas = np.frombuffer(b, "<f4", c * kk, pos).reshape(c, kk); pos += 4 * c * kk
+        es.append({"hash": h, "ids": ids, "k": k, "escala": esc, "media": media, "normas": normas})
     if pos != len(b):
         raise ValueError("SOPL1 con bytes sobrantes")
     return {"dim": dim, "entradas": es}

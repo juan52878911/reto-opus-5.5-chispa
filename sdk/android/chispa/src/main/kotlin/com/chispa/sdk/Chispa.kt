@@ -45,7 +45,9 @@ class Chispa private constructor(
          * Abre el modelo. [rutaModelo] es la ruta absoluta de un fichero, o el nombre de un asset (se copia una vez a
          * `filesDir`, porque el motor lo mapea en memoria y necesita un fichero de verdad).
          * [proveedorOrt] elige el proveedor de ORT de L2 y de la torre (XNNPACK por defecto; si falla al crear la sesión, CPU).
-         * [lambdaSoporteL1]/[lambdaSoporteL2]: λ del soporte few-shot (`AbrirConSoporte`); nulos = `Abrir` de siempre.
+         * [lambdaSoporteL1]/[lambdaSoporteL2]: λ del soporte few-shot (`AbrirConSoporte`, mismo nombre y semántica que
+         * `l1_shrinkage_lambda`/`l2_shrinkage_lambda` del servidor): nulo = apagado (`Abrir` de siempre), 0 = solo ejemplos,
+         * `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga).
          */
         fun abrir(
             contexto: Context,
@@ -74,9 +76,12 @@ class Chispa private constructor(
             }
         }
 
-        /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es ∞ (sin mezcla); sin ninguno, null = `Abrir` de siempre. */
+        /** `chispamovil.SoporteApagado`: el λ negativo que apaga el encogimiento en el puente (que no tiene opcionales). */
+        internal const val LAMBDA_APAGADO = -1.0
+
+        /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es apagado (LAMBDA_APAGADO); sin ninguno, null = `Abrir` de siempre. */
         internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double>? =
-            if (l1 == null && l2 == null) null else Pair(l1 ?: Double.POSITIVE_INFINITY, l2 ?: Double.POSITIVE_INFINITY)
+            if (l1 == null && l2 == null) null else Pair(l1 ?: LAMBDA_APAGADO, l2 ?: LAMBDA_APAGADO)
 
         /** Monta la cascada sobre cualquier [Motor] (los tests usan uno falso). [onnx] da la ruta del ONNX de L2. */
         internal fun montar(

@@ -11,15 +11,15 @@ import (
 	"chispa/format/chispa3"
 )
 
-func TestSopl1InvalidaConLambdaInfinita(t *testing.T) {
-	inf := math.Inf(1)
+func TestSopl1InvalidaSoloSeIgnoraConElEncogimientoApagado(t *testing.T) {
+	inf := math.Inf(1) // λ = ∞ es «solo descripción»: el encogimiento está activo y necesita SOPL1
 	fin := 5.0
 	build := func(cfg Config) (Montaje, error) {
 		f := v3Tiny(t, chispa3.Calib{TauEscalate: 0.5, Tipos: map[string]chispa3.ParamsTipo{}}, chispa3.Seccion{Tipo: chispa3.SOPL1, Datos: []byte("basura")})
 		cfg.Capas = ConfigPorDefecto().Capas
 		return ArmarDesde(f, NuevoL0(8), &cfg, true, tokFalso{})
 	}
-	for nombre, cfg := range map[string]Config{"nil": {}, "inf": {L1ShrinkageLambda: &inf, L2ShrinkageLambda: &inf}} {
+	for nombre, cfg := range map[string]Config{"nil": {}} {
 		mt, err := build(cfg)
 		if err != nil {
 			t.Fatalf("%s: SOPL1 inválida no debe impedir arrancar: %v", nombre, err)
@@ -27,6 +27,9 @@ func TestSopl1InvalidaConLambdaInfinita(t *testing.T) {
 		if len(mt.Avisos) == 0 || !strings.Contains(mt.Avisos[0], "SOPL1") {
 			t.Errorf("%s: falta el aviso: %v", nombre, mt.Avisos)
 		}
+	}
+	if _, err := build(Config{L2ShrinkageLambda: &inf}); err == nil || !strings.Contains(err.Error(), "SOPL1") {
+		t.Errorf("con λ = ∞ también debe dar error claro: %v", err)
 	}
 	if _, err := build(Config{L1ShrinkageLambda: &fin}); err == nil || !strings.Contains(err.Error(), "SOPL1") {
 		t.Errorf("con λ finito debe dar error claro: %v", err)

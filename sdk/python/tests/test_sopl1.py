@@ -6,6 +6,7 @@ import numpy as np
 from chispa import formato
 
 TESTDATA = Path(__file__).resolve().parents[3] / "format/chispa3/testdata/soporte.chispa"
+TESTDATA_V2 = TESTDATA.with_name("soporte-v2.chispa")
 DIM = 4
 
 
@@ -14,9 +15,16 @@ def entradas():
     return [{"hash": formato.clave_conj("¿p?", ["b", "a"]), "ids": ["a", "b"], "k": [3, 0], "escala": esc, "media": q}]
 
 
-def fichero() -> bytes:
+def entradas_v2():
+    """Caso a mano de n = 3 (ver TestSOPL1V2Go en format/chispa3): K = 2 ranuras con normas √5/3 y 1; la clase «b» sin ejemplos."""
+    e = entradas()[0]
+    e["normas"] = np.array([[np.sqrt(5) / 3, 1.0], [0.0, 0.0]], dtype=np.float32)
+    return [e]
+
+
+def fichero(v2=False) -> bytes:
     return formato.escribir({formato.META: formato.meta(["q"]), formato.CALIB: formato.calib({}, 0.5),
-                             formato.SOPL1: formato.sopl1(DIM, entradas())})
+                             formato.SOPL1: formato.sopl1(DIM, entradas_v2() if v2 else entradas())})
 
 
 class TestSOPL1(unittest.TestCase):
@@ -47,6 +55,33 @@ class TestSOPL1(unittest.TestCase):
     def test_el_fichero_guardado_es_el_que_se_genera(self):
         self.assertTrue(TESTDATA.is_file(), "falta " + str(TESTDATA))
         self.assertEqual(TESTDATA.read_bytes(), fichero())
+
+    def test_v2_layout_e_ida_y_vuelta(self):
+        b = formato.sopl1(DIM, entradas_v2())
+        self.assertEqual(b[:4].hex(), "02000000")
+        v1 = formato.sopl1(DIM, entradas())
+        self.assertEqual(b[4:len(v1)], v1[4:])           # el cuerpo de la entrada es el de v1
+        self.assertEqual(b[len(v1):len(v1) + 4].hex(), "02000000")  # K = 2
+        self.assertEqual(len(b), len(v1) + 4 + 4 * 2 * 2)
+        e = formato.leer_sopl1(b)["entradas"][0]
+        self.assertEqual(e["normas"].shape, (2, 2))
+        self.assertAlmostEqual(float(e["normas"][0, 0]), 5 ** 0.5 / 3, places=6)
+
+    def test_v1_se_lee_sin_normas_y_sin_normas_son_los_bytes_de_siempre(self):
+        b = formato.sopl1(DIM, entradas())
+        self.assertEqual(b[:4].hex(), "01000000")
+        self.assertIsNone(formato.leer_sopl1(b)["entradas"][0]["normas"])
+        sin = {**entradas()[0], "normas": None}
+        self.assertEqual(formato.sopl1(DIM, [sin]), b)
+
+    def test_v2_rechaza_normas_malas(self):
+        for mal in (np.ones((3, 2)), np.full((2, 2), 2.0), np.full((2, 2), np.nan), np.full((2, 2), -0.5)):
+            with self.assertRaises(ValueError):
+                formato.sopl1(DIM, [{**entradas()[0], "normas": mal}])
+
+    def test_el_fichero_v2_guardado_es_el_que_se_genera(self):
+        self.assertTrue(TESTDATA_V2.is_file(), "falta " + str(TESTDATA_V2))
+        self.assertEqual(TESTDATA_V2.read_bytes(), fichero(True))
 
 
 if __name__ == "__main__":

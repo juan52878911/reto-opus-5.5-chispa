@@ -78,7 +78,7 @@ func (c Config) Validar() error {
 	}
 	for n, v := range map[string]*float64{"l1_shrinkage_lambda": c.L1ShrinkageLambda, "l2_shrinkage_lambda": c.L2ShrinkageLambda} {
 		if v != nil && (math.IsNaN(*v) || *v < 0) {
-			return fmt.Errorf("config: %s debe ser ≥ 0 (ausente = ∞): %v", n, *v)
+			return fmt.Errorf("config: %s debe ser ≥ 0 (ausente = apagado; 0 = solo ejemplos; muy grande = solo descripción): %v", n, *v)
 		}
 	}
 	return c.Limites.validar()

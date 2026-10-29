@@ -2,7 +2,6 @@ package decide
 
 import (
 	"context"
-	"math"
 
 	"chispa/format/chispa3"
 )
@@ -26,17 +25,15 @@ type L2c struct {
 	conj *chispa3.Conj
 
 	sopl   *chispa3.Sopl1 // k por opción (SOPL1), o nil
-	lambda *float64       // λ del encogimiento de L2; nil = ∞ (sin mezcla)
+	lambda *float64       // κ ≡ λ del encogimiento de L2; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
 }
 
 // ConSoporte activa el shrinkage de G.8 en L2c (κ ≡ λ; ver chispa3.SimprotoMezclado): con una pregunta presente en sopl, los
 // prototipos de cada opción con k > 0 son Q_j = λ_c·torre + (1−λ_c)·ranura_j de CONJ, λ_c = λ/(λ+k) con el k de SOPL1,
-// normalizados por ranura; solo cambia el simproto (sim_opción, el MaxSim de la torre, queda igual). lambda nil o +Inf deja
-// L2c como estaba (los prototipos de CONJ tal cual, que es κ=0 de la fórmula, no κ=∞). Antes de usarla.
+// normalizados por ranura; solo cambia el simproto (sim_opción, el MaxSim de la torre, queda igual). Con SOPL1 v2 la media lleva
+// la norma de cada ranura (como modelo.py). lambda nil = apagado (L2c como estaba); λ = 0 = solo ejemplos; λ = +Inf = solo descripción
+// (antes +Inf apagaba). Antes de usarla.
 func (l *L2c) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L2c {
-	if lambda != nil && math.IsInf(*lambda, 0) {
-		lambda = nil
-	}
 	l.sopl, l.lambda = sopl, lambda
 	return l
 }

@@ -59,8 +59,9 @@ def main(argv=None) -> int:
     t.add_argument("--repo", help="raíz del repositorio de Chispa: solo para --ckpt/--conjunta (por defecto CHISPA_REPO o el que contiene este paquete). Para L0 no hace falta: el wheel trae las fuentes de Go")
     t.add_argument("--shrinkage-lambda", type=float, default=None, metavar="LAMBDA",
                    help="few-shot con --l1: escribe la sección SOPL1 (k y media de los embeddings de L1 de los ejemplos por opción) para que el "
-                        "runtime encoja el prototipo hacia ellos, w = k/(k+λ). Sin esta opción no se escribe y el fichero es el de siempre. λ (≥ 0) "
-                        "no va en el fichero: se pone en l1_shrinkage_lambda / l2_shrinkage_lambda del servidor o en AbrirConSoporte; aquí es el valor sugerido")
+                        "runtime encoja el prototipo hacia ellos, w = k/(k+λ). Sin esta opción no se escribe (apagado) y el fichero es el de siempre. λ (≥ 0; "
+                        "0 = solo ejemplos, inf = solo descripción) no va en el fichero: se pone en l1_shrinkage_lambda / l2_shrinkage_lambda del "
+                        "servidor o en AbrirConSoporte; aquí es el valor sugerido. Con --conjunta la sección lleva la norma de cada ranura de L2c (SOPL1 v2)")
     t.add_argument("--tau-l2-esquema-nuevo", type=float, default=None, metavar="TAU",
                    help="escribe tau_l2_esquema_nuevo (en [0,1]) en CALIB: el τ de L2 cuando la pregunta no estaba en ESQUEMAS y la torre sale al vuelo. "
                         "Sin esta opción no se escribe y L2 usa siempre tau_escalate")

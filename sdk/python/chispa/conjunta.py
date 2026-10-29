@@ -150,6 +150,7 @@ def seccion_conj(q, ejemplos, modelo, enc, repo, log=print, l0tf_f16=False, l0tf
                 + (f"; tope de τ {tope_tau} aplicado" if tope_ap else ""))
     idx, P = prototipos(modelo, enc, sop)  # (C,K,d), clases en orden de nombre
     clases = sorted(idx, key=idx.get)
+    normas = normas_ranuras(modelo, enc, sop, idx)
     escala, proto = formato.cuantizar_protos(P.detach().cpu().numpy())
     T = float(modelo.log_t["choice"].detach().exp().clamp(min=5e-3))
     e = {"hash": formato.hash_esquema(q.question, sorted(o.id for o in q.options)), "T": T,
@@ -157,10 +158,39 @@ def seccion_conj(q, ejemplos, modelo, enc, repo, log=print, l0tf_f16=False, l0tf
          "w": [float(x) for x in cab.w.numpy()], "clases": clases, "escala": escala, "proto": proto}
     b = formato.conj([e])
     return b, b_l0, {"l0tf": {"ngramas": len(vec.vocabulary_), "max_features": mf, "bytes": len(b_l0), "f16": l0tf_f16, "s": t_l0},
+                     "normas_ranuras": {"clases": clases, "normas": normas},
                      "lambda": lam, "cv_nll": {str(k): v for k, v in tabla["lr"].items()}, "bytes": len(b), "clases": len(clases),
                "T": T, "beta": e["beta"],
                "tau_l2c": tau, "precision_oof": prec, "precision_esperada": prec, "metodo_tau": metodo, "cobertura_esperada": cob, "precision_objetivo": precision_objetivo,
                "filas_oof": int(ok.sum()), "tope_tau": tope_tau, "tope_tau_aplicado": tope_ap}
+
+
+def normas_de_suma(suma, n):
+    """Normas de las ranuras de la media SIN normalizar de `modelo.prototipos`: suma (C,K,d) de las ranuras de los ejemplos de cada clase y
+    n (C,) ejemplos → (C,K) con ‖suma_c,k‖/n_c (≤ 1: media de vectores unitarios). `prototipos` solo devuelve suma/‖suma‖; esta norma
+    es lo que CONJ no guarda y SOPL1 v2 sí (ver formato.sopl1)."""
+    import numpy as np
+    suma, n = np.asarray(suma, dtype=np.float64), np.asarray(n, dtype=np.float64)
+    return (np.linalg.norm(suma, axis=-1) / np.maximum(n, 1)[:, None]).astype(np.float32)
+
+
+def normas_ranuras(modelo, enc, filas_soporte, idx, lote=256):
+    """(C,K) de `normas_de_suma` con el mismo recorrido que `model.l2.modelo.prototipos` (mismas filas, mismo orden de clases `idx`)."""
+    import numpy as np
+    import torch
+    dev = modelo.ranuras.q.device
+    suma, n = None, np.zeros(len(idx))
+    for i in range(0, len(filas_soporte), lote):
+        fs = filas_soporte[i:i + lote]
+        with torch.no_grad():
+            H, m = enc.tokens([r["texto"] for r in fs])
+            S = modelo.ranuras(H.to(dev), m.to(dev))
+        ci = torch.tensor([idx[r["etiqueta"]] for r in fs], device=dev)
+        parte = torch.zeros(len(idx), *S.shape[1:], device=dev).index_add(0, ci, S)
+        suma = parte if suma is None else suma + parte
+        for r in fs:
+            n[idx[r["etiqueta"]]] += 1
+    return normas_de_suma(suma.detach().cpu().numpy(), n)
 
 
 def cargar_ckpt(ckpt, repo):
