@@ -89,9 +89,98 @@ class TorreOnnx(unittest.TestCase):
         E.ids_torre(enc, ["x"])
         self.assertEqual(enc.tok.max_length, 128)
 
+    def test_max_len_configurable(self):
+        out = self.d / "t256.onnx"
+        E.exportar_torre(encoder_diminuto(), self.modelo.torre, out, self.d / "m", max_len=256)
+        props = {p.key: p.value for p in onnx.load(str(out), load_external_data=False).metadata_props}
+        self.assertEqual(props["chispa.torre.max_len"], "256")
+        E.meta_consulta(out, 256)
+        E.meta_consulta(out, 192)  # sustituye, no duplica
+        props = [p for p in onnx.load(str(out), load_external_data=False).metadata_props if p.key == "chispa.consulta.max_len"]
+        self.assertEqual([p.value for p in props], ["192"])
+
+    def test_ids_torre_usa_el_max_tok_del_codificador(self):
+        class Tok:
+            def __call__(self, textos, truncation, max_length):
+                self.max_length = max_length
+                return {"input_ids": [[0] for _ in textos]}
+        enc = type("E", (), {"tok": Tok(), "max_tok": 256})()
+        E.ids_torre(enc, ["x"])
+        self.assertEqual(enc.tok.max_length, 256)
+
     def test_cli_exige_ckpt(self):
         with self.assertRaises(SystemExit):
             E.main(["--torre-onnx", "x.onnx"])
+
+
+FILAS_CALIB = [{"tipo": "choice", "split": "train", "pregunta": "¿Qué c%d?" % q, "opciones": ["a", "b", "c"],
+                "descripciones": {"a": "da", "b": "db", "c": "dc"}} for q in range(10)]
+IDS_CALIB = [[1, 5 + i, 9, 2] if i % 2 else [1, 7, 8 + i, 9, 10, 2] for i in range(24)]
+
+
+class VariantesTorre(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        torch.manual_seed(3)
+        cls.modelo = ModeloL2().eval()
+        cls.dir = tempfile.TemporaryDirectory()
+        cls.d = Path(cls.dir.name)
+        cls.out = {}
+        for v in E.CUANT_TORRE:
+            cls.out[v] = cls.d / (v + ".onnx")
+            E.exportar_torre(encoder_diminuto(), cls.modelo.torre, cls.out[v], cls.d / v, cuant=v, ids_calib=IDS_CALIB)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def test_metadata_props_en_las_tres(self):
+        for v, ruta in self.out.items():
+            props = {p.key: p.value for p in onnx.load(str(ruta), load_external_data=False).metadata_props}
+            self.assertEqual((props["chispa.torre.dim"], props["chispa.torre.max_len"], props["chispa.torre.prefijo"]), ("256", "128", "passage: "), v)
+
+    def test_operadores_de_cada_variante(self):
+        ops = {v: {n.op_type for n in onnx.load(str(r), load_external_data=False).graph.node} for v, r in self.out.items()}
+        self.assertNotIn("MatMulInteger", ops["ninguna"])
+        self.assertNotIn("QuantizeLinear", ops["ninguna"])
+        self.assertIn("MatMulInteger", ops["dinamico"])
+        self.assertIn("QuantizeLinear", ops["estatico"])
+        self.assertIn("DequantizeLinear", ops["estatico"])
+        self.assertNotIn("DynamicQuantizeLinear", ops["estatico"])
+
+    def test_torre_en_fp32_en_el_estatico(self):
+        g = onnx.load(str(self.out["estatico"]), load_external_data=False).graph
+        torre = [n for n in g.node if n.name.startswith(E.PREFIJO_TORRE)]
+        self.assertTrue(torre)
+        self.assertEqual([n.name for n in torre if n.op_type in ("QuantizeLinear", "DequantizeLinear", "MatMulInteger")], [])
+
+    def test_paridad_y_tamano(self):
+        ids = [[1, 5, 9, 2], [1, 7, 2], [1, 6, 8, 9, 11, 2]]
+        ref = E.correr_torre(E.sesion(self.out["ninguna"]), ids)
+        for v in ("dinamico", "estatico"):
+            c = E.cosenos(E.correr_torre(E.sesion(self.out[v]), ids), ref)
+            self.assertGreater(float(c.min()), 0.95, v)
+        self.assertLess(self.out["dinamico"].stat().st_size, self.out["ninguna"].stat().st_size)
+        self.assertLess(self.out["estatico"].stat().st_size, self.out["ninguna"].stat().st_size)
+
+    def test_estatico_sin_calibracion_falla(self):
+        with self.assertRaises(ValueError):
+            E.exportar_torre(encoder_diminuto(), self.modelo.torre, self.d / "x.onnx", self.d / "x", cuant="estatico")
+
+    def test_textos_calib_reparte_y_es_determinista(self):
+        a = E.textos_calib(FILAS_CALIB, 7)
+        self.assertEqual(a, E.textos_calib(FILAS_CALIB, 7))
+        self.assertEqual(len(a), 7)
+        self.assertEqual(len(E.textos_calib(FILAS_CALIB, 500)), 30)
+
+    def test_cli_estatico_pide_calib(self):
+        with self.assertRaises(SystemExit):
+            E.main(["--torre-onnx", str(self.d / "y.onnx"), "--ckpt-aleatorio", "--cuant-torre", "estatico"])
+
+    def test_latencia_torre(self):
+        r = E.latencia_torre(E.sesion(self.out["ninguna"]), IDS_CALIB[:6])
+        self.assertEqual(r["n"], 6)
+        self.assertLessEqual(r["p50_ms"], r["p99_ms"])
 
 
 class FixtureGo(unittest.TestCase):

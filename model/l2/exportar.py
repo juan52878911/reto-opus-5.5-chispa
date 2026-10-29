@@ -285,20 +285,71 @@ SEMILLA_TORRE = 20261029
 PREFIJO_PASAJE = "passage: "
 
 
-def meta_torre(ruta, dim):
-    """Escribe en `metadata_props` lo que lee `chispa train --torre`: dimensión de h, truncado y prefijo del texto."""
+CUANT_TORRE = ("ninguna", "dinamico", "estatico")
+METODOS_CALIB = ("minmax", "percentil")
+
+
+def poner_meta(ruta, props):
+    """Escribe `props` ({clave: valor}) en las `metadata_props` del ONNX, sustituyendo las que ya estén."""
     import onnx
     m = onnx.load(str(ruta))
-    for k, v in (("dim", dim), ("max_len", MAX_TOK), ("prefijo", PREFIJO_PASAJE)):
-        for p in [p for p in m.metadata_props if p.key == "chispa.torre." + k]:
+    for k, v in props.items():
+        for p in [p for p in m.metadata_props if p.key == k]:
             m.metadata_props.remove(p)
-        m.metadata_props.add(key="chispa.torre." + k, value=str(v))
+        m.metadata_props.add(key=k, value=str(v))
     onnx.save(m, str(ruta))
 
 
-def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="codificador", per_channel=True):
-    """ONNX int8 de la torre: (input_ids, attention_mask) → h. Devuelve {mb, fp32_mb, vocab_n}. Con `vocab` comparte la tabla
-    podada de la consulta (los ids de entrada siguen siendo los del tokenizador original)."""
+def meta_torre(ruta, dim, max_len=MAX_TOK):
+    """Escribe en `metadata_props` lo que lee `chispa train --torre`: dimensión de h, truncado y prefijo del texto."""
+    poner_meta(ruta, {"chispa.torre.dim": dim, "chispa.torre.max_len": max_len, "chispa.torre.prefijo": PREFIJO_PASAJE})
+
+
+def meta_consulta(ruta, max_len=MAX_TOK):
+    """`chispa.consulta.max_len`: el truncado (tokens) con que se entrenó el checkpoint; sin él el runtime usa 128."""
+    poner_meta(ruta, {"chispa.consulta.max_len": max_len})
+
+
+def textos_calib(filas, n=500, semilla=0):
+    """Hasta `n` textos de torre distintos de las filas, repartidos al azar (semilla fija) y no los primeros: una tarea no los copa."""
+    import random
+    todos = textos_torre(filas, 10 ** 9)
+    return todos if len(todos) <= n else sorted(random.Random(semilla).sample(todos, n), key=todos.index)
+
+
+def cuantizar_estatico(fp32, int8, ids_calib, per_channel=True, metodo="minmax", prefijo=PREFIJO_TORRE):
+    """int8 estático QDQ: MatMul y Gather del codificador con pesos por canal y escalas de activación por tensor ajustadas con
+    `ids_calib` (listas de ids sin relleno, de una en una); los nodos `prefijo` (la `Torre`) quedan en fp32."""
+    import onnx
+    from onnxruntime.quantization import CalibrationDataReader, CalibrationMethod, QuantFormat, QuantType, quantize_static
+    if not ids_calib:
+        raise ValueError("la cuantización estática pide textos de calibración (--calib-torre)")
+    if metodo not in METODOS_CALIB:
+        raise ValueError("método de calibración %r desconocido (%s)" % (metodo, ", ".join(METODOS_CALIB)))
+    nodos = [n for n in onnx.load(str(fp32), load_external_data=False).graph.node if n.name.startswith(prefijo)]
+    nombres = [n.name for n in nodos] + [n.name + "_MatMul" for n in nodos if n.op_type == "Gemm"]
+    if not nombres:
+        raise RuntimeError("el grafo no tiene nodos %s*: no se pueden dejar en fp32" % prefijo)
+
+    class Lector(CalibrationDataReader):
+        def __init__(self):
+            self.it = iter(ids_calib)
+
+        def get_next(self):
+            t = next(self.it, None)
+            return None if t is None else {"input_ids": np.array([t], dtype=np.int64), "attention_mask": np.ones((1, len(t)), dtype=np.int64)}
+
+    metodo_ort = CalibrationMethod.MinMax if metodo == "minmax" else CalibrationMethod.Percentile
+    quantize_static(str(fp32), str(int8), Lector(), quant_format=QuantFormat.QDQ, per_channel=per_channel,
+                    activation_type=QuantType.QUInt8, weight_type=QuantType.QInt8, nodes_to_exclude=nombres,
+                    op_types_to_quantize=["MatMul", "Gather"], calibrate_method=metodo_ort)
+
+
+def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinamico", per_channel=True, max_len=MAX_TOK, ids_calib=None,
+                   metodo_calib="minmax"):
+    """ONNX de la torre: (input_ids, attention_mask) → h. `cuant`: ninguna (fp32), dinamico (int8 dinámico por canal; también
+    «codificador»/«todo» de `--cuant`) o estatico (QDQ calibrado con `ids_calib`). Devuelve {mb, fp32_mb, vocab_n}. Con `vocab`
+    comparte la tabla podada de la consulta (los ids de entrada siguen siendo los del tokenizador original)."""
     trabajo = Path(trabajo)
     trabajo.mkdir(parents=True, exist_ok=True)
     remap = None
@@ -307,8 +358,11 @@ def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="codifi
     n_vocab = encoder.get_input_embeddings().weight.shape[0] if remap is None else len(remap)
     fp32 = trabajo / "torre-fp32.onnx"
     exportar_onnx(EnvolturaTorre(encoder, torre, remap), fp32, n_vocab, "h")
-    cuantizar(fp32, ruta_int8, cuant, per_channel, PREFIJO_TORRE)
-    meta_torre(ruta_int8, int(torre.mlp[-1].out_features))
+    if cuant == "estatico":
+        cuantizar_estatico(fp32, ruta_int8, ids_calib, per_channel, metodo_calib)
+    else:
+        cuantizar(fp32, ruta_int8, "codificador" if cuant == "dinamico" else cuant, per_channel, PREFIJO_TORRE)
+    meta_torre(ruta_int8, int(torre.mlp[-1].out_features), max_len)
     return {"mb": Path(ruta_int8).stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "vocab_n": n_vocab}
 
 
@@ -321,9 +375,9 @@ def textos_torre(filas, n):
     return list(vistos)[:n]
 
 
-def ids_torre(enc, textos, max_tok=128):
-    """Listas de ids sin relleno (tokenizador original de e5; los textos ya llevan «passage: »), truncadas a `max_tok`."""
-    return enc.tok(list(textos), truncation=True, max_length=max_tok)["input_ids"]
+def ids_torre(enc, textos, max_tok=None):
+    """Listas de ids sin relleno (tokenizador original de e5; los textos ya llevan «passage: »), truncadas a `max_tok` (por defecto el del codificador)."""
+    return enc.tok(list(textos), truncation=True, max_length=max_tok or getattr(enc, "max_tok", MAX_TOK))["input_ids"]
 
 
 def correr_torre(sess, ids, lote=32):
@@ -394,7 +448,7 @@ def fixture_torre(modelo, enc, sess_t, textos, ruta, decimales=6):
     ruta.parent.mkdir(parents=True, exist_ok=True)
     redondea = lambda a: [[round(float(x), decimales) for x in f] for f in a]
     ruta.write_text(json.dumps({
-        "contrato": "model/l2/contrato-torre.md", "max_tok": 128, "pad_id": 1, "dim": int(modelo.torre.mlp[-1].out_features),
+        "contrato": "model/l2/contrato-torre.md", "max_tok": enc.max_tok, "pad_id": 1, "dim": int(modelo.torre.mlp[-1].out_features),
         "nota": "input_ids sin relleno (attention_mask = unos). h_onnx sale del ONNX int8 exportado con el mismo comando; h_fp32 de PyTorch.",
         "textos": list(textos), "input_ids": ids, "h_fp32": redondea(h_torch(modelo, enc, textos)),
         "h_onnx": redondea(correr_torre(sess_t, ids))}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
@@ -486,6 +540,7 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     fp32, int8 = trabajo / "l2-fp32.onnx", trabajo / "l2-int8.onnx"
     exportar_onnx(env, fp32, n_vocab)
     cuantizar(fp32, int8, cuant, per_channel)
+    meta_consulta(int8, enc.max_tok)
     torres = entradas_torres(modelo, enc, filas_esq)
     dim = int(torres[0][2].shape[0])
     empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib["chispa"], salida)
@@ -510,33 +565,58 @@ def comprobar_paridad(inf, minimo):
                            % (p["acuerdo_top1"], minimo, inf.get("cuant"), p["dif_media"], p["dif_max"]))
 
 
+def latencia_torre(sess, ids, calentar=3):
+    """ms por texto (lote 1, 1 hilo, una pasada por texto tras calentar): p50 y p99 sobre todos los textos."""
+    for t in ids[:calentar]:
+        correr_torre(sess, [t])
+    ts = []
+    for t in ids:
+        t0 = time.perf_counter()
+        correr_torre(sess, [t])
+        ts.append((time.perf_counter() - t0) * 1000)
+    ts.sort()
+    return {"n": len(ts), "p50_ms": ts[len(ts) // 2], "p99_ms": ts[min(int(len(ts) * 0.99), len(ts) - 1)]}
+
+
 def main_torre(a, modelo, enc, encoder, vocab):
     """`--torre-onnx`: exporta, y si se piden, mide la paridad y escribe el fixture."""
     sal = Path(a.torre_onnx)
     sal.parent.mkdir(parents=True, exist_ok=True)
+    ids_calib = None
+    if a.cuant_torre == "estatico":
+        if not a.calib_torre:
+            raise SystemExit("--cuant-torre estatico pide --calib-torre")
+        filas_c = D.leer(a.calib_torre)
+        filas_c = [r for r in filas_c if r.get("split") == "train"] or filas_c
+        tx_c = textos_calib(filas_c, a.n_calib)
+        ids_calib = ids_torre(enc, tx_c)
+        print("calibración estática: %d textos de torre de %d filas" % (len(tx_c), len(filas_c)), file=sys.stderr)
+    kw = dict(cuant=a.cuant_torre, per_channel=a.per_channel, max_len=enc.max_tok, ids_calib=ids_calib, metodo_calib=a.metodo_calib)
     with tempfile.TemporaryDirectory() as t:
         import gc
-        inf = {}
+        inf = {"max_len": enc.max_tok, "n_calib": len(ids_calib or [])}
         tg = textos_golden(300) if a.medir_torre else []
         if a.medir_torre and vocab:  # primero y liberado: separa el efecto de la poda del de la cuantización (la VM tiene 4 GB)
             inf["tokens_unk"] = fraccion_unk_textos(enc, tg, vocab)
             sin = Path(t) / "torre-sin-poda-int8.onnx"
             # poda ampliada con los ids de los textos (sin <unk>): exportar el vocabulario completo no cabe en los 4 GB de la VM
             amplio = {**vocab, "ids_originales": sorted(set(vocab["ids_originales"]) | {i for x in ids_torre(enc, tg) for i in x})}
-            inf["mb_sin_poda"] = exportar_torre(encoder, modelo.torre, sin, Path(t) / "sp", amplio, a.cuant, a.per_channel)["mb"]
+            inf["mb_sin_poda"] = exportar_torre(encoder, modelo.torre, sin, Path(t) / "sp", amplio, **kw)["mb"]
             s_sin = sesion(sin)
             inf["h_sin_poda"] = paridad_torre(modelo, enc, s_sin, tg)
             shutil.rmtree(Path(t) / "sp")
-        inf.update(exportar_torre(encoder, modelo.torre, sal, t, vocab, a.cuant, a.per_channel))
-        inf.update(vocab_podado=bool(vocab), cuant=a.cuant, per_channel=a.per_channel, opset=OPSET)
+        inf.update(exportar_torre(encoder, modelo.torre, sal, t, vocab, **kw))
+        inf.update(vocab_podado=bool(vocab), cuant_torre=a.cuant_torre, cuant=a.cuant, per_channel=a.per_channel, opset=OPSET)
         sess = sesion(sal)
         if a.medir_torre:
             inf["h"] = paridad_torre(modelo, enc, sess, tg)
+            inf["latencia_torre"] = latencia_torre(sess, ids_torre(enc, tg[::3]))
             gc.collect()
             q_fp32, q_int8 = Path(t) / "l2-fp32.onnx", Path(t) / "l2-int8.onnx"
             qenc, qremap = podar(encoder, vocab) if vocab else (encoder, None)
             exportar_onnx(Envoltura(qenc, modelo.ranuras, qremap), q_fp32, len(qremap) if vocab else encoder.get_input_embeddings().weight.shape[0])
             cuantizar(q_fp32, q_int8, a.cuant, a.per_channel)
+            meta_consulta(q_int8, enc.max_tok)
             q_fp32.unlink()
             s_q, filas_t = sesion(q_int8), filas_massive(300)
             inf["top1_choice"] = top1_torres(modelo, enc, s_q, sess, filas_t)
@@ -596,7 +676,7 @@ cuantización de e5 y de la torre no depende de que estén entrenados.
 |---|---|---|---|
 %s
 
-Cuantización: %s, por canal=%s, opset %d, `Torre` en fp32. El ONNX de consulta pesa %.1f MB.
+Cuantización de la torre: %s, por canal=%s, opset %d, `Torre` en fp32. El ONNX de consulta pesa %.1f MB.
 
 Textos de coseno: tarea massive-es del repo (pregunta real y 6 redacciones × cada intención, con descripciones), en el formato
 del contrato (`passage: pregunta · opción · descripción`). Top-1: 300 mensajes de validación de massive-es, 8 opciones cada
@@ -606,7 +686,7 @@ uno, con las S del ONNX de consulta en los dos lados: solo cambian las torres.
 Top-1 con pesos aleatorios: el margen medio entre la mejor opción y la segunda es %s (softplus·maxsim), así que el acuerdo
 mide en buena parte ruido sobre empates casi exactos y no es extrapolable a un checkpoint entrenado. Hay que repetir la
 medida con el real.
-""" % (SEMILLA_TORRE, "\n".join(filas), inf["cuant"], inf["per_channel"], inf["opset"], inf["consulta_mb"], sin_poda(inf),
+""" % (SEMILLA_TORRE, "\n".join(filas), inf.get("cuant_torre", inf["cuant"]), inf["per_channel"], inf["opset"], inf["consulta_mb"], sin_poda(inf),
        f(t["margen_medio"])), encoding="utf-8")
 
 
@@ -620,6 +700,12 @@ def main(argv=None):
     ap.add_argument("--ckpt-aleatorio", type=int, nargs="?", const=SEMILLA_TORRE, metavar="SEMILLA", help="con --torre-onnx: pesos aleatorios con semilla fija en vez de --ckpt")
     ap.add_argument("--medir-torre", metavar="DIR", help="con --torre-onnx: mide la paridad (300 textos, top-1 de choice) y escribe DIR/LEEME.md y DIR/paridad.json")
     ap.add_argument("--fixture-torre", metavar="DIR", help="con --torre-onnx: escribe DIR/torre.json, el fixture de paridad para Go")
+    ap.add_argument("--cuant-torre", choices=CUANT_TORRE, default="dinamico",
+                    help="con --torre-onnx: ninguna (fp32), dinamico (int8 dinámico por canal) o estatico (QDQ calibrado con --calib-torre)")
+    ap.add_argument("--calib-torre", nargs="+", metavar="JSONL", help="con --cuant-torre estatico: filas (split train) cuyos textos de torre calibran las activaciones")
+    ap.add_argument("--n-calib", type=int, default=500, help="textos de torre distintos para la calibración estática")
+    ap.add_argument("--metodo-calib", choices=METODOS_CALIB, default="minmax", help="rango de las activaciones en la calibración estática")
+    ap.add_argument("--max-tok", type=int, default=MAX_TOK, help="tokens de truncado si el checkpoint no guarda el suyo (G.8: 256)")
     ap.add_argument("--paridad", nargs="*", default=[], help="jsonl de dev para la paridad")
     ap.add_argument("--n-paridad", type=int, default=500)
     ap.add_argument("--vocab-podado", default=str(VOCAB_PODADO))
@@ -633,6 +719,8 @@ def main(argv=None):
     if a.torre_onnx:
         if not (a.ckpt or a.ckpt_aleatorio is not None):
             ap.error("--torre-onnx pide --ckpt o --ckpt-aleatorio")
+        if a.cuant_torre == "estatico" and not a.calib_torre:
+            ap.error("--cuant-torre estatico pide --calib-torre")
     else:
         faltan = [f for f in ("ckpt", "calib", "esquemas", "salida") if not getattr(a, f)]
         if faltan:
@@ -640,7 +728,7 @@ def main(argv=None):
     from transformers import AutoModel
     from .modelo import Codificador
     modelo, ck = (modelo_aleatorio(a.ckpt_aleatorio), None) if a.ckpt is None and a.torre_onnx else C.cargar_modelo(a.ckpt, "cpu")
-    enc = Codificador(device="cpu")
+    enc = Codificador(device="cpu", max_tok=int((ck or {}).get("max_tok") or a.max_tok))
     ruta = os.environ.get("CHISPA_E5") or "intfloat/multilingual-e5-small"
     encoder = AutoModel.from_pretrained(ruta, attn_implementation="eager", local_files_only=os.path.exists(os.path.expanduser("~/hf/hub"))).eval()
     encoder.load_state_dict(enc.enc.state_dict())

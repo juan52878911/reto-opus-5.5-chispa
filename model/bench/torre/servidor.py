@@ -61,6 +61,7 @@ def main(argv=None):
     ap.add_argument("--n-esquemas", type=int, default=5)
     ap.add_argument("--todos", action="store_true", help="además, todos los casos de JevBench por el servidor")
     ap.add_argument("--minutos", type=float, default=15)
+    ap.add_argument("--pred", help="predicciones de Python k=0 (por defecto SALIDA/pred/l2_k0.jsonl)")
     a = ap.parse_args(argv)
     sal = Path(a.salida)
     trabajo = sal / "servidor"
@@ -108,7 +109,7 @@ def main(argv=None):
                 for q in preds:
                     capas[q["layer"]] = capas.get(q["layer"], 0) + 1
                 todos = {"casos": len(preds), "de": len(filas), "exactitud_servidor": res["exactitud"], "capas": capas}
-                py = sal / "pred" / "l2_k0.jsonl"
+                py = Path(a.pred) if a.pred else sal / "pred" / "l2_k0.jsonl"
                 if py.exists():
                     pp = [json.loads(l) for l in py.read_text().splitlines() if l.strip() and json.loads(l)["id"] in ids]
                     todos["exactitud_python_k0"] = CE.evaluar(sub, [{x: q[x] for x in ("id", "probs", "ms")} for q in pp])["global"]["exactitud"]
