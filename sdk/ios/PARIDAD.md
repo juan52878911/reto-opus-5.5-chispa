@@ -16,12 +16,12 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 | 6 | Tokenizador del motor (int32 LE → ids) | K:Capas 78 | S:Capas 91 | arreglado (si el motor no tiene tokenizador Kotlin lanzaba `ErrorChispa`; Swift devolvía `[]` y L2 callaba. `Tokenizador.ids` ahora `throws`) |
 | 7 | `Motor.tieneTokenizadorE5` | K:Capas 43 | S:Capas 23, MotorNativo 39 | arreglado (faltaba en el protocolo y en `MotorNativo`) |
 | 8 | Cascada: orden, «la mejor pista», `escalar`, capa de escalada = «escalar» (como `CapaEscalar` del servidor) | K:Cascada 30-52 | S:Cascada 30-50 | arreglado (antes, la última capa) |
-| 9 | Capa que lanza → sin opinión y sigue (Kotlin `catch Exception`, Swift `try?`) | K:Cascada 38 | S:Cascada 36 | igual |
+| 9 | Capa que lanza → sin opinión, sigue **y se registra** (Kotlin `Log.w`, Swift `os_log`; ambos con callback `alErrorCapa` en `Chispa.abrir/montar` y `Cascada.armar`) | K:Cascada 38 | S:Cascada 36 | arreglado (FG #14; antes se tragaba en silencio) |
 | 10 | τ por defecto (L0 0,80, L1 0,80, L2 0,70) | K:Cascada 7 | S:Cascada 10 | igual (`TauPorDefecto.de(nombre)` solo existe en Kotlin y no lo usa nadie) |
-| 11 | τ de CALIB para L1 y L2, nunca para L0 | K:Cascada 55-61 | S:Cascada 50-56 | igual |
+| 11 | τ de CALIB para L1 y L2, nunca para L0; con CONJ el τ de L2 es `tauL2c()` si ≥ 0 (paridad con `aplicarTauL2c`) | K:Cascada 55-61 | S:Cascada 50-56 | arreglado (FG #8) |
 | 12 | Sin ninguna capa utilizable → `ErrorChispa` | K:Cascada 62 | S:Cascada 57 | igual |
 | 13 | `capas` (L2 solo si hay sesión) | K:Chispa 27 | S:Chispa 29 | igual |
-| 14 | Abrir: tokenizador de la app o del motor (`rutaTokenizador`); extracción del ONNX con caché por nombre/tamaño | K:Chispa 43-62, 112 | S:Chispa 32-55 | igual (Android resuelve además assets; en iOS la ruta es un fichero del bundle) |
+| 14 | Abrir: tokenizador de la app o del motor (`rutaTokenizador`); extracción del ONNX con caché nombrada por `hashSeccion(L2)` (o sha256 del `.chispa` si el motor no lo da), temporal + rename atómico comprobado (`CacheFicheros`) | K:Chispa 43-62, 112 | S:Chispa 32-55 | arreglado (FG #3; Android resuelve además assets, ver fila 22; en iOS la ruta es un fichero del bundle) |
 | 15 | Cierre: Kotlin cierra sesión y motor, y la sesión si falla `montar`; Swift cierra el motor en `deinit` y ORT libera su sesión por ARC | K:Chispa 33, 81 | S:Chispa 26 | igual (por plataforma) |
 | 16 | Errores: `desdeJson` (JSON ilegible, `ok:false` → `ErrorChispa(error)`, sin opinión) | K:Modelos 34 | S:Modelos 59 | igual |
 | 17 | JSON de la pregunta (`question`, `kind`, `options[id,description]`; la descripción vacía se omite) | K:Modelos 15 | S:Modelos 24 | igual |
@@ -29,9 +29,17 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 | 19 | Zero-shot L2: torres al vuelo con `CodificadorTorre` la primera vez, el motor las cachea; la segunda no codifica | K:Capas 119-156 | S:Capas 129-167 | arreglado (con tests; `chispamovil` ya lo soporta y hay `CodificadorTorre` por defecto con TORR, ver abajo) |
 | 20 | Few-shot: esquema entrenado dentro del `.chispa` (L0/L0TF + ESQUEMAS); no calcula torres | K:Capas 132 | S:Capas 142-144 | igual (test `fewShot…`) |
 | 21 | `Chispa.abrir/montar` aceptan `codificadorTorres` (opcional, por defecto nil: la API existente no cambia) | K:Chispa 43, 66 | S:Chispa 32, 58 | arreglado |
+| 22 | Copia del asset a `filesDir`: carpeta por `lastUpdateTime` de la app, temporal + rename comprobado (si falla, borra y reintenta; si sigue fallando lanza) | K:Chispa 100-120 | — (iOS abre el fichero del bundle) | arreglado (FG #19), solo Android |
+| 23 | ONNX de TORR en `tmp`: `chispa-torre-<sha256>.onnx` atómico (antes `<bytes>`) | — (Android abre la sesión desde los bytes) | S:SesionTorreOrt 14 | arreglado (FG #2), solo iOS |
+| 24 | Torre al vuelo que falla (excepción, dimensiones o `instalarTorresL2` false) → se lanza una vez (se registra) y el esquema queda en caché negativa 60 s; sin recalcular torres | K:Capas 190-215 | S:Capas 200-225 | arreglado (FG #14) |
 
-Resumen: 21 filas → 17 igual, 4 arregladas (6, 7, 19, 21), **0 faltan** en los SDK. Lo abierto está en el motor Go
+Resumen: 24 filas, ninguna pendiente (arregladas: 6, 7, 9, 11, 14, 19, 21 y 22 a 24; el resto igual), **0 faltan** en los SDK. Lo abierto está en el motor Go
 (sección siguiente), no en la paridad.
+
+## FG: `chispamovil` TauL2c y HashSeccion
+`Motor` gana `tauL2c() -> Double` (−1 por defecto) y `hashSeccion(tipo) -> String` ("" por defecto), con `MotorNativo` sobre
+`TauL2c()` y `HashSeccion(tipo int)` de `chispamovil` (los añade otro worker; tipos de `format/chispa3`: L2 = 4, TORR = 9).
+Tests: `CacheYErroresTest.kt` (10) y `CacheYErroresTests.swift` (11); sin compilar ni ejecutar (ni JDK ni Swift en el nodo).
 
 ## Contrato nuevo con el motor (zero-shot L2)
 
@@ -45,8 +53,7 @@ de prueba.
   (`cuantizarTorre`) y los cachea por `ClaveEsquema`. A partir de ahí `torresL2` da true.
 
 Flujo en `CapaL2.decidir`: `torresL2` false → con codificador, `textosTorreL2` → `codificador.torre(texto)` por texto →
-`instalarTorresL2` → sigue como siempre (tokeniza, ranuras, CONJ o `puntuarL2`). Un fallo del codificador no cachea nada
-(se reintenta en la siguiente pregunta); L1 se evalúa antes y, si llega a su τ, no se calcula ninguna torre.
+`instalarTorresL2` → sigue como siempre (tokeniza, ranuras, CONJ o `puntuarL2`). Un fallo del codificador no cachea torres, pero sí una negativa por esquema (60 s, ver fila 24) para no recalcular en cada llamada; L1 se evalúa antes y, si llega a su τ, no se calcula ninguna torre.
 
 ### Lado `chispamovil` (hecho en W7)
 `sdk/movil/chispamovil/torre.go` implementa el contrato; los tests de `torre_test.go` comparan sus textos y su decisión con
@@ -65,5 +72,5 @@ exporta y `server/**` queda fuera de la zona); si cambia allí, ese test falla.
 `input_ids`/`attention_mask` int64 (1,n), salida `h` (1,256) float32). Sesión perezosa (la primera torre que hace falta).
 `Chispa.montar` lo usa solo si la app no pasó `codificadorTorres`, el fichero trae TORR (`tieneTorre`) y el motor tiene el
 tokenizador de e5; el codificador de la app manda. En iOS `ORTSession` solo abre rutas: los bytes se escriben una vez en
-`temporaryDirectory` (`chispa-torre-<bytes>.onnx`). Tests con motor y sesión falsos: `TorreDefectoTest.kt` (5) y
+`temporaryDirectory` (`chispa-torre-<sha256>.onnx`, escritura atómica). Tests con motor y sesión falsos: `TorreDefectoTest.kt` (5) y
 `TorreDefectoTests.swift` (5). Sin ejecutar: no hay JDK ni Swift en el nodo de W7; ORT real no corre en ningún test.

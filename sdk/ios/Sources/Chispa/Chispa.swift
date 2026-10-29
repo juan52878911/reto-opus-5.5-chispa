@@ -32,7 +32,8 @@ public final class Chispa {
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
-                             coreML: Bool = true, codificadorTorres: CodificadorTorre? = nil) throws -> Chispa {
+                             coreML: Bool = true, codificadorTorres: CodificadorTorre? = nil,
+                             alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
         let motor = try MotorNativo.abrir(ruta: ruta)
         do {
@@ -42,14 +43,10 @@ public final class Chispa {
                 tok = TokenizadorMotor(motor: motor)
             }
             return try montar(motor: motor, tokenizador: tok, onnx: {
-                // un nombre estable (nombre y tamaño del modelo) para no extraer el ONNX en cada arranque
-                let atributos = try? FileManager.default.attributesOfItem(atPath: ruta)
-                let tam = (atributos?[.size] as? NSNumber)?.intValue ?? 0
-                let nombre = URL(fileURLWithPath: ruta).lastPathComponent
-                let onnx = FileManager.default.temporaryDirectory.appendingPathComponent("chispa-l2-\(nombre)-\(tam).onnx").path
-                if !FileManager.default.fileExists(atPath: onnx) { try motor.extraerL2(a: onnx) }
-                return onnx
-            }, crearSesion: { try SesionOrt(rutaOnnx: $0, coreML: coreML) }, codificadorTorres: codificadorTorres)
+                // nombre por hash de la sección L2 (no por tamaño) y extracción atómica: no se repite en cada arranque
+                try CacheFicheros.rutaOnnxL2(motor: motor, dir: FileManager.default.temporaryDirectory, modelo: ruta)
+            }, crearSesion: { try SesionOrt(rutaOnnx: $0, coreML: coreML) }, codificadorTorres: codificadorTorres,
+                              alErrorCapa: alErrorCapa)
         } catch {
             motor.cerrar()
             throw error
@@ -60,7 +57,8 @@ public final class Chispa {
     static func montar(motor: Motor, tokenizador: Tokenizador?, onnx: () throws -> String,
                        crearSesion: (String) throws -> SesionRanuras,
                        codificadorTorres: CodificadorTorre? = nil,
-                       crearSesionTorre: @escaping (Data) throws -> SesionTorre = { try SesionTorreOrt(onnx: $0) }) throws -> Chispa {
+                       crearSesionTorre: @escaping (Data) throws -> SesionTorre = { try SesionTorreOrt(onnx: $0) },
+                       alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa) throws -> Chispa {
         var sesion: SesionRanuras?
         var l2: Capa?
         var torreMotor: CodificadorTorreMotor?
@@ -76,7 +74,7 @@ public final class Chispa {
             }
             l2 = CapaL2(motor: motor, sesion: s, tokenizador: tok, codificador: enc)
         }
-        return Chispa(motor: motor, cascada: try Cascada.armar(motor: motor, l2: l2), sesion: sesion, torreMotor: torreMotor)
+        return Chispa(motor: motor, cascada: try Cascada.armar(motor: motor, l2: l2, alErrorCapa: alErrorCapa), sesion: sesion, torreMotor: torreMotor)
     }
 
     /// Decide cada pregunta para el `texto` (en orden). Sin conexión: todo ocurre en el dispositivo.

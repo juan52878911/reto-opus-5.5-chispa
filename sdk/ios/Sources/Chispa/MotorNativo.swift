@@ -27,6 +27,8 @@ final class MotorNativo: Motor {
 
     func tieneCalib() -> Bool { go.tieneCalib() }
     func tauEscalate() -> Double { go.tauEscalate() }
+    func tauL2c() -> Double { go.tauL2c() }
+    func hashSeccion(_ tipo: Int) -> String { go.hashSeccion(tipo) }
     func decidirL0(_ texto: String, _ preguntaJson: String) -> String { go.decidirL0(texto, preguntaJSON: preguntaJson) }
     func decidirL1(_ texto: String, _ preguntaJson: String) -> String { go.decidir(texto, preguntaJSON: preguntaJson) }
     func torresL2(_ preguntaJson: String) -> Bool { go.torresL2(preguntaJson) }

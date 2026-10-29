@@ -1,5 +1,15 @@
 package com.chispa.sdk
 
+private const val ETIQUETA_LOG = "Chispa"
+
+/** Registro por defecto de un error de capa. Fuera de Android (tests en la JVM) `Log` lanza y se ignora. */
+internal fun registrarErrorCapa(capa: String, e: Throwable) {
+    try {
+        android.util.Log.w(ETIQUETA_LOG, "la capa $capa falló: ${e.message}", e)
+    } catch (_: RuntimeException) {
+    }
+}
+
 /** Una capa con su umbral: se acepta su respuesta si su confianza top-1 es ≥ [tau]. */
 class CapaConTau(val capa: Capa, val tau: Double)
 
@@ -22,7 +32,12 @@ object TauPorDefecto {
  * falla o no opina, sigue con la siguiente. Si ninguna alcanza su τ, escala: la respuesta es la de mayor confianza
  * vista (pista para quien reciba la escalada) y la capa es [CAPA_ESCALAR], como `CapaEscalar` del servidor.
  */
-class Cascada(private val capas: List<CapaConTau>, private val reloj: () -> Long = System::nanoTime) {
+class Cascada(
+    private val capas: List<CapaConTau>,
+    private val reloj: () -> Long = System::nanoTime,
+    /** Recibe el nombre de la capa y el error cuando una capa lanza (por defecto, `Log.w`). */
+    private val alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
+) {
     init {
         require(capas.isNotEmpty()) { "la cascada necesita al menos una capa" }
     }
@@ -36,6 +51,11 @@ class Cascada(private val capas: List<CapaConTau>, private val reloj: () -> Long
             val r = try {
                 c.capa.decidir(texto, pregunta, previas)
             } catch (e: Exception) {
+                try {
+                    alErrorCapa(c.capa.nombre, e)
+                } catch (_: Throwable) {
+                    // registrar nunca debe romper la decisión
+                }
                 SalidaCapa.SIN_OPINION
             }
             previas[c.capa.nombre] = r
@@ -53,17 +73,24 @@ class Cascada(private val capas: List<CapaConTau>, private val reloj: () -> Long
 
         /**
          * Arma la cascada con las capas del [motor] (L0 y L1 si el fichero las trae) y L2 si además hay [l2].
-         * Con CALIB, el τ de L1 y L2 es su `tau_escalate`.
+         * Con CALIB, el τ de L1 y L2 es su `tau_escalate`; con CONJ (L2c) el de L2 es `tau_l2c` si el fichero lo trae
+         * (`aplicarTauL2c` del servidor).
          */
-        fun armar(motor: Motor, l2: CapaL2? = null, tauL0: Double = TauPorDefecto.L0): Cascada {
+        fun armar(
+            motor: Motor,
+            l2: CapaL2? = null,
+            tauL0: Double = TauPorDefecto.L0,
+            alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
+        ): Cascada {
             val presentes = motor.capas()
             val tauCalib = if (motor.tieneCalib()) motor.tauEscalate() else null
             val capas = ArrayList<CapaConTau>()
             if ("L0" in presentes) capas.add(CapaConTau(CapaL0(motor), tauL0))
             if ("L1" in presentes) capas.add(CapaConTau(CapaL1(motor), tauCalib ?: TauPorDefecto.L1))
-            if ("L2" in presentes && l2 != null) capas.add(CapaConTau(l2, tauCalib ?: TauPorDefecto.L2))
+            val tauL2c = if (motor.tieneConj()) motor.tauL2c().takeIf { it >= 0 } else null
+            if ("L2" in presentes && l2 != null) capas.add(CapaConTau(l2, tauL2c ?: tauCalib ?: TauPorDefecto.L2))
             if (capas.isEmpty()) throw ErrorChispa("el fichero no trae ninguna capa utilizable (capas: $presentes)")
-            return Cascada(capas)
+            return Cascada(capas, alErrorCapa = alErrorCapa)
         }
     }
 }

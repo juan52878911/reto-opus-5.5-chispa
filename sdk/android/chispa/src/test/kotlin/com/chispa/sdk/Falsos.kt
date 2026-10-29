@@ -23,7 +23,16 @@ class MotorFalso(
     var conj: Boolean = false,
     var cabeza: () -> String = { json(null, 0.0) },
     var idsE5: ByteArray? = null,
+    var tauConj: Double = -1.0,
+    var hashes: Map<Int, String> = emptyMap(),
 ) : Motor {
+    /** Qué hace [extraerL2]: escribe en el destino que se le da (por defecto, nada). */
+    var alExtraer: (String) -> Unit = {}
+    var extracciones = 0
+
+    /** false = [instalarTorresL2] rechaza las torres (y no las cachea). */
+    var aceptaTorres = true
+
     var ultimoSimsJson: String? = null
     val llamadas = ArrayList<String>()
     var ultimasRanuras: ByteArray? = null
@@ -49,14 +58,21 @@ class MotorFalso(
     override fun torresL2(preguntaJson: String) = torres
     override fun textosTorreL2(preguntaJson: String) = if (torres) emptyList() else textosTorre
     override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean {
-        llamadas.add("TORRES"); torresInstaladas = torres; nInstaladas = n; this.torres = true; return true
+        llamadas.add("TORRES")
+        if (!aceptaTorres) return false
+        torresInstaladas = torres; nInstaladas = n; this.torres = true; return true
     }
 
     override fun puntuarL2(preguntaJson: String, ranuras: ByteArray, k: Int): String {
         llamadas.add("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
     }
 
-    override fun extraerL2(destino: String) {}
+    override fun extraerL2(destino: String) {
+        extracciones++; alExtraer(destino)
+    }
+
+    override fun tauL2c() = tauConj
+    override fun hashSeccion(tipo: Int) = hashes[tipo] ?: ""
     override fun tieneConj() = conj
     override fun cabezaConjunta(simsJson: String): String {
         llamadas.add("CONJ"); ultimoSimsJson = simsJson; return cabeza()

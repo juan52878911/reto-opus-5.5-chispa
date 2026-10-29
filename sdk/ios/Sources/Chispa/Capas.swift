@@ -7,6 +7,10 @@ public protocol Motor: AnyObject {
     func capas() -> [String]
     func tieneCalib() -> Bool
     func tauEscalate() -> Double
+    /// `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta.
+    func tauL2c() -> Double
+    /// sha256 hex de la sección de `tipo` (ver `seccionL2`, `seccionTorr`), o "" si el motor no lo sabe o no la hay.
+    func hashSeccion(_ tipo: Int) -> String
     func decidirL0(_ texto: String, _ preguntaJson: String) -> String
     func decidirL1(_ texto: String, _ preguntaJson: String) -> String
     func torresL2(_ preguntaJson: String) -> Bool
@@ -43,7 +47,13 @@ public protocol Motor: AnyObject {
     func idsPasaje(_ texto: String) -> Data?
 }
 
+/// Tipos de sección de `format/chispa3` que se piden a `Motor.hashSeccion`.
+let seccionL2 = 4
+let seccionTorr = 9
+
 public extension Motor {
+    func tauL2c() -> Double { -1 }
+    func hashSeccion(_ tipo: Int) -> String { "" }
     func tieneConj() -> Bool { false }
     func cabezaConjunta(_ simsJson: String) -> String { #"{"ok":false,"error":"sin CONJ","probs":{}}"# }
     func cargarTokenizadorE5(ruta: String) throws { throw ErrorChispa("el motor no tiene tokenizador de e5") }
@@ -178,7 +188,12 @@ struct CapaL2: Capa {
     let sesion: SesionRanuras
     let tokenizador: Tokenizador
     var codificador: CodificadorTorre? = nil
+    var ahora: () -> Date = Date.init
+    /// Cuánto tiempo no se reintenta la torre de un esquema cuyo cálculo falló.
+    var ttlFalloTorre: TimeInterval = 60
     var nombre: String { "L2" }
+    /// Caché negativa: esquema (JSON de la pregunta) → instante hasta el que no se reintenta calcular su torre.
+    private let fallosTorre = FallosTorre()
 
     func decidir(_ texto: String, _ pregunta: Pregunta) throws -> SalidaCapa {
         try decidir(texto, pregunta, previas: [:])
@@ -203,14 +218,26 @@ struct CapaL2: Capa {
         guard let enc = codificador else { return false }
         let textos = motor.textosTorreL2(preguntaJson)
         if textos.isEmpty { return false }
-        let torres = try textos.map { try enc.torre($0) }
-        let d = torres[0].count
-        guard d > 0, torres.allSatisfy({ $0.count == d }) else {
-            throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
+        if let hasta = fallosTorre.hasta(preguntaJson) {
+            if ahora() < hasta { return false } // falló hace poco: no se recalculan N pasadas de la torre
+            fallosTorre.olvidar(preguntaJson)
         }
-        let plano = torres.flatMap { $0 }
-        let bytes = plano.withUnsafeBufferPointer { Data(buffer: $0) } // float32 little endian
-        return motor.instalarTorresL2(preguntaJson, torres: bytes, n: torres.count)
+        do {
+            let torres = try textos.map { try enc.torre($0) }
+            let d = torres[0].count
+            guard d > 0, torres.allSatisfy({ $0.count == d }) else {
+                throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
+            }
+            let plano = torres.flatMap { $0 }
+            let bytes = plano.withUnsafeBufferPointer { Data(buffer: $0) } // float32 little endian
+            guard motor.instalarTorresL2(preguntaJson, torres: bytes, n: torres.count) else {
+                throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=\(d), n=\(torres.count))")
+            }
+            return true
+        } catch {
+            fallosTorre.anotar(preguntaJson, hasta: ahora().addingTimeInterval(ttlFalloTorre))
+            throw error // la primera vez llega a la cascada, que la registra
+        }
     }
 
     private func entradaConj(_ preguntaJson: String, _ l0: [String: Double], _ s: Ranuras) throws -> String {
@@ -221,5 +248,28 @@ struct CapaL2: Capa {
         o["ranuras"] = s.datos.map { Double($0) } // float → double es exacto; Go lo vuelve a float32
         o["k"] = s.k
         return String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self)
+    }
+}
+
+/// Caja de la caché negativa de torres (`CapaL2` es un struct: el estado mutable vive en una referencia).
+final class FallosTorre {
+    private var hastas: [String: Date] = [:]
+    private let cerrojo = NSLock()
+    private let maximo = 256
+
+    func hasta(_ clave: String) -> Date? {
+        cerrojo.lock(); defer { cerrojo.unlock() }
+        return hastas[clave]
+    }
+
+    func olvidar(_ clave: String) {
+        cerrojo.lock(); defer { cerrojo.unlock() }
+        hastas[clave] = nil
+    }
+
+    func anotar(_ clave: String, hasta: Date) {
+        cerrojo.lock(); defer { cerrojo.unlock() }
+        if hastas.count >= maximo { hastas.removeAll() }
+        hastas[clave] = hasta
     }
 }

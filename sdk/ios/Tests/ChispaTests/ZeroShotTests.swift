@@ -18,8 +18,8 @@ final class ZeroShotTests: XCTestCase {
         }
     }
 
-    func capa(_ m: MotorFalso, _ enc: CodificadorTorre?) -> CapaL2 {
-        CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [0, 7, 2]), codificador: enc)
+    func capa(_ m: MotorFalso, _ enc: CodificadorTorre?, ahora: @escaping () -> Date = { Date(timeIntervalSince1970: 0) }) -> CapaL2 {
+        CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [0, 7, 2]), codificador: enc, ahora: ahora)
     }
 
     func testEsquemaNuevoLaPrimeraVezCalculaLasTorresYLaSegundaUsaLaCache() throws {
@@ -68,17 +68,19 @@ final class ZeroShotTests: XCTestCase {
         XCTAssertTrue(enc.pedidos.isEmpty)
     }
 
-    func testSiElCodificadorFallaNoSeCacheaYSeReintenta() throws {
+    func testSiElCodificadorFallaNoSeCacheaYSeReintentaPasadoElTtl() throws {
         let m = MotorFalso()
         m.torres = false
         m.textosTorre = textos
         m.l2 = { json("fraude", 0.9, ["fraude": 0.9]) }
         let enc = Codificador()
         enc.falla = true
-        let c = capa(m, enc)
+        var t = 0.0
+        let c = capa(m, enc, ahora: { Date(timeIntervalSince1970: t) })
         XCTAssertThrowsError(try c.decidir("hola", preguntaNueva))
         XCTAssertEqual(m.nInstaladas, 0)
         enc.falla = false
+        t = 61 // pasado el TTL de la caché negativa
         XCTAssertEqual(try c.decidir("hola", preguntaNueva).respuesta, "fraude")
     }
 

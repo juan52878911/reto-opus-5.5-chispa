@@ -13,6 +13,8 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
 
     override fun tieneCalib(): Boolean = go.tieneCalib()
     override fun tauEscalate(): Double = go.tauEscalate()
+    override fun tauL2c(): Double = go.tauL2c()
+    override fun hashSeccion(tipo: Int): String = go.hashSeccion(tipo.toLong())
     override fun decidirL0(texto: String, preguntaJson: String): String = go.decidirL0(texto, preguntaJson)
     override fun decidirL1(texto: String, preguntaJson: String): String = go.decidir(texto, preguntaJson)
     override fun torresL2(preguntaJson: String): Boolean = go.torresL2(preguntaJson)

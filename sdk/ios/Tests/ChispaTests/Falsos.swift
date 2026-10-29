@@ -29,6 +29,13 @@ final class MotorFalso: Motor {
     var textosTorre: [String] = []
     var torresInstaladas: Data?
     var nInstaladas = 0
+    /// false = `instalarTorresL2` rechaza las torres (y no las cachea).
+    var aceptaTorres = true
+    var tauConj = -1.0
+    var hashes: [Int: String] = [:]
+    /// Qué hace `extraerL2`: escribe en el destino que se le da (por defecto, nada).
+    var alExtraer: (String) throws -> Void = { _ in }
+    var extracciones = 0
 
     func capas() -> [String] { presentes }
     func tieneCalib() -> Bool { calib }
@@ -39,7 +46,9 @@ final class MotorFalso: Motor {
     func puntuarL2(_ preguntaJson: String, ranuras: Data, k: Int) -> String {
         llamadas.append("L2"); ultimasRanuras = ranuras; ultimoK = k; return l2()
     }
-    func extraerL2(a destino: String) throws {}
+    func extraerL2(a destino: String) throws { extracciones += 1; try alExtraer(destino) }
+    func tauL2c() -> Double { tauConj }
+    func hashSeccion(_ tipo: Int) -> String { hashes[tipo] ?? "" }
     func tieneConj() -> Bool { conj }
     func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return cabeza() }
     /// TORR: `onnxDeTorre` no nulo = el fichero la trae; `idsDePasaje` da los ids (int32 LE) de cada texto de torre.
@@ -52,7 +61,9 @@ final class MotorFalso: Motor {
     func tokenizarE5(_ texto: String) -> Data? { idsE5 }
     func textosTorreL2(_ preguntaJson: String) -> [String] { torres ? [] : textosTorre }
     func instalarTorresL2(_ preguntaJson: String, torres bytes: Data, n: Int) -> Bool {
-        llamadas.append("TORRES"); torresInstaladas = bytes; nInstaladas = n; torres = true; return true
+        llamadas.append("TORRES")
+        if !aceptaTorres { return false }
+        torresInstaladas = bytes; nInstaladas = n; torres = true; return true
     }
     func cerrar() { cerrado = true }
 }

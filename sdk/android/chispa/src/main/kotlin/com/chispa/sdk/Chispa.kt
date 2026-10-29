@@ -48,6 +48,7 @@ class Chispa private constructor(
             tokenizador: Tokenizador? = null,
             rutaTokenizador: String? = null,
             codificadorTorres: CodificadorTorre? = null,
+            alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
             val motor = MotorNativo.abrir(fichero.absolutePath)
@@ -57,7 +58,7 @@ class Chispa private constructor(
                     motor.cargarTokenizadorE5(resolver(contexto, rutaTokenizador).absolutePath)
                     tok = TokenizadorMotor(motor)
                 }
-                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) }, codificadorTorres = codificadorTorres)
+                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) }, codificadorTorres = codificadorTorres, alErrorCapa = alErrorCapa)
             } catch (e: Throwable) {
                 motor.close()
                 throw e
@@ -72,6 +73,7 @@ class Chispa private constructor(
             crearSesion: (String) -> SesionRanuras = { SesionOrt(it) },
             codificadorTorres: CodificadorTorre? = null,
             crearSesionTorre: (ByteArray) -> SesionTorre = { SesionTorreOrt(it) },
+            alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
         ): Chispa {
             var sesion: SesionRanuras? = null
             var l2: CapaL2? = null
@@ -87,7 +89,7 @@ class Chispa private constructor(
                 l2 = CapaL2(motor, sesion, tokenizador, enc)
             }
             try {
-                return Chispa(motor, Cascada.armar(motor, l2), sesion, torreOrt)
+                return Chispa(motor, Cascada.armar(motor, l2, alErrorCapa = alErrorCapa), sesion, torreOrt)
             } catch (e: Throwable) {
                 sesion?.close()
                 torreOrt?.close()
@@ -101,29 +103,23 @@ class Chispa private constructor(
                 if (!f.isFile) throw ErrorChispa("no existe el modelo $ruta")
                 return f
             }
-            val destino = File(contexto.filesDir, "chispa/$ruta")
-            val tam = try {
-                contexto.assets.openFd(ruta).use { it.length }
-            } catch (e: java.io.IOException) {
-                -1L // comprimido en el APK (sin openFd) o inexistente: se decide al abrirlo
+            // Una carpeta por versión de la app (lastUpdateTime): un .chispa reentrenado del mismo tamaño no reutiliza la copia vieja.
+            val version = try {
+                contexto.packageManager.getPackageInfo(contexto.packageName, 0).lastUpdateTime
+            } catch (e: Exception) {
+                0L
             }
-            if (destino.isFile && tam >= 0 && destino.length() == tam) return destino
-            destino.parentFile?.mkdirs()
+            val destino = File(contexto.filesDir, "chispa/$version/$ruta")
+            if (destino.isFile && destino.length() > 0L) return destino
             try {
-                contexto.assets.open(ruta).use { entrada ->
-                    File(destino.path + ".tmp").outputStream().use { entrada.copyTo(it) }
-                }
+                contexto.assets.open(ruta).use { CacheFicheros.copiarAtomico(it, destino) }
             } catch (e: java.io.IOException) {
                 throw ErrorChispa("no existe el asset $ruta ni el fichero: ${e.message}", e)
             }
-            File(destino.path + ".tmp").renameTo(destino)
             return destino
         }
 
-        private fun Motor.extraerL2ARuta(contexto: Context, modelo: File): String {
-            val onnx = File(contexto.cacheDir, "chispa-l2-${modelo.length()}.onnx")
-            if (!onnx.isFile || onnx.length() == 0L) extraerL2(onnx.absolutePath)
-            return onnx.absolutePath
-        }
+        private fun Motor.extraerL2ARuta(contexto: Context, modelo: File): String =
+            CacheFicheros.rutaOnnxL2(this, contexto.cacheDir, modelo)
     }
 }

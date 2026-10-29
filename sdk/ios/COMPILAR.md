@@ -4,7 +4,7 @@ Receta de una sola pasada para quien no ha leído nada más. **El código Swift 
 desarrollo no tiene Swift ni Xcode): espera errores, sobre todo en `MotorNativo.swift` y `SesionOrt.swift`
 (ver «Sitios que probablemente fallen»). Si el mismo paso falla dos veces por la misma causa, para y cuéntalo.
 
-Resultado esperado: `** TEST SUCCEEDED **` con **42 tests** XCTest (CascadaTests 11, ConjTests 6, L2Tests 5, ModelosTests 4,
+Resultado esperado: `** TEST SUCCEEDED **` con **53 tests** XCTest (CacheYErroresTests 11, CascadaTests 11, ConjTests 6, L2Tests 5, ModelosTests 4,
 ZeroShotTests 11, TorreDefectoTests 5) contra un motor falso. Ninguno necesita un `.chispa` real ni ONNX.
 
 ## 0. La máquina
@@ -101,7 +101,8 @@ Todo esto está escrito de memoria. En este orden de probabilidad:
    `torresL2(_:)`, `puntuarL2(_:ranuras:k:)`, `extraerL2(_:)` (throws), `tieneConj()`, `cabezaConjunta(_:)`, `tieneTokenizadorE5()`,
    `cargarTokenizadorE5(_:)` (throws), `tokenizarE5(_:)` → `Data?`, `cerrar()`; y los de W7: `textosTorreL2(_:)` → `String`,
    `instalarTorresL2(_:torres:n:)` (`n` es `Int` en Swift; si el header dice `long`, `n: Int64(n)`), `tieneTorre()`, `onnxTorre()` → `Data?`,
-   `idsPasaje(_:)` → `Data?`. Cosas típicas: gomobile escribe `JSON` en
+   `idsPasaje(_:)` → `Data?`; y los de FG: `tauL2c()` → `Double` (−1 si falta) y `hashSeccion(_:)` → `String` (el `tipo` Go `int` llega como `Int`;
+   si el header dice `long`, `Int64(tipo)`; sha256 hex de la sección, "" si no hay). `CacheFicheros.swift` usa `CryptoKit` (iOS 13+). Cosas típicas: gomobile escribe `JSON` en
    mayúsculas (`preguntaJSON`); el primer argumento va sin etiqueta; los métodos Go que devuelven solo `error` llegan como
    `throws`, y los que devuelven `(T, error)` como `func m(...) throws -> T` (o `m(_:error:)` según la versión); `int` de
    Go es `Int`, `int64` es `Int64`, `float64` es `Double`; `[]byte` es `Data?`. Arreglo: editar solo `MotorNativo.swift`

@@ -2,8 +2,8 @@ import Foundation
 import OnnxRuntimeBindings
 
 /// El ONNX de la torre (sección TORR) sobre ONNX Runtime con el EP de CoreML (si no lo admite, cae a la CPU).
-/// `ORTSession` solo abre rutas: los bytes de `Motor.onnxTorre` se escriben una vez (nombre y tamaño) en el directorio
-/// temporal. Entradas `input_ids` y `attention_mask` (int64, [1, n]); salida `h` (float32, [1, d]).
+/// `ORTSession` solo abre rutas: los bytes de `Motor.onnxTorre` se escriben una vez (nombre por sha256, escritura atómica) en el
+/// directorio temporal. Entradas `input_ids` y `attention_mask` (int64, [1, n]); salida `h` (float32, [1, d]).
 /// Las llamadas a `run` se serializan.
 public final class SesionTorreOrt: SesionTorre {
     private let entorno: ORTEnv
@@ -11,16 +11,13 @@ public final class SesionTorreOrt: SesionTorre {
     private let cerrojo = NSLock()
 
     public init(onnx: Data, coreML: Bool = true) throws {
-        let ruta = FileManager.default.temporaryDirectory.appendingPathComponent("chispa-torre-\(onnx.count).onnx")
-        if (try? Data(contentsOf: ruta, options: .alwaysMapped).count) != onnx.count {
-            try onnx.write(to: ruta, options: .atomic)
-        }
+        let ruta = try CacheFicheros.rutaOnnxTorre(onnx, dir: FileManager.default.temporaryDirectory)
         entorno = try ORTEnv(loggingLevel: .warning)
         let opciones = try ORTSessionOptions()
         if coreML {
             try opciones.appendCoreMLExecutionProvider(with: ORTCoreMLExecutionProviderOptions())
         }
-        sesion = try ORTSession(env: entorno, modelPath: ruta.path, sessionOptions: opciones)
+        sesion = try ORTSession(env: entorno, modelPath: ruta, sessionOptions: opciones)
     }
 
     public func embeber(_ ids: [Int64]) throws -> [Float] {

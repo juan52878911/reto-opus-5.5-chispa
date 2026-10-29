@@ -20,8 +20,8 @@ class ZeroShotTest {
         }
     }
 
-    private fun capa(m: MotorFalso, enc: CodificadorTorre?) =
-        CapaL2(m, SesionFalsa(), { longArrayOf(0, 7, 2) }, enc)
+    private fun capa(m: MotorFalso, enc: CodificadorTorre?, ahoraMs: () -> Long = { 0L }) =
+        CapaL2(m, SesionFalsa(), { longArrayOf(0, 7, 2) }, enc, ahoraMs)
 
     @Test
     fun esquemaNuevoLaPrimeraVezCalculaLasTorresYLaSegundaUsaLaCache() {
@@ -66,15 +66,17 @@ class ZeroShotTest {
     }
 
     @Test
-    fun siElCodificadorFallaNoSeCacheaYSeReintenta() {
+    fun siElCodificadorFallaNoSeCacheaYSeReintentaPasadoElTtl() {
         val m = MotorFalso(torres = false, l2 = { json("fraude", 0.9, "fraude" to 0.9) })
         m.textosTorre = textos
         var falla = true
-        val c = capa(m, { t -> if (falla) throw ErrorChispa("sin memoria") else floatArrayOf(1f, 2f) })
+        var ahora = 0L
+        val c = capa(m, { t -> if (falla) throw ErrorChispa("sin memoria") else floatArrayOf(1f, 2f) }, { ahora })
         val ex = try { c.decidir("hola", PREGUNTA_NUEVA); null } catch (e: ErrorChispa) { e }
         assertTrue(ex != null)
         assertEquals(0, m.nInstaladas)
         falla = false
+        ahora = 61_000L // pasado el TTL de la caché negativa
         assertEquals("fraude", c.decidir("hola", PREGUNTA_NUEVA).respuesta)
     }
 

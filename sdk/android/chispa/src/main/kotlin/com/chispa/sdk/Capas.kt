@@ -9,6 +9,12 @@ interface Motor : AutoCloseable {
     fun capas(): List<String>
     fun tieneCalib(): Boolean
     fun tauEscalate(): Double
+
+    /** `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta. */
+    fun tauL2c(): Double = -1.0
+
+    /** sha256 hex de la sección de [tipo] (ver [SECCION_L2], [SECCION_TORR]), o "" si el motor no lo sabe o no la hay. */
+    fun hashSeccion(tipo: Int): String = ""
     fun decidirL0(texto: String, preguntaJson: String): String
     fun decidirL1(texto: String, preguntaJson: String): String
     fun torresL2(preguntaJson: String): Boolean
@@ -55,6 +61,10 @@ interface Motor : AutoCloseable {
     /** Ids de e5 como int32 little endian (4 bytes por id), o null si no se cargó el tokenizador. */
     fun tokenizarE5(texto: String): ByteArray? = null
 }
+
+/** Tipos de sección de `format/chispa3` que se piden a [Motor.hashSeccion]. */
+const val SECCION_L2 = 4
+const val SECCION_TORR = 9
 
 /** Una capa de la cascada. Devuelve [SalidaCapa.SIN_OPINION] si no tiene nada que decir; lanza si falla. */
 interface Capa {
@@ -165,8 +175,13 @@ class CapaL2(
     private val sesion: SesionRanuras,
     private val tokenizador: Tokenizador,
     private val codificador: CodificadorTorre? = null,
+    private val ahoraMs: () -> Long = System::currentTimeMillis,
+    private val ttlFalloTorreMs: Long = TTL_FALLO_TORRE_MS,
 ) : Capa {
     override val nombre = "L2"
+
+    /** Caché negativa: esquema (JSON de la pregunta) → instante hasta el que no se reintenta calcular su torre. */
+    private val fallosTorre = HashMap<String, Long>()
 
     override fun decidir(texto: String, pregunta: Pregunta): SalidaCapa =
         decidir(texto, pregunta, emptyMap())
@@ -189,12 +204,30 @@ class CapaL2(
         val enc = codificador ?: return false
         val textos = motor.textosTorreL2(preguntaJson)
         if (textos.isEmpty()) return false
-        val torres = textos.map { enc.torre(it) }
-        val d = torres[0].size
-        if (d == 0 || torres.any { it.size != d }) throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
-        val b = java.nio.ByteBuffer.allocate(4 * d * torres.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        for (t in torres) for (x in t) b.putFloat(x)
-        return motor.instalarTorresL2(preguntaJson, b.array(), torres.size)
+        synchronized(fallosTorre) {
+            val hasta = fallosTorre[preguntaJson]
+            if (hasta != null) {
+                if (ahoraMs() < hasta) return false // falló hace poco: no se recalcula N pasadas de la torre
+                fallosTorre.remove(preguntaJson)
+            }
+        }
+        try {
+            val torres = textos.map { enc.torre(it) }
+            val d = torres[0].size
+            if (d == 0 || torres.any { it.size != d }) throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
+            val b = java.nio.ByteBuffer.allocate(4 * d * torres.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            for (t in torres) for (x in t) b.putFloat(x)
+            if (!motor.instalarTorresL2(preguntaJson, b.array(), torres.size)) {
+                throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=$d, n=${torres.size})")
+            }
+            return true
+        } catch (e: Exception) {
+            synchronized(fallosTorre) {
+                if (fallosTorre.size >= MAX_FALLOS_TORRE) fallosTorre.clear()
+                fallosTorre[preguntaJson] = ahoraMs() + ttlFalloTorreMs
+            }
+            throw e // la primera vez llega a la cascada, que la registra
+        }
     }
 
     private fun entradaConj(preguntaJson: String, l0: Map<String, Double>, s: Ranuras): String {
@@ -203,5 +236,10 @@ class CapaL2(
         val p = org.json.JSONObject()
         for ((k, v) in l0) p.put(k, v)
         return org.json.JSONObject(preguntaJson).put("l0", p).put("ranuras", ranuras).put("k", s.k).toString()
+    }
+
+    private companion object {
+        const val TTL_FALLO_TORRE_MS = 60_000L
+        const val MAX_FALLOS_TORRE = 256
     }
 }
