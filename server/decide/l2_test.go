@@ -76,3 +76,38 @@ func TestL2MaxSim(t *testing.T) {
 		t.Fatalf("%+v %v", r, err)
 	}
 }
+
+type sesionCuenta struct{ n int }
+
+func (s *sesionCuenta) Ranuras([]int64) ([][]float32, error) { s.n++; return [][]float32{{1, 0}}, nil }
+
+// Esquema nuevo (sin torre en ESQUEMAS): L2 no opina ni llama al ONNX y la cascada lo decide con L1 en zero-shot.
+func TestEsquemaNuevoLoDecideL1(t *testing.T) {
+	es, err := chispa3.CodificarEsquemas(2, []chispa3.EntradaEsquema{ent("otro", []string{"a"}, 1, 1, 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	esq, err := chispa3.DecodificarEsquemas(es)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ses := &sesionCuenta{}
+	l2 := NuevoL2Con(ses, esq, calibTiny(), tokFalso{})
+	f := v3Tiny(t, calibTiny())
+	mt, err := ArmarDesde(f, NuevoL0(8), &Config{CacheEsquemas: 16, CacheRespuestas: 16}, false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casc, err := NuevaCascada([]Capa{{"L1", 0.5}, {"L2", 0.5}}, []Decisor{mt.L1, l2}, NuevasMetricas())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := Pregunta{ID: "n", Kind: KindChoice, Texto: "¿Qué área nunca vista?", Estado: "factura", Opciones: opsReembolso()}
+	r := casc.Decidir(context.Background(), p)
+	if r.Layer != "L1" || r.Answer != "facturacion" || ses.n != 0 {
+		t.Fatalf("%+v, llamadas al ONNX: %d", r, ses.n)
+	}
+	if rr, err := l2.Decidir(context.Background(), p); err != nil || rr.Conf != 0 {
+		t.Fatalf("L2 sin torre debe callar: %+v %v", rr, err)
+	}
+}

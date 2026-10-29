@@ -20,7 +20,7 @@ def main(argv=None) -> int:
     t.add_argument("--ckpt", help="checkpoint de L2: calibra y exporta L2 y ESQUEMAS con model/l2")
     t.add_argument("--l2", help=".chispa ya exportado por model/l2/exportar.py: de aquí salen L2 y ESQUEMAS")
     t.add_argument("--conjunta", action="store_true",
-                   help="añade la cabeza conjunta L0 + L2 (sección CONJ); necesita --ckpt y --l2 (o --ckpt solo)")
+                   help="modo «con datos del cliente»: añade la cabeza conjunta L0 + L2 (sección CONJ) y L0TF; necesita train etiquetado de la tarea, --ckpt y --l2 (o --ckpt solo)")
     t.add_argument("--repo", help="raíz del repositorio (por defecto CHISPA_REPO o el que contiene este paquete)")
     t.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
     t.add_argument("--semilla", type=int, default=1)
