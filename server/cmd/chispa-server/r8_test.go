@@ -105,22 +105,46 @@ func TestR8ApagadoEnParalelo(t *testing.T) {
 	}
 }
 
+// bloqueado avisa en dentro cuando una petición entra a decidir y espera a que se cierre suelta.
+type bloqueado struct{ dentro, suelta chan struct{} }
+
+func (bloqueado) Nombre() string { return "L0" }
+func (b bloqueado) Decidir(context.Context, decide.Pregunta) (decide.Respuesta, error) {
+	b.dentro <- struct{}{}
+	<-b.suelta
+	return decide.Respuesta{}, nil
+}
+
 // R8-H12: la saturación de /v1/decide (tope de ConMaxEnCurso) responde 429 con Retry-After y se cuenta en /metrics.
+// El hueco lo ocupa una petición que ya está decidiendo: desde R8-H6 el semáforo se toma tras leer el cuerpo, así que un
+// cuerpo lento ya no lo ocupa.
 func TestR8SaturacionContada(t *testing.T) {
 	met := decide.NuevasMetricas()
-	c, _ := decide.NuevaCascada([]decide.Capa{{Nombre: "L0", Tau: 0.5}}, []decide.Decisor{lento{}}, met)
+	bl := bloqueado{dentro: make(chan struct{}, 1), suelta: make(chan struct{})}
+	c, _ := decide.NuevaCascada([]decide.Capa{{Nombre: "L0", Tau: 0.5}}, []decide.Decisor{bl}, met)
 	var apagando atomic.Bool
 	ds := decide.NuevoServidorDe(&decide.Armado{Cascada: c}, met).ConMaxEnCurso(1).ConPlazoCuerpo(2 * time.Second)
 	ts := httptest.NewServer(conMetricasAdmin(conLimites(montarHandler(ds, false, 0, met), &apagando), met))
 	defer ts.Close()
-	cn, err := net.Dial("tcp", ts.Listener.Addr().String())
-	if err != nil {
-		t.Fatal(err)
+	cuerpo := `{"state":"hola","questions":[{"id":"q1","question":"¿Qué quiere?","kind":"choice","options":[{"id":"a"},{"id":"b"}]}]}`
+	primera := make(chan error, 1)
+	go func() {
+		r, err := http.Post(ts.URL+"/v1/decide", "application/json", strings.NewReader(cuerpo))
+		if err == nil {
+			r.Body.Close()
+		}
+		primera <- err
+	}()
+	select {
+	case <-bl.dentro:
+	case <-time.After(5 * time.Second):
+		t.Fatal("la primera petición no llegó a decidir")
 	}
-	defer cn.Close()
-	io.WriteString(cn, "POST /v1/decide HTTP/1.1\r\nHost: x\r\nContent-Length: 100000\r\n\r\n{")
-	time.Sleep(100 * time.Millisecond)
-	resp, err := http.Post(ts.URL+"/v1/decide", "application/json", strings.NewReader("{}"))
+	resp, err := http.Post(ts.URL+"/v1/decide", "application/json", strings.NewReader(cuerpo))
+	close(bl.suelta)
+	if e := <-primera; e != nil {
+		t.Fatal(e)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
