@@ -25,6 +25,7 @@ en la plataforma destino (qemu o builder arm64 nativo). Para kling, una arquitec
 ## Memoria recomendada (orientativa, sin medir en kindling)
 - `imagen-cpu` (L0 y L1): `-mem 256M` basta para los `.chispa` de prueba; con un L1 grande (Potion 155 MB) usa 512M.
 - `imagen-ort` (L2 e5-small int8 + torres): `-mem 1G`, `-mem-max 2G`. `GOMEMLIMIT` va fijado a 400MiB: súbelo a ~75 % del `-mem`.
+- `CHISPA_ORT_LIB` (o `-ort-lib` como argumento) fija la `libonnxruntime.so` de L2 y de la torre; `imagen-ort` la trae en `/usr/lib/libonnxruntime.so`.
 
 ## Lanzar con kling
 Flags tomados de `kling help image` y `kling help run` (leídos; no ejecutados). Sin verificar que kling acepte la imagen,

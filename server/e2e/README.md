@@ -22,8 +22,8 @@ Variables:
 | `CC` | `gcc`, o `~/orquestador/herr/zigcc` si no hay gcc | cgo para `-tags ort` |
 | `PYTHON` | `python` / `python3` | intérprete (numpy y PyYAML) |
 
-`chispa-server` no tiene bandera ni variable para la ruta de ORT (ver [HALLAZGOS.md](HALLAZGOS.md)): el script enlaza
-`CHISPA_ORT_LIB` como `onnxruntime.so` en un directorio de trabajo y lo pone en `LD_LIBRARY_PATH`.
+`chispa-server` recibe la ruta de ORT por `CHISPA_ORT_LIB` (o `-ort-lib`) y la usa en L2 y en la torre; el script la exporta tal cual,
+sin `LD_LIBRARY_PATH` (ver H1 en [HALLAZGOS.md](HALLAZGOS.md), corregido).
 
 ## Pasos y comprobaciones
 1. Compila `chispa-server -tags ort` y `gensint`.

@@ -174,7 +174,10 @@ export CC=~/orquestador/herr/zigcc CGO_ENABLED=1 # para -race
 export CHISPA_ORT_LIB=~/orquestador/herr/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1
 cd server && go test -tags ort -race -count=1 ./...
 ```
-`CHISPA_ORT_LIB` fija `decide.RutaORT` y `torre.RutaORT` en los tests; en el servidor, la .so del sistema o `RutaORT`.
+Ruta de la .so en `chispa-server`, de mayor a menor precedencia: `-ort-lib` > `CHISPA_ORT_LIB` > `-ldflags -X …/server/decide.RutaORT=` >
+búsqueda por defecto del sistema. `main` la asigna a `decide.RutaORT` y `torre.RutaORT` (`torre` no puede importar `decide`), así que L2 y la
+torre usan la misma. Al arrancar, si el `.chispa` trae L2 o TORR y ORT no carga, el log dice `AVISO: ONNX Runtime no carga (ruta …, origen)`
+(y L2 queda en stub / `chispa_torres_calculadas_total` en 0). Test: `cmd/chispa-server/ort_si_test.go` (un proceso hijo por origen de la ruta).
 Para (re)añadir el módulo sin red: `GOPROXY=file://$HOME/go/pkg/mod/cache/download GOSUMDB=off GOFLAGS=-mod=mod go get github.com/yalue/onnxruntime_go@v1.38.0`.
 Tests ORT: `torre/ort_test.go` (`sintetico.onnx` y su referencia) y `decide/l2_ort_test.go` (`TestL2TorreORTEsquemaNuevo`: L2 con
 `decide/testdata/l2_sintetico.onnx` + torre al vuelo + `/v1/decide` con un esquema nuevo, un solo entorno ORT; se regenera con

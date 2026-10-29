@@ -39,9 +39,8 @@ paso "0. Requisitos"
 [ -f "$CHISPA_ORT_LIB" ] || critico "falta CHISPA_ORT_LIB (libonnxruntime.so)"
 "$PY" -c "import numpy, yaml" 2>/dev/null || critico "el Python ($PY) necesita numpy y PyYAML"
 ok "tok=$CHISPA_TOK ort=$CHISPA_ORT_LIB trabajo=$W"
-# chispa-server no tiene bandera ni variable para la ruta de ORT (decide.RutaORT queda vacía): el cargador busca «onnxruntime.so».
-mkdir -p "$W/lib" && ln -sf "$CHISPA_ORT_LIB" "$W/lib/onnxruntime.so"
-export LD_LIBRARY_PATH=$W/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+# chispa-server lee CHISPA_ORT_LIB (o -ort-lib) y la usa en L2 y en la torre: sin enlaces ni LD_LIBRARY_PATH.
+export CHISPA_ORT_LIB
 
 paso "1. Compilar (chispa-server -tags ort, generador de modelos sintéticos)"
 (cd "$RAIZ/server" && go build -tags ort -o "$W/chispa-server" ./cmd/chispa-server && go build -o "$W/gensint" ./e2e/gensint) 2>&1 | tail -5

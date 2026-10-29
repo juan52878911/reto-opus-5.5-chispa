@@ -36,8 +36,8 @@ cd server && go build -tags ort ./cmd/chispa-server       # con L2 y L2c (cgo + 
 ./chispa-server -addr 0.0.0.0:8090 -modelo /srv/chispa/modelo.chispa -tok /srv/chispa/e5.chispa-tok -config /srv/chispa/config.json -timeout 30s
 ```
 Flags reales de [`main.go`](../server/cmd/chispa-server/main.go): `-addr` (por defecto `127.0.0.1:8090`: **solo local**, para servir a otras máquinas use `0.0.0.0:PUERTO`
-detrás del balanceador o cortafuegos del cliente), `-modelo`, `-config`, `-tok`, `-timeout` (30 s; 0 = sin tope). No hay flag de versión, de TLS ni de autenticación.
-Sin `-tags ort`, o sin `-tok`, L2 queda en stub (el servidor lo avisa en el log).
+detrás del balanceador o cortafuegos del cliente), `-modelo`, `-config`, `-tok`, `-ort-lib` (o variable `CHISPA_ORT_LIB`; precede a la ruta fijada al compilar), `-timeout` (30 s; 0 = sin tope). No hay flag de versión, de TLS ni de autenticación.
+Sin `-tags ort`, o sin `-tok`, L2 queda en stub (el servidor lo avisa en el log); si el log dice `AVISO: ONNX Runtime no carga`, corrija la ruta con `-ort-lib`/`CHISPA_ORT_LIB`.
 
 **Pendiente de producto:** TLS, autenticación y límite de tasa en el servidor. El cliente los pone delante (proxy inverso o malla); el kit no los trae.
 

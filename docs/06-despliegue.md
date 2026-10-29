@@ -9,7 +9,9 @@
 | Con ORT | `cd server && go build -tags ort ./cmd/chispa-server` | L0, L1, L2 y L2c |
 
 - `-tags ort` necesita cgo, `libonnxruntime.so` (1.17 o más nueva) y el módulo `github.com/yalue/onnxruntime_go`.
-  La ruta de la `.so` se fija con `-ldflags -X …/decide.RutaORT=/ruta/libonnxruntime.so`.
+  La ruta de la `.so`, de mayor a menor precedencia: `chispa-server -ort-lib /ruta/libonnxruntime.so` > variable `CHISPA_ORT_LIB` >
+  `-ldflags -X …/server/decide.RutaORT=/ruta/libonnxruntime.so` > búsqueda del sistema. Vale para L2 y para la torre. Si el `.chispa` trae L2 o TORR
+  y ORT no carga, el arranque lo avisa en el log.
 - Sin red: `GOFLAGS=-mod=mod GOPROXY=off`, con la caché de módulos ya llena ([`server/Makefile`](../server/Makefile)).
 - Los módulos locales (`format/chispa3`, `runtime/l1`) entran por `replace` en `server/go.mod`.
 - Versiones de ORT: **hay dos pares y no coinciden.** `server/go.mod` pide `onnxruntime_go v1.38.0` y los tests de ORT se probaron con `libonnxruntime.so.1.31.1`

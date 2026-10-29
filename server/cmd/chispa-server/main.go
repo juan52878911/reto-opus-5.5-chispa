@@ -22,7 +22,10 @@ func main() {
 	modelo := flag.String("modelo", "", ".chispa v3 (o v2 envuelto) del que armar L0, L1 y L2 según sus secciones")
 	rutaTok := flag.String("tok", "", ".chispa-tok de e5 (runtime/tok/exportar.py); sin él, L2 queda en stub")
 	timeout := flag.Duration("timeout", 30*time.Second, "tope de tiempo por petición (cancela su ctx y responde 503 con Retry-After y código timeout); 0 = sin tope")
+	ortLib := flag.String("ort-lib", "", "libonnxruntime.so para L2 y la torre (precede a CHISPA_ORT_LIB y a -ldflags -X …decide.RutaORT; vacío = la del sistema)")
 	flag.Parse()
+	rutaORT, origenORT = fijarRutaORT(*ortLib)
+	log.Printf("ORT: ruta %q (%s)", rutaORT, origenORT)
 	armar := func(met *decide.Metricas) decide.Armador {
 		return func() (*decide.Armado, error) { return armarModelo(met, *cfgPath, *modelo, *rutaTok) }
 	}
@@ -57,6 +60,9 @@ func main() {
 
 // armarModelo relee la config y el .chispa y arma una cascada completa con cachés propias. Lo usan el arranque y cada recarga
 // (SIGHUP o POST /v1/admin/recargar); si algo falla devuelve el error sin tocar nada de lo que sirve.
+// rutaORT y origenORT: la ruta de ORT resuelta al arrancar y de dónde salió (para los avisos).
+var rutaORT, origenORT string
+
 func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide.Armado, error) {
 	cfg := decide.ConfigPorDefecto()
 	if cfgPath != "" {
@@ -77,6 +83,12 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 			return nil, err
 		}
 		cerrar = f.Close
+		if f.Tiene(chispa3.TORR) || f.Tiene(chispa3.L2) {
+			if err := comprobarORT(); err != nil {
+				log.Printf("AVISO: ONNX Runtime no carga (ruta %q, %s): %v. L2 queda en stub y los esquemas nuevos escalan "+
+					"(chispa_torres_calculadas_total seguirá en 0); use -ort-lib o CHISPA_ORT_LIB", rutaORT, origenORT, err)
+			}
+		}
 		fallo := func(err error) (*decide.Armado, error) { f.Close(); return nil, err }
 		var tk decide.Tokenizador
 		if rutaTok != "" {

@@ -67,5 +67,7 @@ COPY --from=ort /out/chispa-server /out/sondeo /usr/local/bin/
 # libonnxruntime.so debe estar en /usr/lib (RutaORT); las dos libs de C++ van junto a ella.
 RUN mv /usr/lib/chispa/libonnxruntime.so /usr/lib/chispa/libstdc++.so.6 /usr/lib/chispa/libgcc_s.so.1 /usr/lib/ \
  && rmdir /usr/lib/chispa && ldconfig
+# Misma ruta que el -ldflags; chispa-server la lee (CHISPA_ORT_LIB o -ort-lib) para L2 y la torre. Se puede cambiar al ejecutar.
+ENV CHISPA_ORT_LIB=/usr/lib/libonnxruntime.so
 USER 10001:10001
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 CMD ["/usr/local/bin/sondeo"]
