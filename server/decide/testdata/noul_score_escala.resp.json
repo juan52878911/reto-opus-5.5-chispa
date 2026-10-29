@@ -20,7 +20,7 @@
         "1": 0.4,
         "2": 0.6
       },
-      "layer": "L3",
+      "layer": "escalar",
       "escalate": true,
       "ms": 0
     }

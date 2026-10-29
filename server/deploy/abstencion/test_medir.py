@@ -25,10 +25,10 @@ VERDAD = {f"t{i}": e for i, e in enumerate("aaaaabbbbb")}
 PREDS = [
     pred(0, {"a": .95, "b": .05}, False), pred(1, {"a": .90, "b": .10}, False), pred(2, {"a": .85, "b": .15}, False),
     pred(3, {"a": .20, "b": .80}, False),                                # contestada y mal (verdad a)
-    pred(4, {"a": .55, "b": .45}, True, "L3"),                           # escalada, mejor respuesta bien
+    pred(4, {"a": .55, "b": .45}, True, "escalar"),                           # escalada, mejor respuesta bien
     pred(5, {"a": .10, "b": .90}, False), pred(6, {"a": .08, "b": .92}, False),
     pred(7, {"a": .70, "b": .30}, False),                                # contestada y mal (verdad b)
-    pred(8, {"a": .40, "b": .60}, True, "L3"),                           # escalada, bien
+    pred(8, {"a": .40, "b": .60}, True, "escalar"),                           # escalada, bien
     pred(9, {"escalate": 1.0}, True, "error") | {"error": "OSError: x"},
 ]
 
@@ -46,7 +46,7 @@ class TestMedir(unittest.TestCase):
         self.assertAlmostEqual(t["macro_f1_escala_fallo"], (6 / 9 + 0.5) / 2)
         # mejor respuesta de las 9 sin error: a: tp 4 (t0-t2,t4) fp1 fn1; b: tp3 (t5,t6,t8) fp1 fn1 -> 8/10 y 6/8
         self.assertAlmostEqual(t["macro_f1_mejor_respuesta"], (0.8 + 0.75) / 2)
-        self.assertEqual(t["capas"], {"L1": 7, "L3": 2, "error": 1})
+        self.assertEqual(t["capas"], {"L1": 7, "escalar": 2, "error": 1})
 
     def test_escalar_todo_o_nada(self):
         todas = [pred(i, {"a": 1.0, "b": 0.0}, True) for i in range(10)]
