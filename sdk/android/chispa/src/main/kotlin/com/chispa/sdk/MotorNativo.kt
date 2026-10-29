@@ -14,6 +14,7 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
     override fun tieneCalib(): Boolean = go.tieneCalib()
     override fun tauEscalate(): Double = go.tauEscalate()
     override fun tauL2c(): Double = go.tauL2c()
+    override fun tauL2EsquemaNuevo(): Double = go.tauL2EsquemaNuevo()
     override fun hashSeccion(tipo: Int): String = go.hashSeccion(tipo.toLong())
     override fun decidirL0(texto: String, preguntaJson: String): String = go.decidirL0(texto, preguntaJson)
     override fun decidirL1(texto: String, preguntaJson: String): String = go.decidir(texto, preguntaJson)
@@ -41,8 +42,9 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
     override fun close() = go.cerrar()
 
     companion object {
-        fun abrir(ruta: String): MotorNativo = try {
-            MotorNativo(Chispamovil.abrir(ruta))
+        /** [soporte]: (λ de L1, λ de L2c) del encogimiento few-shot (`AbrirConSoporte`); null = `Abrir` de siempre. */
+        fun abrir(ruta: String, soporte: Pair<Double, Double>? = null): MotorNativo = try {
+            MotorNativo(if (soporte == null) Chispamovil.abrir(ruta) else Chispamovil.abrirConSoporte(ruta, soporte.first, soporte.second))
         } catch (e: Exception) {
             throw ErrorChispa("no se pudo abrir $ruta: ${e.message}", e)
         }

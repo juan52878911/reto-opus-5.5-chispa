@@ -45,6 +45,7 @@ class Chispa private constructor(
          * Abre el modelo. [rutaModelo] es la ruta absoluta de un fichero, o el nombre de un asset (se copia una vez a
          * `filesDir`, porque el motor lo mapea en memoria y necesita un fichero de verdad).
          * [proveedorOrt] elige el proveedor de ORT de L2 y de la torre (XNNPACK por defecto; si falla al crear la sesión, CPU).
+         * [lambdaSoporteL1]/[lambdaSoporteL2]: λ del soporte few-shot (`AbrirConSoporte`); nulos = `Abrir` de siempre.
          */
         fun abrir(
             contexto: Context,
@@ -54,9 +55,11 @@ class Chispa private constructor(
             codificadorTorres: CodificadorTorre? = null,
             alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
             proveedorOrt: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO,
+            lambdaSoporteL1: Double? = null,
+            lambdaSoporteL2: Double? = null,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
-            val motor = MotorNativo.abrir(fichero.absolutePath)
+            val motor = MotorNativo.abrir(fichero.absolutePath, soporteDe(lambdaSoporteL1, lambdaSoporteL2))
             return try {
                 var tok = tokenizador
                 if (tok == null && rutaTokenizador != null) {
@@ -70,6 +73,10 @@ class Chispa private constructor(
                 throw e
             }
         }
+
+        /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es ∞ (sin mezcla); sin ninguno, null = `Abrir` de siempre. */
+        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double>? =
+            if (l1 == null && l2 == null) null else Pair(l1 ?: Double.POSITIVE_INFINITY, l2 ?: Double.POSITIVE_INFINITY)
 
         /** Monta la cascada sobre cualquier [Motor] (los tests usan uno falso). [onnx] da la ruta del ONNX de L2. */
         internal fun montar(

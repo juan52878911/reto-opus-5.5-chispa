@@ -14,6 +14,11 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
   confianza top-1 sea < τ; una capa que falla o no opina se salta; si ninguna llega, `escalar = true` con la pista de
   mayor confianza y la última capa. τ: L0 = 0,80; L1 y L2 = `tau_escalate` de CALIB (0,80 y 0,70 si el fichero no trae
   CALIB).
+- **τ de L2 para esquemas nuevos**: si CALIB trae `tau_l2_esquema_nuevo` (`Motor.tauL2EsquemaNuevo()`, −1 si falta), L2 lo usa
+  en lugar de su τ cuando las torres de la pregunta salieron al vuelo (`SalidaCapa.esquemaNuevo`); con esquemas de ESQUEMAS o sin
+  ese campo, el τ de siempre.
+- **Soporte few-shot**: `Chispa.abrir(contexto, ruta, lambdaSoporteL1 = 3.0, lambdaSoporteL2 = 3.0)` llama a `AbrirConSoporte`
+  (sección SOPL1; λ = ∞ o nulo = sin mezcla, como `Abrir`).
 - **L0TF y L2c**: `DecidirL0` usa la sección L0TF si está. Con CONJ en el fichero, `CapaL2` hace L2c: las ranuras de ORT van a
   `Motor.cabezaConjunta` junto con las probabilidades de L0 (la cascada pasa a cada capa lo que dijeron las anteriores); si la
   cabeza no opina, cae a `puntuarL2`.

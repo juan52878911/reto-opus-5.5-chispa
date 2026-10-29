@@ -11,9 +11,16 @@ final class MotorNativo: Motor {
 
     private init(_ go: ChispamovilChispa) { self.go = go }
 
-    static func abrir(ruta: String) throws -> MotorNativo {
+    /// `soporte`: (λ de L1, λ de L2c) del encogimiento few-shot (`ChispamovilAbrirConSoporte`); nil = `Abrir` de siempre.
+    static func abrir(ruta: String, soporte: (Double, Double)? = nil) throws -> MotorNativo {
         var error: NSError?
-        guard let go = ChispamovilAbrir(ruta, &error) else {
+        let abierto: ChispamovilChispa?
+        if let (l1, l2) = soporte {
+            abierto = ChispamovilAbrirConSoporte(ruta, l1, l2, &error)
+        } else {
+            abierto = ChispamovilAbrir(ruta, &error)
+        }
+        guard let go = abierto else {
             throw ErrorChispa("no se pudo abrir \(ruta): \(error?.localizedDescription ?? "error desconocido")")
         }
         return MotorNativo(go)
@@ -28,6 +35,7 @@ final class MotorNativo: Motor {
     func tieneCalib() -> Bool { go.tieneCalib() }
     func tauEscalate() -> Double { go.tauEscalate() }
     func tauL2c() -> Double { go.tauL2c() }
+    func tauL2EsquemaNuevo() -> Double { go.tauL2EsquemaNuevo() }
     func hashSeccion(_ tipo: Int) -> String { go.hashSeccion(tipo) }
     func decidirL0(_ texto: String, _ preguntaJson: String) -> String { go.decidirL0(texto, preguntaJSON: preguntaJson) }
     func decidirL1(_ texto: String, _ preguntaJson: String) -> String { go.decidir(texto, preguntaJSON: preguntaJson) }

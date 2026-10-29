@@ -37,9 +37,10 @@ public final class Chispa {
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
                              coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
                              codificadorTorres: CodificadorTorre? = nil,
-                             alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa) throws -> Chispa {
+                             alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa,
+                             lambdaSoporteL1: Double? = nil, lambdaSoporteL2: Double? = nil) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
-        let motor = try MotorNativo.abrir(ruta: ruta)
+        let motor = try MotorNativo.abrir(ruta: ruta, soporte: soporteDe(lambdaSoporteL1, lambdaSoporteL2))
         // `proveedorOrt` manda; sin él, `coreML` (true por defecto) elige entre CoreML y CPU.
         let proveedor = proveedorOrt ?? (coreML ? .coreML : .cpu)
         do {
@@ -58,6 +59,12 @@ public final class Chispa {
             motor.cerrar()
             throw error
         }
+    }
+
+    /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es ∞ (sin mezcla); sin ninguno, nil = `Abrir` de siempre.
+    static func soporteDe(_ l1: Double?, _ l2: Double?) -> (Double, Double)? {
+        if l1 == nil && l2 == nil { return nil }
+        return (l1 ?? .infinity, l2 ?? .infinity)
     }
 
     /// Monta la cascada sobre cualquier `Motor` (los tests usan uno falso). `onnx` da la ruta del ONNX de L2.

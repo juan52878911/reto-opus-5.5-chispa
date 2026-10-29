@@ -96,12 +96,12 @@ simulador no existe, usa uno de la lista (`name=iPhone 16`, etc.) o `id=<UDID>`.
 ## Sitios que probablemente fallen
 Todo esto está escrito de memoria. En este orden de probabilidad:
 
-1. **Nombres de gomobile (`MotorNativo.swift`).** Se esperan: `ChispamovilAbrir(ruta, &error)` → `ChispamovilChispa?`;
+1. **Nombres de gomobile (`MotorNativo.swift`).** Se esperan: `ChispamovilAbrir(ruta, &error)` → `ChispamovilChispa?` y `ChispamovilAbrirConSoporte(ruta, lambdaL1, lambdaL2, &error)` (`Double`, `Double`; el mismo tipo de retorno; si el header lo nombra distinto, se corrige en `MotorNativo.abrir`);
    métodos `capas()`, `tieneCalib()`, `tauEscalate()`, `decidirL0(_:preguntaJSON:)`, `decidir(_:preguntaJSON:)`,
    `torresL2(_:)`, `puntuarL2(_:ranuras:k:)`, `extraerL2(_:)` (throws), `tieneConj()`, `cabezaConjunta(_:)`, `tieneTokenizadorE5()`,
    `cargarTokenizadorE5(_:)` (throws), `tokenizarE5(_:)` → `Data?`, `cerrar()`; y los de W7: `textosTorreL2(_:)` → `String`,
    `instalarTorresL2(_:torres:n:)` (`n` es `Int` en Swift; si el header dice `long`, `n: Int64(n)`), `tieneTorre()`, `onnxTorre()` → `Data?`,
-   `idsPasaje(_:)` → `Data?`; y los de FG: `tauL2c()` → `Double` (−1 si falta) y `hashSeccion(_:)` → `String` (el `tipo` Go `int` llega como `Int`;
+   `idsPasaje(_:)` → `Data?`; y los de FG: `tauL2c()` → `Double` (−1 si falta), `tauL2EsquemaNuevo()` → `Double` (−1 si falta) y `hashSeccion(_:)` → `String` (el `tipo` Go `int` llega como `Int`;
    si el header dice `long`, `Int64(tipo)`; sha256 hex de la sección, "" si no hay). `CacheFicheros.swift` usa `CryptoKit` (iOS 13+). Cosas típicas: gomobile escribe `JSON` en
    mayúsculas (`preguntaJSON`); el primer argumento va sin etiqueta; los métodos Go que devuelven solo `error` llegan como
    `throws`, y los que devuelven `(T, error)` como `func m(...) throws -> T` (o `m(_:error:)` según la versión); `int` de

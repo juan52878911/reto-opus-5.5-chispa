@@ -32,6 +32,8 @@ final class MotorFalso: Motor {
     /// false = `instalarTorresL2` rechaza las torres (y no las cachea).
     var aceptaTorres = true
     var tauConj = -1.0
+    /// `tau_l2_esquema_nuevo` de CALIB (−1 = falta).
+    var tauNuevo = -1.0
     var hashes: [Int: String] = [:]
     /// Qué hace `extraerL2`: escribe en el destino que se le da (por defecto, nada).
     var alExtraer: (String) throws -> Void = { _ in }
@@ -48,6 +50,7 @@ final class MotorFalso: Motor {
     }
     func extraerL2(a destino: String) throws { extracciones += 1; try alExtraer(destino) }
     func tauL2c() -> Double { tauConj }
+    func tauL2EsquemaNuevo() -> Double { tauNuevo }
     func hashSeccion(_ tipo: Int) -> String { hashes[tipo] ?? "" }
     func tieneConj() -> Bool { conj }
     func cabezaConjunta(_ simsJson: String) -> String { llamadas.append("CONJ"); ultimoSimsJson = simsJson; return cabeza() }

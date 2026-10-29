@@ -13,6 +13,9 @@ interface Motor : AutoCloseable {
     /** `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta. */
     fun tauL2c(): Double = -1.0
 
+    /** `tau_l2_esquema_nuevo` de CALIB (el τ de L2 cuando sus torres salen al vuelo), o −1 si falta. */
+    fun tauL2EsquemaNuevo(): Double = -1.0
+
     /** sha256 hex de la sección de [tipo] (ver [SECCION_L2], [SECCION_TORR]), o "" si el motor no lo sabe o no la hay. */
     fun hashSeccion(tipo: Int): String = ""
     fun decidirL0(texto: String, preguntaJson: String): String
@@ -186,21 +189,27 @@ class CapaL2(
     /** Caché negativa: esquema (JSON de la pregunta) → instante hasta el que no se reintenta calcular su torre. */
     private val fallosTorre = HashMap<String, Long>()
 
+    /** Esquemas cuyas torres instaló esta capa al vuelo: el motor ya las tiene cacheadas, pero siguen siendo «esquema nuevo». */
+    private val alVuelo = HashSet<String>()
+
     override fun decidir(texto: String, pregunta: Pregunta): SalidaCapa =
         decidir(texto, pregunta, emptyMap())
 
     override fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa {
         val pj = pregunta.toJson()
-        if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
+        val nuevo = if (motor.torresL2(pj)) synchronized(alVuelo) { pj in alVuelo } else {
+            if (!torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
+            true
+        }
         val ids = tokenizador.ids(texto)
         if (ids.isEmpty()) return SalidaCapa.SIN_OPINION
         val s = sesion.ranuras(ids)
         val l0 = previas["L0"]?.probs
         if (!l0.isNullOrEmpty() && motor.tieneConj()) {
             val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConj(pj, l0, s)))
-            if (c.opina) return c
+            if (c.opina) return c.copy(esquemaNuevo = nuevo)
         }
-        return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+        return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k)).copy(esquemaNuevo = nuevo)
     }
 
     private fun torresAlVuelo(preguntaJson: String): Boolean {
@@ -222,6 +231,10 @@ class CapaL2(
             for (t in torres) for (x in t) b.putFloat(x)
             if (!motor.instalarTorresL2(preguntaJson, b.array(), torres.size)) {
                 throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=$d, n=${torres.size})")
+            }
+            synchronized(alVuelo) {
+                if (alVuelo.size >= MAX_FALLOS_TORRE) alVuelo.clear()
+                alVuelo.add(preguntaJson)
             }
             return true
         } catch (e: Exception) {

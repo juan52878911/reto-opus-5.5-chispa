@@ -33,6 +33,9 @@ class MotorFalso(
     /** false = [instalarTorresL2] rechaza las torres (y no las cachea). */
     var aceptaTorres = true
 
+    /** `tau_l2_esquema_nuevo` de CALIB (−1 = falta). */
+    var tauNuevo = -1.0
+
     var ultimoSimsJson: String? = null
     val llamadas = ArrayList<String>()
     var ultimasRanuras: ByteArray? = null
@@ -72,6 +75,7 @@ class MotorFalso(
     }
 
     override fun tauL2c() = tauConj
+    override fun tauL2EsquemaNuevo() = tauNuevo
     override fun hashSeccion(tipo: Int) = hashes[tipo] ?: ""
     override fun tieneConj() = conj
     override fun cabezaConjunta(simsJson: String): String {

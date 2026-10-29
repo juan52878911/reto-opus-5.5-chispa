@@ -24,7 +24,13 @@ data class Pregunta(
 }
 
 /** Lo que dice una capa. [confianza] 0 significa «sin opinión». */
-data class SalidaCapa(val respuesta: String, val confianza: Double, val probs: Map<String, Double>) {
+data class SalidaCapa(
+    val respuesta: String,
+    val confianza: Double,
+    val probs: Map<String, Double>,
+    /** L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS): la cascada usa `tauL2EsquemaNuevo`. */
+    val esquemaNuevo: Boolean = false,
+) {
     val opina: Boolean get() = confianza > 0 && respuesta.isNotEmpty()
 
     companion object {

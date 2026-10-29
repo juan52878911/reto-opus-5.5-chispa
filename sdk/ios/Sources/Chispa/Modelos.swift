@@ -44,11 +44,18 @@ public struct SalidaCapa: Equatable {
     public let respuesta: String
     public let confianza: Double
     public let probs: [String: Double]
+    /// L2 puntuó con torres calculadas al vuelo (la pregunta no estaba en ESQUEMAS): la cascada usa `tauL2EsquemaNuevo`.
+    public let esquemaNuevo: Bool
 
-    public init(respuesta: String, confianza: Double, probs: [String: Double]) {
+    public init(respuesta: String, confianza: Double, probs: [String: Double], esquemaNuevo: Bool = false) {
         self.respuesta = respuesta
         self.confianza = confianza
         self.probs = probs
+        self.esquemaNuevo = esquemaNuevo
+    }
+
+    func conEsquemaNuevo(_ nuevo: Bool) -> SalidaCapa {
+        SalidaCapa(respuesta: respuesta, confianza: confianza, probs: probs, esquemaNuevo: nuevo)
     }
 
     public static let sinOpinion = SalidaCapa(respuesta: "", confianza: 0, probs: [:])
