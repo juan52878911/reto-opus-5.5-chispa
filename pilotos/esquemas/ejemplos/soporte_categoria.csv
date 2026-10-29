@@ -1,0 +1,26 @@
+texto,etiqueta
+"Me llegó un cobro de 59.900 que no reconozco, ¿de qué es?",facturacion
+"Quiero que me reembolsen el mes que pagué sin usar el servicio",facturacion
+"¿Por qué me subió el precio del plan este mes?",facturacion
+"No me ha llegado la factura de octubre al correo",facturacion
+"Pagué por PSE y el pago sigue apareciendo pendiente",facturacion
+"No puedo entrar a mi cuenta, dice que la clave es incorrecta",acceso
+"Nunca me llega el código de verificación al celular",acceso
+"Mi cuenta quedó bloqueada después de varios intentos",acceso
+"Olvidé el correo con el que me registré, ¿cómo lo recupero?",acceso
+"Quiero cambiar mi contraseña pero el enlace del correo no abre",acceso
+"La aplicación se cierra sola cada vez que abro mis pedidos",fallo_tecnico
+"La página se queda cargando y nunca termina de mostrar el carrito",fallo_tecnico
+"Me sale un error 500 al intentar subir el documento",fallo_tecnico
+"El código QR del tiquete no lo lee ningún lector",fallo_tecnico
+"La app va muy lenta desde la última actualización",fallo_tecnico
+"¿Cómo hago para descargar el certificado desde el portal?",uso
+"No entiendo cómo programar un pedido para la próxima semana",uso
+"¿Dónde veo el historial de mis compras?",uso
+"Me pueden explicar cómo funciona el cupón de descuento",uso
+"¿Cómo agrego a mi esposa como beneficiaria?",uso
+"Quiero cancelar mi suscripción, ya no la necesito",cancelacion
+"Por favor anulen el pedido que hice ayer, me equivoqué de producto",cancelacion
+"Quiero darme de baja del servicio desde el próximo mes",cancelacion
+"Es muy costoso, me quiero pasar al plan más barato o cancelar",cancelacion
+"¿Cómo cancelo el débito automático de mi tarjeta?",cancelacion

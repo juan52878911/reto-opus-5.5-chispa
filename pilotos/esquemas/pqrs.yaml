@@ -1,0 +1,37 @@
+# Plantilla PQRS (petición, queja, reclamo, sugerencia, felicitación) para EPS, comercio, servicios.
+# Tres preguntas en un fichero: se elige una con `--pregunta ID` y sale un .chispa por pregunta.
+# Ejemplos de few-shot de cada pregunta: ejemplos/<id>.csv. Textos inventados; no son datos de ningún cliente.
+# Ajusta las descripciones al vocabulario de tu empresa: en zero-shot son lo único que Chispa ve de la tarea.
+preguntas:
+  - id: pqrs_tipo
+    pregunta: ¿Qué tipo de PQRS es este mensaje?
+    tipo: choice
+    opciones:
+      peticion: la persona solicita algo que la empresa puede hacer, como un documento, una información, una cita o un trámite, sin expresar inconformidad
+      queja: la persona expresa inconformidad por el trato o la conducta de un empleado o por la atención recibida, sin pedir una reparación concreta del servicio
+      reclamo: la persona exige que se corrija o se repare algo que falló, como un cobro erróneo, un servicio no prestado, un producto defectuoso o un trámite incumplido
+      sugerencia: la persona propone una idea o una mejora para el servicio, el proceso o los canales, sin que haya un problema que resolver
+      felicitacion: la persona agradece o elogia la atención, a un empleado o al servicio recibido
+
+  # Urgencia como `score` (1 = puede esperar … 5 = atender de inmediato).
+  # PENDIENTE DE PRODUCTO: L1 no opina en `score` (docs/07, docs/01); sin ejemplos o con 5 por nivel (< 10) no hay L0,
+  # así que en esos modos la respuesta escala siempre. Con ≥ 10 ejemplos por nivel `chispa train` entrena L0, pero esa
+  # ruta con `score` no está medida: sin medir. Si necesitas un resultado ya, usa `urgencia_cat` (choice).
+  - id: pqrs_urgencia
+    pregunta: ¿Qué tan urgente es atender este mensaje?
+    tipo: score
+    opciones:
+      "1": no hay prisa; es un comentario, una sugerencia o una felicitación que se puede responder dentro del plazo normal
+      "2": hay un asunto por resolver, pero la persona no menciona plazos y no hay perjuicio mientras tanto
+      "3": la persona espera respuesta pronto o ya había escrito antes sin recibirla
+      "4": hay un perjuicio actual, como un cobro indebido, un servicio suspendido o una fecha cercana, y la persona pide solución rápida
+      "5": hay riesgo para la salud, la seguridad o el sustento de la persona, o un plazo legal o médico que vence hoy; hay que atender de inmediato
+
+  # Misma pregunta como `choice`: camino que sí tiene capa en zero-shot (L1).
+  - id: pqrs_urgencia_cat
+    pregunta: ¿Qué tan urgente es atender este mensaje?
+    tipo: choice
+    opciones:
+      baja: no hay prisa; comentario, sugerencia, felicitación o trámite sin fecha, que se puede responder dentro del plazo normal
+      media: hay un asunto por resolver y la persona espera respuesta pronto, pero no hay perjuicio ni riesgo mientras tanto
+      alta: hay un perjuicio actual, un riesgo para la salud, la seguridad o el sustento, o un plazo que vence hoy o mañana; hay que atender de inmediato

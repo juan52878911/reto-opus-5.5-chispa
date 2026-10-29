@@ -1,0 +1,19 @@
+# Plantilla de soporte: categoría del caso y si debe pasar a una persona (noul = sí/no).
+# Se elige con `--pregunta ID`; sale un .chispa por pregunta. Ejemplos en ejemplos/<id>.csv (textos inventados).
+preguntas:
+  - id: soporte_categoria
+    pregunta: ¿De qué trata la solicitud de soporte?
+    tipo: choice
+    opciones:
+      facturacion: cobros, facturas, pagos, reembolsos o planes y precios que la persona no entiende o no reconoce
+      acceso: no puede entrar a su cuenta, olvidó la clave, no le llega el código de verificación o tiene la cuenta bloqueada
+      fallo_tecnico: algo no funciona como debería, como un error, una página o aplicación que se cierra, una demora excesiva o una función que no responde
+      uso: no sabe cómo hacer algo o pide una explicación de cómo funciona el servicio, sin que haya un fallo
+      cancelacion: quiere dar de baja el servicio, anular una suscripción o un pedido, o cambiar de plan para pagar menos
+
+  - id: soporte_escalar
+    pregunta: ¿Este caso debe pasar a una persona del equipo?
+    tipo: noul
+    opciones:
+      "true": sí; la persona está molesta o amenaza con reclamar o cancelar, hay dinero de por medio, un riesgo para sus datos o su seguridad, o el caso es delicado y un asistente automático no basta
+      "false": no; es una duda sencilla o un trámite rutinario que se resuelve con una respuesta estándar
