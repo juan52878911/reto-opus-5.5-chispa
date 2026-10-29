@@ -41,7 +41,7 @@ Los valores de `answer` y `probs` dependen de tu modelo.
 
 ## API
 
-`new ChispaCliente({ url, timeoutMs, reintentos, esperaMs, limites, fetch, dormir })`
+`new ChispaCliente({ url, timeoutMs, reintentos, esperaMs, limites, fetch, dormir, apiKey })`
 
 | Opción | Por defecto | |
 |---|---|---|
@@ -50,6 +50,7 @@ Los valores de `answer` y `probs` dependen de tu modelo.
 | `reintentos` | `3` | intentos extra; ver «Reintentos» |
 | `esperaMs` | `200` | |
 | `limites` | los del OpenAPI | si el operador cambió la sección `limites` del servidor |
+| `apiKey` | — | clave de API en claro si el servidor tiene `api_keys`; va como `Authorization: Bearer` solo en `/v1/decide` (no en `/healthz`) |
 | `fetch` | `globalThis.fetch` | |
 | `dormir` | `setTimeout` | para pruebas: recibe los ms de espera entre reintentos |
 
@@ -69,8 +70,10 @@ un `nonce` vacío (`""`) cuenta como ausente y se sustituye por uno generado; lo
 
 El `-timeout` del servidor responde 503 con código `timeout` y `Retry-After: 5`; es sobrecarga, y repetir en seguida gasta otra vez la cascada.
 - **Sí reintenta** (misma política que `sdk/python/chispa/cliente.py`): error de red, timeout propio del cliente (`timeoutMs`,
-  `status` 0), 200 con cuerpo no JSON y los estados 429, 500, 502 y 503.
-- **No reintenta**: el `timeout` del servidor (503 con código `timeout`, aunque traiga `Retry-After`) ni el 504; se lanzan al instante.
+  `status` 0), 200 con cuerpo no JSON y el 503.
+- **No reintenta**: el `timeout` del servidor (503 con código `timeout`, aunque traiga `Retry-After`), el 504, el 401 (clave de API ausente
+  o mala: repetir no lo arregla) ni el 429 (`rate_limited`); se lanzan al instante. En un 429, `error.retryAfterMs` trae la espera que
+  pidió el servidor (`Retry-After`, tope 30 s) y decide el llamador cuándo repetir (con el mismo `nonce` si quiere idempotencia).
 - **Timeout del cliente > `-timeout` del servidor (30 s)**: por eso el valor por defecto es 35 s. Con uno menor, una petición lenta
   se corta, se repite y nunca termina, y la regla anterior no llega a aplicarse.
 - **Espera** `esperaMs · 2^(n-1)` con jitter (×0,5–1; Python no usa jitter). Si la respuesta reintentable trae `Retry-After` numérico

@@ -44,6 +44,10 @@ rs[0].answer, rs[0].probs, rs[0].layer, rs[0].escalate
 - Reintentos (política vigente, definida en `cliente.py`; el cliente JS debe igualarla): 3 por defecto, con espera exponencial
   (`espera·2^(n-1)`, y al menos `Retry-After` si lo hay, tope 30 s). Se reintentan solo los errores de red y el 503 que no sea
   `timeout`. No se reintentan: el timeout propio del cliente, el 503 `timeout` del servidor, el 504, ni 429/500/502 ni ningún otro estado.
+- Clave de API: `Chispa(url, api_key="…")` y `new ChispaCliente({ apiKey })` envían `Authorization: Bearer <clave>` solo a `/v1/decide` (si el servidor tiene
+  `api_keys`, [06-despliegue.md](06-despliegue.md#claves-de-api)). **401** (`unauthorized`) y **429** (`rate_limited`) no se reintentan (arriba): lanzan
+  `ErrorSolicitud` / `ErrorChispa` al instante. En un 429 el `Retry-After` del servidor (segundos, tope 30 s) queda en `ErrorSolicitud.retry_after` (Python, segundos)
+  y `ErrorChispa.retryAfterMs` (JS, ms); `None`/`undefined` si no vino. Quien quiera esperar y repetir lo hace con el mismo `nonce`.
 - Timeout: 35 s por defecto, mayor que el `-timeout` del servidor (30 s). Si lo baja, manténgalo por encima del `-timeout` del servidor;
   si no, el cliente corta antes, el servidor cancela sin guardar nada bajo el nonce y la petición nunca termina.
 - El nonce se fija antes del primer intento (un nonce vacío cuenta como ausente y se genera uno), así que reintentar es idempotente.

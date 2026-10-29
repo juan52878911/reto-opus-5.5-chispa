@@ -20,13 +20,14 @@ class ErrorSolicitud(ChispaError):
     """El servidor respondió con un error (400, 405, 413…). `status`; `codigo`, `mensaje` y `question_id` del error tipado
     `{"error":{"code","message","question_id"}}`. También acepta el formato viejo `{"error":"texto"}` (`codigo` y `question_id` vacíos)."""
 
-    def __init__(self, status: int, mensaje, codigo: str = "", question_id=None):
+    def __init__(self, status: int, mensaje, codigo: str = "", question_id=None, retry_after: float | None = None):
         if isinstance(mensaje, dict):
             codigo = mensaje.get("code", codigo) or ""
             question_id = mensaje.get("question_id", question_id)
             mensaje = mensaje.get("message", "")
         super().__init__(f"HTTP {status}: " + (f"[{codigo}] " if codigo else "") + str(mensaje))
         self.status, self.codigo, self.mensaje, self.question_id = status, codigo, mensaje, question_id
+        self.retry_after = retry_after  # segundos de `Retry-After` (tope 30 s) si el servidor lo mandó; en un 429, cuánto esperar
 
 
 class ErrorTransporte(ChispaError):
@@ -39,6 +40,8 @@ class ErrorTransporte(ChispaError):
 #  - NO se reintenta: el timeout propio del cliente (el servidor cancela y no guarda nada bajo el nonce, así que repetir
 #    vuelve a gastar la cascada entera), el 503 `timeout` del servidor (aunque traiga `Retry-After`), el 504 y cualquier
 #    otro estado (400, 405, 413, 429, 500, 502…): se lanza `ErrorSolicitud` en el acto;
+#  - 401 (clave de API ausente o mala) y 429 (`rate_limited`) NO se reintentan: se lanza `ErrorSolicitud` en el acto. Un 401
+#    no se arregla repitiendo; en un 429 `ErrorSolicitud.retry_after` trae los segundos que pidió el servidor y decide el llamador;
 #  - el `timeout` por defecto (35 s) es mayor que el `-timeout` del servidor (30 s): el 503 del servidor llega antes de cortar.
 _REINTENTABLES = {503}
 _TOPE_RETRY_AFTER = 30.0
@@ -72,14 +75,16 @@ class Chispa:
 
     Con `nonce_auto` (por defecto) cada pregunta sin nonce recibe un uuid fijado antes del primer intento:
     el servidor lo usa como clave de idempotencia, así que un reintento tras un corte no vuelve a decidir.
-    Un nonce vacío cuenta como ausente (se genera uno). Política de reintentos: ver el comentario sobre `_REINTENTABLES`.
+    Un nonce vacío cuenta como ausente (se genera uno). `api_key` (opcional) se envía como `Authorization: Bearer <clave>`
+    si el servidor tiene `api_keys`; un 401 o 429 lanza `ErrorSolicitud` sin reintentar. Política de reintentos: ver el comentario sobre `_REINTENTABLES`.
     """
 
     def __init__(self, url: str, *, timeout: float = TIMEOUT_POR_DEFECTO, reintentos: int = 3, espera: float = 0.2,
-                 nonce_auto: bool = True, dormir=time.sleep):
+                 nonce_auto: bool = True, dormir=time.sleep, api_key: str | None = None):
         self.url = url.rstrip("/")
         self.timeout, self.reintentos, self.espera, self.nonce_auto = timeout, reintentos, espera, nonce_auto
         self._dormir = dormir
+        self.api_key = api_key or None  # clave en claro; viaja como `Authorization: Bearer` solo en /v1/decide
 
     def decidir(self, estado: str, preguntas: Sequence[Pregunta]) -> List[Resultado]:
         """Resultados en el orden de `preguntas`."""
@@ -107,8 +112,10 @@ class Chispa:
             return False
 
     def _post(self, ruta: str, cuerpo):
-        req = urllib.request.Request(self.url + ruta, data=cuerpo, method="POST" if cuerpo is not None else "GET",
-                                     headers={"Content-Type": "application/json"} if cuerpo is not None else {})
+        cab = {"Content-Type": "application/json"} if cuerpo is not None else {}
+        if self.api_key and ruta == "/v1/decide":
+            cab["Authorization"] = "Bearer " + self.api_key
+        req = urllib.request.Request(self.url + ruta, data=cuerpo, method="POST" if cuerpo is not None else "GET", headers=cab)
         ultimo, pedida = None, 0.0
         for intento in range(self.reintentos + 1):
             if intento:
@@ -125,7 +132,7 @@ class Chispa:
                         texto = json.loads(texto).get("error", texto)
                     except (ValueError, AttributeError):
                         pass
-                    raise ErrorSolicitud(e.code, texto) from None  # str (formato viejo) o dict (tipado)
+                    raise ErrorSolicitud(e.code, texto, retry_after=ra) from None  # str (formato viejo) o dict (tipado)
                 ultimo, pedida = f"HTTP {e.code}", ra or 0.0
             except (urllib.error.URLError, OSError, ValueError) as e:  # ValueError: JSON ilegible
                 if _es_timeout_propio(e):

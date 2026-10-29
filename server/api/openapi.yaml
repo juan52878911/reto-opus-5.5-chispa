@@ -10,7 +10,9 @@ paths:
     post:
       operationId: decide
       summary: Decide una o varias preguntas sobre un mismo texto
-      description: Validacion todo o nada, una pregunta mala rechaza la peticion entera. Los resultados van en el orden de questions. Con nonce, la misma peticion devuelve el resultado guardado.
+      description: Validacion todo o nada, una pregunta mala rechaza la peticion entera. Los resultados van en el orden de questions. Con nonce, la misma peticion devuelve el resultado guardado. La clave de API (apiKeyBearer) solo se exige si la config trae api_keys; sin ellas la ruta esta abierta como siempre.
+      security:
+        - apiKeyBearer: []
       requestBody:
         required: true
         content:
@@ -59,6 +61,16 @@ paths:
                   value: {"error":{"code":"empty_questions","message":"questions: hace falta al menos una pregunta"}}
                 json_roto:
                   value: {"error":{"code":"invalid_json","message":"JSON no valido: json: unknown field \"pregunta\""}}
+        "401":
+          description: Solo con api_keys en la config. Falta la cabecera Authorization Bearer o la clave es incorrecta (code unauthorized)
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "405":
           description: Metodo distinto de POST
           headers:
@@ -71,6 +83,17 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "413":
           description: Cuerpo mayor que limites.max_cuerpo (1 MiB por defecto)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar
+          headers:
+            Retry-After:
+              description: Segundos a esperar antes de reintentar
+              schema:
+                type: integer
           content:
             application/json:
               schema:
@@ -106,7 +129,7 @@ paths:
       summary: Metricas en formato de texto Prometheus
       responses:
         "200":
-          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) y recargas del modelo (chispa_recargas_total{resultado="ok"|"error"})
+          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) recargas del modelo (chispa_recargas_total{resultado="ok"|"error"}) y, con api_keys, chispa_auth_rechazos_total y chispa_clave_peticiones_total{clave="<id>",resultado="ok"|"limitada"}. Sin clave de API (publico)
           content:
             text/plain:
               schema:
@@ -159,6 +182,10 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
+    apiKeyBearer:
+      type: http
+      scheme: bearer
+      description: Clave de API opcional (config api_keys). Sin api_keys, /v1/decide no pide clave. /healthz y /metrics nunca la piden.
     adminBearer:
       type: http
       scheme: bearer
@@ -277,7 +304,7 @@ components:
           description: Id de la pregunta implicada, cuando se conoce.
     ErrorCode:
       type: string
-      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long, unauthorized, reload_failed, timeout]
+      enum: [invalid_json, request_too_large, method_not_allowed, not_found, empty_questions, too_many_questions, state_too_long, missing_id, missing_question, missing_kind, invalid_kind, too_few_options, too_many_options, invalid_options, missing_option_id, duplicate_question_id, duplicate_option_id, field_too_long, unauthorized, rate_limited, reload_failed, timeout]
     Health:
       type: object
       additionalProperties: false

@@ -72,6 +72,9 @@ type Metricas struct {
 
 	recargas map[string]*atomic.Uint64 // chispa_recargas_total{resultado}, bajo mu
 
+	clavesN      map[[2]string]*atomic.Uint64 // chispa_clave_peticiones_total{clave,resultado}, bajo mu
+	AuthRechazos atomic.Uint64                // 401 de /v1/decide (clave ausente o incorrecta)
+
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
 }
 
@@ -120,9 +123,17 @@ func (m *Metricas) FijaTauNuevo(tau *float64) {
 func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resultado).Add(1) }
 
 func NuevasMetricas() *Metricas {
-	return &Metricas{recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
+	return &Metricas{clavesN: map[[2]string]*atomic.Uint64{}, recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
 		decididas: map[string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}}
 }
+
+// Clave cuenta una petición autenticada con la clave id: resultado "ok" o "limitada" (429).
+func (m *Metricas) Clave(id, resultado string) {
+	contador(&m.mu, m.clavesN, [2]string{id, resultado}).Add(1)
+}
+
+// AuthRechazo cuenta un 401 de /v1/decide.
+func (m *Metricas) AuthRechazo() { m.AuthRechazos.Add(1) }
 
 func contador[K comparable](mu *sync.Mutex, m map[K]*atomic.Uint64, k K) *atomic.Uint64 {
 	mu.Lock()
@@ -182,6 +193,21 @@ func (m *Metricas) Escribe(w io.Writer) {
 	sort.Ints(cods)
 	for _, c := range cods {
 		fmt.Fprintf(w, "chispa_peticiones_total{codigo=\"%d\"} %d\n", c, m.codigos[c].Load())
+	}
+	m.mu.Unlock()
+	fmt.Fprintln(w, "# HELP chispa_auth_rechazos_total Peticiones a /v1/decide rechazadas con 401 (clave ausente o incorrecta).")
+	fmt.Fprintln(w, "# TYPE chispa_auth_rechazos_total counter")
+	fmt.Fprintf(w, "chispa_auth_rechazos_total %d\n", m.AuthRechazos.Load())
+	fmt.Fprintln(w, "# HELP chispa_clave_peticiones_total Peticiones autenticadas por id de clave y resultado (ok, limitada).")
+	fmt.Fprintln(w, "# TYPE chispa_clave_peticiones_total counter")
+	m.mu.Lock()
+	ks := make([][2]string, 0, len(m.clavesN))
+	for k := range m.clavesN {
+		ks = append(ks, k)
+	}
+	sort.Slice(ks, func(i, j int) bool { return ks[i][0] < ks[j][0] || ks[i][0] == ks[j][0] && ks[i][1] < ks[j][1] })
+	for _, k := range ks {
+		fmt.Fprintf(w, "chispa_clave_peticiones_total{clave=%q,resultado=%q} %d\n", k[0], k[1], m.clavesN[k].Load())
 	}
 	m.mu.Unlock()
 	fmt.Fprintln(w, "# HELP chispa_preguntas_total Preguntas decididas.")

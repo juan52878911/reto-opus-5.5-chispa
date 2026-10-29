@@ -10,6 +10,6 @@ export class ErrorChispa extends Error {
     this.mensaje = mensaje;
     this.idPregunta = idPregunta;
     this.status = status;
-    this.retryAfterMs = retryAfterMs; // 503 con Retry-After numérico, con tope de 30 s
+    this.retryAfterMs = retryAfterMs; // Retry-After numérico (503, 429…) con tope de 30 s; undefined si no vino
   }
 }

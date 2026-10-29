@@ -16,14 +16,15 @@ type Capa struct {
 
 // Config es el JSON de configuración del servidor.
 type Config struct {
-	Capas           []Capa   `json:"capas"`
-	Modelos         []string `json:"modelos"`           // ficheros .chispa para L0
-	CacheEsquemas   int      `json:"cache_esquemas"`    // entradas del LRU de esquemas
-	CacheRespuestas int      `json:"cache_respuestas"`  // entradas del LRU de nonces
-	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
-	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
-	Limites         Limites  `json:"limites"`           // topes de entrada de /v1/decide
-	AdminToken      string   `json:"admin_token"`       // si no está vacío, abre POST /v1/admin/recargar con Authorization: Bearer <token>
+	Capas           []Capa     `json:"capas"`
+	Modelos         []string   `json:"modelos"`           // ficheros .chispa para L0
+	CacheEsquemas   int        `json:"cache_esquemas"`    // entradas del LRU de esquemas
+	CacheRespuestas int        `json:"cache_respuestas"`  // entradas del LRU de nonces
+	CacheTorres     int        `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
+	MaxTorresNuevas int        `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
+	Limites         Limites    `json:"limites"`           // topes de entrada de /v1/decide
+	APIKeys         []ClaveAPI `json:"api_keys"`          // si no está vacío, /v1/decide exige Authorization: Bearer <clave> y limita por clave
+	AdminToken      string     `json:"admin_token"`       // si no está vacío, abre POST /v1/admin/recargar con Authorization: Bearer <token>
 	// λ del encogimiento del soporte (sección SOPL1): w = k/(k+λ) mezcla la media de los ejemplos con el prototipo de la
 	// descripción, en L1 y en L2c por separado. Ausente (nil) = ∞ = sin mezcla, el comportamiento de antes. En JSON, un número ≥ 0.
 	L1ShrinkageLambda *float64 `json:"l1_shrinkage_lambda,omitempty"`
@@ -89,6 +90,9 @@ func (c Config) Validar() error {
 		if v != nil && (math.IsNaN(*v) || *v < 0) {
 			return fmt.Errorf("config: %s debe ser ≥ 0 (ausente = apagado; 0 = solo ejemplos; muy grande = solo descripción): %v", n, *v)
 		}
+	}
+	if err := validarClaves(c.APIKeys); err != nil {
+		return err
 	}
 	return c.Limites.validar()
 }

@@ -16,6 +16,7 @@ type Armado struct {
 	Cascada         *Cascada
 	CacheRespuestas int
 	Limites         Limites
+	APIKeys         []ClaveAPI   // api_keys de la config: se releen en cada recarga (los cubos empiezan llenos)
 	AdminToken      string       // admin_token de la config (solo se lee del arranque)
 	L0              *L0          // para la métrica de la caché de esquemas (puede ser nil)
 	Cerrar          func() error // libera el .chispa; se llama cuando ya no quedan peticiones sobre este modelo (puede ser nil)
@@ -31,6 +32,7 @@ type vivo struct {
 	casc   *Cascada
 	nonces *LRU[[]byte]
 	lim    Limites
+	auth   *autenticador // nil = /v1/decide sin clave
 	gen    uint64
 	cerrar func() error
 
@@ -148,7 +150,7 @@ func (s *Servidor) nuevoVivo(a *Armado, gen uint64) *vivo {
 		s.Met.FijaEsquemas(a.L0.Hits.Load, a.L0.Misses.Load)
 	}
 	s.Met.FijaTauNuevo(a.Cascada.tauNuevo)
-	return &vivo{casc: a.Cascada, nonces: NewLRU[[]byte](n), lim: normalizaLimites(a.Limites), gen: gen, cerrar: a.Cerrar}
+	return &vivo{casc: a.Cascada, nonces: NewLRU[[]byte](n), lim: normalizaLimites(a.Limites), auth: nuevoAutenticador(a.APIKeys, nil), gen: gen, cerrar: a.Cerrar}
 }
 
 // admin atiende POST /v1/admin/recargar.

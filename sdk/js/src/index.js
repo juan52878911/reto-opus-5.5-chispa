@@ -6,7 +6,7 @@ import { LIMITES, validar, bytes } from "./limites.js";
 export { ErrorChispa, LIMITES, bytes };
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
-const REINTENTABLES = new Set([429, 500, 502, 503]); // igual que `_REINTENTABLES` de cliente.py
+const REINTENTABLES = new Set([503]); // igual que `_REINTENTABLES` de cliente.py y docs/05-sdks.md (401 y 429 no se reintentan)
 const TOPE_RETRY_AFTER_MS = 30000; // igual que el cliente Python
 
 /** `Retry-After` en segundos → ms con tope; una fecha HTTP u otra cosa cuenta como ausente (undefined). */
@@ -24,10 +24,11 @@ function retryAfterMs(h) {
 export class ChispaCliente {
   /**
    * @param {{url?: string, timeoutMs?: number, reintentos?: number, esperaMs?: number,
-   *          limites?: Partial<typeof LIMITES>, fetch?: typeof fetch}} [opts]
+   *          limites?: Partial<typeof LIMITES>, fetch?: typeof fetch, apiKey?: string}} [opts]
    * `reintentos`: reintentos extra tras el primer intento (por defecto 3), como el cliente Python. `timeoutMs` (35 s) debe superar el `-timeout` del servidor (30 s).
    */
-  constructor({ url = "http://127.0.0.1:8090", timeoutMs = 35000, reintentos = 3, esperaMs = 200, limites, fetch: f, dormir: d } = {}) {
+  constructor({ url = "http://127.0.0.1:8090", timeoutMs = 35000, reintentos = 3, esperaMs = 200, limites, fetch: f, dormir: d, apiKey } = {}) {
+    this._apiKey = apiKey || undefined; // clave en claro; viaja como `Authorization: Bearer` solo en /v1/decide
     this._dormir = d ?? dormir;
     this.url = url.replace(/\/+$/, "");
     this.timeoutMs = timeoutMs;
@@ -99,7 +100,11 @@ export class ChispaCliente {
     const t = setTimeout(() => ctl.abort(), this.timeoutMs);
     try {
       const init = { signal: ctl.signal, method: json === undefined ? "GET" : "POST" };
-      if (json !== undefined) Object.assign(init, { body: json, headers: { "Content-Type": "application/json" } });
+      if (json !== undefined) {
+        const headers = { "Content-Type": "application/json" };
+        if (this._apiKey && ruta === "/v1/decide") headers.Authorization = `Bearer ${this._apiKey}`;
+        Object.assign(init, { body: json, headers });
+      }
       let r, texto;
       try {
         r = await this._fetch(this.url + ruta, init);
@@ -128,7 +133,7 @@ export class ChispaCliente {
         mensaje: typeof e === "object" && e ? (e.message ?? "") : typeof e === "string" ? e : texto.slice(0, 200),
         idPregunta: typeof e === "object" ? e?.question_id : undefined,
         status: r.status,
-        retryAfterMs: REINTENTABLES.has(r.status) ? retryAfterMs(r.headers) : undefined,
+        retryAfterMs: retryAfterMs(r.headers), // en un 429 es lo que el llamador debe esperar; solo el 503 se reintenta solo
       });
     } finally {
       clearTimeout(t);
@@ -137,8 +142,9 @@ export class ChispaCliente {
 }
 
 /**
- * Misma política que `cliente.py`: red, timeout propio, cuerpo 200 ilegible y 429/500/502/503. No se repite el `timeout` del
- * servidor (503 con código `timeout`) ni el 504: repetir gasta otra vez la cascada. Tampoco el resto de 4xx/5xx.
+ * Misma política que `cliente.py` y docs/05-sdks.md: red, timeout propio, cuerpo 200 ilegible y 503. No se repite el `timeout`
+ * del servidor (503 con código `timeout`) ni el 504: repetir gasta otra vez la cascada. Tampoco 401 (clave mala), 429
+ * (`rate_limited`: `retryAfterMs` dice cuánto esperar, lo decide el llamador) ni el resto de 4xx/5xx.
  */
 function reintentable(e) {
   if (e.status === 504 || (e.status === 503 && e.codigo === "timeout")) return false;

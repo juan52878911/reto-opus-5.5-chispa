@@ -74,7 +74,7 @@ export interface OpcionesCliente {
   url?: string;
   /** Por intento. Por defecto 35000: debe superar el `-timeout` del servidor (30 s), o se reintenta antes de que responda. */
   timeoutMs?: number;
-  /** Reintentos extra tras el primero, como el cliente Python: red, timeout propio, 200 ilegible y 429/500/502/503 (no el `timeout` del servidor ni 504). Por defecto 3. */
+  /** Reintentos extra tras el primero, como el cliente Python: red, timeout propio, 200 ilegible y 503 (no el `timeout` del servidor, ni 504, ni 401/429/500/502). Por defecto 3. */
   reintentos?: number;
   /** Base de la espera exponencial entre reintentos. Por defecto 200. */
   esperaMs?: number;
@@ -82,6 +82,8 @@ export interface OpcionesCliente {
   dormir?: (ms: number) => Promise<void>;
   /** Si el operador cambió la sección `limites` del servidor. */
   limites?: Partial<Limites>;
+  /** Clave de API (config `api_keys` del servidor), en claro: se envía como `Authorization: Bearer` solo a /v1/decide. 401 y 429 no se reintentan; en un 429, `ErrorChispa.retryAfterMs` trae la espera pedida. */
+  apiKey?: string;
   /** Para pruebas o entornos sin fetch global. */
   fetch?: typeof fetch;
 }
