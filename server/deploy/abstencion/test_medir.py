@@ -10,6 +10,7 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 import medir  # noqa: E402
+import validacion  # noqa: E402,F401
 
 
 def escribir(ruta, filas):
@@ -108,6 +109,41 @@ class TestMedir(unittest.TestCase):
         r = subprocess.run([sys.executable, "-I", str(AQUI / "medir.py"), "--pred", "a=x", "--verdad", "b=y", "--salida", "/tmp/nada-medir"],
                            capture_output=True, text=True)
         self.assertNotEqual(r.returncode, 0)
+
+
+class TestValidacion(unittest.TestCase):
+    def preparar(self, dev=None):
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, d)
+        escribir(d / "ejemplos.jsonl", [{"texto": f"t{i}", "etiqueta": "ab"[i % 2]} for i in range(50)])
+        (d / "esquema.json").write_text(json.dumps({"id": "tarea_x"}))
+        args = ["--dir", str(d), "--esquema", str(d / "esquema.json")]
+        if dev:
+            escribir(d / "dev.jsonl", dev)
+            args += ["--dev", str(d / "dev.jsonl")]
+        return d, args
+
+    def test_reserva_el_20_por_ciento_estratificado_sin_solaparse(self):
+        import validacion
+        d, args = self.preparar()
+        validacion.main(args)
+        ent, val = medir.leer(d / "ejemplos-entrenar.jsonl"), medir.leer(d / "validacion.jsonl")
+        self.assertEqual((len(ent), len(val)), (40, 10))
+        self.assertFalse({r["texto"] for r in ent} & {r["texto"] for r in val})
+        self.assertEqual({r["etiqueta"] for r in val}, {"a", "b"})
+
+    def test_con_dev_de_la_tarea_no_toca_el_train(self):
+        import validacion
+        d, args = self.preparar([{"tarea": "tarea_x", "texto": "u", "etiqueta": "a"}, {"tarea": "otra", "texto": "v", "etiqueta": "b"}])
+        validacion.main(args)
+        self.assertEqual(medir.leer(d / "validacion.jsonl"), [{"texto": "u", "etiqueta": "a"}])
+        self.assertFalse((d / "ejemplos-entrenar.jsonl").exists())
+
+
+class TestColumnaEstimada(unittest.TestCase):
+    def test_celdas(self):
+        self.assertEqual(medir.columna_estimada({"precision_contestada": 0.859}, 0.95), "0.950 | -0.091 |")
+        self.assertEqual(medir.columna_estimada({"precision_contestada": 0.9}, None), "— | — |")
 
 
 if __name__ == "__main__":

@@ -168,8 +168,14 @@ cp "$L2CH.informe.json" "$RES/exportar.informe.json" 2>/dev/null
 for t in ${TAREAS//,/ }; do
   d=$(dir_de "$t")
   echo "== 4. chispa train --conjunta $t $(date -u +%T) (quedan $(quedan_min) min)"
-  "$PY" -u -m chispa train --ejemplos "$d/ejemplos.jsonl" --esquema "$d/esquema.json" --salida "$MODELOS/$t.chispa" \
-    --ckpt "$BASE/mejor.pt" --l2 "$L2CH" --conjunta --repo "$REPO" 2>&1 | tail -15 | tee "$RES/train-$t.txt"
+  # T4.6c: el τ de L2c sale de validación. e2e: el dev de la tarea (convertir); Arena: un 20 % reservado del train.
+  case $t in spam|injection) DEVARG=();; *) DEVARG=(--dev "$BASE/prep/dev.jsonl");; esac
+  "$PY" -I "$REPO/server/deploy/abstencion/validacion.py" --dir "$d" --esquema "$d/esquema.json" "${DEVARG[@]}" | tee "$RES/validacion-$t.txt" \
+    || fallo "validacion.py $t"
+  EJ=$d/ejemplos.jsonl; [ -f "$d/ejemplos-entrenar.jsonl" ] && EJ=$d/ejemplos-entrenar.jsonl
+  VAL=(); [ -s "$d/validacion.jsonl" ] && VAL=(--validacion "$d/validacion.jsonl")
+  "$PY" -u -m chispa train --ejemplos "$EJ" --esquema "$d/esquema.json" --salida "$MODELOS/$t.chispa" \
+    --ckpt "$BASE/mejor.pt" --l2 "$L2CH" --conjunta --repo "$REPO" "${VAL[@]}" 2>&1 | tail -15 | tee "$RES/train-$t.txt"
   [ "${PIPESTATUS[0]}" = 0 ] && [ -f "$MODELOS/$t.chispa" ] || fallo "chispa train $t"
 done
 
@@ -212,6 +218,10 @@ done
 # --- 6. medir -----------------------------------------------------------------------------------------------------------------
 echo "== 6. medir $(date -u +%T)"
 if [ ${#MEDIR[@]} -gt 0 ]; then
+  for t in ${TAREAS//,/ }; do   # precisión estimada que anotó `chispa train` (línea «precisión esperada X»)
+    est=$(sed -n 's/.*precisión esperada \([0-9.]*\),.*/\1/p' "$RES/train-$t.txt" 2>/dev/null | tail -1)
+    [ -n "$est" ] && MEDIR+=(--estimada "$t=$est")
+  done
   "$PY" -I "$REPO/server/deploy/abstencion/medir.py" "${MEDIR[@]}" --salida "$RES/abstencion" || fallo "medir.py"
 else
   fallo "sin pred.jsonl que medir"

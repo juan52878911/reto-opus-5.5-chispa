@@ -31,6 +31,11 @@ def main(argv=None) -> int:
                    help="con --conjunta: tope de los coeficientes de L0TF en MB; poda el vocabulario por frecuencia hasta que cabe")
     t.add_argument("--precision-objetivo", type=float, default=0.95,
                    help="con --conjunta: precisión mínima de lo aceptado para fijar el τ de L2c fuera de pliegue (0,95)")
+    t.add_argument("--validacion", help="con --conjunta: CSV/JSONL de texto y etiqueta, fuera de --ejemplos; el τ de L2c se elige sobre estas filas")
+    t.add_argument("--margen", type=float, default=0.02,
+                   help="con --conjunta y sin --validacion: el τ fuera de pliegue se fija para precisión objetivo + margen (0,02)")
+    t.add_argument("--suelo", type=float, default=0.05,
+                   help="con --conjunta y sin --validacion: suelo de τ = el que deja fuera esta fracción fuera de pliegue (0,05)")
     t.add_argument("--l0tf-f16", action="store_true", help="con --conjunta: coeficientes de L0TF en f16 en vez de f32")
     d = sub.add_parser("decide", help="una pregunta contra un servidor")
     d.add_argument("--url", required=True)
@@ -45,7 +50,8 @@ def main(argv=None) -> int:
             entrenar(a.ejemplos, a.esquema, a.salida, l1=a.l1, ckpt=a.ckpt, l2=a.l2, conjunta=a.conjunta, repo=a.repo,
                      pregunta=a.pregunta, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
-                     precision_objetivo=a.precision_objetivo, log=lambda m: print(m, file=sys.stderr))
+                     precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo,
+                     log=lambda m: print(m, file=sys.stderr))
         else:
             q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
                  "score": lambda: Score("q", a.pregunta, int(a.opciones[0]))}[a.tipo]()
