@@ -128,7 +128,7 @@ def escribir_calib(salida: Path, tipos: Dict[str, dict]) -> None:
 
 
 def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, repo=None, shrinkage_lambda=None, sin_soporte=False,
-                   embeber: Optional[Callable] = None, maxsim_l2: Optional[Callable] = None, log=print) -> dict:
+                   embeber: Optional[Callable] = None, maxsim_l2: Optional[Callable] = None, perfil="servidor", log=print) -> dict:
     """Entrena un `.chispa` de una pregunta multi. Sin `ejemplos`: zero-shot (como choice). Con ellos: lo mismo más SOPL1 y la CALIB de
     multi (ver el docstring del módulo). Devuelve el informe de `entrenar`."""
     import time
@@ -137,13 +137,13 @@ def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, r
     salida = Path(salida)
     salida.parent.mkdir(parents=True, exist_ok=True)
     if not ejemplos:
-        inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log)
+        inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log, perfil)
         inf["omitidas"]["L0"] = "multi: el L0 entrenado es multiclase y no da una probabilidad por opción"
         return inf
     ex = cargar_ejemplos(ejemplos, q.id, multi=True)
     cuenta = validar_multi(ex, q)
     log(f"{len(ex)} ejemplos multietiqueta, {sum(len(es) == 0 for _, es in ex)} sin etiquetas; positivos por opción {dict(sorted(cuenta.items()))}")
-    inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log)
+    inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log, perfil)
     inf["modo"] = "few-shot"
     inf["omitidas"]["L0"] = "multi: el L0 entrenado es multiclase y no da una probabilidad por opción"
     inf["omitidas"].pop("CALIB", None)
