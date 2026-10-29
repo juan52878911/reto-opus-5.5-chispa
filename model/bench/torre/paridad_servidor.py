@@ -339,7 +339,9 @@ def comprobar_tipos_l2(a):
         w = tl2.get(k)
         if w is None or any(abs(float(w.get(c, 0)) - float(v.get(c, 0))) > 1e-6 for c in ("T", "a", "b", "theta")):
             malas.append((k, v, w))
-    print(json.dumps({"tipos_l2": sorted(tl2), "checkpoint": sorted(ref), "distintas": [m[0] for m in malas]}, ensure_ascii=False))
+    # τ de L2 y L2c: `chispa train --ckpt` no calibra, así que tau_escalate_l2 es el de su calib_l2.json (TAU_ZERO_SHOT); se informa, no se compara
+    print(json.dumps({"tipos_l2": sorted(tl2), "checkpoint": sorted(ref), "distintas": [m[0] for m in malas],
+                      "tau_escalate_l2": d.get("tau_escalate_l2"), "tau_l2c": d.get("tau_l2c"), "tau_escalate": d.get("tau_escalate")}, ensure_ascii=False))
     print("OK tipos_l2 idéntico al checkpoint" if not malas else "FALLO tipos_l2 distinto en %s" % [m[0] for m in malas])
     return 1 if malas else 0
 
