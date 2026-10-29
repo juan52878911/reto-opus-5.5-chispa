@@ -2,7 +2,7 @@
 NO están en el .chispa, decididos por /v1/decide.
 
     python -m model.bench.torre.servidor --jevbench RUTA --salida DIR --ckpt mejor.pt --torre torre.onnx --servidor BIN --tok e5.chispa-tok \
-        [--repo RAIZ] [--ort-lib SO] [--tau-nuevo X] [--exigir-torres] [--puerto 8091] [--n-esquemas 5] [--todos] [--minutos 15]
+        [--repo RAIZ] [--chispa FICHERO] [--ort-lib SO] [--tau-nuevo X] [--exigir-torres] [--puerto 8091] [--n-esquemas 5] [--todos] [--minutos 15]
 
 Escribe DIR/servidor.json: {cinco: [{id, esquema, layer, escalate, acierto}], cinco_l2: bool, todos: {...}|null, train_s, ...}.
 `todos` (231 casos) lleva la exactitud del servidor y la de Python k=0 sobre los mismos ids si existe DIR/pred/l2_k0.jsonl.
@@ -70,6 +70,7 @@ def main(argv=None):
     for k in ("jevbench", "salida", "ckpt", "torre", "servidor", "tok"):
         ap.add_argument("--" + k, required=True)
     ap.add_argument("--repo", required=True, help="raíz del repo con chispa train (el repo unificado)")
+    ap.add_argument("--chispa", help="usa este .chispa en vez de entrenar el mínimo (ver paridad_servidor.py reescribir)")
     ap.add_argument("--puerto", type=int, default=8091)
     ap.add_argument("--n-esquemas", type=int, default=5)
     ap.add_argument("--todos", action="store_true", help="además, todos los casos de JevBench por el servidor")
@@ -85,7 +86,8 @@ def main(argv=None):
     filas = cargar_jevbench(a.jevbench)
     out = {"esquema_minimo": ESQUEMA["id"]}
     t0 = time.time()
-    modelo = entrenar(a, trabajo)
+    modelo = Path(a.chispa) if a.chispa else entrenar(a, trabajo)   # --chispa: el de otra pasada, con la CALIB o la consulta cambiadas
+    out["chispa"] = str(modelo)
     out["train_s"] = round(time.time() - t0, 1)
     out["chispa_bytes"] = modelo.stat().st_size
     url = f"http://127.0.0.1:{a.puerto}"
