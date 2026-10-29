@@ -9,6 +9,8 @@
 # Sin ficheros de más de 1 MB ni binarios. Uso: bash sdk/android/aws/empaquetar.sh > codigo.tgz
 # Portable (GNU tar y bsdtar): solo find, cp, sort y tar -T sin -C.
 set -euo pipefail
+# En macOS, tar mete copias AppleDouble (._*) de cada fichero: rompen los tests que recorren directorios en Linux.
+export COPYFILE_DISABLE=1
 RAIZ=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 GOMODCACHE=${GOMODCACHE:-$(go env GOMODCACHE)}
 KIND=$GOMODCACHE/cache/download/github.com/juan52878911/kindling
