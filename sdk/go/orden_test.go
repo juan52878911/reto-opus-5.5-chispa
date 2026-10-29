@@ -1,6 +1,9 @@
 package chispa
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Mismo orden que el servidor: largo y separadores de la opción antes que el duplicado.
 func TestOrdenValidacionOpcionAntesQueDuplicado(t *testing.T) {
@@ -18,5 +21,14 @@ func TestOrdenValidacionOpcionAntesQueDuplicado(t *testing.T) {
 		if e := l.validarOpciones(q, "q[0]"); e == nil || e.Codigo != want {
 			t.Errorf("%s: got %v", want, e)
 		}
+	}
+}
+
+// Mismo orden que el servidor: el nonce largo se rechaza antes que el kind vacío.
+func TestOrdenValidacionNonceAntesQueKind(t *testing.T) {
+	l := LimitesPorDefecto()
+	q := Pregunta{ID: "q1", Texto: "x", Kind: "", Nonce: strings.Repeat("n", l.MaxID+1)}
+	if e := l.validar("", []Pregunta{q}); e == nil || e.Codigo != "field_too_long" {
+		t.Errorf("got %v", e)
 	}
 }

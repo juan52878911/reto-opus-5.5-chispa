@@ -64,15 +64,15 @@ export function validar(estado, preguntas, lim = LIMITES) {
     if (SEPARADORES.test(q.question)) {
       throw falla("invalid_characters", `${r}.question: no admite los caracteres de control U+001D–U+001F`, id);
     }
-    if (q.kind === undefined || q.kind === "") throw falla("missing_kind", `${r}.kind: obligatorio`, id);
-    if (!KINDS.includes(q.kind)) {
-      throw falla("invalid_kind", `${r}.kind: "${q.kind}" no válido (choice, score, noul o multi)`, id);
-    }
     if (q.nonce !== undefined) {
       texto(q.nonce, `${r}.nonce`, id);
       if (bytes(q.nonce) > lim.maxId) {
         throw falla("field_too_long", `${r}.nonce: ${bytes(q.nonce)} bytes, máximo ${lim.maxId}`, id);
       }
+    }
+    if (q.kind === undefined || q.kind === "") throw falla("missing_kind", `${r}.kind: obligatorio`, id);
+    if (!KINDS.includes(q.kind)) {
+      throw falla("invalid_kind", `${r}.kind: "${q.kind}" no válido (choice, score, noul o multi)`, id);
     }
     validarOpciones(q, r, id, lim);
   });

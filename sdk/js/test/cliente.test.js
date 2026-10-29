@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { ChispaCliente, ErrorChispa, bytes } from "../src/index.js";
+import { LIMITES, validar } from "../src/limites.js";
 
 const servidores = [];
 afterEach(async () => {
@@ -475,4 +476,9 @@ test("el cuerpo solo lleva campos de openapi.yaml (el servidor es estricto)", as
   for (const o of cuerpo.questions[0].options) for (const k of Object.keys(o)) assert.ok(okO.includes(k), `opción: campo ${k} fuera del contrato`);
   assert.equal(cuerpo.questions[0].nonce, "n1");
   assert.deepEqual(cuerpo.questions[0].options[1], { id: "y" });
+});
+
+test("orden de validación como el servidor: nonce largo antes que kind vacío", () => {
+  const q = { id: "q1", question: "x", kind: "", nonce: "n".repeat(LIMITES.maxId + 1) };
+  assert.throws(() => validar("", [q]), (e) => e instanceof ErrorChispa && e.codigo === "field_too_long");
 });
