@@ -35,10 +35,12 @@ def wilson(a, n, z=1.96):
     return (c - h, c + h)
 
 
-def top1(probs, opciones):
-    """La opción más probable; None si la predicción no da ninguna (escalado sin respuesta o error): cuenta como fallo."""
+def top1(probs, opciones, tipo=None):
+    """La opción más probable (en score, la mediana CORAL); None si la predicción no da ninguna (escalado sin respuesta o error): cuenta como fallo."""
     if sum(probs.get(o, 0.0) for o in opciones) <= 0:
         return None
+    if tipo == "score":
+        return opciones[CE.M.etiqueta_coral([probs.get(o, 0.0) for o in opciones])]
     return max(opciones, key=lambda o: probs.get(o, 0.0))
 
 
@@ -48,7 +50,7 @@ def metricas(filas, preds):
     if not fs:
         return {"n": 0}
     ev = CE.evaluar(fs, [{"id": r["id"], "probs": preds[r["id"]]["probs"]} for r in fs])
-    ok = sum(top1(preds[r["id"]]["probs"], r["opciones"]) == r["etiqueta"] for r in fs)
+    ok = sum(top1(preds[r["id"]]["probs"], r["opciones"], r["tipo"]) == r["etiqueta"] for r in fs)
     lo, hi = wilson(ok, len(fs))
     fam = ev["por_tarea"]
     out = {"n": len(fs), "aciertos": ok, "exactitud": ok / len(fs), "ic95": [lo, hi], "macro_f1": ev["global"]["macro_f1"],
@@ -56,7 +58,7 @@ def metricas(filas, preds):
     esc = [preds[r["id"]].get("escalate") for r in fs]
     if any(e is not None for e in esc):
         resp = [r for r, e in zip(fs, esc) if not e]
-        okr = sum(top1(preds[r["id"]]["probs"], r["opciones"]) == r["etiqueta"] for r in resp)
+        okr = sum(top1(preds[r["id"]]["probs"], r["opciones"], r["tipo"]) == r["etiqueta"] for r in resp)
         out.update({"escalados": len(fs) - len(resp), "errores": sum(preds[r["id"]].get("layer") == "error" for r in fs), "cobertura": len(resp) / len(fs),
                     "exactitud_respondidos": okr / len(resp) if resp else None,
                     "capas": dict(Counter(preds[r["id"]].get("layer", "?") for r in fs))})
@@ -68,7 +70,7 @@ def pares(filas, a, b):
     fa = fb = 0
     for r in filas:
         if r["id"] in a and r["id"] in b:
-            x, y = (top1(p[r["id"]]["probs"], r["opciones"]) == r["etiqueta"] for p in (a, b))
+            x, y = (top1(p[r["id"]]["probs"], r["opciones"], r["tipo"]) == r["etiqueta"] for p in (a, b))
             fa += x and not y
             fb += y and not x
     return fa, fb

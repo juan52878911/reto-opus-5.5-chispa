@@ -219,7 +219,7 @@ def prototipos(modelo, enc, filas_soporte, lote=256, kappa=0.0):
 
 def mezcla_prototipos(suma, n, h, kappa):
     """suma (C,K,d) de ranuras por clase, n (C,) ejemplos, h (C,d) torre de la descripción → P (C,K,d) con shrinkage."""
-    lam = (kappa / (kappa + n)).view(-1, 1, 1)
+    lam = (torch.ones_like(n) if math.isinf(kappa) else kappa / (kappa + n)).view(-1, 1, 1)   # λ = ∞: P = torre de la descripción
     media = suma / n.clamp(min=1).view(-1, 1, 1)
     return F.normalize(lam * h.unsqueeze(1) + (1 - lam) * media, dim=-1)
 
@@ -282,6 +282,16 @@ class Coral(nn.Module):
         sup = torch.sigmoid(self.w * sim.unsqueeze(-1) - self.umbrales())  # (B,K-1) = P(y>j)
         uno = torch.ones_like(sup[:, :1])
         return (torch.cat([uno, sup], 1) - torch.cat([sup, 0 * uno], 1)).clamp(min=0)
+
+    def acumuladas(self, sim):
+        """sim (B,) → P(y>j) (B,K-1), sin pasar por la distribución."""
+        return torch.sigmoid(self.w * sim.unsqueeze(-1) - self.umbrales())
+
+    @staticmethod
+    def etiqueta(sup):
+        """Mediana CORAL, como el runtime: sup (B,K-1) = P(y>j) → nivel predicho (B,) en 0..K-1 = número de umbrales con
+        P(y>j) > 0,5 (se cuentan todos, no el primer cruce: vale con acumuladas no monótonas). No es el argmax de P(y=k)."""
+        return (sup > 0.5).sum(-1)
 
     @staticmethod
     def esperado(p):

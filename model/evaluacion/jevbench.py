@@ -11,6 +11,7 @@ Formato real: `datasets/public/{easy,hard,original}.jsonl` del repo (231 casos, 
 
 Conversión: choice → opciones = labels, descripciones = criteria; noul → opciones ["false", "true"] (no→false, yes→true; las
 descripciones salen de criteria["false"|"true"]); score → opciones "1".."K" (nivel + 1, como pide model/esquema.md; criteria es una lista).
+La etiqueta predicha de un score es la mediana CORAL (número de umbrales con P(y>j) > 0,5; `metricas.top1`), no el argmax.
 Campos añadidos a la fila: `esquema` (hash de tipo + instrucciones + labels + criteria: casos con el mismo esquema comparten
 pregunta y opciones), `grupo` (paráfrasis del mismo caso: nunca se usan como soporte uno del otro) y `oro_jev` (el `expected` original).
 

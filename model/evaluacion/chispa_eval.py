@@ -91,7 +91,7 @@ def indexar_preds(preds, filas):
 def metricas_grupo(filas, preds):
     """filas: lista de filas; preds: dict id -> pred. Todas las métricas de un grupo."""
     y = [r["etiqueta"] for r in filas]
-    tops = [M.top1(preds[r["id"]]["probs"]) for r in filas]
+    tops = [M.top1(preds[r["id"]]["probs"], r.get("tipo"), r["opciones"]) for r in filas]
     p = [t[0] for t in tops]
     conf = np.array([t[1] for t in tops])
     ok = np.array([a == b for a, b in zip(y, p)])

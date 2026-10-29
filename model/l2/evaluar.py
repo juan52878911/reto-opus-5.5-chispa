@@ -10,6 +10,8 @@ de una consulta suelta).
 semilla 0) en `DIR/pred_soporte/` y `DIR/resultados_soporte.json`; `delta.md` lleva las dos columnas. Los prototipos se calculan una
 sola vez por tarea. Los conjuntos sin train (listón) se evalúan igual en las dos columnas.
 
+Las métricas usan `chispa_eval`: en score la etiqueta es la mediana CORAL (número de umbrales con P(y>j) > 0,5).
+
 `--renombrar`: además evalúa el mismo test con los ids de las opciones sustituidos por A, B, C… (solo filas `choice`), escribe
 `DIR/pred_renombrado/`, `DIR/resultados_renombrado.json` y `DIR/caida.md` con la caída de macro-F1 por tarea (original − renombrado).
 """

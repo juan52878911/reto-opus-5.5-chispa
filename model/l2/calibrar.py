@@ -182,9 +182,11 @@ def auroc(conf, ok):
     return float((r[ok].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
 
 
-def _conf_ok(ps, ys):
+def _conf_ok(ps, ys, clave=None):
+    """Confianza (máxima) y acierto; en las cabezas score la etiqueta es la mediana CORAL, no el argmax."""
+    pred = (lambda p: M.etiqueta_coral(p)) if str(clave).startswith("score") else (lambda p: int(p.argmax()))
     conf = [float(p.max()) for p in ps]
-    ok = [int(p.argmax()) == y for p, y in zip(ps, ys)]
+    ok = [pred(p) == y for p, y in zip(ps, ys)]
     return conf, ok
 
 
@@ -214,8 +216,8 @@ def calibrar(modelo, enc, filas, lote=64):
 
     def medir(idx, clave, p, p0):
         y = [ys[i] for i in idx]
-        antes = _conf_ok([probs_de(clave, ss[i], p0) for i in idx], y)
-        despues = _conf_ok([probs_de(clave, ss[i], p) for i in idx], y)
+        antes = _conf_ok([probs_de(clave, ss[i], p0) for i in idx], y, clave)
+        despues = _conf_ok([probs_de(clave, ss[i], p) for i in idx], y, clave)
         return antes, despues
 
     tipos, tareas = {}, {}
@@ -236,7 +238,7 @@ def calibrar(modelo, enc, filas, lote=64):
     conf, ok = [], []
     for (tarea, clave), idx in por_tarea.items():
         p = cabeza_params(clave, tareas[tarea])
-        c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx])
+        c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx], clave)
         conf += c
         ok += o
     tau, cob, prec = tau_escalate(conf, ok)

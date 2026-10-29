@@ -174,8 +174,38 @@ def prototipos(m, train):
     return out
 
 
-def l1_proto(m, train, test, T=T_DEFECTO):
-    protos = prototipos(m, train)
+def prototipos_lam(m, train, descripciones, lam):
+    """{clase: vector} = norm((1−w)·p_desc + w·media_ejemplos), w = n/(n+λ) (formula-shrinkage.md; κ = λ). `descripciones`: {clase: vector
+    unitario de «pregunta · clase · descripción»}. λ = 0 es `prototipos`; las clases sin ejemplos no tienen prototipo. La media va sin normalizar."""
+    x = embeber(m, [r["texto"] for r in train])
+    por = {}
+    for r, v in zip(train, x):
+        por.setdefault(r["etiqueta"], []).append(v)
+    out = {}
+    for c, vs in por.items():
+        w = 1.0 if lam <= 0 else len(vs) / (len(vs) + lam)
+        mu = w * np.mean(vs, axis=0)
+        if c in descripciones and w < 1:
+            mu = mu + (1 - w) * descripciones[c]
+        n = np.linalg.norm(mu)
+        out[c] = (mu / n).astype(np.float32) if n > 0 else mu
+    return out
+
+
+def l1_lam(m, train, test, lam, T=T_DEFECTO):
+    """L1 con prototipos y shrinkage hacia la descripción; λ = ∞ es `l1_zs` (solo la descripción, sin soporte)."""
+    if math.isinf(lam) or not train:
+        return l1_zs(m, test, T)
+    cache = {}
+    desc = {}
+    for r in train[:1] + test[:1]:
+        for o in r["opciones"]:
+            desc[o] = _vec_opciones(m, r, cache)[r["opciones"].index(o)]
+    return l1_proto(m, train, test, T, protos=prototipos_lam(m, train, desc, lam))
+
+
+def l1_proto(m, train, test, T=T_DEFECTO, protos=None):
+    protos = prototipos(m, train) if protos is None else protos
     cache, out = {}, {}
     for r in test:
         t0 = time.perf_counter()

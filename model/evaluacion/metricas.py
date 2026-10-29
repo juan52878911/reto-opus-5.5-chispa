@@ -86,7 +86,21 @@ def deriva(pa, pb):
     return {"tasa_cambio_top1": float(np.mean(cambios)), "variacion_total_media": float(np.mean(tv))}
 
 
-def top1(probs):
-    """(opción, confianza); empates por orden de aparición en el dict."""
+def top1(probs, tipo=None, opciones=None):
+    """(opción, confianza); empates por orden de aparición en el dict. La confianza es siempre la probabilidad máxima.
+    Con `tipo` == "score" la opción es la mediana CORAL (`mediana_coral`), como el runtime, no el argmax de P(y=k)."""
     k = max(probs, key=lambda c: probs[c])
-    return k, probs[k]
+    if tipo == "score" and opciones:
+        k = opciones[etiqueta_coral([probs.get(o, 0.0) for o in opciones])]
+    return k, probs[max(probs, key=lambda c: probs[c])]
+
+
+def etiqueta_coral(p):
+    """Índice (0..K-1) del nivel predicho de score: el número de umbrales j con P(y>j) > 0,5, donde P(y>j) es la cola de
+    la distribución `p` (K,) de niveles ordenados. Con `p` ya normalizada es monótona; para acumuladas sueltas, `contar_umbrales`."""
+    return contar_umbrales(np.cumsum(np.asarray(p, dtype=float)[::-1])[::-1][1:])
+
+
+def contar_umbrales(sup):
+    """Número de umbrales con P(y>j) > 0,5 (cuenta, no primer cruce: vale con acumuladas no monótonas)."""
+    return int((np.asarray(sup, dtype=float) > 0.5).sum())
