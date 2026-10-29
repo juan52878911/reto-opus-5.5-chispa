@@ -60,6 +60,8 @@ type respuesta struct {
 	Conf   float64            `json:"conf"`
 	Probs  map[string]float64 `json:"probs"`
 	Error  string             `json:"error,omitempty"`
+	// EsquemaNuevo: las torres de la pregunta no están en ESQUEMAS (salieron al vuelo); como Respuesta.EsquemaNuevo del servidor.
+	EsquemaNuevo bool `json:"esquema_nuevo,omitempty"`
 	// Multi: la respuesta es de una pregunta multi; entonces «answers» sale siempre (las opciones activas, [] si ninguna).
 	Multi   bool     `json:"-"`
 	Answers []string `json:"-"`
@@ -433,6 +435,9 @@ func validarPregunta(p *pregunta) error {
 	if len(p.Texto) > maxTextoByte {
 		return fmt.Errorf("question: más de %d bytes", maxTextoByte)
 	}
+	if tieneSeparador(p.Texto) {
+		return errSeparador("question")
+	}
 	if len(p.Nonce) > maxIDByte {
 		return fmt.Errorf("nonce: más de %d bytes", maxIDByte)
 	}
@@ -462,12 +467,25 @@ func validarPregunta(p *pregunta) error {
 		if len(o.ID) > maxIDByte {
 			return fmt.Errorf("options[%d].id: más de %d bytes", j, maxIDByte)
 		}
+		if tieneSeparador(o.ID) {
+			return errSeparador(fmt.Sprintf("options[%d].id", j))
+		}
+		if tieneSeparador(o.Description) {
+			return errSeparador(fmt.Sprintf("options[%d].description", j))
+		}
 		if len(o.Description) > maxTextoByte {
 			return fmt.Errorf("options[%d].description: más de %d bytes", j, maxTextoByte)
 		}
 		seen[o.ID] = true
 	}
 	return nil
+}
+
+// tieneSeparador dice si s trae U+001D–U+001F, los separadores de HashEsquema2 (sin prefijos de longitud); como el servidor.
+func tieneSeparador(s string) bool { return strings.ContainsAny(s, "\x1d\x1e\x1f") }
+
+func errSeparador(campo string) error {
+	return fmt.Errorf("invalid_characters: %s no admite los caracteres de control U+001D–U+001F", campo)
 }
 
 func (c *Chispa) params(tipo string) chispa3.ParamsTipo {
@@ -618,24 +636,84 @@ func softmax(p pregunta, sims []float64, T float64) respuesta {
 	return r
 }
 
-// paramsMulti son (a, b, θ) de una opción de multi: CALIB «multi#<id>», si no «multi» y si no la de «noul» (como server/decide/multi.go).
-func (c *Chispa) paramsMulti(id string) chispa3.ParamsTipo {
-	if p, ok := c.calib.Tipos["multi#"+id]; ok {
-		return p
+// claveCalibMulti es el sufijo de esquema de las claves de CALIB de multi: «@» y HashEsquema2 en hex (como server/decide.ClaveCalibMulti).
+func claveCalibMulti(p pregunta) string {
+	h := chispa3.HashEsquema2(p.Texto, p.Kind, clavesDe(p.Opciones))
+	return "@" + hex.EncodeToString(h[:])
+}
+
+// calibPorEsquema: CALIB trae alguna clave de multi con esquema; si la trae, las claves sin esquema (ficheros antiguos) no se aplican.
+func (c *Chispa) calibPorEsquema() bool {
+	for k := range c.calib.Tipos {
+		if strings.HasPrefix(k, "multi@") || strings.HasPrefix(k, "multi_l2@") {
+			return true
+		}
 	}
-	if p, ok := c.calib.Tipos["multi"]; ok {
-		return p
+	return false
+}
+
+// paramsMultiCapa son (a, b, θ) de una opción de multi en la capa `clave` («multi» L1, «multi_l2» L2) para el esquema `esq`:
+// «<clave><esq>#<id>», si no «<clave><esq>»; en ficheros sin claves con esquema, «<clave>#<id>» y «<clave>»; si no la de «noul»
+// (como server/decide/multi.go). Las de «multi» salen de cosenos de L1 (otra escala) y no valen para MaxSim.
+func (c *Chispa) paramsMultiCapa(clave, esq, id string) chispa3.ParamsTipo {
+	p, _ := c.buscarParamsMulti(clave, esq, id)
+	return p
+}
+
+// buscarParamsMulti es paramsMultiCapa diciendo además si salió de una CALIB de multi (true) o es el respaldo de noul.
+func (c *Chispa) buscarParamsMulti(clave, esq, id string) (chispa3.ParamsTipo, bool) {
+	if p, ok := c.calib.Tipos[clave+esq+"#"+id]; ok {
+		return p, true
 	}
-	return c.params("noul")
+	if p, ok := c.calib.Tipos[clave+esq]; ok {
+		return p, true
+	}
+	if !c.calibPorEsquema() {
+		if p, ok := c.calib.Tipos[clave+"#"+id]; ok {
+			return p, true
+		}
+		if p, ok := c.calib.Tipos[clave]; ok {
+			return p, true
+		}
+	}
+	return c.params("noul"), false
+}
+
+func (c *Chispa) paramsMultiDe(p pregunta, clave string) []chispa3.ParamsTipo {
+	esq := claveCalibMulti(p)
+	prms := make([]chispa3.ParamsTipo, len(p.Opciones))
+	for i, o := range p.Opciones {
+		prms[i] = c.paramsMultiCapa(clave, esq, o.ID)
+	}
+	return prms
+}
+
+// multiL2 es multi sobre el MaxSim de L2 con las cabezas por capa.
+// Sin CALIB «multi_l2» del esquema L2 no opina en multi (como server/decide.respuestaMultiL2).
+func (c *Chispa) multiL2(p pregunta, s []float64) respuesta {
+	esq, sin := claveCalibMulti(p), true
+	for _, o := range p.Opciones {
+		if _, ok := c.buscarParamsMulti("multi_l2", esq, o.ID); ok {
+			sin = false
+		}
+	}
+	if sin {
+		return respuesta{Ok: true, Probs: map[string]float64{}}
+	}
+	return multiDe(p, s, c.paramsMultiDe(p, "multi_l2"))
 }
 
 // multi: cada opción es un sí/no con su σ(a·s + b) y su θ; answers son las activas, probs la p de cada una (no suman 1) y conf la de la
 // opción más dudosa (min de p si activa, 1−p si no), como server/decide.respuestaMulti.
 func (c *Chispa) multi(p pregunta, s []float64) respuesta {
+	return multiDe(p, s, c.paramsMultiDe(p, "multi"))
+}
+
+func multiDe(p pregunta, s []float64, prms []chispa3.ParamsTipo) respuesta {
 	r := respuesta{Ok: true, Opina: true, Multi: true, Probs: make(map[string]float64, len(s)), Answers: []string{}, Conf: 1}
 	var top float64
 	for i, o := range p.Opciones {
-		prm := c.paramsMulti(o.ID)
+		prm := prms[i]
 		pr := 1 / (1 + math.Exp(-(prm.A*s[i] + prm.B)))
 		r.Probs[o.ID] = pr
 		cf := 1 - pr
@@ -841,6 +919,47 @@ func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
 	return ts, nil
 }
 
+// esquemaNuevo dice si ESQUEMAS no trae las torres de la pregunta; mira solo c.esq, no la caché de torres al vuelo
+// (como server/decide/l2.go esquemaNuevo).
+func (c *Chispa) esquemaNuevo(p pregunta) bool {
+	if c.esq == nil {
+		return true
+	}
+	if p.Kind == "choice" || p.Kind == "multi" {
+		for _, o := range p.Opciones {
+			if _, _, ok := c.esq.BuscarEsquema(p.Texto, p.Kind, clavesDe([]opcion{o})); !ok {
+				return true
+			}
+		}
+		return false
+	}
+	_, _, ok := c.esq.BuscarEsquema(p.Texto, p.Kind, clavesDe(opcionesUnica(p)))
+	return !ok
+}
+
+// EsquemaEnEsquemas dice si la sección ESQUEMAS trae las torres de la pregunta (preguntaJSON como en las demás llamadas);
+// false si no (o no hay L2): entonces L2 puntúa con torres al vuelo y la cascada usa el τ de esquema nuevo.
+func (c *Chispa) EsquemaEnEsquemas(preguntaJSON string) bool {
+	p, err := leerPregunta(preguntaJSON)
+	return err == nil && c.tieneL2 && !c.esquemaNuevo(p)
+}
+
+// opcionesUnica son las opciones de la única torre de noul (false y true con la descripción de la pregunta) y de score (todas).
+func opcionesUnica(p pregunta) []opcion {
+	if p.Kind != "noul" {
+		return p.Opciones
+	}
+	ops := []opcion{{ID: "false"}, {ID: "true"}}
+	for _, o := range p.Opciones {
+		for i := range ops {
+			if o.ID == ops[i].ID {
+				ops[i].Description = o.Description
+			}
+		}
+	}
+	return ops
+}
+
 func clavesDe(ops []opcion) []chispa3.OpcionClave {
 	out := make([]chispa3.OpcionClave, len(ops))
 	for i, o := range ops {
@@ -902,16 +1021,20 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 		return fallo(err)
 	}
 	sims := simsL2(ts, S)
+	var r respuesta
 	switch p.Kind {
 	case "choice":
-		return salida(softmax(p, sims, c.params("choice").T))
+		r = softmax(p, sims, c.params("choice").T)
 	case "noul":
 		prm := c.params("noul")
-		return salida(noul(prm.A*sims[0]+prm.B, prm.Theta))
+		r = noul(prm.A*sims[0]+prm.B, prm.Theta)
 	case "multi":
-		return salida(c.multi(p, sims))
+		r = c.multiL2(p, sims)
+	default:
+		r = c.score(p, sims[0])
 	}
-	return salida(c.score(p, sims[0]))
+	r.EsquemaNuevo = r.Opina && c.esquemaNuevo(p)
+	return salida(r)
 }
 
 // score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j».
@@ -1043,5 +1166,6 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 		}
 	}
 	r.Opina = r.Conf > 0
+	r.EsquemaNuevo = r.Opina && c.esquemaNuevo(p)
 	return salida(r)
 }

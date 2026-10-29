@@ -113,6 +113,9 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			res.Incompleto = true
 			r = Respuesta{}
 		}
+		if r.Incompleto {
+			res.Incompleto = true
+		}
 		previas[l.d.Nombre()] = r
 		if r.Conf > mejor.Conf {
 			mejor = r

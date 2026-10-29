@@ -24,15 +24,15 @@ func calibMulti() chispa3.Calib {
 
 func TestParamsMultiPrioridad(t *testing.T) {
 	c := calibTiny()
-	if p := paramsMulti(c, "x"); p != c.Tipos["noul"] {
+	if p := paramsMulti(c, "multi", "", "x"); p != c.Tipos["noul"] {
 		t.Fatalf("sin multi cae a noul: %+v", p)
 	}
 	c.Tipos["multi"] = chispa3.ParamsTipo{T: 1, A: 5, B: -1, Theta: 0.4}
 	c.Tipos["multi#x"] = chispa3.ParamsTipo{T: 1, A: 5, B: -1, Theta: 0.9}
-	if p := paramsMulti(c, "y"); p.Theta != 0.4 {
+	if p := paramsMulti(c, "multi", "", "y"); p.Theta != 0.4 {
 		t.Fatalf("multi: %+v", p)
 	}
-	if p := paramsMulti(c, "x"); p.Theta != 0.9 {
+	if p := paramsMulti(c, "multi", "", "x"); p.Theta != 0.9 {
 		t.Fatalf("θ por opción: %+v", p)
 	}
 }
@@ -131,7 +131,7 @@ func TestL2Multi(t *testing.T) {
 	}
 	esq, _ := chispa3.DecodificarEsquemas(es)
 	cal := chispa3.Calib{TauEscalate: 0.5, Tipos: map[string]chispa3.ParamsTipo{
-		"multi": {T: 1, A: 2, B: -3, Theta: 0.5}, "multi#b": {T: 1, A: 2, B: -3, Theta: 0.999},
+		"multi_l2": {T: 1, A: 2, B: -3, Theta: 0.5}, "multi_l2#b": {T: 1, A: 2, B: -3, Theta: 0.999},
 	}}
 	l := NuevoL2Con(sesionFalsa{[][]float32{{1, 0}, {0, 0.2}}}, esq, cal, tokFalso{})
 	p := Pregunta{Texto: "q", Kind: KindMulti, Opciones: []Opcion{{ID: "a"}, {ID: "b"}, {ID: "c"}}}
@@ -287,5 +287,26 @@ func TestOrdinalL0(t *testing.T) {
 	c := ordinal(Pregunta{Kind: KindChoice, Opciones: nivelesScore()}, Respuesta{Answer: "1", Probs: map[string]float64{"1": .4}, Conf: .4})
 	if c.Answer != "1" {
 		t.Fatalf("choice no cambia: %+v", c)
+	}
+}
+
+// R9-5: la CALIB de L1 (coseno) no debe aplicarse al MaxSim de L2; L2 usa multi_l2 o, sin ella, la de noul.
+func TestL2MultiNoUsaLaCalibDeL1(t *testing.T) {
+	c := calibTiny()
+	c.Tipos["multi"] = chispa3.ParamsTipo{T: 1, A: 50, B: -1, Theta: 0.01}
+	c.Tipos["multi#a"] = chispa3.ParamsTipo{T: 1, A: 50, B: -1, Theta: 0.01}
+	if p := paramsMulti(c, claveMultiL2, "", "a"); p != c.Tipos["noul"] {
+		t.Fatalf("L2 sin multi_l2 debe usar noul: %+v", p)
+	}
+	c.Tipos["multi_l2"] = chispa3.ParamsTipo{T: 1, A: 2, B: -3, Theta: 0.6}
+	if p := paramsMulti(c, claveMultiL2, "", "a"); p.Theta != 0.6 {
+		t.Fatalf("multi_l2: %+v", p)
+	}
+	c.Tipos["multi_l2#a"] = chispa3.ParamsTipo{T: 1, A: 2, B: -3, Theta: 0.8}
+	if p := paramsMulti(c, claveMultiL2, "", "a"); p.Theta != 0.8 {
+		t.Fatalf("multi_l2#id: %+v", p)
+	}
+	if p := paramsMulti(c, claveMultiL1, "", "a"); p.A != 50 {
+		t.Fatalf("L1 sigue con multi: %+v", p)
 	}
 }

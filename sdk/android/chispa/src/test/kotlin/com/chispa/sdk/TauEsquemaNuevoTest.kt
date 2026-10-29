@@ -66,6 +66,27 @@ class TauEsquemaNuevoTest {
         assertFalse(CapaL2(conocido, SesionFalsa(), { longArrayOf(1) }, Codificador()).decidir("x", PREGUNTA).esquemaNuevo)
     }
 
+    /** R9 #4: la marca es la del motor (solo ESQUEMAS), no un conjunto local de la capa. */
+    @Test
+    fun laMarcaEsLaDelMotorYNoUnConjuntoLocal() {
+        // Torres ya cacheadas por otra instancia, otro orden de opciones o un conjunto desbordado: la capa no las instaló,
+        // pero el motor dice que ESQUEMAS no trae el esquema → esquema nuevo y τ de esquema nuevo.
+        val m = motor(torres = true, tauNuevo = 0.5).also { it.marcaForzada = true }
+        val r = decidir(m)
+        assertTrue(CapaL2(m, SesionFalsa(), { longArrayOf(1) }, Codificador()).decidir("x", PREGUNTA).esquemaNuevo)
+        assertFalse(r.escalar) // 0.7 ≥ τ nuevo 0.5
+        // Y al revés: la capa instaló las torres al vuelo pero el motor dice que están en ESQUEMAS.
+        val n = motor(torres = false, tauNuevo = 0.5).also { it.marcaForzada = false }
+        assertFalse(CapaL2(n, SesionFalsa(), { longArrayOf(1) }, Codificador()).decidir("x", PREGUNTA).esquemaNuevo)
+        assertTrue(decidir(n.also { it.torres = false }).escalar) // 0.7 < τ normal 0.9
+    }
+
+    @Test
+    fun desdeJsonLeeEsquemaNuevo() {
+        assertTrue(SalidaCapa.desdeJson("""{"ok":true,"opina":true,"answer":"a","conf":0.7,"probs":{"a":0.7},"esquema_nuevo":true}""").esquemaNuevo)
+        assertFalse(SalidaCapa.desdeJson("""{"ok":true,"opina":true,"answer":"a","conf":0.7,"probs":{"a":0.7}}""").esquemaNuevo)
+    }
+
     @Test
     fun lambdaDelSoporteLlegaAlMotor() {
         assertEquals(Pair(Chispa.LAMBDA_APAGADO, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(null, null))

@@ -118,6 +118,12 @@ def cmd_metrica(a):
         print(f"FALLO métrica {clave} ausente")
         return 1
     v = m[clave]
+    if a.valor:
+        print(f"{v:g}")
+        return 0
+    if a.base is not None:
+        v -= a.base
+        clave += f" (aumento sobre {a.base:g})"
     ok = (v >= a.min) if a.min is not None else (v == a.igual)
     print(f"{'ok' if ok else 'FALLO'} {clave} = {v:g} ({'≥ ' + str(a.min) if a.min is not None else '= ' + str(a.igual)})")
     return 0 if ok else 1
@@ -181,6 +187,8 @@ def main():
     d.add_argument("--multi-con-probs", action="store_true", help="cada multi debe traer una p por opción (no escalar sin respuesta)")
     m = sub.add_parser("metrica"); m.add_argument("url"); m.add_argument("nombre"); m.add_argument("etiqueta", nargs="?")
     m.add_argument("--min", type=float); m.add_argument("--igual", type=float)
+    m.add_argument("--base", type=float, help="con --min: exige valor − base ≥ min (aumento desde una lectura previa)")
+    m.add_argument("--valor", action="store_true", help="solo imprime el valor de la métrica")
     r = sub.add_parser("recarga"); r.add_argument("url"); r.add_argument("peticion"); r.add_argument("--pid", type=int, required=True)
     r.add_argument("--hups", type=int, default=3); r.add_argument("--hilos", type=int, default=8); r.add_argument("--segundos", type=float, default=1.5)
     a = ap.parse_args()

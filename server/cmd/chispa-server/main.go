@@ -261,7 +261,7 @@ const plazoEscrituraAdmin = 10 * time.Minute
 
 // limitarConexiones envuelve ln con un tope de conexiones abiertas (como netutil.LimitListener). Con el tope lleno, Accept
 // expulsa la conexión ociosa (keep-alive sin petición en curso) más antigua antes de esperar un hueco: las ociosas no
-// bloquean a una nueva. Las que tienen una petición en curso nunca se cortan. Ver marcarOciosas para avisar del estado.
+// bloquean a una nueva. Solo se expulsan las que llevan ociosas >= minOcio y solo cuando hay una conexión nueva esperando; las activas no se cortan (salvo la ventana residual descrita en minOcio). Ver marcarOciosas para avisar del estado.
 func limitarConexiones(ln net.Listener, n int) net.Listener {
 	if n <= 0 {
 		return ln
@@ -281,27 +281,57 @@ type limitListener struct {
 }
 
 func (l *limitListener) Accept() (net.Conn, error) {
+	select {
+	case l.sem <- struct{}{}:
+		return l.aceptar()
+	case <-l.hecho:
+		return nil, net.ErrClosed
+	default:
+	}
+	// Tope lleno: primero se espera una conexión nueva de verdad (sin tomar hueco) y solo entonces se expulsa una ociosa.
+	// Así, con el tope lleno y nadie esperando, las keep-alive siguen.
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	var espera <-chan time.Time
 	for {
 		select {
 		case l.sem <- struct{}{}:
-			return l.aceptar()
+			return &conLimitada{Conn: c, l: l}, nil
 		case <-l.hecho:
+			c.Close()
 			return nil, net.ErrClosed
 		default:
 		}
-		if v := l.expulsarOciosa(); v != nil {
-			v.Close() // libera su hueco en sem
+		if v, hubo := l.expulsarOciosa(); hubo {
+			if v != nil {
+				v.Close() // libera su hueco en sem
+			}
 			continue
+		}
+		if espera == nil && minOcio > 0 {
+			t := time.NewTimer(minOcio / 4)
+			defer t.Stop()
+			espera = t.C
 		}
 		select {
 		case l.sem <- struct{}{}:
-			return l.aceptar()
+			return &conLimitada{Conn: c, l: l}, nil
 		case <-l.hecho:
+			c.Close()
 			return nil, net.ErrClosed
 		case <-l.aviso:
+		case <-espera:
+			espera = nil // las ociosas jóvenes maduran con el tiempo: reintentar
 		}
 	}
 }
+
+// minOcio es lo que una conexión debe llevar ociosa para poder expulsarse. net/http lee los bytes de una petición antes de
+// pasar a StateActive; una ociosa reciente puede tener ya una petición leída que el hook aún no ha visto. Con un mínimo,
+// esa ventana (microsegundos) solo afecta a conexiones que llevan >= minOcio sin tráfico: riesgo residual, no eliminado.
+var minOcio = time.Second
 
 func (l *limitListener) aceptar() (net.Conn, error) {
 	c, err := l.Listener.Accept()
@@ -312,12 +342,18 @@ func (l *limitListener) aceptar() (net.Conn, error) {
 	return &conLimitada{Conn: c, l: l}, nil
 }
 
-// expulsarOciosa saca del registro la ociosa más antigua (nil si no hay).
-func (l *limitListener) expulsarOciosa() *conLimitada {
+// antesDeExpulsar es un gancho de pruebas: corre tras elegir la víctima y antes de confirmar que sigue ociosa.
+var antesDeExpulsar func()
+
+// expulsarOciosa elige la ociosa más antigua y la marca expulsada solo si sigue en StateIdle (CAS atómico): si el servidor
+// ya la pasó a activa, no se toca. hubo indica que había candidata (aunque ya no esté ociosa); v es nil si no se expulsó.
+func (l *limitListener) expulsarOciosa() (v *conLimitada, hubo bool) {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	var v *conLimitada
+	ahora := time.Now()
 	for c := range l.ocio {
+		if ahora.Sub(c.desdeT) < minOcio {
+			continue
+		}
 		if v == nil || c.desde < v.desde {
 			v = c
 		}
@@ -325,7 +361,17 @@ func (l *limitListener) expulsarOciosa() *conLimitada {
 	if v != nil {
 		delete(l.ocio, v)
 	}
-	return v
+	l.mu.Unlock()
+	if v == nil {
+		return nil, false
+	}
+	if antesDeExpulsar != nil {
+		antesDeExpulsar()
+	}
+	if !v.estado.CompareAndSwap(estIdle, estExpulsada) {
+		return nil, true
+	}
+	return v, true
 }
 
 func (l *limitListener) Close() error {
@@ -336,14 +382,28 @@ func (l *limitListener) Close() error {
 
 type conLimitada struct {
 	net.Conn
-	once  sync.Once
-	l     *limitListener
-	desde uint64 // orden en que pasó a ociosa (protegido por l.mu)
+	once   sync.Once
+	l      *limitListener
+	desdeT time.Time // cuándo pasó a ociosa (protegido por l.mu)
+	desde  uint64    // orden en que pasó a ociosa (protegido por l.mu)
+	// estado es la marca de actividad (refleja http.ConnState): solo una conexión en estIdle puede expulsarse.
+	estado atomic.Int32
 }
+
+const (
+	estActiva int32 = iota
+	estIdle
+	estExpulsada
+)
 
 // ociosa marca la conexión como ociosa (candidata a expulsión) o activa.
 func (c *conLimitada) ociosa(si bool) {
 	l := c.l
+	if si {
+		c.estado.CompareAndSwap(estActiva, estIdle)
+	} else {
+		c.estado.CompareAndSwap(estIdle, estActiva)
+	}
 	l.mu.Lock()
 	if si {
 		if l.ocio == nil {
@@ -351,6 +411,7 @@ func (c *conLimitada) ociosa(si bool) {
 		}
 		l.seq++
 		c.desde = l.seq
+		c.desdeT = time.Now()
 		l.ocio[c] = struct{}{}
 	} else {
 		delete(l.ocio, c)
