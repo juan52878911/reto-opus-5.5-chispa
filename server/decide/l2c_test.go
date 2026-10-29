@@ -121,7 +121,7 @@ type simFalsa struct {
 	n    int
 }
 
-func (s *simFalsa) Similitudes(Pregunta) ([][]float32, []float64, bool, error) {
+func (s *simFalsa) Similitudes(context.Context, Pregunta) ([][]float32, []float64, bool, error) {
 	s.n++
 	return s.S, s.sims, true, nil
 }

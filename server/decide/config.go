@@ -15,16 +15,21 @@ type Capa struct {
 // Config es el JSON de configuración del servidor.
 type Config struct {
 	Capas           []Capa   `json:"capas"`
-	Modelos         []string `json:"modelos"`          // ficheros .chispa para L0
-	CacheEsquemas   int      `json:"cache_esquemas"`   // entradas del LRU de esquemas
-	CacheRespuestas int      `json:"cache_respuestas"` // entradas del LRU de nonces
-	Limites         Limites  `json:"limites"`          // topes de entrada de /v1/decide
+	Modelos         []string `json:"modelos"`           // ficheros .chispa para L0
+	CacheEsquemas   int      `json:"cache_esquemas"`    // entradas del LRU de esquemas
+	CacheRespuestas int      `json:"cache_respuestas"`  // entradas del LRU de nonces
+	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
+	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
+	Limites         Limites  `json:"limites"`           // topes de entrada de /v1/decide
 }
+
+// CacheTorresPorDefecto: una torre cuantizada pesa ~0,3 KB, así que 16384 son pocos MB.
+const CacheTorresPorDefecto = 16384
 
 func ConfigPorDefecto() Config {
 	return Config{
 		Capas:         []Capa{{"L0", 0.80}, {"L1", 0.80}, {"L2", 0.70}, {"L3", 0.60}},
-		CacheEsquemas: 1024, CacheRespuestas: 4096, Limites: LimitesPorDefecto(),
+		CacheEsquemas: 1024, CacheRespuestas: 4096, CacheTorres: CacheTorresPorDefecto, MaxTorresNuevas: MaxTorresNuevasPorDefecto, Limites: LimitesPorDefecto(),
 	}
 }
 
@@ -56,6 +61,9 @@ func (c Config) Validar() error {
 	}
 	if c.CacheEsquemas < 1 || c.CacheRespuestas < 1 {
 		return fmt.Errorf("config: los tamaños de caché deben ser >= 1")
+	}
+	if c.CacheTorres < 0 || c.MaxTorresNuevas < 0 {
+		return fmt.Errorf("config: cache_torres y max_torres_nuevas no pueden ser negativos")
 	}
 	return c.Limites.validar()
 }
