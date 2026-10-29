@@ -51,7 +51,8 @@ que se fija por escrito en la semana 0:
 ## Pendiente de producto
 Se marcan aquí y **no se prometen** al cliente (cada punto se explica donde aparece):
 
-1. **`score` (urgencia) en zero-shot y con k = 5.** L1 no opina en `score` y sin L0 la respuesta siempre escala
+1. **`score` (urgencia) en zero-shot y con k = 5.** L1 sí opina (nivel mediano de la distribución coseno/T, `server/decide/l1.go`), pero su confianza
+   baja si la masa se reparte entre niveles lejanos y entonces escala; sin L0 no hay cifra medida
    ([`docs/07`](../docs/07-rendimiento-y-limites.md#zero-shot)). La plantilla trae una variante `choice` (alta/media/baja) que sí funciona.
 2. **L2 en esquemas nuevos.** Falta el ONNX real de la torre; sin paridad ni cifra ([`docs/08`](../docs/08-esquemas-nuevos.md#qué-falta)).
 3. **Modo con datos del cliente (`--conjunta`).** Necesita un checkpoint de L2 que el repositorio no trae; solo para `choice`

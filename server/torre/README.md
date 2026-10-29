@@ -2,7 +2,8 @@
 
 `torre.Codificador` implementa `decide.CodificadorTorre`: tokeniza el texto de la torre (`passage: pregunta · opción · descripción`,
 runtime/tok `TokenizarPasaje`, truncado a 128 y a `max_len` de la sección), corre el ONNX de la sección `TORR` del `.chispa` y devuelve
-`h` (256, normalizada). Contrato: `model/l2/contrato-torre.md`.
+`h` (256, normalizada). Contrato (resumen; el original, `model/l2/contrato-torre.md`, vive en la rama de modelos y no está en esta):
+entradas `input_ids` y `attention_mask` int64 (B,T); salida `h` (B,256) float32 normalizada; prefijo `passage: `; max_len 128; opset 17.
 
 - `Nuevo(ses, tk, chispa3.Torre)` con cualquier `Sesion`; `Abrir(chispa3.Torre, Tokenizador)` abre el ONNX con ORT (`-tags ort`; sin la etiqueta devuelve `ErrSinORT`).
 - `IniciarORT(ruta)`: el entorno de ORT se inicializa una vez por proceso y lo comparten L2 (`decide.NuevaSesionORT`) y la torre.

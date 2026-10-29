@@ -130,7 +130,7 @@ arma la cascada con las secciones presentes (`decide.ArmarDesde`); las que falta
 - **L1** (`decide/l1.go`, sección `L1` con `runtime/l1`): embedding del mensaje y de `pregunta · opción · descripción`
   de cada opción (cacheados por `ClaveEsquema`, por id de opción: la clave ignora el orden). `choice`: softmax(coseno / T)
   con la `T` de `CALIB.tipos.choice`. `noul`: la consulta es la opción `true`; p(true) = σ(a·coseno + b) con `a`, `b`, θ de
-  `CALIB.tipos.noul`. `score`: L1 no opina (un coseno no ordena niveles). Sin tipo en CALIB: T = 0,05, a = 4, b = −2, θ = 0,5.
+  `CALIB.tipos.noul`. `score`: L1 sí opina: softmax(coseno / T) sobre los niveles (`T` de `CALIB.tipos.score`, o la de choice si falta) y `answer` es el nivel mediano (primero con masa acumulada ≥ 0,5), con su probabilidad como `conf`; una masa repartida entre niveles lejanos baja la confianza y escala. Sin tipo en CALIB: T = 0,05, a = 4, b = −2, θ = 0,5.
 - **τ**: sin `--config`, el τ de L1 y L2 es el `tau_escalate` de CALIB; con `--config`, manda la config.
 - **L2** (`decide/l2.go` + `l2_ort.go`, secciones `L2` y `ESQUEMAS`): el ONNX da las ranuras S (K×d) del mensaje; la torre de cada
   opción sale de ESQUEMAS (`HashEsquema(pregunta, [id])` en `choice`; la lista completa de ids, `["false","true"]` en `noul`
