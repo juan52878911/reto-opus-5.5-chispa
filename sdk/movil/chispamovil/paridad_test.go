@@ -305,8 +305,12 @@ func TestTokenizarE5ParidadConRuntimeTok(t *testing.T) {
 		ruta = "/tmp/e5.chispa-tok"
 	}
 	ref, err := tok.Abrir(ruta)
+	// Solo se salta si no hay fichero y nadie pidió uno: un .chispa-tok que existe y no abre es un fallo, no un salto.
+	if _, e := os.Stat(ruta); e != nil && os.Getenv("CHISPA_TOK") == "" {
+		t.Skipf("sin .chispa-tok (runtime/tok/exportar.py; CHISPA_TOK): %v", e)
+	}
 	if err != nil {
-		t.Skipf("sin .chispa-tok (runtime/tok/exportar.py; CHISPA_TOK): %v", err)
+		t.Fatalf("%s: %v", ruta, err)
 	}
 	c := &Chispa{}
 	if c.TieneTokenizadorE5() || c.TokenizarE5("hola") != nil {

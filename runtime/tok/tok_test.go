@@ -21,8 +21,12 @@ func abrir(t testing.TB) *Tokenizador {
 		ruta = "/tmp/e5.chispa-tok"
 	}
 	tk, err := Abrir(ruta)
+	// Solo se salta si no hay fichero y nadie pidió uno: un .chispa-tok que existe y no abre es un fallo, no un salto.
+	if _, e := os.Stat(ruta); e != nil && os.Getenv("CHISPA_TOK") == "" {
+		t.Skipf("sin .chispa-tok (exportar.py; CHISPA_TOK): %v", e)
+	}
 	if err != nil {
-		t.Skipf("sin .chispa-tok (exportar.py; CHISPA_TOK): %v", err)
+		t.Fatalf("%s: %v", ruta, err)
 	}
 	return tk
 }

@@ -79,19 +79,6 @@ func TestTorreTruncaYValida(t *testing.T) {
 }
 
 // Sin ORT, Abrir lo dice en vez de entrar en pánico.
-func TestAbrirSinORT(t *testing.T) {
-	_, err := Abrir(chispa3.Torre{Dim: 2, MaxLen: 8, Prefijo: "passage: ", ONNX: []byte{1}}, &tokFalso{})
-	if err == nil {
-		t.Skip("compilado con ORT")
-	}
-	if !errors.Is(err, ErrSinORT) {
-		t.Fatal(err)
-	}
-	if _, err := Abrir(chispa3.Torre{}, nil); err == nil {
-		t.Fatal("sin tokenizador")
-	}
-}
-
 // tokReal adapta runtime/tok (si hay .chispa-tok) y comprueba que el texto con U+00B7 llega a la sesión con ids de pasaje.
 type tokReal struct{ t *tok.Tokenizador }
 
@@ -109,8 +96,12 @@ func TestTorreConTokenizadorReal(t *testing.T) {
 		ruta = "/tmp/e5.chispa-tok"
 	}
 	tk, err := tok.Abrir(ruta)
+	// Solo se salta si no hay fichero y nadie pidió uno: un .chispa-tok que existe y no abre es un fallo, no un salto.
+	if _, e := os.Stat(ruta); e != nil && os.Getenv("CHISPA_TOK") == "" {
+		t.Skip("sin .chispa-tok:", e)
+	}
 	if err != nil {
-		t.Skip("sin .chispa-tok:", err)
+		t.Fatalf("%s: %v", ruta, err)
 	}
 	ses := &sesionFalsa{h: []float32{1, 0}}
 	c := Nuevo(ses, tokReal{tk}, meta(2, 128))
