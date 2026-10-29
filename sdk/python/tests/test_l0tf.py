@@ -26,8 +26,15 @@ class TestL0TF(unittest.TestCase):
         from pathlib import Path
         with tempfile.TemporaryDirectory() as d:
             fx.generar(Path(d), REPO)
-            for f in ("modelo.l0tf", "modelo_f16.l0tf", "frases.json"):
-                self.assertEqual((Path(d) / f).read_bytes(), (REPO / "server/decide/testdata/l0tf" / f).read_bytes(), f)
+            ref = REPO / "server/decide/testdata/l0tf"
+            for f in ("modelo.l0tf", "modelo_f16.l0tf"):
+                self.assertEqual((Path(d) / f).read_bytes(), (ref / f).read_bytes(), f)
+            # las probabilidades de sklearn cambian en el último bit según la versión de scipy/BLAS; Go las lee con tolerancia 1e-5
+            import json
+            a, b = (json.loads((x / "frases.json").read_text()) for x in (Path(d), ref))
+            self.assertEqual([f["texto"] for f in a["frases"]], [f["texto"] for f in b["frases"]])
+            np.testing.assert_allclose([f["probs"] for f in a["frases"]], [f["probs"] for f in b["frases"]], atol=1e-12)
+            self.assertEqual({k: v for k, v in a.items() if k != "frases"}, {k: v for k, v in b.items() if k != "frases"})
 
     def test_poda_por_frecuencia(self):
         train, _ = fx.datos()
