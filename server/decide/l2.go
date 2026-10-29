@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -34,10 +33,10 @@ type L2 struct {
 
 	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
 	torres CodificadorTorre
-	cache  *LRU[torreDin] // claveTorre → torre cuantizada de una opción (o de la consulta, en noul y score)
+	cache  *LRU[torreDin] // ClaveTorre → torre cuantizada de una opción (o de la consulta, en noul y score)
 	// maxNuevas es el tope de torres por calcular en una sola petición; por encima, L2 no opina.
 	maxNuevas int
-	// vuelo agrupa los cálculos en curso por claveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
+	// vuelo agrupa los cálculos en curso por ClaveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
 	muVuelo sync.Mutex
 	vuelo   map[string]*llamadaTorre
 	// Hits y Misses cuentan las peticiones de esquema nuevo con todas sus torres en caché / con alguna por calcular.
@@ -148,69 +147,13 @@ func presupuestoDe(ctx context.Context) *presupuestoTorres {
 	return &presupuestoTorres{} // llamada directa sin petición: presupuesto propio
 }
 
-const sepTorre = " · "
-
-// textoTorre es texto_opcion de model/l2/modelo.py: «passage: pregunta · opción · descripción».
-func textoTorre(pregunta string, o Opcion) string {
-	return strings.Join([]string{"passage: " + pregunta, o.ID, o.Description}, sepTorre)
-}
-
-func cuantizarTorre(h []float32) torreDin {
-	var m float64
-	for _, x := range h {
-		m = math.Max(m, math.Abs(float64(x)))
-	}
-	esc := m / 127
-	if m == 0 {
-		esc = 1
-	}
-	q := make([]byte, len(h))
-	for i, x := range h {
-		q[i] = byte(int8(math.Max(-127, math.Min(127, math.Round(float64(x)/esc)))))
-	}
-	return torreDin{q, float32(esc)}
-}
-
-// claveTorre es la clave de caché de una torre: HashEsquema(pregunta, [opción, descripción]). Las torres se cachean una a
-// una, no por esquema entero, por dos razones: (1) el orden de las opciones de la petición no tiene por qué ser el del
-// primer cálculo, y un vector cacheado por posición se emparejaría con la opción equivocada; (2) la torre depende también
-// de la descripción, que HashEsquema(pregunta, opciones) (la clave de ESQUEMAS) no recoge. ClaveEsquema (FNV-128, no
-// criptográfico, ordena las opciones y mete Kind) no sirve para esto.
-func claveTorre(pregunta string, o Opcion) string {
-	h := chispa3.HashEsquema(pregunta, []string{o.ID, o.Description})
-	return string(h[:])
-}
-
-// opcionesConsulta son las opciones que llevan torre: una por opción en choice; en noul y score una sola, la de la
-// consulta (texto_consulta del export): «true» en noul y el nivel máximo en score.
-func opcionesConsulta(p Pregunta) []Opcion {
-	switch p.Kind {
-	case KindChoice:
-		return p.Opciones
-	case KindNoul:
-		for _, o := range p.Opciones {
-			if o.ID == "true" {
-				return []Opcion{o}
-			}
-		}
-		return []Opcion{{ID: "true"}}
-	}
-	ult, max := len(p.Opciones)-1, -1 // el nivel mayor si los ids son numéricos; si no, la última
-	for i, o := range p.Opciones {
-		if n, err := strconv.Atoi(o.ID); err == nil && n > max {
-			ult, max = i, n
-		}
-	}
-	return p.Opciones[ult : ult+1]
-}
-
-// torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae, en el orden de opcionesConsulta.
+// torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae, en el orden de OpcionesConsulta.
 // ok=false (sin error) si a la petición (todas sus preguntas juntas, ver conPresupuesto) ya no le quedan torres nuevas por calcular: L2 no opina.
 func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bool, err error) {
-	ops := opcionesConsulta(p)
+	ops := OpcionesConsulta(p)
 	faltan := 0
 	for _, o := range ops {
-		if _, hit := l.cache.Get(claveTorre(p.Texto, o)); !hit {
+		if _, hit := l.cache.Get(ClaveTorre(p.Texto, o)); !hit {
 			faltan++
 		}
 	}
@@ -226,7 +169,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
-		if out[i], err = l.torreUnica(ctx, claveTorre(p.Texto, o), textoTorre(p.Texto, o)); err != nil {
+		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(p.Texto, o)); err != nil {
 			return nil, false, err
 		}
 	}
@@ -378,11 +321,17 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 		if i < K-1 {
 			lo = sup[i]
 		}
-		pr := math.Max(hi-lo, 0)
-		r.Probs[p.Opciones[i].ID] = pr
-		if pr > r.Conf {
-			r.Conf, r.Answer = pr, p.Opciones[i].ID
+		r.Probs[p.Opciones[i].ID] = math.Max(hi-lo, 0)
+	}
+	// Mediana CORAL: nivel 1 + número de umbrales con P(y > j) > 0,5 (como L1). Con acumuladas no monótonas, el argmax
+	// de las diferencias podría salir de diferencias negativas recortadas.
+	k := 0
+	for _, x := range sup {
+		if x > 0.5 {
+			k++
 		}
 	}
+	r.Answer = p.Opciones[k].ID
+	r.Conf = r.Probs[r.Answer]
 	return r, nil
 }

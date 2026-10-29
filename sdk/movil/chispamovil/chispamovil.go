@@ -714,12 +714,17 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		if i < K-1 {
 			lo = sup[i]
 		}
-		pr := math.Max(hi-lo, 0)
-		r.Probs[p.Opciones[i].ID] = pr
-		if pr > r.Conf {
-			r.Conf, r.Answer = pr, p.Opciones[i].ID
+		r.Probs[p.Opciones[i].ID] = math.Max(hi-lo, 0)
+	}
+	// Mediana CORAL: nivel 1 + número de umbrales con P(y > j) > 0,5 (como L1 y el servidor).
+	k := 0
+	for _, x := range sup {
+		if x > 0.5 {
+			k++
 		}
 	}
+	r.Answer = p.Opciones[k].ID
+	r.Conf = r.Probs[r.Answer]
 	r.Opina = r.Conf > 0
 	return r
 }

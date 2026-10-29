@@ -6,16 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 
 	"chispa/format/chispa3"
+
+	"github.com/juan52878911/chispa/server/decide"
 )
 
 // Torre de L2 al vuelo en móvil: ORT corre en la app, no en Go. Aquí vive todo lo demás, con la misma regla que
-// server/decide/l2.go (textoTorre, opcionesConsulta, claveTorre, cuantizarTorre): la app pide los textos, calcula h con el
+// server/decide (TextosTorre, OpcionesConsulta, ClaveTorre, CuantizarTorre): la app pide los textos, calcula h con el
 // ONNX de la sección TORR (OnnxTorre) y los ids de IdsPasaje, y los devuelve con InstalarTorresL2.
-// torre_test.go compara los textos y la caché con los del servidor sobre las mismas preguntas.
+// torre_test.go comprueba como comportamiento que móvil y servidor piden los mismos textos y deciden igual.
 
 const (
 	sepTorre   = " · "
@@ -86,54 +87,20 @@ func (c *Chispa) IdsPasaje(texto string) []byte {
 	return b
 }
 
-func textoTorre(preg string, o opcion) string {
-	return strings.Join([]string{"passage: " + preg, o.ID, o.Description}, sepTorre)
-}
-
-// opcionesConsulta: una torre por opción en choice; en noul y score una sola (la «true», o el nivel mayor).
-func opcionesConsulta(p pregunta) []opcion {
-	switch p.Kind {
-	case "choice":
-		return p.Opciones
-	case "noul":
-		for _, o := range p.Opciones {
-			if o.ID == "true" {
-				return []opcion{o}
-			}
-		}
-		return []opcion{{ID: "true"}}
-	}
-	ult, max := len(p.Opciones)-1, -1
+// aDecide pasa la pregunta al tipo del servidor, dueño de la regla de torres.
+func aDecide(p pregunta) decide.Pregunta {
+	d := decide.Pregunta{Texto: p.Texto, Kind: p.Kind, Opciones: make([]decide.Opcion, len(p.Opciones))}
 	for i, o := range p.Opciones {
-		if n, err := strconv.Atoi(o.ID); err == nil && n > max {
-			ult, max = i, n
-		}
+		d.Opciones[i] = decide.Opcion{ID: o.ID, Description: o.Description}
 	}
-	if ult < 0 {
-		return nil
-	}
-	return p.Opciones[ult : ult+1]
+	return d
 }
 
-func claveTorre(preg string, o opcion) string {
-	h := chispa3.HashEsquema(preg, []string{o.ID, o.Description})
-	return string(h[:])
-}
+func opcionesConsulta(p pregunta) []decide.Opcion { return decide.OpcionesConsulta(aDecide(p)) }
 
 func cuantizarTorre(h []float32) torreL2 {
-	var m float64
-	for _, x := range h {
-		m = math.Max(m, math.Abs(float64(x)))
-	}
-	esc := m / 127
-	if m == 0 {
-		esc = 1
-	}
-	q := make([]byte, len(h))
-	for i, x := range h {
-		q[i] = byte(int8(math.Max(-127, math.Min(127, math.Round(float64(x)/esc)))))
-	}
-	return torreL2{q, float32(esc)}
+	v, e := decide.CuantizarTorre(h)
+	return torreL2{v, e}
 }
 
 // torresNuevas son las torres que instaló la app para este esquema; error si falta alguna.
@@ -146,7 +113,7 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	}
 	ts := make([]torreL2, len(ops))
 	for i, o := range ops {
-		k := claveTorre(p.Texto, o)
+		k := decide.ClaveTorre(p.Texto, o)
 		t, ok := c.dyn[k]
 		if !ok {
 			return nil, errors.New("sin torres para este esquema")
@@ -165,12 +132,7 @@ func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 	if err != nil || !c.tieneL2 || c.TorresL2(preguntaJSON) {
 		return "[]"
 	}
-	ops := opcionesConsulta(p)
-	textos := make([]string, len(ops))
-	for i, o := range ops {
-		textos[i] = textoTorre(p.Texto, o)
-	}
-	b, _ := json.Marshal(textos)
+	b, _ := json.Marshal(decide.TextosTorre(aDecide(p)))
 	return string(b)
 }
 
@@ -206,18 +168,28 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 		c.dyn, c.dynUso = map[string]torreL2{}, map[string]uint64{}
 	}
 	claves := make(map[string]bool, n)
+	nuevasReales := 0
 	for _, o := range ops {
-		claves[claveTorre(p.Texto, o)] = true
+		k := decide.ClaveTorre(p.Texto, o)
+		if !claves[k] {
+			claves[k] = true
+			if _, ya := c.dyn[k]; !ya {
+				nuevasReales++
+			}
+		}
 	}
-	// LRU: se desalojan las más antiguas, nunca las de esta instalación ni las de otro hilo recién instaladas.
-	for len(c.dyn)+n > maxDin {
+	// LRU: se desalojan las más antiguas, nunca las de esta instalación ni las que otro hilo usó o instaló en las últimas
+	// n marcas (las de una instalación recién hecha, a la espera de su PuntuarL2). Si no queda a quién desalojar, c.dyn
+	// se pasa de maxDin hasta que esas entradas envejezcan.
+	for len(c.dyn)+nuevasReales > maxDin {
 		var viejo string
 		var min uint64
 		for k := range c.dyn {
-			if claves[k] {
+			u := c.dynUso[k]
+			if claves[k] || u+uint64(n) > c.dynTic {
 				continue
 			}
-			if u := c.dynUso[k]; viejo == "" || u < min {
+			if viejo == "" || u < min {
 				viejo, min = k, u
 			}
 		}
@@ -228,7 +200,7 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 		delete(c.dynUso, viejo)
 	}
 	for i, o := range ops {
-		k := claveTorre(p.Texto, o)
+		k := decide.ClaveTorre(p.Texto, o)
 		c.dynTic++
 		c.dyn[k], c.dynUso[k] = nuevas[i], c.dynTic
 	}

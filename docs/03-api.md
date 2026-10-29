@@ -62,9 +62,9 @@ Este segundo ejemplo sale de un test con capas falsas: muestra el formato de un 
 En `score`, `answer` depende de la capa que respondió:
 - **L1:** `probs` es el softmax de los cosenos (/ T) entre el mensaje y cada «pregunta · nivel · descripción»; `answer` es
   la **mediana**: el primer nivel cuya probabilidad acumulada llega a 0,5.
-- **L2:** cabeza CORAL (`server/decide/l2.go`, `score`). `probs` sale de las diferencias entre las probabilidades
-  acumuladas de sus umbrales, P(y = k) = P(y > k−1) − P(y > k); `answer` es el nivel con mayor P(y = k). Suele coincidir
-  con la mediana (contar los umbrales con P > 0,5), pero no siempre.
+- **L2:** cabeza CORAL (`server/decide/l2.go`, `score`). `answer` es la **mediana**: el nivel 1 + el número de umbrales
+  con P(y > j) > 0,5, igual que en L1. `probs` sale de las diferencias entre las probabilidades acumuladas de sus
+  umbrales, P(y = k) = P(y > k−1) − P(y > k), recortadas a ≥ 0; la confianza es `probs[answer]`.
 - **L0:** el clasificador entrenado con los ejemplos; `answer` es su nivel más probable.
 
 En los tres casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
