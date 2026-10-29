@@ -16,6 +16,8 @@ type Resultado struct {
 	Escalate bool               `json:"escalate"`
 	Ms       float64            `json:"ms"`
 	Nonce    string             `json:"nonce,omitempty"`
+	// Incompleto: una capa falló o el ctx se canceló; no debe guardarse bajo un nonce.
+	Incompleto bool `json:"-"`
 }
 
 // CapaEscalar es el valor de «layer» cuando ninguna capa acepta: no contestó ninguna, así que no se atribuye a la última.
@@ -55,7 +57,12 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	res := Resultado{ID: p.ID, Kind: p.Kind, Nonce: p.Nonce, Probs: map[string]float64{}}
 	var mejor Respuesta
 	previas := Previas{}
+	ctx = conPresupuesto(ctx)
 	for _, l := range c.capas {
+		if ctx.Err() != nil {
+			res.Incompleto = true
+			break
+		}
 		t := time.Now()
 		var r Respuesta
 		var err error
@@ -66,6 +73,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 		}
 		c.met.ObservaCapa(l.d.Nombre(), time.Since(t), err)
 		if err != nil || ctx.Err() != nil {
+			res.Incompleto = true
 			r = Respuesta{}
 		}
 		previas[l.d.Nombre()] = r

@@ -189,7 +189,11 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := respuestaHTTP{Results: make([]json.RawMessage, len(preguntas))}
+	ctx := conPresupuesto(r.Context())
 	for i, p := range preguntas {
+		if ctx.Err() != nil {
+			return // cliente ido: nada que escribir ni que cachear
+		}
 		var ck string
 		if p.Nonce != "" {
 			h := sha256.Sum256([]byte(p.Estado))
@@ -200,8 +204,12 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		b, _ := json.Marshal(s.Cascada.Decidir(r.Context(), p))
-		if ck != "" {
+		res := s.Cascada.Decidir(ctx, p)
+		if ctx.Err() != nil {
+			return
+		}
+		b, _ := json.Marshal(res)
+		if ck != "" && !res.Incompleto {
 			s.nonces.Put(ck, b)
 		}
 		out.Results[i] = b

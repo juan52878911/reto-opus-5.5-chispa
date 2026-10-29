@@ -20,7 +20,7 @@ Ejemplo real: [`choice.req.json`](../server/decide/testdata/choice.req.json).
 | `questions[].id` | obligatorio; único en la petición |
 | `questions[].question` | obligatorio |
 | `questions[].kind` | `choice`, `score` o `noul` |
-| `questions[].options` | `choice`: ≥ 2 y ≤ 256, con `id` único y `description` opcional. `score`: ≥ 2, ids `"1"` … `"K"`. `noul`: opcional; si va, solo `"false"` y `"true"` |
+| `questions[].options` | `choice`: ≥ 2 y ≤ 256, con `id` único y `description` opcional. `score`: ≥ 2; el servidor no exige ids concretos: L0 y L1 aceptan ids libres, y la cabeza CORAL de L2 solo opina si los ids son `"1"` … `"K"` en orden. `noul`: opcional; si va, solo `"false"` y `"true"` |
 | `questions[].nonce` | opcional; clave de idempotencia |
 
 Los campos desconocidos dan 400.
@@ -114,10 +114,13 @@ Defaults y cómo cambiarlos: sección `limites` del JSON de `-config` (un campo 
 | `max_estado` | 256 KiB | bytes de `state` |
 | `max_texto` | 4096 | bytes de `question` y de cada `description` |
 | `max_id` | 256 | bytes de cada `id` y del `nonce` |
+| `max_torres_nuevas` (config) | 64 | torres de esquemas nuevos que calcula una **petición** entera (todas sus preguntas); agotado, L2 no opina |
+
+Las longitudes son bytes UTF-8, no caracteres (en el OpenAPI, `x-max-bytes`; `maxLength` contaría caracteres).
 
 ### Nonce
 Misma petición y mismo `nonce`: devuelve el resultado guardado sin decidir otra vez (`ms` incluido).
-La clave es `nonce + estado + esquema + id`. Con otro estado u otra pregunta, se recalcula. Sin `nonce` no se guarda.
+La clave es `nonce + estado + esquema + id`. Con otro estado u otra pregunta, se recalcula. Sin `nonce` no se guarda. Tampoco se guarda la respuesta de una pregunta de una petición cancelada ni la de una cuyas capas fallaron: el reintento decide de nuevo.
 El LRU tiene `cache_respuestas` entradas.
 
 ### Límites

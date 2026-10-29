@@ -182,7 +182,7 @@ func (v validador) check(s map[string]any, x any, at string) []string {
 		if n, ok := s["minLength"].(float64); ok && float64(len(str)) < n {
 			fail("más corto que %v", n)
 		}
-		if n, ok := s["maxLength"].(float64); ok && float64(len(str)) > n {
+		if n, ok := s["x-max-bytes"].(float64); ok && float64(len(str)) > n {
 			fail("más largo que %v", n)
 		}
 	case "number", "integer":
@@ -359,12 +359,12 @@ func TestContratoLimitesPorDefecto(t *testing.T) {
 		want int
 		que  string
 	}{
-		{ruta(sch, "DecideRequest", "properties", "state")["maxLength"].(float64), l.MaxEstado, "state"},
+		{ruta(sch, "DecideRequest", "properties", "state")["x-max-bytes"].(float64), l.MaxEstado, "state"},
 		{ruta(sch, "DecideRequest", "properties", "questions")["maxItems"].(float64), l.MaxPreguntas, "questions"},
 		{ruta(sch, "Question", "properties", "options")["maxItems"].(float64), l.MaxOpciones, "options"},
-		{ruta(sch, "Question", "properties", "question")["maxLength"].(float64), l.MaxTexto, "question"},
-		{ruta(sch, "Option", "properties", "description")["maxLength"].(float64), l.MaxTexto, "description"},
-		{ruta(sch, "Question", "properties", "id")["maxLength"].(float64), l.MaxID, "id"},
+		{ruta(sch, "Question", "properties", "question")["x-max-bytes"].(float64), l.MaxTexto, "question"},
+		{ruta(sch, "Option", "properties", "description")["x-max-bytes"].(float64), l.MaxTexto, "description"},
+		{ruta(sch, "Question", "properties", "id")["x-max-bytes"].(float64), l.MaxID, "id"},
 	} {
 		if int(c.got) != c.want {
 			t.Errorf("%s: OpenAPI %v, servidor %d", c.que, c.got, c.want)
