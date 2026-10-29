@@ -97,6 +97,44 @@ class TestComandosL2(unittest.TestCase):
         self.assertEqual(c[1][2], "model.l2.exportar")
         self.assertIn("/t/l2.chispa", c[1])
 
+    def test_perfil_servidor_por_defecto_sin_poda_por_esquema(self):
+        e = comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), python="py")[1]
+        self.assertEqual(e[e.index("--perfil") + 1], "servidor")
+        self.assertNotIn("--vocab-ampliar", e)
+        self.assertNotIn("--vocab-podado", e)
+
+    def test_perfil_movil_amplia_el_vocabulario_con_el_esquema(self):
+        e = comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), python="py", perfil="movil")[1]
+        self.assertEqual(e[e.index("--perfil") + 1], "movil")
+        self.assertEqual(e[e.index("--vocab-ampliar") + 1], "/t/f.jsonl")
+        self.assertNotIn("--sin-poda", e)
+
+    def test_perfil_desconocido(self):
+        with self.assertRaises(ChispaError):
+            comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), perfil="gpu")
+
+    def test_calib_de_l2_no_pasa_al_chispa_final(self):
+        """El `.chispa` final lleva la CALIB del esquema (zero-shot: sin calibrar, τ 0,6) aunque el exportador escriba otra en l2.chispa."""
+        from unittest import mock
+        from chispa import formato
+        d = Path(tempfile.mkdtemp())
+        (d / "e.json").write_text(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a", "description": "A"}, {"id": "b", "description": "B"}]}))
+        l2 = formato.escribir({formato.L2: b"x", formato.ESQUEMAS: b"y", formato.CALIB: formato.calib({"choice": {"T": 9.0}}, 0.123)})
+        llamadas = []
+
+        def falso(cmd, **kw):
+            llamadas.append(cmd)
+            if cmd[2] == "model.l2.exportar":
+                Path(cmd[cmd.index("--salida") + 1]).write_bytes(l2)
+            return mock.Mock(returncode=0, stderr="")
+        with mock.patch("chispa.train.subprocess.run", falso):
+            entrenar(None, d / "e.json", d / "o.chispa", ckpt="ck", repo=str(d), log=lambda m: None, perfil="movil")
+        self.assertEqual(llamadas[0][2], "model.l2.exportar")
+        self.assertIn("movil", llamadas[0])
+        secs = formato.leer((d / "o.chispa").read_bytes())
+        self.assertEqual(json.loads(secs[formato.CALIB]), json.loads(formato.calib({}, 0.6)))
+        self.assertEqual(secs[formato.L2], b"x")
+
 
 class TestEntrenar(unittest.TestCase):
     """Sin L1 (el potion pesa 155 MB y no va a git): L0 + CALIB con el entrenador de Go; sin Go, el respaldo."""
