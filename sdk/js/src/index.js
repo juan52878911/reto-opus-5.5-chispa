@@ -28,6 +28,9 @@ export class ChispaCliente {
    * `reintentos`: reintentos extra tras el primer intento (por defecto 3), como el cliente Python. `timeoutMs` (35 s) debe superar el `-timeout` del servidor (30 s).
    */
   constructor({ url = "http://127.0.0.1:8090", timeoutMs = 35000, reintentos = 3, esperaMs = 200, limites, fetch: f, dormir: d, apiKey } = {}) {
+    // Misma regla que los clientes Go y Python: el servidor compara el SHA-256 de la clave tal cual, sin recortar; una clave con
+    // salto/espacio/control no autenticaría nunca, así que se rechaza al construir (sin incluir la clave en el mensaje).
+    if (apiKey && /[^\x21-\x7e]/.test(apiKey)) throw new TypeError("apiKey inválida: solo ASCII imprimible sin espacios ni saltos (¿salto final al leerla de un fichero?)");
     this._apiKey = apiKey || undefined; // clave en claro; viaja como `Authorization: Bearer` solo en /v1/decide
     this._dormir = d ?? dormir;
     this.url = url.replace(/\/+$/, "");
