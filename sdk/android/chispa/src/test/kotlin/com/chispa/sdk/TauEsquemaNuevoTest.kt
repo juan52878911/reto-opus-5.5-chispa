@@ -14,9 +14,12 @@ class TauEsquemaNuevoTest {
     }
 
     private fun motor(torres: Boolean, tauNuevo: Double) = MotorFalso(
-        presentes = listOf("L2"), calib = true, tau = 0.9, torres = torres, tauNuevo = tauNuevo,
+        presentes = listOf("L2"), calib = true, tau = 0.9, torres = torres,
         l2 = { json("fraude", 0.7, "fraude" to 0.7) },
-    ).also { it.textosTorre = listOf("passage: a", "passage: b") }
+    ).also {
+        it.textosTorre = listOf("passage: a", "passage: b")
+        it.tauNuevo = tauNuevo
+    }
 
     private fun decidir(m: MotorFalso) =
         Cascada.armar(m, CapaL2(m, SesionFalsa(), { longArrayOf(1, 2) }, Codificador())).decidir("x", PREGUNTA)
