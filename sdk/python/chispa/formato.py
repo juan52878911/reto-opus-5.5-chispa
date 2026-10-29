@@ -118,6 +118,11 @@ def hash_esquema2(pregunta: str, kind: str, opciones) -> bytes:
     return h.digest()[:16]
 
 
+def version_esquemas(b: bytes) -> int:
+    """Versión (1 o 2) de una sección ESQUEMAS por su primera palabra (versión<<16 | dim; v1 lleva 0 arriba). Ilegible o corta: 1."""
+    return ESQUEMAS_VERSION2 if len(b) >= 4 and struct.unpack_from("<I", b)[0] >> 16 == ESQUEMAS_VERSION2 else 1
+
+
 def esquemas(dim: int, entradas, version: int = 1) -> bytes:
     """Sección ESQUEMAS (`chispa3.CodificarEsquemas`/`CodificarEsquemas2`). Cada entrada: dict con `hash` (32 bytes en v1,
     16 en v2), `escala` y `vec` (dim) int8. v2: la primera palabra es versión<<16 | dim. Se ordenan por hash."""

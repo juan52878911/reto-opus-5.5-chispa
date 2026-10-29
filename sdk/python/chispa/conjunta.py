@@ -91,8 +91,9 @@ def filas_train(q, ejemplos):
 
 
 def seccion_conj(q, ejemplos, modelo, enc, repo, log=print, l0tf_f16=False, l0tf_max_mb=L0.L0_MAX_MB, precision_objetivo=0.95,
-                 validacion=None, margen=MARGEN, suelo=SUELO_FUERA, tope_tau=TOPE_TAU):
+                 validacion=None, margen=MARGEN, suelo=SUELO_FUERA, tope_tau=TOPE_TAU, version=formato.CONJ_VERSION):
     """-> (bytes de CONJ, bytes de L0TF, informe; `informe["tau_l2c"]` es el τ de L2c o None). `modelo` y `enc` son el ModeloL2 y el Codificador (el checkpoint de `--ckpt`).
+    `version` = la de CONJ (la de ESQUEMAS del `.chispa`: 2 → clave `hash_esquema2`).
     `validacion` = [(texto, etiqueta)] que no están en `ejemplos`: el τ de L2c se elige sobre ellas con la cabeza ya ajustada en todo train."""
     if q.kind != "choice":
         raise ChispaError(f"--conjunta solo sirve para preguntas choice (esta es {q.kind})")
@@ -153,10 +154,12 @@ def seccion_conj(q, ejemplos, modelo, enc, repo, log=print, l0tf_f16=False, l0tf
     normas = normas_ranuras(modelo, enc, sop, idx)
     escala, proto = formato.cuantizar_protos(P.detach().cpu().numpy())
     T = float(modelo.log_t["choice"].detach().exp().clamp(min=5e-3))
-    e = {"hash": formato.hash_esquema(q.question, sorted(o.id for o in q.options)), "T": T,
+    h = (formato.hash_esquema2(q.question, q.kind, [(o.id, o.description) for o in q.options]) if version == formato.CONJ_VERSION2
+         else formato.hash_esquema(q.question, sorted(o.id for o in q.options)))
+    e = {"hash": h, "T": T,
          "beta": float(modelo.beta["choice"].detach()), "esc": [float(x) for x in cab.esc],
          "w": [float(x) for x in cab.w.numpy()], "clases": clases, "escala": escala, "proto": proto}
-    b = formato.conj([e])
+    b = formato.conj([e], version)
     return b, b_l0, {"l0tf": {"ngramas": len(vec.vocabulary_), "max_features": mf, "bytes": len(b_l0), "f16": l0tf_f16, "s": t_l0},
                      "normas_ranuras": {"clases": clases, "normas": normas, "n": n_soporte(sop, idx)},
                      "lambda": lam, "cv_nll": {str(k): v for k, v in tabla["lr"].items()}, "bytes": len(b), "clases": len(clases),

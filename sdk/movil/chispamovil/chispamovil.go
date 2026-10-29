@@ -247,6 +247,9 @@ func (c *Chispa) montar() error {
 			if c.conj, err = f.Conj(); err != nil {
 				return fmt.Errorf("sección CONJ: %w", err)
 			}
+			if c.conj.Version() != c.esq.Version() {
+				c.avisos = append(c.avisos, fmt.Sprintf("AVISO: ESQUEMAS v%d y CONJ v%d: sus claves no se mezclan y L2c no encontrará los esquemas de CONJ; reentrene con --conjunta", c.esq.Version(), c.conj.Version()))
+			}
 		}
 	}
 	return nil
