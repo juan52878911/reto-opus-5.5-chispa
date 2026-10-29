@@ -15,7 +15,7 @@ export interface Pregunta {
   kind: Kind;
   /** choice y score: al menos 2. noul: opcional. */
   options?: Opcion[];
-  /** Clave de idempotencia (≤ 256 bytes). Si falta, el cliente genera una. */
+  /** Clave de idempotencia (≤ 256 bytes). Si falta o es "", el cliente genera una. */
   nonce?: string;
 }
 
@@ -36,7 +36,7 @@ export type CodigoServidor =
   | "invalid_json" | "request_too_large" | "method_not_allowed" | "not_found" | "empty_questions"
   | "too_many_questions" | "state_too_long" | "missing_id" | "missing_question" | "missing_kind"
   | "invalid_kind" | "too_few_options" | "too_many_options" | "invalid_options" | "missing_option_id"
-  | "duplicate_question_id" | "duplicate_option_id" | "field_too_long";
+  | "duplicate_question_id" | "duplicate_option_id" | "field_too_long" | "timeout";
 
 /** Códigos propios del cliente: `network_error`, `timeout`, `bad_response`, y `http_<status>` si el error no es tipado. */
 export type CodigoCliente = "network_error" | "timeout" | "bad_response" | `http_${number}`;
@@ -72,9 +72,9 @@ export function bytes(s: string): number;
 export interface OpcionesCliente {
   /** Por defecto http://127.0.0.1:8090. */
   url?: string;
-  /** Por intento. Por defecto 10000. */
+  /** Por intento. Por defecto 35000: debe superar el `-timeout` del servidor (30 s), o se reintenta antes de que responda. */
   timeoutMs?: number;
-  /** Reintentos extra tras el primero, solo en red, timeout propio y 503 (no el `timeout` del servidor ni 504). Por defecto 2. */
+  /** Reintentos extra tras el primero, como el cliente Python: red, timeout propio, 200 ilegible y 429/500/502/503 (no el `timeout` del servidor ni 504). Por defecto 3. */
   reintentos?: number;
   /** Base de la espera exponencial entre reintentos. Por defecto 200. */
   esperaMs?: number;

@@ -122,10 +122,10 @@ test("503 sin recuperación: tras agotar los reintentos lanza el último error",
   assert.equal(vistas.length, 2);
 });
 
-test("500 no se reintenta", async () => {
+test("500 persistente: se reintenta (como Python) y al agotar lanza el último error", async () => {
   const { url, vistas } = await falso((req, c, res) => json(res, 500, { error: { code: "x", message: "y" } }));
   await assert.rejects(cliente(url).decidir("x", [ferreteria]), { status: 500 });
-  assert.equal(vistas.length, 1);
+  assert.equal(vistas.length, 4);
 });
 
 test("corte de red a mitad: se reintenta con el mismo nonce", async () => {
@@ -329,4 +329,56 @@ test("cuerpo mayor que maxCuerpo (1 MiB por defecto) falla en local con request_
   assert.equal(f.vistas.length, 0);
   const c2 = new ChispaCliente({ url: f.url, limites: { maxCuerpo: 100 } });
   await assert.rejects(c2.decidir("t", [{ id: "q", question: "x".repeat(200), kind: "noul" }]), (e) => e.codigo === "request_too_large");
+});
+
+test("R5-1: timeout por defecto (35 s) mayor que el -timeout del servidor (30 s)", () => {
+  assert.ok(new ChispaCliente().timeoutMs > 30000);
+  assert.equal(new ChispaCliente().reintentos, 3);
+});
+
+test("R5-3: 'timeout' es un CodigoServidor en index.d.ts", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const d = await readFile(new URL("../src/index.d.ts", import.meta.url), "utf8");
+  const bloque = d.slice(d.indexOf("type CodigoServidor"), d.indexOf("type CodigoCliente"));
+  assert.match(bloque, /"timeout"/);
+});
+
+test("R5-6: 429, 500 y 502 se reintentan como en Python; 400 no", async () => {
+  for (const st of [429, 500, 502]) {
+    const { url, vistas } = await falso((req, c, res, n) => (n === 1 ? json(res, st, { error: { code: "x", message: "y" } }) : eco({ a: 1 })(req, c, res)));
+    const { c } = conEsperas(url);
+    const [r] = await c.decidir("x", [ferreteria]);
+    assert.equal(r.answer, "a");
+    assert.equal(vistas.length, 2, `status ${st}`);
+  }
+  const { url, vistas } = await falso((req, c, res) => json(res, 400, { error: { code: "invalid_json", message: "y" } }));
+  await assert.rejects(conEsperas(url).c.decidir("x", [ferreteria]), { status: 400 });
+  assert.equal(vistas.length, 1);
+});
+
+test("R5-6: Retry-After en un 429 manda sobre el backoff", async () => {
+  const { url } = await falso((req, c, res, n) => {
+    if (n > 1) return eco({ a: 1 })(req, c, res);
+    res.writeHead(429, { "Content-Type": "application/json", "Retry-After": "2" });
+    res.end(JSON.stringify({ error: { code: "rate", message: "x" } }));
+  });
+  const { c, esperas } = conEsperas(url);
+  await c.decidir("x", [ferreteria]);
+  assert.deepEqual(esperas, [2000]);
+});
+
+test("R5-6: 200 con cuerpo no JSON se reintenta como en Python", async () => {
+  const { url, vistas } = await falso((req, c, res, n) => {
+    if (n === 1) { res.writeHead(200); return res.end("<html>"); }
+    eco({ a: 1 })(req, c, res);
+  });
+  await conEsperas(url).c.decidir("x", [ferreteria]);
+  assert.equal(vistas.length, 2);
+});
+
+test("R5-9: nonce vacío se trata como ausente (pregunta y opción)", async () => {
+  const { url, vistas } = await falso(eco({ a: 1 }));
+  await cliente(url).decidir("x", [{ ...ferreteria, nonce: "" }]);
+  await cliente(url).decidir("x", [ferreteria], { nonce: "" });
+  for (const v of vistas) assert.match(v.cuerpo.questions[0].nonce, /^[0-9a-f-]{36}$/);
 });

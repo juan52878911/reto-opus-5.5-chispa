@@ -6,6 +6,7 @@ import { LIMITES, validar, bytes } from "./limites.js";
 export { ErrorChispa, LIMITES, bytes };
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+const REINTENTABLES = new Set([429, 500, 502, 503]); // igual que `_REINTENTABLES` de cliente.py
 const TOPE_RETRY_AFTER_MS = 30000; // igual que el cliente Python
 
 /** `Retry-After` en segundos → ms con tope; una fecha HTTP u otra cosa cuenta como ausente (undefined). */
@@ -24,9 +25,9 @@ export class ChispaCliente {
   /**
    * @param {{url?: string, timeoutMs?: number, reintentos?: number, esperaMs?: number,
    *          limites?: Partial<typeof LIMITES>, fetch?: typeof fetch}} [opts]
-   * `reintentos`: reintentos extra tras el primer intento (por defecto 2), solo en red, timeout y 503.
+   * `reintentos`: reintentos extra tras el primer intento (por defecto 3), como el cliente Python. `timeoutMs` (35 s) debe superar el `-timeout` del servidor (30 s).
    */
-  constructor({ url = "http://127.0.0.1:8090", timeoutMs = 10000, reintentos = 2, esperaMs = 200, limites, fetch: f, dormir: d } = {}) {
+  constructor({ url = "http://127.0.0.1:8090", timeoutMs = 35000, reintentos = 3, esperaMs = 200, limites, fetch: f, dormir: d } = {}) {
     this._dormir = d ?? dormir;
     this.url = url.replace(/\/+$/, "");
     this.timeoutMs = timeoutMs;
@@ -50,8 +51,8 @@ export class ChispaCliente {
   async decidir(estado, preguntas, { nonce } = {}) {
     validar(estado, preguntas, this.limites);
     const qs = preguntas.map((q) => {
-      if (q.nonce !== undefined) return q;
-      const n = nonce === undefined ? globalThis.crypto.randomUUID() : preguntas.length === 1 ? nonce : `${nonce}:${q.id}`;
+      if (q.nonce !== undefined && q.nonce !== "") return q; // "" cuenta como ausente: el servidor no guardaría nada
+      const n = nonce === undefined || nonce === "" ? globalThis.crypto.randomUUID() : preguntas.length === 1 ? nonce : `${nonce}:${q.id}`;
       return { ...q, nonce: n };
     });
     validar(estado, qs, this.limites); // el nonce derivado también cuenta en bytes
@@ -127,7 +128,7 @@ export class ChispaCliente {
         mensaje: typeof e === "object" && e ? (e.message ?? "") : typeof e === "string" ? e : texto.slice(0, 200),
         idPregunta: typeof e === "object" ? e?.question_id : undefined,
         status: r.status,
-        retryAfterMs: r.status === 503 ? retryAfterMs(r.headers) : undefined,
+        retryAfterMs: REINTENTABLES.has(r.status) ? retryAfterMs(r.headers) : undefined,
       });
     } finally {
       clearTimeout(t);
@@ -136,10 +137,11 @@ export class ChispaCliente {
 }
 
 /**
- * Red, timeout propio (sin respuesta) y 503 ordinario (con o sin Retry-After). No se repite el `timeout` del servidor
- * (503 con código `timeout`) ni el 504: es sobrecarga y repetir gasta otra vez la cascada. Tampoco 4xx/413/405 ni un 200 ilegible.
+ * Misma política que `cliente.py`: red, timeout propio, cuerpo 200 ilegible y 429/500/502/503. No se repite el `timeout` del
+ * servidor (503 con código `timeout`) ni el 504: repetir gasta otra vez la cascada. Tampoco el resto de 4xx/5xx.
  */
 function reintentable(e) {
-  if (e.status === 504 || (e.status > 0 && e.codigo === "timeout")) return false;
-  return e.codigo === "network_error" || e.codigo === "timeout" || e.status === 503;
+  if (e.status === 504 || (e.status === 503 && e.codigo === "timeout")) return false;
+  if (e.status > 0 && e.status !== 200) return REINTENTABLES.has(e.status);
+  return e.codigo === "network_error" || e.codigo === "timeout" || e.codigo === "bad_response";
 }
