@@ -61,6 +61,8 @@ rs[0].answer, rs[0].probs, rs[0].layer, rs[0].escalate
 Los nombres de campo son los del contrato de [03-api.md](03-api.md). `/v1/systemone` de Jev no se ha visto
 ([`server/README.md`](../server/README.md#relación-con-v1systemone-de-jev--suposición-sin-verificar)).
 
+> **Modelos con `tipos_l2` y apps ya publicadas:** un `.chispa` con `tipos_l2` o `tau_escalate_l2` en `CALIB` **no carga** con un `chispamovil` (Android/iOS) o un servidor anterior al commit `2b7096a`: falla con `unknown field "tipos_l2"`. Actualiza la app (con el `chispamovil` nuevo) antes de distribuirle modelos entrenados con `--l2`/`--ckpt`. Ver [04](04-formato-chispa.md#espacio-de-nombres-de-l2-en-calib).
+
 ## Android
 Biblioteca `:chispa` y demo `:demo`. L0 y L1 vienen de `chispamovil` (gomobile). L2 usa `onnxruntime-android`.
 
