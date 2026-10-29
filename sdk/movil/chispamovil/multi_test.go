@@ -78,15 +78,15 @@ func TestMultiL1ParidadConServidor(t *testing.T) {
 	}
 }
 
-// Paridad en L2: la misma cabeza de multi (CALIB «multi» y «multi#id») sobre torres de ceros, que dan s = softplus(0) en todas.
+// Paridad en L2: la misma cabeza de multi (CALIB «multi_l2» y «multi_l2#id») sobre torres de ceros, que dan s = softplus(0) en todas.
 func TestMultiL2ParidadConServidor(t *testing.T) {
 	cal := chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{
-		"multi": {T: 1, A: 3, B: -2, Theta: 0.5}, "multi#b": {T: 1, A: 3, B: -2, Theta: 0.6},
+		"multi_l2": {T: 1, A: 3, B: -2, Theta: 0.5}, "multi_l2#b": {T: 1, A: 3, B: -2, Theta: 0.6},
 	}}
 	ops := []opcion{{ID: "a"}, {ID: "b"}, {ID: "c"}}
 	dops := []decide.Opcion{{ID: "a"}, {ID: "b"}, {ID: "c"}}
 	c := &Chispa{calib: cal}
-	r := c.multi(pregunta{Kind: "multi", Opciones: ops}, []float64{sCero, sCero, sCero})
+	r := c.multiL2(pregunta{Kind: "multi", Opciones: ops}, []float64{sCero, sCero, sCero})
 	esq, _ := chispa3.DecodificarEsquemas(mustEsq())
 	srv := decide.NuevoL2Con(sesFalsa{[][]float32{{0, 0, 0, 0}}}, esq, cal, tokFalso{}).ConTorres(torreCero{}, 64)
 	want, err := srv.Decidir(context.Background(), decide.Pregunta{ID: "q", Estado: "x", Texto: "Temas", Kind: decide.KindMulti, Opciones: dops})
@@ -104,6 +104,39 @@ func TestMultiL2ParidadConServidor(t *testing.T) {
 	// σ(3·ln2 − 2) = 0,52…: a y c pasan θ=0,5; b exige 0,6 y no pasa
 	if strings.Join(r.Answers, ",") != "a,c" {
 		t.Fatalf("activas %v", r.Answers)
+	}
+}
+
+// Paridad por capa: CALIB con «multi», «multi_l2» y «multi_l2#id» (más «noul» para el último respaldo); L1 y L2 usan cada una la suya.
+func TestMultiL2PrecedenciaParidadConServidor(t *testing.T) {
+	cal := chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{
+		"noul":  {T: 1, A: 5, B: -1, Theta: 0.4},
+		"multi": {T: 1, A: 3, B: -2, Theta: 0.5}, "multi#b": {T: 1, A: 3, B: -2, Theta: 0.6},
+		"multi_l2": {T: 1, A: 7, B: -3, Theta: 0.45}, "multi_l2#b": {T: 1, A: 2, B: 0.5, Theta: 0.7},
+	}}
+	ops := []opcion{{ID: "a"}, {ID: "b"}, {ID: "c"}}
+	dops := []decide.Opcion{{ID: "a"}, {ID: "b"}, {ID: "c"}}
+	esq, _ := chispa3.DecodificarEsquemas(mustEsq())
+	for nombre, cal := range map[string]chispa3.Calib{
+		"completa":            cal,
+		"sin multi_l2#id":     {Tipos: map[string]chispa3.ParamsTipo{"noul": cal.Tipos["noul"], "multi": cal.Tipos["multi"], "multi_l2": cal.Tipos["multi_l2"]}},
+		"sin multi_l2 (noul)": {Tipos: map[string]chispa3.ParamsTipo{"noul": cal.Tipos["noul"], "multi": cal.Tipos["multi"]}},
+	} {
+		c := &Chispa{calib: cal}
+		r := c.multiL2(pregunta{Kind: "multi", Opciones: ops}, []float64{sCero, sCero, sCero})
+		srv := decide.NuevoL2Con(sesFalsa{[][]float32{{0, 0, 0, 0}}}, esq, cal, tokFalso{}).ConTorres(torreCero{}, 64)
+		want, err := srv.Decidir(context.Background(), decide.Pregunta{ID: "q", Estado: "x", Texto: "Temas", Kind: decide.KindMulti, Opciones: dops})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want.Conf == 0 || strings.Join(r.Answers, ",") != strings.Join(want.Answers, ",") || math.Abs(r.Conf-want.Conf) > 1e-9 || len(r.Probs) != len(want.Probs) {
+			t.Fatalf("%s: móvil %+v, servidor %+v", nombre, r, want)
+		}
+		for id, v := range want.Probs {
+			if math.Abs(r.Probs[id]-v) > 1e-9 {
+				t.Fatalf("%s probs[%s]: móvil %v ≠ servidor %v", nombre, id, r.Probs[id], v)
+			}
+		}
 	}
 }
 

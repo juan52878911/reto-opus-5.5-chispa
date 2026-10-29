@@ -647,25 +647,23 @@ func (c *Chispa) paramsMulti(id string) chispa3.ParamsTipo {
 	return c.params("noul")
 }
 
-// paramsMultiL2 son (a, b, θ) de una opción de multi en L2: «multi_l2#<id>» y si no «multi_l2», ajustadas sobre MaxSim. Las
-// de «multi» salen de cosenos de L1 (otra escala) y no valen para MaxSim; sin cabeza propia L2 no opina en multi.
-func (c *Chispa) paramsMultiL2(id string) (chispa3.ParamsTipo, bool) {
+// paramsMultiL2 son (a, b, θ) de una opción de multi en L2: «multi_l2#<id>», si no «multi_l2» y si no la de «noul» (como
+// server/decide/multi.go). Las de «multi» salen de cosenos de L1 (otra escala) y no valen para MaxSim.
+func (c *Chispa) paramsMultiL2(id string) chispa3.ParamsTipo {
 	if p, ok := c.calib.Tipos["multi_l2#"+id]; ok {
-		return p, true
+		return p
 	}
-	p, ok := c.calib.Tipos["multi_l2"]
-	return p, ok
+	if p, ok := c.calib.Tipos["multi_l2"]; ok {
+		return p
+	}
+	return c.params("noul")
 }
 
-// multiL2 es multi sobre el MaxSim de L2 con las cabezas por capa; sin cabeza para alguna opción, no opina.
+// multiL2 es multi sobre el MaxSim de L2 con las cabezas por capa.
 func (c *Chispa) multiL2(p pregunta, s []float64) respuesta {
 	prms := make([]chispa3.ParamsTipo, len(p.Opciones))
 	for i, o := range p.Opciones {
-		prm, ok := c.paramsMultiL2(o.ID)
-		if !ok {
-			return respuesta{Ok: true, Probs: map[string]float64{}}
-		}
-		prms[i] = prm
+		prms[i] = c.paramsMultiL2(o.ID)
 	}
 	return multiDe(p, s, prms)
 }
