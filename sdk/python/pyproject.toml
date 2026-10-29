@@ -8,8 +8,7 @@ version = "0.1.0"
 description = "SDK de Chispa: cliente de /v1/decide y «chispa train» (zero-shot, few-shot y con datos del cliente) en CPU"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "Propietaria (SDK). Todos los derechos reservados"}
-authors = [{name = "SDK"}]
+license = {text = "Propietaria. Todos los derechos reservados (titular por definir)"}
 keywords = ["clasificador", "zero-shot", "few-shot", "chispa", "nlp"]
 classifiers = [
     "License :: Other/Proprietary License",
