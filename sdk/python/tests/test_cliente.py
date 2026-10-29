@@ -10,7 +10,7 @@ class Falso:
     """Servidor falso con el JSON del contrato (server/README.md); `fallos` = códigos a devolver antes de responder."""
 
     def __init__(self, fallos=()):
-        self.fallos, self.peticiones = list(fallos), []
+        self.fallos, self.peticiones, self.retry_after = list(fallos), [], None
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -20,6 +20,8 @@ class Falso:
             def _json(self, code, obj):
                 b = json.dumps(obj).encode()
                 self.send_response(code)
+                if code == 503 and outer.retry_after is not None:
+                    self.send_header("Retry-After", outer.retry_after)
                 self.send_header("Content-Length", str(len(b)))
                 self.end_headers()
                 self.wfile.write(b)
@@ -78,12 +80,27 @@ class TestCliente(unittest.TestCase):
         self.assertEqual(rs[1].nivel, 1)
 
     def test_nonce_automatico_estable_entre_reintentos(self):
-        self.f.fallos[:] = [503, 502]
+        self.f.fallos[:] = [500, 502]
         self.c.decidir("x", [Noul("n", "¿?")])
         nonces = {p["questions"][0]["nonce"] for p in self.f.peticiones}
         self.assertEqual(len(self.f.peticiones), 3)
         self.assertEqual(len(nonces), 1)
         self.assertEqual(len(next(iter(nonces))), 32)
+
+    def test_503_sin_retry_after_no_se_reintenta(self):
+        self.f.fallos[:] = [503, 503]
+        with self.assertRaises(ErrorSolicitud) as cm:
+            self.c.decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(cm.exception.status, 503)
+        self.assertEqual(len(self.f.peticiones), 1)
+
+    def test_503_con_retry_after_se_reintenta_y_lo_respeta(self):
+        self.f.fallos[:] = [503]
+        self.f.retry_after = "2"
+        esperas = []
+        Chispa(self.f.url, espera=0.1, dormir=esperas.append).decidir("x", [Noul("n", "¿?")])
+        self.assertEqual(len(self.f.peticiones), 2)
+        self.assertEqual(esperas, [2.0])
 
     def test_sin_nonce_automatico(self):
         Chispa(self.f.url, nonce_auto=False).decidir("x", [Noul("n", "¿?")])

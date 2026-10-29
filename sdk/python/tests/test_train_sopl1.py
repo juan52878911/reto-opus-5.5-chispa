@@ -55,6 +55,8 @@ class TestSOPL1EnTrain(unittest.TestCase):
         base = self.correr("a.chispa")
         inf = self.correr("b.chispa", shrinkage_lambda=2.0, log=logs.append)
         self.assertEqual(inf["secciones"][-1], "SOPL1")
+        self.assertTrue(inf["soporte"]["tau_sin_encogimiento"])
+        self.assertTrue(any("sin el encogimiento" in a for a in inf["avisos"]))
         self.assertEqual(inf["soporte"]["k"], {"alta": 4, "baja": 2})  # «vacio» no lo ve L1: no cuenta
         self.assertTrue(any("l1_shrinkage_lambda" in m for m in logs), logs)
         a, b = formato.leer((self.d / "a.chispa").read_bytes()), formato.leer((self.d / "b.chispa").read_bytes())

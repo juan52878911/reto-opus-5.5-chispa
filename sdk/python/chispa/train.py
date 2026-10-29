@@ -199,7 +199,10 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
     inf["bytes"] = salida.stat().st_size
     if "SOPL1" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("SOPL1")
-    inf["soporte"] = {"lambda_sugerida": lambda_, "k": ks, "dim": dim, "bytes": len(b)}
+    inf["soporte"] = {"lambda_sugerida": lambda_, "k": ks, "dim": dim, "bytes": len(b), "tau_sin_encogimiento": True}
+    inf.setdefault("avisos", []).append("τ de L1/L2c calibrado sin el encogimiento de SOPL1: con l1_shrinkage_lambda/l2_shrinkage_lambda > 0 "
+                                        "la cobertura y precisión prometidas no valen; recalibra con el encogimiento activo")
+    log("AVISO: " + inf["avisos"][-1])
     log(f"SOPL1: k por opción {ks}, dim {dim}, {len(b)} bytes; el runtime la usa con l1_shrinkage_lambda (y l2_shrinkage_lambda) = {lambda_:g}")
 
 
