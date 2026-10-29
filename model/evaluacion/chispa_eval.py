@@ -165,7 +165,7 @@ def tabla(res):
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="chispa eval", description=__doc__.split("\n")[0])
     ap.add_argument("--datos", help="filas JSONL (esquema.md)")
-    ap.add_argument("--jevbench", help="ruta de un volcado de JevBench (en lugar de --datos)")
+    ap.add_argument("--jevbench", help="clon de JevBench, su datasets/public o un .jsonl suelto (en lugar de --datos)")
     ap.add_argument("--pred", help="predicciones JSONL")
     ap.add_argument("--pred-b", help="segundas predicciones, para la deriva")
     ap.add_argument("--arena", help="ledger.jsonl de la Arena: calcula el ASR por detector")
