@@ -107,7 +107,8 @@ func (c *cubo) toma(ahora time.Time) (bool, int) {
 	return false, espera
 }
 
-// cobra descuenta n tokens sin comprobar: el cubo puede quedar en deuda, y mientras lo esté toma() rechaza.
+// cobra descuenta n tokens sin comprobar, sin bajar de 0: un lote válido (hasta max_preguntas) no deja deuda que bloquee a la clave
+// durante minutos; a lo sumo vacía el cubo y la siguiente petición espera lo que tarde en llegar un token.
 func (c *cubo) cobra(n int, ahora time.Time) {
 	if n <= 0 {
 		return
@@ -118,7 +119,7 @@ func (c *cubo) cobra(n int, ahora time.Time) {
 		c.tokens = math.Min(c.cap, c.tokens+d*c.rps)
 		c.ultimo = ahora
 	}
-	c.tokens -= float64(n)
+	c.tokens = math.Max(0, c.tokens-float64(n))
 }
 
 // cobroClave es lo que conAuth deja en el ctx para cobrar el coste (preguntas) de la petición a la clave que la hizo.

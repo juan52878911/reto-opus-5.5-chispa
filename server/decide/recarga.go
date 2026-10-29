@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -142,7 +143,7 @@ func (s *Servidor) ConRecargaDe(arm Armador, a *Armado) *Servidor {
 		s.adminToken = a.AdminToken
 	} else {
 		// http.go solo conoce un token en claro para abrir la ruta y para /metrics protegidas: se le da uno aleatorio que nadie
-		// conoce. Con hash, /metrics protegidas se abre solo con una api_key.
+		// conoce. /metrics protegidas se abre con esa credencial vigente o con una api_key.
 		var b [32]byte
 		rand.Read(b[:])
 		s.adminToken = hex.EncodeToString(b[:])
@@ -175,20 +176,29 @@ func (a *Armado) credencialAdmin() *credAdmin {
 	return nil
 }
 
-// Intentos de admin: cubo propio (ráfaga adminRafaga, adminRPS por segundo). Cada intento gasta una ficha y un acierto la devuelve;
-// con el cubo vacío se responde 429 sin mirar el token, así que la fuerza bruta no pasa de ~adminRPS intentos/s.
+// Intentos de admin: un cubo por IP de origen (ráfaga adminRafaga, adminRPS por segundo). Con el cubo de la IP vacío se responde 429
+// sin mirar el token (la fuerza bruta desde una IP no pasa de ~adminRPS intentos/s); un acierto devuelve su ficha. Como el cubo es por
+// IP, un atacante no deja fuera al operador que llega de otra. Recomendado: -admin-addr en un puerto privado.
 const (
-	adminRafaga = 10
-	adminRPS    = 1.0
+	adminRafaga   = 10
+	adminRPS      = 1.0
+	adminMaxCubos = 4096 // IPs distintas recordadas; al llenarse se purgan las rellenas y, si no basta, comparten el cubo «desborde»
 )
 
-// adminEstado es el estado de la ruta de admin de un Servidor (por *Metricas): credencial vigente, cubo y contador de rechazos.
+// adminCubo es un token bucket de intentos.
+type adminCubo struct {
+	mu     sync.Mutex
+	fichas float64
+	ultimo time.Time
+}
+
+// adminEstado es el estado de la ruta de admin de un Servidor (por *Metricas): credencial vigente, cubos por IP y contador de rechazos.
 type adminEstado struct {
 	rechazos atomic.Uint64
 	cred     atomic.Pointer[credAdmin]
 	mu       sync.Mutex
-	fichas   float64
-	ultimo   time.Time
+	ips      map[string]*adminCubo
+	desborde adminCubo
 }
 
 var adminEstados sync.Map // *Metricas -> *adminEstado
@@ -197,33 +207,65 @@ func (m *Metricas) adminEst() *adminEstado {
 	if v, ok := adminEstados.Load(m); ok {
 		return v.(*adminEstado)
 	}
-	v, _ := adminEstados.LoadOrStore(m, &adminEstado{fichas: adminRafaga})
+	v, _ := adminEstados.LoadOrStore(m, &adminEstado{desborde: adminCubo{fichas: adminRafaga}})
 	return v.(*adminEstado)
 }
 
-func (e *adminEstado) toma(ahora time.Time) bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if !e.ultimo.IsZero() {
-		e.fichas += ahora.Sub(e.ultimo).Seconds() * adminRPS
-		if e.fichas > adminRafaga {
-			e.fichas = adminRafaga
+func (c *adminCubo) toma(ahora time.Time) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.ultimo.IsZero() {
+		c.fichas += ahora.Sub(c.ultimo).Seconds() * adminRPS
+		if c.fichas > adminRafaga {
+			c.fichas = adminRafaga
 		}
 	}
-	e.ultimo = ahora
-	if e.fichas < 1 {
+	c.ultimo = ahora
+	if c.fichas < 1 {
 		return false
 	}
-	e.fichas--
+	c.fichas--
 	return true
 }
 
-func (e *adminEstado) devuelve() {
-	e.mu.Lock()
-	if e.fichas < adminRafaga {
-		e.fichas++
+func (c *adminCubo) devuelve() {
+	c.mu.Lock()
+	if c.fichas < adminRafaga {
+		c.fichas++
 	}
-	e.mu.Unlock()
+	c.mu.Unlock()
+}
+
+// cubo devuelve el cubo de la IP de origen de r (el de desborde si la tabla está llena de IPs con ficha pendiente de rellenar).
+func (e *adminEstado) cubo(r *http.Request, ahora time.Time) *adminCubo {
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ip = r.RemoteAddr
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if c, ok := e.ips[ip]; ok {
+		return c
+	}
+	if e.ips == nil {
+		e.ips = map[string]*adminCubo{}
+	}
+	if len(e.ips) >= adminMaxCubos {
+		for k, c := range e.ips { // un cubo que ya estaría lleno no guarda nada: se olvida
+			c.mu.Lock()
+			lleno := c.fichas+ahora.Sub(c.ultimo).Seconds()*adminRPS >= adminRafaga
+			c.mu.Unlock()
+			if lleno {
+				delete(e.ips, k)
+			}
+		}
+		if len(e.ips) >= adminMaxCubos {
+			return &e.desborde
+		}
+	}
+	c := &adminCubo{fichas: adminRafaga}
+	e.ips[ip] = c
+	return c
 }
 
 // AdminRechazos son los intentos fallidos o limitados contra /v1/admin/recargar (chispa_admin_rechazos_total).
@@ -314,7 +356,8 @@ func (s *Servidor) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	est := s.Met.adminEst()
-	if !est.toma(time.Now()) {
+	cubo := est.cubo(r, time.Now())
+	if !cubo.toma(time.Now()) {
 		est.rechazos.Add(1)
 		w.Header().Set("Retry-After", "1")
 		s.fallo(w, http.StatusTooManyRequests, ErrLimitada, "", "demasiados intentos contra la ruta de administración")
@@ -332,7 +375,7 @@ func (s *Servidor) admin(w http.ResponseWriter, r *http.Request) {
 		s.fallo(w, http.StatusUnauthorized, ErrNoAutorizado, "", "token de administración ausente o incorrecto")
 		return
 	}
-	est.devuelve()
+	cubo.devuelve()
 	if err := s.Recargar(); err != nil {
 		s.fallo(w, http.StatusInternalServerError, ErrRecargaFallida, "", "recarga fallida, sigue el modelo anterior: %v", err)
 		return

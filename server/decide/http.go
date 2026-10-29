@@ -94,7 +94,7 @@ type Servidor struct {
 // plazoCuerpoDefecto es lo que tiene un cliente para mandar el cuerpo entero de /v1/decide.
 const plazoCuerpoDefecto = 10 * time.Second
 
-// ConMaxEnCurso limita las peticiones a /v1/decide en curso a la vez (n ≤ 0 = sin tope). Al llenarse responde 429 rate_limited
+// ConMaxEnCurso limita las peticiones a /v1/decide en curso a la vez (n ≤ 0 = sin tope). Se toma tras leer el cuerpo; al llenarse responde 429 rate_limited
 // con Retry-After. Acota la memoria de las decodificaciones simultáneas. Se llama antes de servir.
 func (s *Servidor) ConMaxEnCurso(n int) *Servidor {
 	if n > 0 {
@@ -127,15 +127,25 @@ func (s *Servidor) metricasAutorizado(r *http.Request) bool {
 	if !ok {
 		return false
 	}
-	if s.adminToken != "" {
-		a, b := sha256.Sum256([]byte(got)), sha256.Sum256([]byte(s.adminToken))
-		if subtle.ConstantTimeCompare(a[:], b[:]) == 1 {
+	// Contra el hash vigente (el que rota Recargar), no contra el token del arranque; los fallos pasan por el cubo de admin.
+	est := s.Met.adminEst()
+	cubo := est.cubo(r, time.Now())
+	if !cubo.toma(time.Now()) {
+		est.rechazos.Add(1)
+		return false
+	}
+	if c := est.cred.Load(); c != nil && s.adminToken != "" {
+		g := sha256.Sum256([]byte(got))
+		if subtle.ConstantTimeCompare(g[:], c.h[:]) == 1 {
+			cubo.devuelve()
 			return true
 		}
 	}
 	if a := s.cur.Load().auth; a != nil && a.busca(got) != nil {
+		cubo.devuelve()
 		return true
 	}
+	est.rechazos.Add(1)
 	return false
 }
 
@@ -241,16 +251,6 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		s.fallo(w, http.StatusMethodNotAllowed, ErrMetodo, "", "método %s no permitido: usa POST", r.Method)
 		return
 	}
-	if s.enCurso != nil {
-		select {
-		case s.enCurso <- struct{}{}:
-			defer func() { <-s.enCurso }()
-		default:
-			w.Header().Set("Retry-After", "1")
-			s.fallo(w, http.StatusTooManyRequests, ErrLimitada, "", "servidor saturado: demasiadas peticiones en curso")
-			return
-		}
-	}
 	// El cuerpo se lee (con plazo) antes de tomar el modelo: un cliente lento no retiene el modelo retirado.
 	lim := s.cur.Load().lim
 	body, err := s.leeCuerpo(w, r, lim.MaxCuerpo)
@@ -262,6 +262,17 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 			s.fallo(w, http.StatusBadRequest, ErrJSONInvalido, "", "no se pudo leer el cuerpo: %v", err)
 		}
 		return
+	}
+	// El hueco se toma con el cuerpo ya leído: un cliente lento no retiene huecos de -max-en-curso.
+	if s.enCurso != nil {
+		select {
+		case s.enCurso <- struct{}{}:
+			defer func() { <-s.enCurso }()
+		default:
+			w.Header().Set("Retry-After", "1")
+			s.fallo(w, http.StatusTooManyRequests, ErrLimitada, "", "servidor saturado: demasiadas peticiones en curso")
+			return
+		}
 	}
 	v := s.adquirir()
 	defer v.soltar()
@@ -578,7 +589,7 @@ func ConTimeoutMet(h http.Handler, d time.Duration, met *Metricas) http.Handler 
 	th := http.TimeoutHandler(h, d, cuerpo)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// TimeoutHandler esconde la conexión: el original va en el ctx para poder fijar el plazo de lectura del cuerpo.
-		th.ServeHTTP(&escrituraTimeout{ResponseWriter: w, met: met}, r.WithContext(context.WithValue(r.Context(), ctxRW{}, w)))
+		th.ServeHTTP(&escrituraTimeout{ResponseWriter: w, met: met, ctx: r.Context()}, r.WithContext(context.WithValue(r.Context(), ctxRW{}, w)))
 	})
 }
 
@@ -586,13 +597,15 @@ func ConTimeoutMet(h http.Handler, d time.Duration, met *Metricas) http.Handler 
 type escrituraTimeout struct {
 	http.ResponseWriter
 	met *Metricas
+	ctx context.Context // el de la petición original: cancelado = el cliente se fue
 }
 
 func (e *escrituraTimeout) WriteHeader(status int) {
 	if status == http.StatusServiceUnavailable {
 		e.Header().Set("Content-Type", "application/json")
 		e.Header().Set("Retry-After", strconv.Itoa(RetryAfterTimeout))
-		if e.met != nil {
+		// Si el cliente se desconectó, TimeoutHandler escribe igualmente su 503 (que nadie lee): ya se contó como 400 en leeCuerpo.
+		if e.met != nil && !errors.Is(e.ctx.Err(), context.Canceled) {
 			e.met.Peticion(status)
 		}
 	}

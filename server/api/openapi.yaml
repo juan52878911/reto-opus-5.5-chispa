@@ -88,7 +88,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "429":
-          description: Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar. El cubo cobra 1 token por peticion mas 1 por cada pregunta adicional (puede quedar en deuda). Tambien sale como 429 con Retry-After cuando el servidor esta saturado (tope de peticiones en curso)
+          description: Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar. Semantica de rps: el cubo cobra 1 token por peticion mas 1 por cada pregunta adicional, sin bajar de 0 (un lote valido vacia el cubo pero no deja deuda: tras esperar lo que tarde en llegar un token la clave vuelve a pasar). Con rps pequeno y lotes grandes, la tasa efectiva de preguntas es de unas rps por segundo mas la rafaga. Tambien sale como 429 con Retry-After cuando el servidor esta saturado (tope de peticiones en curso, que se toma tras leer el cuerpo)
           headers:
             Retry-After:
               description: Segundos a esperar antes de reintentar
@@ -99,7 +99,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: La peticion supero -timeout (codigo de error timeout). Esperar Retry-After antes de reintentar
+          description: La peticion supero -timeout (codigo timeout). Esperar Retry-After antes de reintentar
           headers:
             Retry-After:
               description: Segundos a esperar antes de reintentar

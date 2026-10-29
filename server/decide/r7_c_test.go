@@ -73,7 +73,7 @@ func TestR7AdminAciertosNoGastanCubo(t *testing.T) {
 }
 
 func TestR7AdminCuboSeRellena(t *testing.T) {
-	e := &adminEstado{fichas: adminRafaga}
+	e := &adminCubo{fichas: adminRafaga}
 	t0 := time.Unix(1000, 0)
 	for i := 0; i < adminRafaga; i++ {
 		if !e.toma(t0) {
