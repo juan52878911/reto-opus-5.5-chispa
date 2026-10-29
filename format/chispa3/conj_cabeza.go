@@ -9,6 +9,28 @@ import (
 // Cabeza de CONJ (la «L2 conjunta»): el cálculo que comparten el servidor (server/decide) y el núcleo móvil
 // (sdk/movil/chispamovil). Las similitudes de L2 las pone quien llama (ORT o el ONNX del servidor).
 
+// Softplus es log(1+eˣ), estable para x grande.
+func Softplus(x float64) float64 {
+	if x > 30 {
+		return x
+	}
+	return math.Log1p(math.Exp(x))
+}
+
+// MaxSim de una torre vec (int8, por su escala) contra las ranuras S: max_k softplus(h·s_k). Es la similitud de
+// L2 (server/decide/l2.go y el SDK móvil).
+func MaxSim(S [][]float32, vec []byte, escala float32) float64 {
+	best := math.Inf(-1)
+	for _, s := range S {
+		var d float64
+		for j, q := range vec {
+			d += float64(int8(q)) * float64(s[j])
+		}
+		best = math.Max(best, Softplus(d*float64(escala)))
+	}
+	return best
+}
+
 // epsConj es el recorte de log(p) de la cabeza (EPS de model/l2/conjunta.py).
 const epsConj = 1e-6
 

@@ -11,6 +11,8 @@
 package chispamovil
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +25,7 @@ import (
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
+	"chispa/runtime/tok"
 
 	"github.com/juan52878911/kindling/pkg/chispa"
 )
@@ -64,6 +67,8 @@ type Chispa struct {
 	esq     *chispa3.Esquemas
 	calib   chispa3.Calib
 	tieneL2 bool
+	conj    *chispa3.Conj    // sección CONJ (la cabeza conjunta), o nil
+	tok     *tok.Tokenizador // tokenizador de e5, o nil
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -71,7 +76,8 @@ type Chispa struct {
 
 type modeloL0 struct {
 	firma string
-	m     *chispa.Model
+	m     *chispa.Model       // el Chispa de kindling, o
+	tf    *chispa3.L0TFModelo // el TF-IDF de la sección L0TF (manda si el fichero la trae, como en el servidor)
 }
 
 // Abrir abre un .chispa v3 (comprobando CRC y sha256 de cada sección que use) y monta las capas que tenga.
@@ -96,12 +102,18 @@ func (c *Chispa) montar() error {
 			return fmt.Errorf("sección CALIB: %w", err)
 		}
 	}
-	if f.Tiene(chispa3.L0) {
+	if f.Tiene(chispa3.L0TF) {
+		m, err := f.L0TF()
+		if err != nil {
+			return fmt.Errorf("sección L0TF: %w", err)
+		}
+		c.l0 = append(c.l0, modeloL0{firma: firma(m.Etiquetas), tf: m})
+	} else if f.Tiene(chispa3.L0) {
 		m, err := f.L0Modelo()
 		if err != nil {
 			return fmt.Errorf("sección L0: %w", err)
 		}
-		c.l0 = append(c.l0, modeloL0{firma(m.Labels), m})
+		c.l0 = append(c.l0, modeloL0{firma: firma(m.Labels), m: m})
 	}
 	if f.Tiene(chispa3.L1) {
 		b, err := f.L1()
@@ -120,6 +132,11 @@ func (c *Chispa) montar() error {
 			return fmt.Errorf("sección ESQUEMAS: %w", err)
 		}
 		c.esq, c.tieneL2 = esq, true
+		if f.Tiene(chispa3.CONJ) {
+			if c.conj, err = f.Conj(); err != nil {
+				return fmt.Errorf("sección CONJ: %w", err)
+			}
+		}
 	}
 	return nil
 }
@@ -324,6 +341,9 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 		if x.firma != f {
 			continue
 		}
+		if x.tf != nil {
+			return salida(respuestaTF(x.tf, texto))
+		}
 		pred := x.m.PredictFull(chispa.Input{Text: texto}, 0)
 		probs := make(map[string]float64, len(pred.Probs))
 		for _, cp := range pred.Probs {
@@ -332,6 +352,50 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 		return salida(respuesta{Ok: true, Opina: pred.Prob > 0, Answer: pred.Label, Conf: pred.Prob, Probs: probs})
 	}
 	return salida(respuesta{Ok: true, Probs: map[string]float64{}})
+}
+
+// respuestaTF: las probabilidades del TF-IDF con regresión logística; la respuesta es el primer máximo, como en
+// server/decide/l0.go.
+func respuestaTF(m *chispa3.L0TFModelo, texto string) respuesta {
+	pr := m.Probs(texto)
+	probs := make(map[string]float64, len(pr))
+	top := 0
+	for i, x := range pr {
+		probs[m.Etiquetas[i]] = x
+		if x > pr[top] {
+			top = i
+		}
+	}
+	return respuesta{Ok: true, Opina: pr[top] > 0, Answer: m.Etiquetas[top], Conf: pr[top], Probs: probs}
+}
+
+// ---- Tokenizador de e5 ----
+
+// CargarTokenizadorE5 abre un .chispa-tok de e5 (runtime/tok/exportar.py), el mismo que usa el servidor.
+func (c *Chispa) CargarTokenizadorE5(ruta string) error {
+	t, err := tok.Abrir(ruta)
+	if err != nil {
+		return err
+	}
+	c.tok = t
+	return nil
+}
+
+// TieneTokenizadorE5 dice si ya se cargó el tokenizador.
+func (c *Chispa) TieneTokenizadorE5() bool { return c.tok != nil }
+
+// TokenizarE5 devuelve los ids de «query: »+texto con <s> y </s> (como runtime/tok, truncado a 128) en int32 little
+// endian, 4 bytes por id: gomobile no puede devolver []int32. Sin tokenizador devuelve nil.
+func (c *Chispa) TokenizarE5(texto string) []byte {
+	if c.tok == nil {
+		return nil
+	}
+	ids := c.tok.Tokenizar(texto)
+	b := make([]byte, 4*len(ids))
+	for i, id := range ids {
+		binary.LittleEndian.PutUint32(b[4*i:], uint32(id))
+	}
+	return b
 }
 
 // ---- L2 ----
@@ -383,11 +447,28 @@ func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
 	return ts, nil
 }
 
-func softplus(x float64) float64 {
-	if x > 30 {
-		return x
+// ranurasDe lee las ranuras K×d float32 little endian que salen del ONNX.
+func ranurasDe(b []byte, k, d int) ([][]float32, error) {
+	if k <= 0 || len(b) != 4*k*d {
+		return nil, fmt.Errorf("L2: %d bytes de ranuras no son %d×%d float32", len(b), k, d)
 	}
-	return math.Log1p(math.Exp(x))
+	S := make([][]float32, k)
+	for r := range S {
+		S[r] = make([]float32, d)
+		for j := range S[r] {
+			S[r][j] = math.Float32frombits(binary.LittleEndian.Uint32(b[4*(r*d+j):]))
+		}
+	}
+	return S, nil
+}
+
+// simsL2 es el MaxSim de las ranuras contra cada torre (chispa3.MaxSim, igual que el servidor).
+func simsL2(ts []torreL2, S [][]float32) []float64 {
+	sims := make([]float64, len(ts))
+	for i, t := range ts {
+		sims[i] = chispa3.MaxSim(S, t.v, t.e)
+	}
+	return sims
 }
 
 // PuntuarL2 hace la parte de L2 que no es ONNX: ranuras son las K×d salidas S del modelo como float32 little endian
@@ -405,26 +486,11 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	if err != nil {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
 	}
-	d := len(ts[0].v)
-	if k <= 0 || len(ranuras) != 4*k*d {
-		return fallo(fmt.Errorf("L2: %d bytes de ranuras no son %d×%d float32", len(ranuras), k, d))
+	S, err := ranurasDe(ranuras, k, len(ts[0].v))
+	if err != nil {
+		return fallo(err)
 	}
-	S := make([]float32, k*d)
-	for i := range S {
-		S[i] = math.Float32frombits(uint32(ranuras[4*i]) | uint32(ranuras[4*i+1])<<8 | uint32(ranuras[4*i+2])<<16 | uint32(ranuras[4*i+3])<<24)
-	}
-	sims := make([]float64, len(ts))
-	for i, t := range ts {
-		best := math.Inf(-1)
-		for r := 0; r < k; r++ {
-			var dot float64
-			for j, q := range t.v {
-				dot += float64(int8(q)) * float64(S[r*d+j])
-			}
-			best = math.Max(best, softplus(dot*float64(t.e)))
-		}
-		sims[i] = best
-	}
+	sims := simsL2(ts, S)
 	switch p.Kind {
 	case "choice":
 		return salida(softmax(p, sims, c.params("choice").T))
@@ -488,4 +554,67 @@ func (c *Chispa) Huella(frasesJSON string) string {
 		return ""
 	}
 	return huella(c.e, fr)
+}
+
+// ---- CONJ (L2c) ----
+
+type entradaConj struct {
+	pregunta
+	L0      map[string]float64 `json:"l0"`      // probabilidades de L0 por id de opción
+	Ranuras string             `json:"ranuras"` // base64 de las K×d salidas S del ONNX (float32 little endian)
+	K       int                `json:"k"`
+}
+
+// CabezaConjunta es L2c: la cabeza lineal de la sección CONJ sobre las probabilidades de L0 y las similitudes de L2
+// con soporte (server/decide/l2c.go, con el mismo código de chispa3). simsJSON lleva la pregunta (question, kind,
+// options), «l0» (probabilidades de DecidirL0 por id), «ranuras» (base64 de las K×d salidas S del ONNX, float32
+// little endian, lo que recibe PuntuarL2) y «k». Las similitudes MaxSim se calculan aquí contra ESQUEMAS.
+// Si el fichero no trae CONJ, no hay cabeza para la pregunta, no es choice o falta L0, devuelve ok sin opinar: la
+// cascada cae entonces a PuntuarL2.
+func (c *Chispa) CabezaConjunta(simsJSON string) string {
+	var in entradaConj
+	if err := json.Unmarshal([]byte(simsJSON), &in); err != nil {
+		return fallo(err)
+	}
+	p, err := leerPregunta(simsJSON)
+	if err != nil {
+		return fallo(err)
+	}
+	sinOpinar := salida(respuesta{Ok: true, Probs: map[string]float64{}})
+	if c.conj == nil || !c.tieneL2 || p.Kind != "choice" || len(in.L0) == 0 {
+		return sinOpinar
+	}
+	ids := make([]string, len(p.Opciones))
+	for i, o := range p.Opciones {
+		ids[i] = o.ID
+	}
+	e, ok := c.conj.Buscar(chispa3.ClaveConj(p.Texto, ids))
+	if !ok {
+		return sinOpinar
+	}
+	ts, err := c.torresL2(p)
+	if err != nil {
+		return sinOpinar
+	}
+	raw, err := base64.StdEncoding.DecodeString(in.Ranuras)
+	if err != nil {
+		return fallo(fmt.Errorf("ranuras: %w", err))
+	}
+	S, err := ranurasDe(raw, in.K, len(ts[0].v))
+	if err != nil {
+		return fallo(err)
+	}
+	if len(S[0]) != e.D {
+		return sinOpinar
+	}
+	pr := e.ProbsCabeza(ids, S, simsL2(ts, S), in.L0)
+	r := respuesta{Ok: true, Probs: make(map[string]float64, len(pr))}
+	for i, id := range ids {
+		r.Probs[id] = pr[i]
+		if pr[i] > r.Conf {
+			r.Conf, r.Answer = pr[i], id
+		}
+	}
+	r.Opina = r.Conf > 0
+	return salida(r)
 }

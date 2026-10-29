@@ -40,25 +40,10 @@ func NuevoL2Con(ses SesionS, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tok
 
 func (l *L2) Nombre() string { return "L2" }
 
-func softplus(x float64) float64 {
-	if x > 30 {
-		return x
-	}
-	return math.Log1p(math.Exp(x))
-}
+func softplus(x float64) float64 { return chispa3.Softplus(x) }
 
 // maxsim de una torre h (int8 · escala) contra las ranuras S.
-func maxsim(S [][]float32, vec []byte, escala float32) float64 {
-	best := math.Inf(-1)
-	for _, s := range S {
-		var d float64
-		for j, q := range vec {
-			d += float64(int8(q)) * float64(s[j])
-		}
-		best = math.Max(best, softplus(d*float64(escala)))
-	}
-	return best
-}
+func maxsim(S [][]float32, vec []byte, escala float32) float64 { return chispa3.MaxSim(S, vec, escala) }
 
 // Similitudes de L2 para una pregunta: las ranuras S del mensaje y el MaxSim contra la torre de cada
 // opción (choice) o contra la única torre (noul y score, un solo valor). Es la parte que necesita el
