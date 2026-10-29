@@ -23,7 +23,7 @@ type L1 struct {
 	calib  chispa3.Calib
 	cache  *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
 	sopl   *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
-	lambda *float64                   // λ del encogimiento; nil = ∞ (sin mezcla, el comportamiento de antes)
+	lambda *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
 	Hits   atomic.Uint64
 	Misses atomic.Uint64
 }
@@ -34,7 +34,7 @@ func NuevoL1Modelo(m *l1.Modelo, calib chispa3.Calib, cacheEsquemas int) *L1 {
 }
 
 // ConSoporte activa el prototipo encogido: con una pregunta presente en sopl (SOPL1), el prototipo de cada opción es
-// normaliza((1−w)·p_desc + w·media(ejemplos)), w = k/(k+λ). lambda nil o +Inf deja L1 como estaba. Debe llamarse antes
+// normaliza((1−w)·p_desc + w·media(ejemplos)), w = k/(k+λ). lambda nil (apagado) deja L1 como estaba; λ = 0 usa solo los ejemplos y λ = +Inf solo la descripción. Debe llamarse antes
 // de usar L1 (no es seguro con peticiones en curso). Un soporte de otra dimensión que el modelo se ignora.
 func (l *L1) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L1 {
 	if sopl != nil && sopl.Dim() != l.m.Dim() {

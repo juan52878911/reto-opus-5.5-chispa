@@ -63,7 +63,9 @@ final class TauEsquemaNuevoTests: XCTestCase {
         XCTAssertNil(Chispa.soporteDe(nil, nil))
         XCTAssertEqual(Chispa.soporteDe(3, 5)?.0, 3)
         XCTAssertEqual(Chispa.soporteDe(3, 5)?.1, 5)
-        XCTAssertEqual(Chispa.soporteDe(3, nil)?.1, .infinity)
-        XCTAssertEqual(Chispa.soporteDe(nil, 0)?.0, .infinity)
+        XCTAssertEqual(Chispa.soporteDe(3, nil)?.1, Chispa.lambdaApagado)
+        XCTAssertEqual(Chispa.soporteDe(nil, 0)?.0, Chispa.lambdaApagado)
+        // +∞ ya no apaga: es «solo descripción» y llega tal cual al motor.
+        XCTAssertEqual(Chispa.soporteDe(.infinity, 0)?.0, .infinity)
     }
 }

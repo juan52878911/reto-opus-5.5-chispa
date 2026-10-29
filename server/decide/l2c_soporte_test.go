@@ -55,20 +55,19 @@ func soplDe(t *testing.T, p Pregunta, kA uint32) *chispa3.Sopl1 {
 	return s
 }
 
-func TestL2cSoporteLambdaInfinitoNoCambiaNada(t *testing.T) {
+func TestL2cSoporteNilNoCambiaNada(t *testing.T) {
 	ctx, l0 := context.Background(), conL0(map[string]float64{"a": 0.4, "b": 0.6})
 	l, p, _ := montajeSoporteL2c(t, 3)
 	want, err := l.DecidirCon(ctx, p, l0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	inf := math.Inf(1)
 	otra := p
 	otra.Texto = "¿otra?"
 	for n, c := range map[string]struct {
 		s      *chispa3.Sopl1
 		lambda *float64
-	}{"sin lambda": {soplDe(t, p, 3), nil}, "lambda inf": {soplDe(t, p, 3), &inf}, "sin sección": {nil, floatPtr(1)}} {
+	}{"sin lambda": {soplDe(t, p, 3), nil}, "sin sección": {nil, floatPtr(1)}} {
 		l2, _, _ := montajeSoporteL2c(t, 3)
 		got, err := l2.ConSoporte(c.s, c.lambda).DecidirCon(ctx, p, l0)
 		if err != nil || !reflect.DeepEqual(got, want) {
@@ -123,4 +122,27 @@ func montarYDecidir(t *testing.T, lambda *float64, l0 Previas) (Respuesta, error
 	t.Helper()
 	l, p, _ := montajeSoporteL2c(t, 1)
 	return l.ConSoporte(soplDe(t, p, 1), lambda).DecidirCon(context.Background(), p, l0)
+}
+
+// λ = +∞ ⇒ solo descripción (ya no «sin mezcla»): P = torre de «a», (1,0), y el simproto del mensaje (0,1) con ella es 0; «b» (k=0) conserva
+// el de CONJ, 1. λ = 0 ⇒ solo ejemplos: los prototipos de CONJ tal cual, la decisión de «sin mezcla».
+func TestL2cSoporteLambdaCeroEInfinito(t *testing.T) {
+	inf := math.Inf(1)
+	l, p, sf := montajeSoporteL2c(t, 3)
+	l.ConSoporte(soplDe(t, p, 3), &inf)
+	got := l.mezclarSimproto(p, sf.S, nil)
+	if len(got) != 2 || math.Abs(got[0]) > 1e-6 || math.Abs(got[1]-1) > 1e-6 {
+		t.Fatalf("κ=∞: %v, quería [0 1]", got)
+	}
+	l.ConSoporte(soplDe(t, p, 3), floatPtr(0))
+	cero := l.mezclarSimproto(p, sf.S, nil)
+	if len(cero) != 2 || math.Abs(cero[0]-1) > 1e-2 || math.Abs(cero[1]-1) > 1e-6 {
+		t.Fatalf("κ=0: %v, quería [1 1] (los prototipos de CONJ)", cero)
+	}
+	l0 := conL0(map[string]float64{"a": 0.5, "b": 0.5})
+	r0, _ := montarYDecidir(t, nil, l0)
+	rInf, _ := montarYDecidir(t, &inf, l0)
+	if !(rInf.Probs["a"] < r0.Probs["a"]) {
+		t.Fatalf("solo descripción: P(a) debe bajar frente a no mezclar: %v → %v", r0.Probs["a"], rInf.Probs["a"])
+	}
 }

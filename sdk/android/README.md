@@ -18,7 +18,7 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
   en lugar de su τ cuando las torres de la pregunta salieron al vuelo (`SalidaCapa.esquemaNuevo`); con esquemas de ESQUEMAS o sin
   ese campo, el τ de siempre.
 - **Soporte few-shot**: `Chispa.abrir(contexto, ruta, lambdaSoporteL1 = 3.0, lambdaSoporteL2 = 3.0)` llama a `AbrirConSoporte`
-  (sección SOPL1; λ = ∞ o nulo = sin mezcla, como `Abrir`).
+  (sección SOPL1; nulo = apagado, como `Abrir`; 0 = solo ejemplos; `Double.POSITIVE_INFINITY` = solo descripción).
 - **L0TF y L2c**: `DecidirL0` usa la sección L0TF si está. Con CONJ en el fichero, `CapaL2` hace L2c: las ranuras de ORT van a
   `Motor.cabezaConjunta` junto con las probabilidades de L0 (la cascada pasa a cada capa lo que dijeron las anteriores); si la
   cabeza no opina, cae a `puntuarL2`.

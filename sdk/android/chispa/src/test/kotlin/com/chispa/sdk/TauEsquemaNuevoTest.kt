@@ -66,7 +66,9 @@ class TauEsquemaNuevoTest {
     fun lambdaDelSoporteLlegaAlMotor() {
         assertNull(Chispa.soporteDe(null, null))
         assertEquals(Pair(3.0, 5.0), Chispa.soporteDe(3.0, 5.0))
-        assertEquals(Pair(3.0, Double.POSITIVE_INFINITY), Chispa.soporteDe(3.0, null))
-        assertEquals(Pair(Double.POSITIVE_INFINITY, 0.0), Chispa.soporteDe(null, 0.0))
+        assertEquals(Pair(3.0, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(3.0, null))
+        assertEquals(Pair(Chispa.LAMBDA_APAGADO, 0.0), Chispa.soporteDe(null, 0.0))
+        // +∞ ya no apaga: es «solo descripción» y llega tal cual al motor.
+        assertEquals(Pair(Double.POSITIVE_INFINITY, 0.0), Chispa.soporteDe(Double.POSITIVE_INFINITY, 0.0))
     }
 }

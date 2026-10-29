@@ -78,9 +78,9 @@ type Chispa struct {
 	dynTic  uint64
 
 	sopl     *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
-	lambdaL1 *float64       // λ del encogimiento del soporte en L1; nil = ∞ (sin mezcla)
+	lambdaL1 *float64       // λ del encogimiento del soporte en L1; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
 	lambdaL2 *float64       // ídem en L2c
-	avisos   []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con λ finito)
+	avisos   []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con el encogimiento activo)
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -94,13 +94,18 @@ type modeloL0 struct {
 
 // Abrir abre un .chispa v3 (comprobando CRC y sha256 de cada sección que use) y monta las capas que tenga.
 func Abrir(ruta string) (*Chispa, error) {
-	return AbrirConSoporte(ruta, math.Inf(1), math.Inf(1))
+	return AbrirConSoporte(ruta, SoporteApagado, SoporteApagado)
 }
+
+// SoporteApagado es el valor de λ de AbrirConSoporte que apaga el encogimiento (el puente de gomobile no tiene opcionales:
+// cualquier valor negativo o NaN lo apaga también). +Infinito NO lo apaga: es «solo la descripción».
+const SoporteApagado = -1.0
 
 // AbrirConSoporte es Abrir con el encogimiento del soporte few-shot (sección SOPL1): con k ejemplos en una opción, su
 // prototipo es normaliza((1−w)·descripción + w·media de los ejemplos), w = k/(k+λ), con λ propio en L1 (lambdaL1: Decidir)
-// y en L2c (lambdaL2: CabezaConjunta). +Infinito, un valor negativo o NaN = sin mezcla, el comportamiento de Abrir;
-// 0 = solo los ejemplos. Sin la sección, o con una pregunta que no está en ella, no cambia nada.
+// y en L2c (lambdaL2: CabezaConjunta; allí κ ≡ λ y la media lleva la norma por ranura de SOPL1 v2). SoporteApagado (o cualquier
+// valor negativo o NaN) = apagado, el comportamiento de Abrir; 0 = solo los ejemplos; +Infinito = solo la descripción, en las dos
+// capas (antes +Inf apagaba). Sin la sección, o con una pregunta que no está en ella, no cambia nada.
 func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
 	f, err := chispa3.Abrir(ruta)
 	if err != nil {
@@ -114,9 +119,9 @@ func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
 	return c, nil
 }
 
-// lambdaDe pasa el λ del puente (float64 plano) al interno: nil (∞) si es infinito, negativo o NaN.
+// lambdaDe pasa el λ del puente (float64 plano) al interno: nil (apagado) si es negativo o NaN; +Inf pasa tal cual.
 func lambdaDe(x float64) *float64 {
-	if math.IsInf(x, 0) || math.IsNaN(x) || x < 0 {
+	if math.IsNaN(x) || x < 0 {
 		return nil
 	}
 	return &x
@@ -124,7 +129,7 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
-	// SOPL1 solo hace falta con un λ finito: con ∞ (el defecto) no se decodifica, y si está mal el fichero abre igual.
+	// SOPL1 solo hace falta con el encogimiento activo: apagado (el defecto) no se decodifica, y si está mal el fichero abre igual.
 	if f.Tiene(chispa3.SOPL1) && (c.lambdaL1 != nil || c.lambdaL2 != nil) {
 		sopl, err := f.Sopl1()
 		if err != nil {

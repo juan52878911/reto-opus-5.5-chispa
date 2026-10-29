@@ -46,7 +46,7 @@ func l1Con(t *testing.T, sopl []byte, lambda *float64) *L1 {
 
 func floatPtr(x float64) *float64 { return &x }
 
-func TestL1SoporteLambdaInfinitoNoCambiaNada(t *testing.T) {
+func TestL1SoporteNilEInfinitoNoCambianNada(t *testing.T) {
 	p := Pregunta{Kind: KindChoice, Texto: "¿Qué área?", Opciones: opsReembolso()}
 	base := l1Con(t, nil, nil)
 	sopl := soplL1(t, base, p, map[string]string{"facturacion": "paquete retraso", "logistica": "factura cobro"}, map[string]uint32{"facturacion": 5, "logistica": 3})
@@ -127,7 +127,7 @@ func TestL1SoportePreguntaAusenteNoCambia(t *testing.T) {
 func TestConfigShrinkageLambda(t *testing.T) {
 	c := ConfigPorDefecto()
 	if c.L1ShrinkageLambda != nil || c.L2ShrinkageLambda != nil {
-		t.Fatal("por defecto ∞ (nil)")
+		t.Fatal("por defecto apagado (nil)")
 	}
 	for _, v := range []float64{-1, math.NaN()} {
 		c.L1ShrinkageLambda = &v
@@ -138,5 +138,29 @@ func TestConfigShrinkageLambda(t *testing.T) {
 	c.L1ShrinkageLambda, c.L2ShrinkageLambda = floatPtr(0), floatPtr(3)
 	if err := c.Validar(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// λ = 0 ⇒ solo ejemplos: el prototipo de la opción con k > 0 es la media de los ejemplos normalizada; λ = +∞ ⇒ solo descripción (el de siempre).
+func TestL1SoporteLambdaCeroEInfinito(t *testing.T) {
+	p := Pregunta{Kind: KindChoice, Texto: "¿Qué área?", Estado: "paquete retraso", Opciones: opsReembolso()}
+	base := l1Con(t, nil, nil)
+	sopl := soplL1(t, base, p, map[string]string{"facturacion": "paquete retraso"}, map[string]uint32{"facturacion": 4})
+	ps, err := chispa3.DecodificarSopl1(sopl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ent, ok := ps.Buscar(ClaveConj(p))
+	if !ok {
+		t.Fatal("falta la entrada")
+	}
+	_, media, _ := ent.Opcion("facturacion", ps.Dim())
+	want := chispa3.Mezclar(base.opciones(p)["facturacion"], media, 1)
+	cero, inf := 0.0, math.Inf(1)
+	if got := l1Con(t, sopl, &cero).opciones(p)["facturacion"]; !reflect.DeepEqual(got, want) {
+		t.Fatal("λ=0 debe dar solo la media de los ejemplos")
+	}
+	if got := l1Con(t, sopl, &inf).opciones(p); !reflect.DeepEqual(got, base.opciones(p)) {
+		t.Fatal("λ=∞ debe dar solo la descripción")
 	}
 }

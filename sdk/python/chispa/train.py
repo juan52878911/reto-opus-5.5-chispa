@@ -138,9 +138,11 @@ def embeber_con_go(l1: str, textos: List[str], fuentes, go: str, trabajo: Path):
     return np.array(o["emb"], dtype=np.float32).reshape(len(textos), o["dim"]), np.array(o["ok"], dtype=bool)
 
 
-def seccion_sopl1(q, ex, embeber):
+def seccion_sopl1(q, ex, embeber, normas_ranuras=None):
     """SOPL1 de la pregunta `q` con los ejemplos `ex` ([(texto, opción)]): por opción, k (ejemplos que L1 ve) y la media de sus
-    embeddings de L1 en int8. `embeber(textos) → (E, ok)`. Devuelve (bytes de la sección, {opción: k}, dim)."""
+    embeddings de L1 en int8. `embeber(textos) → (E, ok)`. `normas_ranuras` = {"clases": [...], "normas": (C,K)} (de `--conjunta`: la
+    norma de cada ranura de la media sin normalizar de L2c, que CONJ no guarda) escribe la versión 2; sin ellas, la versión 1.
+    Devuelve (bytes de la sección, {opción: k}, dim)."""
     import numpy as np
     E, ok = embeber([t for t, _ in ex])
     ids = sorted(o.id for o in q.options)
@@ -154,7 +156,12 @@ def seccion_sopl1(q, ex, embeber):
             media[i] += e
     media /= np.maximum(k, 1)[:, None]
     esc, mq = formato.cuantizar_media(media)
-    b = formato.sopl1(dim, [{"hash": formato.clave_conj(q.question, ids), "ids": ids, "k": k, "escala": esc, "media": mq}])
+    entrada = {"hash": formato.clave_conj(q.question, ids), "ids": ids, "k": k, "escala": esc, "media": mq}
+    if normas_ranuras is not None:
+        pos = {c: i for i, c in enumerate(normas_ranuras["clases"])}
+        nm = np.asarray(normas_ranuras["normas"], dtype=np.float32)
+        entrada["normas"] = np.stack([nm[pos[i]] if i in pos else np.zeros(nm.shape[1], np.float32) for i in ids])
+    b = formato.sopl1(dim, [entrada])
     return b, {i: int(n) for i, n in zip(ids, k)}, dim
 
 
@@ -170,7 +177,7 @@ def anadir_tau_l2_esquema_nuevo(salida, tau) -> None:
     salida.write_bytes(formato.escribir(secs))
 
 
-def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None) -> None:
+def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None, normas_ranuras=None) -> None:
     """Reescribe `salida` con la sección SOPL1 (soporte few-shot para el encogimiento del prototipo de L1/L2). Sin `embeber`, los
     embeddings salen de runtime/l1 en Go (hace falta Go y las fuentes); sin eso, avisa y no escribe nada."""
     salida = Path(salida)
@@ -187,7 +194,7 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
                 log("AVISO: sin SOPL1: " + inf["omitidas"]["SOPL1"])
                 return
             embeber = lambda textos: embeber_con_go(l1, textos, fuentes, go, Path(tmp))
-        b, ks, dim = seccion_sopl1(q, ex, embeber)
+        b, ks, dim = seccion_sopl1(q, ex, embeber, normas_ranuras)
     secs = formato.leer(salida.read_bytes())
     secs[formato.SOPL1] = b
     tmp_f = salida.with_name(salida.name + ".tmp")
@@ -199,11 +206,12 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
     inf["bytes"] = salida.stat().st_size
     if "SOPL1" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("SOPL1")
-    inf["soporte"] = {"lambda_sugerida": lambda_, "k": ks, "dim": dim, "bytes": len(b), "tau_sin_encogimiento": True}
+    inf["soporte"] = {"lambda_sugerida": "inf" if lambda_ == float("inf") else lambda_, "k": ks, "version": 2 if normas_ranuras is not None else 1, "dim": dim, "bytes": len(b), "tau_sin_encogimiento": True}
     inf.setdefault("avisos", []).append("τ de L1/L2c calibrado sin el encogimiento de SOPL1: con l1_shrinkage_lambda/l2_shrinkage_lambda > 0 "
                                         "la cobertura y precisión prometidas no valen; recalibra con el encogimiento activo")
     log("AVISO: " + inf["avisos"][-1])
-    log(f"SOPL1: k por opción {ks}, dim {dim}, {len(b)} bytes; el runtime la usa con l1_shrinkage_lambda (y l2_shrinkage_lambda) = {lambda_:g}")
+    log(f"SOPL1: k por opción {ks}, dim {dim}, {len(b)} bytes; el runtime la usa con l1_shrinkage_lambda (y l2_shrinkage_lambda) = {lambda_:g}"
+        + ("; con normas por ranura (v2)" if normas_ranuras is not None else "; sin normas por ranura (v1): L2c usa la media normalizada"))
 
 
 def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable) -> List[List[str]]:
@@ -288,10 +296,12 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
 
     `shrinkage_lambda` (≥ 0; por defecto None) activa la sección SOPL1: con `ejemplos` y `l1`, guarda por opción k y la media de los
     embeddings de L1 de sus ejemplos, para que el runtime encoja el prototipo de la descripción hacia ellos (w = k/(k+λ)). Sin él
-    no se escribe nada y el fichero es el de siempre. λ no va en el fichero: lo lee el runtime de su config (`l1_shrinkage_lambda`,
-    `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe. `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
+    no se escribe nada (apagado) y el fichero es el de siempre. Cualquier λ ≥ 0, también 0 (solo ejemplos) e inf (solo descripción),
+    escribe SOPL1: con `--conjunta` la sección es la versión 2, con la norma de cada ranura de la media sin normalizar de L2c (como
+    `modelo.py`); sin ella, la versión 1. λ no va en el fichero: lo lee el runtime de su config (`l1_shrinkage_lambda`,
+    `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe (`soporte.lambda_sugerida`, "inf" si es infinito). `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
     if shrinkage_lambda is not None and (shrinkage_lambda != shrinkage_lambda or shrinkage_lambda < 0):
-        raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (∞ = no escribir SOPL1): {shrinkage_lambda}")
+        raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (0 = solo ejemplos, inf = solo descripción; sin la opción = apagado): {shrinkage_lambda}")
     if tau_l2_esquema_nuevo is not None and not 0 <= tau_l2_esquema_nuevo <= 1:  # también descarta NaN
         raise ChispaError(f"--tau-l2-esquema-nuevo debe estar en [0,1]: {tau_l2_esquema_nuevo}")
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
@@ -304,12 +314,10 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
                     frac_valid=frac_valid, l0_max_mb=l0_max_mb, usar_go=usar_go, conjunta=conjunta, modelo_l2=modelo_l2,
                     l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,
                     margen=margen, suelo=suelo, tope_tau=tope_tau, log=log)
+    normas = inf.pop("_normas_ranuras", None)
     if shrinkage_lambda is not None:
-        if shrinkage_lambda == float("inf"):
-            log("--shrinkage-lambda ∞: no se escribe SOPL1 (w = 0)")
-        else:
-            q, _ = cargar_esquema(esquema, pregunta)
-            anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, shrinkage_lambda, inf, log, embeber, repo)
+        q, _ = cargar_esquema(esquema, pregunta)
+        anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, shrinkage_lambda, inf, log, embeber, repo, normas)
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
         log(f"τ de L2 para esquemas nuevos {tau_l2_esquema_nuevo:g} en CALIB (tau_l2_esquema_nuevo)")
@@ -413,6 +421,7 @@ def _entrenar(ejemplos, esquema, salida, *, l1, ckpt, l2, repo, pregunta, semill
     if tiempo_l2 is not None:
         inf["tiempos_s"]["l2"] = tiempo_l2
     if conj_inf:
+        inf["_normas_ranuras"] = conj_inf.pop("normas_ranuras", None)  # lo consume entrenar() (SOPL1 v2); no va al informe JSON
         inf["conjunta"] = conj_inf
     inf["reloj_s"] = time.time() - t0
     if conj_inf and conj_inf.get("tau_l2c") is not None:

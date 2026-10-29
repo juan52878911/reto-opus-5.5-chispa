@@ -158,6 +158,16 @@ func casi(t *testing.T, nombre string, got, want []float64) {
 	}
 }
 
+// casiTol es casi con tolerancia explícita (las ranuras de CONJ van en int8: error ≤ 0,4 % por componente).
+func casiTol(t *testing.T, nombre string, got, want []float64, tol float64) {
+	t.Helper()
+	for i := range want {
+		if math.Abs(got[i]-want[i]) > tol {
+			t.Errorf("%s[%d] = %.7f, quería %.7f (tol %g)", nombre, i, got[i], want[i], tol)
+		}
+	}
+}
+
 func f64(v []float32) []float64 {
 	o := make([]float64, len(v))
 	for i, x := range v {
@@ -214,7 +224,7 @@ func conjProtos(k, d int, escala float32, protos ...[]int8) *EntradaConj {
 func TestShrinkageL2cDosRanuras(t *testing.T) {
 	e := conjProtos(2, 3, 1, []int8{0, 1, 0}, []int8{0, 0, 1})
 	h := []float32{1, 0, 0}
-	p := e.ProtosMezclados(0, h, 0.8)
+	p := e.ProtosMezclados(0, h, 0.8, nil)
 	casi(t, "P", f64(p), []float64{0.970143, 0.242536, 0, 0.970143, 0, 0.242536})
 	S := [][]float32{{1, 0, 0}, {0, 1, 0}}
 	casi(t, "simproto", []float64{simprotoF(S, p, 3)}, []float64{0.606339})
@@ -224,11 +234,11 @@ func TestShrinkageL2cDosRanuras(t *testing.T) {
 	got := SimprotoMezclado(e, sop, &cuatro, []string{"a"}, S, func(int) ([]byte, float32, bool) { return []byte{127, 0, 0}, 1.0 / 127, true })
 	casi(t, "SimprotoMezclado", got, []float64{0.606339})
 	// κ=0 ⇒ solo ejemplos: P = ranuras de CONJ; κ=∞ ⇒ solo descripción: P = h en las 2 ranuras.
-	casi(t, "κ=0", f64(e.ProtosMezclados(0, h, 0)), []float64{0, 1, 0, 0, 0, 1})
-	casi(t, "κ=∞", f64(e.ProtosMezclados(0, h, 1)), []float64{1, 0, 0, 1, 0, 0})
+	casi(t, "κ=0", f64(e.ProtosMezclados(0, h, 0, nil)), []float64{0, 1, 0, 0, 0, 1})
+	casi(t, "κ=∞", f64(e.ProtosMezclados(0, h, 1, nil)), []float64{1, 0, 0, 1, 0, 0})
 	// Un Q nulo se queda en 0: ranura (−1,0,0) y h=(1,0,0) con λ=0,5.
 	z := conjProtos(1, 3, 1, []int8{-1, 0, 0})
-	casi(t, "Q=0", f64(z.ProtosMezclados(0, h, 0.5)), []float64{0, 0, 0})
+	casi(t, "Q=0", f64(z.ProtosMezclados(0, h, 0.5, nil)), []float64{0, 0, 0})
 }
 
 // L2c, dim 4 y 2 ranuras de norma 1 (escala 0,1): M0=(0,1,0,0), M1=(0,0,0,6, 0,8); h=(1,0,0,0); κ=1, n=3 ⇒ λ=0,25.
@@ -236,7 +246,7 @@ func TestShrinkageL2cDosRanuras(t *testing.T) {
 // Q1=(0,25, 0, 0,45, 0,6), ‖Q1‖²=0,0625+0,2025+0,36=0,625 ⇒ P1=(0,316228, 0, 0,569210, 0,758947).
 func TestShrinkageL2cDim4(t *testing.T) {
 	e := conjProtos(2, 4, 0.1, []int8{0, 10, 0, 0}, []int8{0, 0, 6, 8})
-	p := e.ProtosMezclados(0, []float32{1, 0, 0, 0}, 0.25)
+	p := e.ProtosMezclados(0, []float32{1, 0, 0, 0}, 0.25, nil)
 	casi(t, "P0", f64(p[:4]), []float64{0.316228, 0.948683, 0, 0})
 	casi(t, "P1", f64(p[4:]), []float64{0.316228, 0, 0.569210, 0.758947})
 	// s=(0,0,0,1): solo la ranura 1 puntúa, 0,758947; s=(1,0,0,0): ambas dan 0,316228 ⇒ simproto = 0,537588.
@@ -261,7 +271,7 @@ func TestShrinkageL2c16Ranuras(t *testing.T) {
 	sop := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{2}}
 	got := SimprotoMezclado(e, sop, &dos, []string{"a"}, S, func(int) ([]byte, float32, bool) { return []byte{2, 0, 0}, 0.5, true })
 	casi(t, "16 ranuras", got, []float64{math.Sqrt2 / 2})
-	p := e.ProtosMezclados(0, []float32{1, 0, 0}, 0.5)
+	p := e.ProtosMezclados(0, []float32{1, 0, 0}, 0.5, nil)
 	if len(p) != 48 {
 		t.Fatalf("16×3 esperado, salió %d", len(p))
 	}
@@ -282,4 +292,106 @@ func TestSimprotoMezcladoSinCambios(t *testing.T) {
 	}
 	// κ=0 coincide con el simproto de CONJ.
 	casi(t, "κ=0", SimprotoMezclado(e, sop, &cero, []string{"a"}, S, tor), Simproto(e, S, []string{"a"}))
+}
+
+// SOPL1 v2: testdata/soporte-v2.chispa lo escribe Python (test_sopl1.py); mismos bytes que CodificarSopl1 y el lector sigue
+// leyendo la v1.
+func soplV2DePrueba() []EntradaSopl1 {
+	e := soplDePrueba()
+	e[0].Ranuras = 2
+	e[0].Normas = []float32{float32(math.Sqrt(5) / 3), 1, 0, 0}
+	return e
+}
+
+func TestSOPL1V2FicheroEscritoPorPython(t *testing.T) {
+	f, err := Abrir(filepath.Join("testdata", "soporte-v2.chispa"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	want, err := CodificarSopl1(4, soplV2DePrueba())
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := f.Bytes(SOPL1)
+	if err != nil || !bytes.Equal(raw, want) || raw[0] != 2 {
+		t.Fatalf("bytes distintos: %x vs %x (%v)", raw, want, err)
+	}
+	s, err := DecodificarSopl1(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := s.Buscar(ClaveConj("¿p?", []string{"a", "b"}))
+	if n := e.NormasDe("a"); len(n) != 2 || n[1] != 1 || e.NormasDe("z") != nil {
+		t.Fatalf("normas %v", n)
+	}
+	// Sin normas, los bytes son los de la v1 (versión 1) y el lector no las inventa.
+	v1, _ := CodificarSopl1(4, soplDePrueba())
+	if v1[0] != 1 {
+		t.Fatalf("versión %d, quería 1", v1[0])
+	}
+	s1, err := DecodificarSopl1(v1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e1, _ := s1.Buscar(ClaveConj("¿p?", []string{"a", "b"}))
+	if e1.NormasDe("a") != nil {
+		t.Fatal("la v1 no trae normas")
+	}
+	// Una v2 truncada o con una norma imposible se rechaza.
+	if _, err := DecodificarSopl1(raw[:len(raw)-2]); !errors.Is(err, ErrContenido) {
+		t.Errorf("v2 truncada: %v", err)
+	}
+	mal := soplV2DePrueba()
+	mal[0].Normas[0] = 2
+	if _, err := CodificarSopl1(4, mal); !errors.Is(err, ErrContenido) {
+		t.Errorf("norma 2: %v", err)
+	}
+}
+
+// Caso a mano, n=3 y normas distintas (d=2, K=2, h=(0,1), κ=3 ⇒ λ=0,5). Ranuras de los 3 ejemplos: ranura 0 = (1,0),(1,0),(0,1) ⇒ media
+// (2/3,1/3), norma √5/3; ranura 1 = (1,0)×3 ⇒ media (1,0), norma 1. Con modelo.py: Q0=½h+½M0=(1/3,2/3) ⇒ P0=(1,2)/√5; Q1=(½,½) ⇒ P1=(1,1)/√2.
+// Con la media ya normalizada (sin normas) saldría P0=(0,526, 0,851): el resultado de hoy, distinto.
+func TestShrinkageNormasN3ReproduceModeloPy(t *testing.T) {
+	e := &EntradaConj{K: 2, D: 2, Clases: []string{"a"}}
+	for _, m := range [][]float32{{2 / float32(math.Sqrt(5)), 1 / float32(math.Sqrt(5))}, {1, 0}} {
+		esc, q := CuantizarMedia(m)
+		e.Escala = append(e.Escala, esc)
+		for _, v := range q {
+			e.Proto = append(e.Proto, byte(v))
+		}
+	}
+	h := []float32{0, 1}
+	norma := []float32{float32(math.Sqrt(5) / 3), 1}
+	p := e.ProtosMezclados(0, h, 0.5, norma)
+	casiTol(t, "P0 con normas", f64(p[:2]), []float64{1 / math.Sqrt(5), 2 / math.Sqrt(5)}, 2e-3)
+	casiTol(t, "P1 con normas", f64(p[2:]), []float64{1 / math.Sqrt2, 1 / math.Sqrt2}, 2e-3)
+	sin := e.ProtosMezclados(0, h, 0.5, nil)
+	if math.Abs(float64(sin[0])-1/math.Sqrt(5)) < 0.05 {
+		t.Fatalf("sin normas debería diferir de modelo.py: %v", sin[:2])
+	}
+	// Camino completo: κ=3, k=3 en SOPL1 v2, S = {(0,1), (1,0)}: simproto = (2/√5 + 1/√2)/2.
+	S := [][]float32{{0, 1}, {1, 0}}
+	tor := func(int) ([]byte, float32, bool) { return []byte{0, 127}, 1.0 / 127, true }
+	tres := 3.0
+	con := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{3}, Ranuras: 2, Normas: norma}
+	casiTol(t, "simproto", SimprotoMezclado(e, con, &tres, []string{"a"}, S, tor), []float64{(2/math.Sqrt(5) + 1/math.Sqrt2) / 2}, 2e-3)
+	// Normas de otro K (CONJ y SOPL1 de ficheros distintos) se ignoran.
+	raro := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{3}, Ranuras: 3, Normas: []float32{1, 1, 1}}
+	casi(t, "K distinto", SimprotoMezclado(e, raro, &tres, []string{"a"}, S, tor), SimprotoMezclado(e, &EntradaSopl1{Ids: []string{"a"}, K: []uint32{3}}, &tres, []string{"a"}, S, tor))
+}
+
+// κ=0 ⇒ solo ejemplos (simproto de CONJ, con o sin normas: la normalización las cancela); κ=∞ ⇒ solo descripción.
+func TestSimprotoMezcladoLimites(t *testing.T) {
+	e := conjProtos(2, 3, 1, []int8{0, 1, 0}, []int8{0, 0, 1})
+	S := [][]float32{{1, 0, 0}, {0, 1, 0}}
+	tor := func(int) ([]byte, float32, bool) { return []byte{127, 0, 0}, 1.0 / 127, true }
+	sop := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{2}, Ranuras: 2, Normas: []float32{0.5, 0.25}}
+	cero, inf := 0.0, math.Inf(1)
+	casi(t, "κ=0", SimprotoMezclado(e, sop, &cero, []string{"a"}, S, tor), Simproto(e, S, []string{"a"}))
+	// κ=∞: P = h=(1,0,0) en las dos ranuras ⇒ simproto = mean(1, 0) = 0,5, sea cual sea la media.
+	casi(t, "κ=∞", SimprotoMezclado(e, sop, &inf, []string{"a"}, S, tor), []float64{0.5})
+	if LambdaClase(2, &inf) != 1 || PesoSoporte(2, &inf) != 0 || LambdaClase(2, &cero) != 0 || PesoSoporte(2, &cero) != 1 {
+		t.Fatal("λ=∞ debe ser solo descripción y λ=0 solo ejemplos")
+	}
 }
