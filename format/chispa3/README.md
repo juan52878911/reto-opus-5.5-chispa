@@ -19,7 +19,7 @@ datos          secciones en el orden de la tabla; offsets relativos al fin de la
 ```
 Reglas: cada sección empieza en `alinear16(fin de la anterior)` (la primera en 0) y el relleno es cero; no hay
 bytes tras la última; sin tipos repetidos ni desconocidos. `Escribir` ordena por tipo, así que la salida es
-determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`, 7 `CONJ` (T2.6b; se añadió al final del enum sin renumerar: los ficheros sin `CONJ` cargan igual).
+determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`, 7 `CONJ` (T2.6b; se añadió al final del enum sin renumerar: los ficheros sin `CONJ` cargan igual), 8 `L0TF`, 9 `TORR` (igual: los `.chispa` sin ella cargan idéntico; lo comprueba `TestTORRAusenteEnTestdata`).
 
 | sección | contenido |
 |---|---|
@@ -31,6 +31,7 @@ determinista. Tipos: 1 `META`, 2 `L0`, 3 `L1`, 4 `L2`, 5 `ESQUEMAS`, 6 `CALIB`, 
 | `CALIB` | JSON `{tipos{tipo:{T,a,b,theta}}, tau_escalate}`; T>0, θ y τ en [0,1] |
 | `CONJ` | cabeza conjunta L0 + L2 por esquema (`conj.go`): `u32 versión(1) · u32 n ·` n entradas con hash creciente: `[32]hash · u32 cabeza(1=lr) · u32 K · u32 d · u32 C · u32 nw(6) · f32 T · f32 β · 3×f32 esc · nw×f32 pesos · C×(u16 len · nombre UTF-8) clases crecientes · C·K×f32 escala · C·K·d×int8 prototipos`. El hash es `HashEsquema(pregunta, ids ordenados)`. Con 150 clases, K=16, d=256: ≈ 625 KB |
 | `L0TF` | L0 TF-IDF de caracteres + regresión logística multinomial (`l0tf.go`), el de `model/lineas_base/correr.py`: `u32 versión(1) · u32 V · u32 C · u32 dtype(1=f32, 2=f16) ·` C×(u16 len · nombre) etiquetas crecientes (orden de `classes_`) `· C×f32 intercepciones · V×f32 idf · (V+1)×u32 desplazamientos · blob UTF-8 · V·C coeficientes` (por n-grama: `coef[f·C+c]`). El vocabulario son los n-gramas de 2 a 5 puntos de código en cadenas, estrictamente crecientes por bytes: la búsqueda es binaria, exacta y sin copiar, sin las colisiones de un hash (que mezclarían coeficientes de n-gramas distintos); cuesta ~10 bytes por n-grama frente a los C·4 de sus coeficientes. `DecodificarL0TF` valida el orden, los rangos y que todo sea finito; `Probs(texto)` hace el analizador `char_wb` de sklearn (minúsculas de Python incl. U+0130 y sigma final, espacios de `str.isspace`), sublinear tf, idf, norma l2 y softmax en doble precisión. Con 2 clases el escritor expande la fila única de sklearn a `[0, w]` |
+| `TORR` | torre de esquemas de L2 al vuelo (`torr.go`, contrato en `model/l2/contrato-torre.md`): `u32 versión(1) · u32 dim(256) · u32 max_len(128) · u32 len_prefijo · prefijo UTF-8 («passage: ») · ONNX hasta el final`. El ONNX (e5 de pasaje + `Torre`, opset 17) recibe `input_ids`/`attention_mask` int64 (B,T) y devuelve `h` float32 (B,dim) normalizada. `DecodificarTORR` valida versión, rangos (dim ≤ 4096, max_len ≤ 8192, prefijo ≤ 256 B), UTF-8 del prefijo y que haya ONNX; no lo abre. `Fichero.Torre()` → `ErrNoHay` si falta. Con la sección, `chispa-server` calcula las torres de los esquemas que ESQUEMAS no trae (caché por torre en `decide.L2`); sin ella, L2 no opina sobre ellos |
 
 ## Validaciones
 `Desde`/`Abrir` (todas devuelven errores con `errors.Is`): magia (`ErrMagia`), versión (`ErrVersion`), truncado

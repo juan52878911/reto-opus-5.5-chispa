@@ -10,15 +10,11 @@ import (
 	ort "github.com/yalue/onnxruntime_go"
 
 	"chispa/format/chispa3"
+	"github.com/juan52878911/chispa/server/torre"
 )
 
 // RutaORT es la biblioteca compartida de ONNX Runtime (libonnxruntime.so); vacía = la del sistema.
 var RutaORT string
-
-var (
-	iniciarORT sync.Once
-	errIniciar error
-)
 
 // sesionORT serializa Run: la sesión dinámica de onnxruntime_go no promete ser reentrante con el mismo objeto.
 type sesionORT struct {
@@ -72,14 +68,9 @@ func (o *sesionORT) Ranuras(ids []int64) ([][]float32, error) {
 
 // NuevaSesionORT abre el ONNX de la sección L2 con ONNX Runtime.
 func NuevaSesionORT(onnx []byte) (SesionS, error) {
-	iniciarORT.Do(func() {
-		if RutaORT != "" {
-			ort.SetSharedLibraryPath(RutaORT)
-		}
-		errIniciar = ort.InitializeEnvironment()
-	})
-	if errIniciar != nil {
-		return nil, errIniciar
+	// El entorno de ORT se inicializa una vez por proceso y lo comparte la torre (server/torre).
+	if err := torre.IniciarORT(RutaORT); err != nil {
+		return nil, err
 	}
 	s, err := ort.NewDynamicAdvancedSessionWithONNXData(onnx, []string{"input_ids", "attention_mask"}, []string{"S"}, nil)
 	if err != nil {

@@ -51,6 +51,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		if f.Tiene(chispa3.TORR) && tk == nil {
+			log.Print("el .chispa trae TORR pero falta -tok: sin torres al vuelo, L2 solo decide esquemas de ESQUEMAS")
+		}
 		for _, a := range mt.Avisos {
 			log.Print(a)
 		}
@@ -71,6 +74,16 @@ type tokE5 struct{ t *tok.Tokenizador }
 
 func (e tokE5) IDs(texto string) []int64 {
 	ids := e.t.Tokenizar(texto)
+	out := make([]int64, len(ids))
+	for i, v := range ids {
+		out[i] = int64(v)
+	}
+	return out
+}
+
+// IDsPasaje es el modo «passage: » para la torre de esquemas (decide.TokenizadorPasaje, sección TORR).
+func (e tokE5) IDsPasaje(texto string) []int64 {
+	ids := e.t.TokenizarPasaje(texto)
 	out := make([]int64, len(ids))
 	for i, v := range ids {
 		out[i] = int64(v)

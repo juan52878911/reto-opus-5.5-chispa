@@ -33,14 +33,14 @@ type L2 struct {
 
 	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
 	torres CodificadorTorre
-	cache  *LRU[[]torreDin] // ClaveEsquema → torres de ese esquema (una por opción en choice, una en noul y score)
-	// Hits y Misses cuentan las peticiones de esquema nuevo servidas desde la caché o calculadas.
+	cache  *LRU[torreDin] // claveTorre → torre cuantizada de una opción (o de la consulta, en noul y score)
+	// Hits y Misses cuentan las peticiones de esquema nuevo con todas sus torres en caché / con alguna por calcular.
 	Hits, Misses atomic.Uint64
 }
 
-// CodificadorTorre calcula la torre de opción (d floats) de un texto de pasaje, con el prefijo «passage: » y el
-// formato de model/l2/modelo.py (texto_opcion). Es el e5 de pasaje más la cabeza de torre: hoy el ONNX del .chispa solo
-// exporta las ranuras S, así que la implementación real necesita un segundo ONNX (descrito en el informe).
+// CodificadorTorre calcula la torre de opción h (d floats, normalizada) de un texto de pasaje «passage: pregunta · opción ·
+// descripción» (model/l2/modelo.py, texto_opcion). Es el e5 de pasaje más la cabeza de torre: la implementación real es
+// torre.Codificador (segundo ONNX, sección TORR del .chispa).
 type CodificadorTorre interface {
 	Torre(texto string) ([]float32, error)
 }
@@ -50,10 +50,10 @@ type torreDin struct {
 	e float32
 }
 
-// ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheEsquemas entradas.
+// ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheEsquemas torres.
 func (l *L2) ConTorres(c CodificadorTorre, cacheEsquemas int) *L2 {
 	l.torres = c
-	l.cache = NewLRU[[]torreDin](cacheEsquemas)
+	l.cache = NewLRU[torreDin](cacheEsquemas)
 	return l
 }
 
@@ -80,37 +80,63 @@ func cuantizarTorre(h []float32) torreDin {
 	return torreDin{q, float32(esc)}
 }
 
-// torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae.
-// noul y score usan la última opción como consulta (texto_consulta), como en el export.
-func (l *L2) torresNuevas(p Pregunta) ([]torreDin, error) {
-	k := ClaveEsquema(p)
-	if v, ok := l.cache.Get(k); ok {
-		l.Hits.Add(1)
-		return v, nil
-	}
-	l.Misses.Add(1)
-	ops := p.Opciones
-	if p.Kind != KindChoice {
-		if p.Kind == KindNoul { // la consulta es «true»
-			ops = []Opcion{{ID: "true"}}
-			for _, o := range p.Opciones {
-				if o.ID == "true" {
-					ops = []Opcion{o}
-				}
+// claveTorre es la clave de caché de una torre: HashEsquema(pregunta, [opción, descripción]). Las torres se cachean una a
+// una, no por esquema entero, por dos razones: (1) el orden de las opciones de la petición no tiene por qué ser el del
+// primer cálculo, y un vector cacheado por posición se emparejaría con la opción equivocada; (2) la torre depende también
+// de la descripción, que HashEsquema(pregunta, opciones) (la clave de ESQUEMAS) no recoge. ClaveEsquema (FNV-128, no
+// criptográfico, ordena las opciones y mete Kind) no sirve para esto.
+func claveTorre(pregunta string, o Opcion) string {
+	h := chispa3.HashEsquema(pregunta, []string{o.ID, o.Description})
+	return string(h[:])
+}
+
+// opcionesConsulta son las opciones que llevan torre: una por opción en choice; en noul y score una sola, la de la
+// consulta (texto_consulta del export): «true» en noul y el nivel máximo en score.
+func opcionesConsulta(p Pregunta) []Opcion {
+	switch p.Kind {
+	case KindChoice:
+		return p.Opciones
+	case KindNoul:
+		for _, o := range p.Opciones {
+			if o.ID == "true" {
+				return []Opcion{o}
 			}
-		} else {
-			ops = ops[len(ops)-1:]
+		}
+		return []Opcion{{ID: "true"}}
+	}
+	ult, max := len(p.Opciones)-1, -1 // el nivel mayor si los ids son numéricos; si no, la última
+	for i, o := range p.Opciones {
+		if n, err := strconv.Atoi(o.ID); err == nil && n > max {
+			ult, max = i, n
 		}
 	}
+	return p.Opciones[ult : ult+1]
+}
+
+// torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae, en el orden de opcionesConsulta.
+func (l *L2) torresNuevas(p Pregunta) ([]torreDin, error) {
+	ops := opcionesConsulta(p)
 	out := make([]torreDin, len(ops))
+	completo := true
 	for i, o := range ops {
+		k := claveTorre(p.Texto, o)
+		if t, ok := l.cache.Get(k); ok {
+			out[i] = t
+			continue
+		}
+		completo = false
 		h, err := l.torres.Torre(textoTorre(p.Texto, o))
 		if err != nil {
 			return nil, err
 		}
 		out[i] = cuantizarTorre(h)
+		l.cache.Put(k, out[i])
 	}
-	l.cache.Put(k, out)
+	if completo {
+		l.Hits.Add(1)
+	} else {
+		l.Misses.Add(1)
+	}
 	return out, nil
 }
 
