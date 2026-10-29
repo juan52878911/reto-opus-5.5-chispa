@@ -37,6 +37,7 @@ type Cliente struct {
 	reintentos int
 	espera     time.Duration
 	apiKey     string
+	errClave   *ErrorChispa
 	limites    Limites
 	dormir     func(ctx context.Context, d time.Duration) error
 }
@@ -53,8 +54,21 @@ func ConReintentos(n int) Opt { return func(c *Cliente) { c.reintentos = max(n, 
 // ConEspera fija la espera base del backoff exponencial (200 ms por defecto).
 func ConEspera(d time.Duration) Opt { return func(c *Cliente) { c.espera = d } }
 
-// ConAPIKey envía `Authorization: Bearer <clave>` si el servidor la pide.
-func ConAPIKey(k string) Opt { return func(c *Cliente) { c.apiKey = k } }
+// ConAPIKey envía `Authorization: Bearer <clave>` solo a /v1/decide, si el servidor la pide. Se recortan los espacios y saltos
+// de los extremos (como JS/fetch y como el parser HTTP del servidor, que no recorta él mismo en auth.go); una clave con caracteres
+// de control dentro hace que Decidir devuelva `invalid_api_key` sin tocar la red.
+func ConAPIKey(k string) Opt {
+	return func(c *Cliente) {
+		c.apiKey = strings.TrimSpace(k)
+		c.errClave = nil
+		for i := 0; i < len(c.apiKey); i++ {
+			if b := c.apiKey[i]; b < 0x20 || b == 0x7f {
+				c.errClave = falla("invalid_api_key", "la clave de API tiene caracteres de control", "")
+				return
+			}
+		}
+	}
+}
 
 // ConLimites cambia los límites locales si el operador tocó la sección `limites` del servidor.
 func ConLimites(l Limites) Opt { return func(c *Cliente) { c.limites = l } }
@@ -96,6 +110,9 @@ type DecidirOpts struct {
 // lo repiten: el servidor devuelve el resultado guardado en vez de decidir otra vez. Un nonce vacío cuenta como ausente.
 // Todos los errores son *ErrorChispa.
 func (c *Cliente) Decidir(ctx context.Context, estado string, preguntas []Pregunta, opts *DecidirOpts) ([]Resultado, error) {
+	if c.errClave != nil {
+		return nil, c.errClave
+	}
 	if e := c.limites.validar(estado, preguntas); e != nil {
 		return nil, e
 	}
@@ -211,7 +228,7 @@ func (c *Cliente) intento(ctx context.Context, metodo, ruta string, cuerpo []byt
 	if cuerpo != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	if c.apiKey != "" {
+	if c.apiKey != "" && ruta == "/v1/decide" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
 	resp, err := c.http.Do(req)

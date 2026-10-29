@@ -1,6 +1,9 @@
 package chispa
 
-import "fmt"
+import (
+	"fmt"
+	"unicode/utf8"
+)
 
 // Limites son los topes del servidor (sección `limites` de su config), en BYTES UTF-8 como los cuenta él, no en caracteres.
 type Limites struct {
@@ -17,10 +20,25 @@ func LimitesPorDefecto() Limites {
 	return Limites{MaxEstado: 262144, MaxPreguntas: 256, MaxID: 256, MaxTexto: 4096, MaxOpciones: 256, MaxCuerpo: 1 << 20}
 }
 
+// lon son los bytes que de verdad se envían: json.Encoder cambia cada byte UTF-8 inválido por U+FFFD (3 bytes).
+func lon(s string) int {
+	n := 0
+	for i := 0; i < len(s); {
+		r, w := utf8.DecodeRuneInString(s[i:])
+		if r == utf8.RuneError && w == 1 {
+			n += 3
+		} else {
+			n += w
+		}
+		i += w
+	}
+	return n
+}
+
 // validar comprueba la petición como el servidor (todo o nada, mismos códigos). Devuelve *ErrorChispa con Status 0.
 func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
-	if len(estado) > l.MaxEstado {
-		return falla("state_too_long", fmt.Sprintf("state: %d bytes, máximo %d", len(estado), l.MaxEstado), "")
+	if lon(estado) > l.MaxEstado {
+		return falla("state_too_long", fmt.Sprintf("state: %d bytes, máximo %d", lon(estado), l.MaxEstado), "")
 	}
 	if len(qs) == 0 {
 		return falla("empty_questions", "questions: hace falta al menos una pregunta", "")
@@ -34,8 +52,8 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 		if q.ID == "" {
 			return falla("missing_id", r+".id: obligatorio", "")
 		}
-		if len(q.ID) > l.MaxID {
-			return falla("field_too_long", fmt.Sprintf("%s.id: %d bytes, máximo %d", r, len(q.ID), l.MaxID), q.ID)
+		if lon(q.ID) > l.MaxID {
+			return falla("field_too_long", fmt.Sprintf("%s.id: %d bytes, máximo %d", r, lon(q.ID), l.MaxID), q.ID)
 		}
 		if vistos[q.ID] {
 			return falla("duplicate_question_id", fmt.Sprintf("%s.id: %q repetido", r, q.ID), q.ID)
@@ -44,8 +62,8 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 		if q.Texto == "" {
 			return falla("missing_question", r+".question: obligatorio", q.ID)
 		}
-		if len(q.Texto) > l.MaxTexto {
-			return falla("field_too_long", fmt.Sprintf("%s.question: %d bytes, máximo %d", r, len(q.Texto), l.MaxTexto), q.ID)
+		if lon(q.Texto) > l.MaxTexto {
+			return falla("field_too_long", fmt.Sprintf("%s.question: %d bytes, máximo %d", r, lon(q.Texto), l.MaxTexto), q.ID)
 		}
 		if q.Kind == "" {
 			return falla("missing_kind", r+".kind: obligatorio", q.ID)
@@ -53,8 +71,8 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 		if q.Kind != KindChoice && q.Kind != KindScore && q.Kind != KindNoul {
 			return falla("invalid_kind", fmt.Sprintf("%s.kind: %q no válido (choice, score o noul)", r, q.Kind), q.ID)
 		}
-		if len(q.Nonce) > l.MaxID {
-			return falla("field_too_long", fmt.Sprintf("%s.nonce: %d bytes, máximo %d", r, len(q.Nonce), l.MaxID), q.ID)
+		if lon(q.Nonce) > l.MaxID {
+			return falla("field_too_long", fmt.Sprintf("%s.nonce: %d bytes, máximo %d", r, lon(q.Nonce), l.MaxID), q.ID)
 		}
 		if e := l.validarOpciones(q, r); e != nil {
 			return e
@@ -84,15 +102,15 @@ func (l Limites) validarOpciones(q Pregunta, r string) *ErrorChispa {
 		if o.ID == "" {
 			return falla("missing_option_id", ro+".id: obligatorio", q.ID)
 		}
-		if len(o.ID) > l.MaxID {
-			return falla("field_too_long", fmt.Sprintf("%s.id: %d bytes, máximo %d", ro, len(o.ID), l.MaxID), q.ID)
+		if lon(o.ID) > l.MaxID {
+			return falla("field_too_long", fmt.Sprintf("%s.id: %d bytes, máximo %d", ro, lon(o.ID), l.MaxID), q.ID)
 		}
 		if vistas[o.ID] {
 			return falla("duplicate_option_id", fmt.Sprintf("%s.id: %q repetido", ro, o.ID), q.ID)
 		}
 		vistas[o.ID] = true
-		if len(o.Description) > l.MaxTexto {
-			return falla("field_too_long", fmt.Sprintf("%s.description: %d bytes, máximo %d", ro, len(o.Description), l.MaxTexto), q.ID)
+		if lon(o.Description) > l.MaxTexto {
+			return falla("field_too_long", fmt.Sprintf("%s.description: %d bytes, máximo %d", ro, lon(o.Description), l.MaxTexto), q.ID)
 		}
 	}
 	return nil

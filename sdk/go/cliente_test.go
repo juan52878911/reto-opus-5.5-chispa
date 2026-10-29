@@ -361,8 +361,8 @@ func TestRespuestaFueraDeOrden(t *testing.T) {
 func TestAPIKeyBearer(t *testing.T) {
 	s, reg := servidor(t, func(_ int, w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/healthz" {
-			if r.Header.Get("Authorization") != "Bearer sk-1" {
-				t.Errorf("healthz sin Bearer: %q", r.Header.Get("Authorization"))
+			if r.Header.Get("Authorization") != "" {
+				t.Errorf("healthz no debe llevar clave: %q", r.Header.Get("Authorization"))
 			}
 			json200(w, `{"status":"ok"}`)
 			return
@@ -519,4 +519,52 @@ func TestConcurrente(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestR6ClaveConSaltoSeRecorta(t *testing.T) {
+	s, reg := servidor(t, func(n int, w http.ResponseWriter, r *http.Request) {
+		json200(w, `{"results":[{"id":"q1","kind":"choice","answer":"a","probs":{},"layer":"L0","escalate":false,"ms":1}]}`)
+	})
+	c := clienteDe(s.URL, nil, ConAPIKey(" k\n"))
+	if _, err := c.Decidir(context.Background(), "x", []Pregunta{ferreteria}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := reg.cabs[0].Get("Authorization"); got != "Bearer k" {
+		t.Errorf("Authorization: %q", got)
+	}
+}
+
+func TestR6ClaveInvalidaSinRedNiReintentos(t *testing.T) {
+	s, reg := servidor(t, func(n int, w http.ResponseWriter, r *http.Request) { json200(w, `{}`) })
+	c := clienteDe(s.URL, nil, ConAPIKey("a\nb"))
+	_, err := c.Decidir(context.Background(), "x", []Pregunta{ferreteria}, nil)
+	if e := comoError(t, err); e.Codigo != "invalid_api_key" {
+		t.Errorf("código %q", e.Codigo)
+	}
+	if len(reg.cabs) != 0 {
+		t.Errorf("peticiones al servidor: %d", len(reg.cabs))
+	}
+}
+
+func TestR6HealthzSinClave(t *testing.T) {
+	var got string
+	s, _ := servidor(t, func(n int, w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Authorization")
+		json200(w, `{"status":"ok"}`)
+	})
+	if err := clienteDe(s.URL, nil, ConAPIKey("k")).Salud(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Errorf("/healthz auth=%q", got)
+	}
+}
+
+func TestR6LimiteCuentaBytesTrasSaneadoUTF8(t *testing.T) {
+	q := ferreteria
+	q.Texto = strings.Repeat("\xe9", 2000) // 2000 bytes en latin-1, 6000 tras U+FFFD
+	_, err := clienteDe("http://127.0.0.1:1", nil).Decidir(context.Background(), "x", []Pregunta{q}, nil)
+	if e := comoError(t, err); e.Codigo != "field_too_long" || e.Status != 0 {
+		t.Errorf("se esperaba field_too_long local: %v", err)
+	}
 }
