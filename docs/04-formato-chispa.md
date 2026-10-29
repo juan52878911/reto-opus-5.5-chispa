@@ -23,7 +23,7 @@ Una sección es opcional. La cascada arma las capas con las que encuentra.
 | 3 | `L1` | el `.chispa-l1` de `runtime/l1` (embedding estático), tal cual | L1 |
 | 4 | `L2` | ONNX int8 del codificador y las ranuras (blob) | L2 y L2c |
 | 5 | `ESQUEMAS` | torres de opción int8, una por hash `HashEsquema(pregunta, opciones)` | L2 |
-| 6 | `CALIB` | JSON: `tipos` (T, a, b, θ por tipo de pregunta), `tau_escalate` y `tau_l2c` opcional | τ y calibración |
+| 6 | `CALIB` | JSON: `tipos` (T, a, b, θ por tipo de pregunta), `tau_escalate`, y opcionales `tau_l2c`, `tipos_l2` y `tau_escalate_l2` | τ y calibración |
 | 7 | `CONJ` | cabeza conjunta L0 + L2 por esquema: pesos, T, β y prototipos int8 por clase | L2c |
 | 8 | `L0TF` | L0 TF-IDF de caracteres con regresión logística; vocabulario ordenado, coeficientes f32 o f16 | L0, y entrada de L2c |
 | 9 | `TORR` | ONNX de la torre de esquemas (e5 de pasaje + cabeza de torre) con dim, max_len y prefijo | L2 al vuelo |
@@ -45,10 +45,20 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 
 **Semántica de λ** (L1 y L2c, igual): ausente/`nil` = **apagado** (el comportamiento de antes del soporte); λ = 0 → `λ_c = 0`, solo ejemplos; λ = +∞ → `λ_c = 1`, solo descripción (en L2c antes +∞ apagaba; ya no). La config es `l1_shrinkage_lambda` y `l2_shrinkage_lambda` (JSON no tiene ∞: un valor enorme, p. ej. 1e300, hace de ∞); en el núcleo móvil `AbrirConSoporte(ruta, λL1, λL2)` con `SoporteApagado` (−1; negativo o NaN también) como apagado, y en Kotlin/Swift `lambdaSoporteL1/L2` nulos = apagado. `chispa train --l1 … --ejemplos … --shrinkage-lambda λ` la escribe (sin la opción no se escribe nada). `formato.sopl1` (Python) da los mismos bytes: `format/chispa3/testdata/soporte.chispa` (v1) `soporte-v2.chispa` (v2, con normas, caso a mano n = 3) y `soporte-v3.chispa` (v3, con n_l2).
 
+## Espacio de nombres de L2 en CALIB
+`tipos` y `tau_escalate` son de L1; L2 y L2c leen, si existen, sus propios campos:
+- `tipos_l2` (opcional): mismo formato que `tipos` (T, a, b, θ). Es lo que lee L2 (`choice`, `noul`, `scoreK`, `scoreK#j`, `multi_l2@…`) y, con `CONJ`, también L2c. Si falta, L2 lee `tipos`, como antes.
+- `tau_escalate_l2` (opcional, en [0,1]): el τ de L2. Si falta, L2 usa `tau_escalate`. Con `CONJ`, `tau_l2c` sigue mandando sobre él.
+- L1 lee siempre `tipos` y `tau_escalate`; ningún campo de los de L2 se usa en L1 en el runtime (servidor `decide.ArmarDesde`, `chispamovil` con `TauEscalateL2()`, Kotlin/Swift `Motor.tauEscalateL2()`).
+- `tau_l2_esquema_nuevo` y `l1_lambda_calib` no cambian.
+- Un fichero sin estos campos se lee y decide exactamente igual que antes. Si `tipos_l2` existe (aunque esté vacío) L2 no mira `tipos`: sus claves `multi_l2@…` deben estar en `tipos_l2`.
+- `chispa train --l2 x.chispa` y `--ckpt` copian de la CALIB de `x.chispa`: `tipos` → `tipos_l2` (con `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate` → `tau_escalate_l2` y `tau_l2c` → `tau_l2c`; la CALIB de L1 del fichero final no se toca. Si `x.chispa` no trae CALIB, no se escribe nada de L2. Con `--conjunta`, `tau_l2c` es el calibrado para la nueva cabeza y no el de `x.chispa`. Las claves `multi_l2@…` que `chispa train` calibre con ejemplos van a `tipos_l2` si el fichero lo trae.
+- Un servidor o SDK anterior abre el fichero sin error pero **ignora** `tipos_l2` y `tau_escalate_l2`: L2 lee entonces `tipos`/`tau_escalate`, como antes de este cambio (la CALIB de L1, descalibrada para L2). Igual que `multi@…`, no hay marca de versión: no hagas rollback del runtime con un fichero que los traiga.
+
 ## Claves de CALIB
 Las de `multi` (ver [03-api.md](03-api.md#multi-varias-etiquetas-a-la-vez)):
 - `multi@<hex>`: (a, b, θ) de todas las opciones de un esquema; `<hex>` es el `HashEsquema2` (pregunta, kind y opciones con descripción) en hex. `multi@<hex>#<id>`: los de una opción.
-- `multi_l2@<hex>` y `multi_l2@<hex>#<id>`: lo mismo para L2 (MaxSim). **Sin ellas L2 no opina en `multi`.** `chispa train` no las escribe (no tiene el ONNX de L2); las escribe un exportador de modelos.
+- `multi_l2@<hex>` y `multi_l2@<hex>#<id>`: lo mismo para L2 (MaxSim); se leen de `tipos_l2` si existe y, si no, de `tipos`. **Sin ellas L2 no opina en `multi`.** `chispa train` no las escribe (no tiene el ONNX de L2); las escribe un exportador de modelos.
 - `multi` y `multi#<id>` (sin `@`): ficheros anteriores; solo se leen si el fichero no tiene ninguna clave con `@`.
 - `#<id>` en general: sufijo de parámetros por opción.
 

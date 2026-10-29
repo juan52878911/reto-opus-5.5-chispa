@@ -226,3 +226,21 @@ class TestCalibPorCapa(unittest.TestCase):
         self.assertFalse(((q1 > 0.5) == (Y > 0)).mean() > 0.95)  # la de L1 aplicada a MaxSim no separa
         t2, _ = calibrar_multi(q, ex, emb)
         self.assertFalse([k for k in t2 if k.startswith("multi_l2")])  # sin maxsim_l2 no se inventa
+
+
+class TestEscribirCalibTiposL2(unittest.TestCase):
+    def test_multi_l2_va_a_tipos_l2_si_el_fichero_lo_trae(self):
+        from chispa.multi import escribir_calib
+        d = Path(tempfile.mkdtemp())
+        nuevos = {"multi@ab": {"T": 1.0, "a": 1.0, "b": 0.0, "theta": 0.5}, "multi_l2@ab": {"T": 1.0, "a": 2.0, "b": 0.0, "theta": 0.5}}
+        for nombre, calib, en_l2 in (("con", formato.calib({}, 0.6, tipos_l2={"noul": {"T": 1.0}}, tau_escalate_l2=0.3), True),
+                                     ("sin", formato.calib({}, 0.6), False)):
+            f = d / f"{nombre}.chispa"
+            f.write_bytes(formato.escribir({formato.CALIB: calib}))
+            escribir_calib(f, nuevos)
+            c = json.loads(formato.leer(f.read_bytes())[formato.CALIB])
+            self.assertIn("multi@ab", c["tipos"])
+            self.assertEqual("multi_l2@ab" in c["tipos"], not en_l2)
+            self.assertEqual("multi_l2@ab" in c.get("tipos_l2", {}), en_l2)
+            if en_l2:
+                self.assertEqual((c["tipos_l2"]["noul"], c["tau_escalate_l2"]), ({"T": 1.0}, 0.3))

@@ -109,8 +109,7 @@ type Chispa struct {
 	avisos      []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con el encogimiento activo)
 
 	calibOnce  sync.Once
-	calibEsq   bool         // CALIB trae claves de multi con esquema («multi@…» o «multi_l2@…»)
-	calibCapa  [2]bool      // ídem por capa: [0] «multi@», [1] «multi_l2@»
+	calibInfo  [2]infoMulti // [0] tipos (L1), [1] tipos que lee L2
 	multiAus   atomic.Int64 // peticiones multi cuya CALIB tiene claves con esquema de la capa y ninguna casa
 	avisoMulti sync.Once
 
@@ -286,8 +285,11 @@ func (c *Chispa) Capas() string {
 	return string(b)
 }
 
-// TauEscalate es el τ de CALIB para L1 y L2 (0 si el fichero no trae CALIB; entonces la cascada usa el suyo).
+// TauEscalate es el τ de CALIB para L1 (0 si el fichero no trae CALIB; entonces la cascada usa el suyo).
 func (c *Chispa) TauEscalate() float64 { return c.calib.TauEscalate }
+
+// TauEscalateL2 es el τ de CALIB para L2: tau_escalate_l2 si el fichero lo trae y, si no, TauEscalate (ficheros anteriores).
+func (c *Chispa) TauEscalateL2() float64 { return c.calib.ParaL2().TauEscalate }
 
 // TieneConj dice si el fichero trae la sección CONJ (con L2 y ESQUEMAS): entonces la cascada puede usar CabezaConjunta.
 func (c *Chispa) TieneConj() bool { return c.conj != nil }
@@ -495,8 +497,16 @@ func errSeparador(campo string) error {
 	return fmt.Errorf("invalid_characters: %s no admite los caracteres de control U+001D–U+001F", campo)
 }
 
-func (c *Chispa) params(tipo string) chispa3.ParamsTipo {
-	if p, ok := c.calib.Tipos[tipo]; ok {
+// params son los parámetros de un tipo en los tipos de L1.
+func (c *Chispa) params(tipo string) chispa3.ParamsTipo { return paramsTipo(c.calib.Tipos, tipo) }
+
+// paramsL2 son los parámetros de un tipo en los tipos que lee L2 (tipos_l2 si existen, si no tipos).
+func (c *Chispa) paramsL2(tipo string) chispa3.ParamsTipo {
+	return paramsTipo(c.calib.ParaL2().Tipos, tipo)
+}
+
+func paramsTipo(tipos map[string]chispa3.ParamsTipo, tipo string) chispa3.ParamsTipo {
+	if p, ok := tipos[tipo]; ok {
 		return p
 	}
 	return chispa3.ParamsTipo{T: tDefecto, A: 4, B: -2, Theta: 0.5}
@@ -649,20 +659,32 @@ func claveCalibMulti(p pregunta) string {
 	return "@" + hex.EncodeToString(h[:])
 }
 
-// calibPorEsquema: CALIB trae alguna clave de multi con esquema; si la trae, las claves sin esquema (ficheros antiguos) no se aplican.
-// Se calcula una vez (no por opción).
-func (c *Chispa) calibPorEsquema() bool {
+// infoMulti dice qué claves de multi con esquema trae un mapa de tipos.
+type infoMulti struct {
+	esq  bool    // alguna clave de multi con esquema («multi@…» o «multi_l2@…»)
+	capa [2]bool // por capa: [0] «multi@», [1] «multi_l2@»
+}
+
+// calibPorEsquema: los tipos de la capa (L2 o L1) traen alguna clave de multi con esquema; si la traen, las claves sin esquema
+// (ficheros antiguos) no se aplican. Se calcula una vez (no por opción). Sin tipos_l2, L1 y L2 leen el mismo mapa.
+func (c *Chispa) calibPorEsquema(l2 bool) infoMulti {
 	c.calibOnce.Do(func() {
-		for k := range c.calib.Tipos {
-			if strings.HasPrefix(k, "multi@") {
-				c.calibCapa[0] = true
-			} else if strings.HasPrefix(k, "multi_l2@") {
-				c.calibCapa[1] = true
+		for i, tipos := range [2]map[string]chispa3.ParamsTipo{c.calib.Tipos, c.calib.ParaL2().Tipos} {
+			inf := &c.calibInfo[i]
+			for k := range tipos {
+				if strings.HasPrefix(k, "multi@") {
+					inf.capa[0] = true
+				} else if strings.HasPrefix(k, "multi_l2@") {
+					inf.capa[1] = true
+				}
 			}
+			inf.esq = inf.capa[0] || inf.capa[1]
 		}
-		c.calibEsq = c.calibCapa[0] || c.calibCapa[1]
 	})
-	return c.calibEsq
+	if l2 {
+		return c.calibInfo[1]
+	}
+	return c.calibInfo[0]
 }
 
 // MultiCalibAusente cuenta las peticiones de multi cuya CALIB trae claves con esquema para esa capa y ninguna casa con la pregunta
@@ -689,21 +711,26 @@ func (c *Chispa) paramsMultiCapa(clave, esq, id string) chispa3.ParamsTipo {
 
 // buscarParamsMulti es paramsMultiCapa diciendo además si salió de una CALIB de multi (true) o es el respaldo de noul.
 func (c *Chispa) buscarParamsMulti(clave, esq, id string) (chispa3.ParamsTipo, bool) {
-	if p, ok := c.calib.Tipos[clave+esq+"#"+id]; ok {
+	l2 := clave == "multi_l2"
+	tipos := c.calib.Tipos
+	if l2 {
+		tipos = c.calib.ParaL2().Tipos
+	}
+	if p, ok := tipos[clave+esq+"#"+id]; ok {
 		return p, true
 	}
-	if p, ok := c.calib.Tipos[clave+esq]; ok {
+	if p, ok := tipos[clave+esq]; ok {
 		return p, true
 	}
-	if !c.calibPorEsquema() {
-		if p, ok := c.calib.Tipos[clave+"#"+id]; ok {
+	if !c.calibPorEsquema(l2).esq {
+		if p, ok := tipos[clave+"#"+id]; ok {
 			return p, true
 		}
-		if p, ok := c.calib.Tipos[clave]; ok {
+		if p, ok := tipos[clave]; ok {
 			return p, true
 		}
 	}
-	return c.params("noul"), false
+	return paramsTipo(tipos, "noul"), false
 }
 
 func (c *Chispa) paramsMultiDe(p pregunta, esq, clave string) []chispa3.ParamsTipo {
@@ -714,12 +741,12 @@ func (c *Chispa) paramsMultiDe(p pregunta, esq, clave string) []chispa3.ParamsTi
 		prms[i], ok = c.buscarParamsMulti(clave, esq, o.ID)
 		casa = casa || ok
 	}
-	if !casa && c.calibPorEsquema() {
+	if inf := c.calibPorEsquema(clave == "multi_l2"); !casa && inf.esq {
 		capa := 0
 		if clave == "multi_l2" {
 			capa = 1
 		}
-		if c.calibCapa[capa] {
+		if inf.capa[capa] {
 			c.avisarCalibAusente(clave)
 		}
 	}
@@ -1076,9 +1103,9 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	var r respuesta
 	switch p.Kind {
 	case "choice":
-		r = softmax(p, sims, c.params("choice").T)
+		r = softmax(p, sims, c.paramsL2("choice").T)
 	case "noul":
-		prm := c.params("noul")
+		prm := c.paramsL2("noul")
 		r = noul(prm.A*sims[0]+prm.B, prm.Theta)
 	case "multi":
 		r = c.multiL2(p, sims)
@@ -1099,7 +1126,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		}
 	}
 	clave := "score" + strconv.Itoa(K)
-	base, ok := c.calib.Tipos[clave]
+	base, ok := c.calib.ParaL2().Tipos[clave]
 	if !ok || K < 2 {
 		return vacia
 	}
@@ -1107,7 +1134,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 	b := base.B
 	for j := 0; j < K-1; j++ {
 		if j > 0 {
-			inc, ok := c.calib.Tipos[fmt.Sprintf("%s#%d", clave, j)]
+			inc, ok := c.calib.ParaL2().Tipos[fmt.Sprintf("%s#%d", clave, j)]
 			if !ok {
 				return vacia
 			}

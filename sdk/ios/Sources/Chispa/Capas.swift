@@ -7,6 +7,8 @@ public protocol Motor: AnyObject {
     func capas() -> [String]
     func tieneCalib() -> Bool
     func tauEscalate() -> Double
+    /// `tau_escalate_l2` de CALIB si existe; si no, `tauEscalate()` (ficheros anteriores). Es el τ de L2.
+    func tauEscalateL2() -> Double
     /// `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta.
     func tauL2c() -> Double
     /// τ efectivo de L2 cuando sus torres salen al vuelo: el de CALIB o, si falta, 0,846 (lo decide el motor Go); −1 = sin τ propio.
@@ -54,6 +56,7 @@ let seccionL2 = 4
 let seccionTorr = 9
 
 public extension Motor {
+    func tauEscalateL2() -> Double { tauEscalate() }
     func tauL2c() -> Double { -1 }
     func tauL2EsquemaNuevo() -> Double { -1 }
     func hashSeccion(_ tipo: Int) -> String { "" }

@@ -62,7 +62,7 @@ type Montaje struct {
 
 // ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y monta L1 y L2 con las secciones presentes;
 // las que faltan quedan como stub. Con tauDeCalib, el τ de L1 y L2 pasa a ser el tau_escalate
-// de CALIB (cfg se modifica); si L2 es L2c y CALIB trae tau_l2c, ese es el τ de L2. tok es el tokenizador de e5 que necesita L2 (puede ser nil).
+// de CALIB (cfg se modifica; el de L2 es tau_escalate_l2 si existe); si L2 es L2c y CALIB trae tau_l2c, ese es el τ de L2. tok es el tokenizador de e5 que necesita L2 (puede ser nil).
 // Si el .chispa trae la sección TORR, L2 calcula al vuelo las torres de los esquemas que ESQUEMAS no trae (L2.ConTorres,
 // caché de cfg.CacheTorres torres, tope de cfg.MaxTorresNuevas por petición); sin ella, un esquema nuevo queda sin opinión de L2 como antes. Hace falta que tok
 // implemente TokenizadorPasaje: si no, la torre no se monta y se avisa.
@@ -99,8 +99,11 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 		if tauDeCalib {
 			for i := range cfg.Capas {
-				if n := cfg.Capas[i].Nombre; n == "L1" || n == "L2" {
+				switch cfg.Capas[i].Nombre {
+				case "L1":
 					cfg.Capas[i].Tau = calib.TauEscalate
+				case "L2":
+					cfg.Capas[i].Tau = calib.ParaL2().TauEscalate // tau_escalate_l2 si existe
 				}
 			}
 		}
@@ -181,7 +184,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			}
 		}
 		tok = ajustarMaxLen(tok, mq, mp, &mt.Avisos)
-		base, err := montarL2(onnx, esq, calib, tok, op.ses)
+		base, err := montarL2(onnx, esq, calib.ParaL2(), tok, op.ses) // L2 lee tipos_l2 si existen; L1 siempre tipos
 		if err != nil {
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {

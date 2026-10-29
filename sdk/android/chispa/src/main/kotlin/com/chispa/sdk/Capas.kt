@@ -10,6 +10,9 @@ interface Motor : AutoCloseable {
     fun tieneCalib(): Boolean
     fun tauEscalate(): Double
 
+    /** `tau_escalate_l2` de CALIB si existe; si no, `tauEscalate()` (ficheros anteriores). Es el τ de L2. */
+    fun tauEscalateL2(): Double = tauEscalate()
+
     /** `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta. */
     fun tauL2c(): Double = -1.0
 

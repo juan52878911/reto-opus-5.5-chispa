@@ -264,7 +264,8 @@ def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable, pe
 
     `perfil` es el del exportador: `servidor` (defecto: consulta fp32, sin cuantizar y sin poda de vocabulario) o `movil` (int8, vocabulario
     podado y ampliado con los textos del esquema). El esquema nunca poda por sí solo: con `servidor` no hay poda y con `movil` solo amplía.
-    La CALIB que salga de aquí no pasa al `.chispa` final: de `l2.chispa` solo se copian L2 y ESQUEMAS."""
+    De `l2.chispa` se copian L2 y ESQUEMAS y, de su CALIB, `tipos` → `tipos_l2`, `tau_escalate` → `tau_escalate_l2` y `tau_l2c`
+    (ver `calib_de_l2`): la CALIB de L1 del `.chispa` final no se toca."""
     if perfil not in PERFILES_L2:
         raise ChispaError(f"--perfil: {perfil!r} no es uno de {', '.join(PERFILES_L2)}")
     calib, salida = trabajo / "calib_l2.json", trabajo / "l2.chispa"
@@ -283,6 +284,22 @@ def _filas_l2(q, ejemplos, ruta: Path):
                                 "opciones": [o.id for o in q.options], "descripciones": desc, "etiqueta": e, "idioma": "es",
                                 "split": "dev", "fuente": "chispa train", "licencia": "propia", "uso_comercial": True},
                                ensure_ascii=False) + "\n")
+
+
+def calib_de_l2(secciones) -> dict:
+    """Campos de CALIB del `.chispa` final que salen de la CALIB de un `l2.chispa` (`secciones` = `formato.leer`): `tipos_l2` (sus `tipos`, con
+    `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate_l2` (su `tau_escalate`) y `tau_l2c`. Sin CALIB (o sin cada campo) no devuelve la clave."""
+    if formato.CALIB not in secciones:
+        return {}
+    d = json.loads(secciones[formato.CALIB])
+    r = {}
+    if isinstance(d.get("tipos"), dict):
+        r["tipos_l2"] = d["tipos"]
+    if d.get("tau_escalate") is not None:
+        r["tau_escalate_l2"] = d["tau_escalate"]
+    if d.get("tau_l2c") is not None:
+        r["tau_l2c"] = d["tau_l2c"]
+    return r
 
 
 def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="servidor") -> dict:
@@ -323,6 +340,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
             if t_ not in sec:
                 raise ChispaError(f"--l2: falta la sección {n}")
             secs[t_] = sec[t_]
+        secs[formato.CALIB] = json.dumps({**json.loads(secs[formato.CALIB]), **calib_de_l2(sec)}).encode()
     else:
         omitidas["L2"] = omitidas["ESQUEMAS"] = "sin --l2/--ckpt"
     salida.write_bytes(formato.escribir(secs))

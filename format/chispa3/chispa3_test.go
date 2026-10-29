@@ -471,3 +471,36 @@ func TestCalibTauL2EsquemaNuevo(t *testing.T) {
 		}
 	}
 }
+
+func TestCalibTiposL2(t *testing.T) {
+	// un CALIB viejo se lee igual y ParaL2 no cambia nada
+	c, err := DecodificarCalib([]byte(`{"tipos":{"choice":{"T":2,"a":1,"b":0,"theta":0.5}},"tau_escalate":0.5}`))
+	if err != nil || c.TiposL2 != nil || c.TauEscalateL2 != nil {
+		t.Fatalf("viejo: %+v %v", c, err)
+	}
+	if p := c.ParaL2(); p.TauEscalate != 0.5 || p.Tipos["choice"].T != 2 {
+		t.Fatalf("ParaL2 de un viejo: %+v", p)
+	}
+	sin, _ := c.Codificar()
+	if strings.Contains(string(sin), "_l2") {
+		t.Fatalf("sin campos de L2 no debe escribirlos: %s", sin)
+	}
+	tau := 0.25
+	n := Calib{TauEscalate: 0.5, Tipos: c.Tipos, TauEscalateL2: &tau, TiposL2: map[string]ParamsTipo{"choice": {T: 0.4}, "score3": {T: 1}}}
+	b, err := n.Codificar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := DecodificarCalib(b)
+	if err != nil || g.TauEscalate != 0.5 || g.Tipos["choice"].T != 2 || *g.TauEscalateL2 != 0.25 || g.TiposL2["choice"].T != 0.4 || len(g.TiposL2) != 2 {
+		t.Fatalf("ida y vuelta: %+v %v", g, err)
+	}
+	if p := g.ParaL2(); p.TauEscalate != 0.25 || p.Tipos["choice"].T != 0.4 || g.Tipos["choice"].T != 2 {
+		t.Fatalf("ParaL2: %+v", p)
+	}
+	for _, mal := range []string{`{"tau_escalate":0.5,"tau_escalate_l2":2}`, `{"tau_escalate":0.5,"tipos_l2":{"a":{"T":0}}}`} {
+		if _, err := DecodificarCalib([]byte(mal)); err == nil {
+			t.Fatalf("debe fallar: %s", mal)
+		}
+	}
+}

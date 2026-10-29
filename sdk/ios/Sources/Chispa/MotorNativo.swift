@@ -34,6 +34,7 @@ final class MotorNativo: Motor {
 
     func tieneCalib() -> Bool { go.tieneCalib() }
     func tauEscalate() -> Double { go.tauEscalate() }
+    func tauEscalateL2() -> Double { go.tauEscalateL2() }
     func tauL2c() -> Double { go.tauL2c() }
     func tauL2EsquemaNuevo() -> Double { go.tauL2EsquemaNuevo() }
     /// `true` = sin τ propio para esquemas nuevos (ni el de CALIB ni 0,846); llamar antes de construir la cascada.

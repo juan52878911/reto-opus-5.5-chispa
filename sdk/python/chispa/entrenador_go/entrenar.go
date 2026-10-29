@@ -164,6 +164,17 @@ func entrenar(p *Plan) (*Informe, error) {
 			}
 			secs = append(secs, chispa3.Seccion{Tipo: tp, Datos: b})
 		}
+		// De la CALIB de l2.chispa pasan a la final los campos de L2 (L2 y L2c los leen en lugar de tipos y tau_escalate); la de L1 no se toca.
+		if f.Tiene(chispa3.CALIB) {
+			c2, err := f.Calib()
+			if err != nil {
+				return nil, fmt.Errorf("--l2: %w", err)
+			}
+			calib.TiposL2 = c2.Tipos
+			tau := c2.TauEscalate
+			calib.TauEscalateL2 = &tau
+			calib.TauL2c = c2.TauL2c
+		}
 	}
 
 	if p.Conj != "" {

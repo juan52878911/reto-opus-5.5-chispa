@@ -119,10 +119,12 @@ def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dic
 
 
 def escribir_calib(salida: Path, tipos: Dict[str, dict]) -> None:
-    """Pone `tipos` en la CALIB de `salida` (el resto de campos se conserva)."""
+    """Pone `tipos` en la CALIB de `salida` (el resto de campos se conserva). Las claves `multi_l2…` son de L2: van a `tipos_l2` si el
+    fichero lo trae (L2 lee solo ese), y si no a `tipos`."""
     secs = formato.leer(Path(salida).read_bytes())
     d = json.loads(secs[formato.CALIB])
-    d.setdefault("tipos", {}).update(tipos)
+    for k, v in tipos.items():
+        d.setdefault("tipos_l2" if k.startswith("multi_l2") and "tipos_l2" in d else "tipos", {})[k] = v
     secs[formato.CALIB] = json.dumps(d).encode()
     Path(salida).write_bytes(formato.escribir(secs))
 
