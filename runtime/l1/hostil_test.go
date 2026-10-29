@@ -132,6 +132,19 @@ func TestTinyValido(t *testing.T) {
 	embedAcotado(t, m, "reembolso del cobro")
 }
 
+// Los .chispa-tok de runtime/tok/exportar.py llevan max_tokens y recorte_texto = 1<<30 («sin recorte»).
+func TestLimitesSinRecorteDelTokenizador(t *testing.T) {
+	_, err := Desde(tinyModelo(func(_ *[numSecciones][]byte, p map[string]any) {
+		p["max_tokens"], p["recorte_texto"] = 1<<30, 1<<30
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Desde(tinyModelo(func(_ *[numSecciones][]byte, p map[string]any) { p["max_tokens"] = 1<<30 + 1 })); err == nil {
+		t.Fatal("max_tokens por encima de 1<<30 debería rechazarse")
+	}
+}
+
 func TestHostil(t *testing.T) {
 	llena := func(v uint32) func(*[numSecciones][]byte, map[string]any) {
 		return func(s *[numSecciones][]byte, _ map[string]any) {

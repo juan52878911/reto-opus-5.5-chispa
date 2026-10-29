@@ -120,8 +120,9 @@ const (
 	maxTablaB     = 30
 	maxPrefB      = 40
 	maxMaxPiezaCa = 1 << 16
-	maxMaxTokens  = 1 << 20
-	maxRecorte    = 1 << 24
+	// runtime/tok/exportar.py escribe 1<<30 en los dos para «sin recorte»: solo se usan para truncar, no para reservar.
+	maxMaxTokens = 1 << 30
+	maxRecorte   = 1 << 30
 )
 
 // validar comprueba que el contenido de las secciones es coherente con la cabecera, de modo que
