@@ -167,6 +167,8 @@ APK=$(find "$AND/demo/build/outputs/apk/debug" -name '*.apk' 2>/dev/null | head 
 [ -n "$APK" ] && cp "$APK" "$RES/chispa-demo-debug.apk" && ls -l "$RES/chispa-demo-debug.apk" || fallo "no hay APK de demo"
 [ -d "$AND/chispa/build/reports/tests" ] && cp -R "$AND/chispa/build/reports/tests" "$RES/informe-tests"
 [ -d "$AND/chispa/build/test-results" ] && cp -R "$AND/chispa/build/test-results" "$RES/test-results"
+# los de la demo aparte (no cuentan en n): así se ve el mensaje exacto de un fallo suyo
+[ -d "$AND/demo/build/test-results" ] && cp -R "$AND/demo/build/test-results" "$RES/test-results-demo"
 n=$(grep -ho 'tests="[0-9]*"' "$RES"/test-results/*/*.xml 2>/dev/null | tr -dc '0-9\n' | awk '{s+=$1} END {print s+0}')
 echo "tests JVM ejecutados: ${n:-0}"
 [ "${n:-0}" -gt 0 ] || fallo "Gradle no ejecutó ningún test JVM"
