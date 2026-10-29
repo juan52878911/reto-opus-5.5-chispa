@@ -47,7 +47,7 @@ class Chispa private constructor(
          * [proveedorOrt] elige el proveedor de ORT de L2 y de la torre (XNNPACK por defecto; si falla al crear la sesión, CPU).
          * [lambdaSoporteL1]/[lambdaSoporteL2]: λ del soporte few-shot (`AbrirConSoporte`, mismo nombre y semántica que
          * `l1_shrinkage_lambda`/`l2_shrinkage_lambda` del servidor): nulo = apagado (`Abrir` de siempre), 0 = solo ejemplos,
-         * `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga).
+         * `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga); negativo o NaN lanza [ErrorChispa].
          */
         fun abrir(
             contexto: Context,
@@ -80,8 +80,13 @@ class Chispa private constructor(
         internal const val LAMBDA_APAGADO = -1.0
 
         /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es apagado (LAMBDA_APAGADO); sin ninguno, null = `Abrir` de siempre. */
-        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double>? =
-            if (l1 == null && l2 == null) null else Pair(l1 ?: LAMBDA_APAGADO, l2 ?: LAMBDA_APAGADO)
+        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double>? {
+            // Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`): el puente usa el negativo como apagado.
+            for ((nombre, l) in listOf("lambdaSoporteL1" to l1, "lambdaSoporteL2" to l2)) {
+                if (l != null && (l.isNaN() || l < 0)) throw ErrorChispa("$nombre inválido ($l): debe ser nulo (apagado) o >= 0")
+            }
+            return if (l1 == null && l2 == null) null else Pair(l1 ?: LAMBDA_APAGADO, l2 ?: LAMBDA_APAGADO)
+        }
 
         /** Monta la cascada sobre cualquier [Motor] (los tests usan uno falso). [onnx] da la ruta del ONNX de L2. */
         internal fun montar(

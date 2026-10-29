@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /** τ propio de L2 para esquemas con torres al vuelo (`tau_l2_esquema_nuevo`) y λ del soporte few-shot. */
@@ -70,5 +71,15 @@ class TauEsquemaNuevoTest {
         assertEquals(Pair(Chispa.LAMBDA_APAGADO, 0.0), Chispa.soporteDe(null, 0.0))
         // +∞ ya no apaga: es «solo descripción» y llega tal cual al motor.
         assertEquals(Pair(Double.POSITIVE_INFINITY, 0.0), Chispa.soporteDe(Double.POSITIVE_INFINITY, 0.0))
+    }
+
+    /** R4 #15: un λ negativo o NaN es error al abrir (antes se apagaba el soporte sin avisar); nulo sigue siendo apagado. */
+    @Test
+    fun lambdaNegativoONaNEsError() {
+        assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(-5.0, null) }
+        assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(null, -0.5) }
+        assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(2.0, Double.NaN) }
+        assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(Double.NEGATIVE_INFINITY, 0.0) }
+        assertNull(Chispa.soporteDe(null, null))
     }
 }
