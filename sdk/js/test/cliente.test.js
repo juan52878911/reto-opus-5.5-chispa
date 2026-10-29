@@ -366,6 +366,14 @@ test("apiKey: Authorization Bearer en /v1/decide (salud no la envía); sin apiKe
   assert.deepEqual(auths, [["/v1/decide", "Bearer s3creto"], ["/v1/decide", undefined]]);
 });
 
+test("apiKey con salto final, espacios o control: se rechaza al construir, sin filtrar la clave", async () => {
+  for (const k of ["s3creto\n", " s3creto", "s3 creto", "s3creto\r\n", "s3\u0000creto", "clavé"]) {
+    assert.throws(() => new ChispaCliente({ apiKey: k }), (e) => e instanceof TypeError && !e.message.includes("s3creto"), JSON.stringify(k));
+  }
+  assert.doesNotThrow(() => new ChispaCliente({ apiKey: "s3creto" }));
+  assert.doesNotThrow(() => new ChispaCliente({ apiKey: "" }));
+});
+
 test("401: ErrorChispa unauthorized, un solo intento", async () => {
   const { url, vistas } = await falso((req, c, res) => json(res, 401, { error: { code: "unauthorized", message: "clave de API ausente o incorrecta" } }));
   await assert.rejects(conEsperas(url).c.decidir("x", [ferreteria]), { status: 401, codigo: "unauthorized" });
