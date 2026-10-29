@@ -51,7 +51,8 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 - **Los ficheros viejos cargan.** `CONJ`, `L0TF`, `TORR` y `SOPL1` se añadieron al final del enum sin renumerar. Un fichero sin ellas carga igual
   (el README del formato lo comprueba con `TestTORRAusenteEnTestdata` y `TestSOPL1AusenteEnTestdata`).
 - **Un servidor viejo no abre un fichero nuevo.** Los tipos desconocidos se rechazan: un `.chispa` con `TORR` o `SOPL1` pide un servidor que las conozca.
-- **Cambio de pregunta.** Cambia el hash de `ESQUEMAS` y `CONJ`. L2c cae a L2 y L2 no encuentra la torre de esa pregunta: reentrena con la pregunta nueva.
+- **Claves v1 y v2.** `META.version` 1 (todos los ficheros anteriores) usa las claves sin descripción; 2, las claves con descripción. No cambia ninguna sección ni el número de formato (sigue siendo 3). Un runtime que no conozca la v2 abre el fichero igual pero no encontrará las torres (cae a la torre al vuelo, si la hay).
+- **Cambio de pregunta.** Cambia el hash de `ESQUEMAS` y `CONJ` (desde la v2, también el de una descripción). L2c cae a L2 y L2 no encuentra la torre de esa pregunta: reentrena con la pregunta nueva.
 - Un servidor `chispa-server` admite un solo `-modelo`. Para unir secciones de varios ficheros: `deploy/mkmodelo -unir`
   ([`server/deploy/README.md`](../server/deploy/README.md)).
 

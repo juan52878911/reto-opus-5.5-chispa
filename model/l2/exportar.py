@@ -8,8 +8,8 @@
    de e5; los que no están pasan a <unk>).
 2. int8 dinámico con `onnxruntime.quantization.quantize_dynamic` (`--cuant todo|codificador|ninguna`, `--per-channel`): por
    defecto solo el codificador, por canal y con las ranuras en fp32.
-3. Torres de opción en int8 con una escala por vector. Claves de ESQUEMAS (`HashEsquema(pregunta, opciones)`): en `choice`,
-   una entrada por opción con `opciones=[opción]`; en `noul` y `score`, una por pregunta con la lista completa de opciones
+3. Torres de opción en int8 con una escala por vector. Claves de ESQUEMAS v2 (`META.version` = 2; `opciones_clave`): en `choice`,
+   una entrada por opción con `[opción, descripción]`; en `noul` y `score`, una por pregunta con `[o1, d1, o2, d2, …]`
    (el vector de consulta, `texto_consulta`).
 4. `.chispa` v3 con `empaquetar_go` (META, L2, ESQUEMAS, CALIB).
 Junto al `.chispa` deja `<salida>.informe.json` con tamaño, paridad y latencia.
@@ -189,14 +189,28 @@ def cuantizar_vec(h):
     return np.clip(np.rint(h / esc), -127, 127).astype(np.int8), esc
 
 
+VERSION_CLAVES = 2  # META.version: 1 = HashEsquema(pregunta, [opción]); 2 = con la descripción (contrato-torre.md)
+
+
+def opciones_clave(fila, opcion=None, version=VERSION_CLAVES):
+    """Lista de `HashEsquema(pregunta, ·)` de ESQUEMAS: choice, la de una `opcion`; noul y score, la de toda la pregunta.
+
+    v2 intercala la descripción tras cada opción, como la torre al vuelo del runtime; v1 solo lleva las opciones."""
+    desc = fila.get("descripciones", {})
+    ops = [opcion] if fila["tipo"] == "choice" else list(fila["opciones"])
+    if version == 1:
+        return ops
+    return [x for o in ops for x in (o, desc.get(o, ""))]
+
+
 def entradas_torres(modelo, enc, filas, lote=256):
     """[(pregunta, opciones, vec int8, escala)] únicas; error si una misma clave tiene dos textos de torre distintos."""
     texto_de, claves = {}, []
     for r in filas:
         if r["tipo"] == "choice":
-            pares = [((r["pregunta"], (o,)), texto_opcion(r, o)) for o in r["opciones"]]
+            pares = [((r["pregunta"], tuple(opciones_clave(r, o))), texto_opcion(r, o)) for o in r["opciones"]]
         else:
-            pares = [((r["pregunta"], tuple(r["opciones"])), texto_consulta(r))]
+            pares = [((r["pregunta"], tuple(opciones_clave(r))), texto_consulta(r))]
         for k, t in pares:
             if texto_de.setdefault(k, t) != t:
                 raise ValueError("la clave %r tiene dos textos de torre distintos (¿descripciones que cambian?)" % (k,))
@@ -227,10 +241,10 @@ def probs_onnx(modelo, enc, sess, filas, torres):
         b = enc.tok(["query: " + r["texto"]], padding=True, truncation=True, max_length=enc.max_tok, return_tensors="pt")
         S = torch.from_numpy(correr(sess, b["input_ids"].numpy(), b["attention_mask"].numpy()))
         if r["tipo"] == "choice":
-            h = torch.stack([vec[(r["pregunta"], (o,))] for o in r["opciones"]])
+            h = torch.stack([vec[(r["pregunta"], tuple(opciones_clave(r, o)))] for o in r["opciones"]])
             s = maxsim(S, h)[0]
         else:
-            s = maxsim(S, vec[(r["pregunta"], tuple(r["opciones"]))][None])[0]
+            s = maxsim(S, vec[(r["pregunta"], tuple(opciones_clave(r)))][None])[0]
         clave = clave_cabeza(r)
         out.append(C.probs_de(clave, s, C.cabeza_inicial(modelo, clave)))
     return out
@@ -428,6 +442,41 @@ def top1_torres(modelo, enc, sess_q, sess_t, filas, lote=64):
             "acuerdo_mitad_margen_alto": float(ok[alto].mean()), "margen_mitad_alta": float(margenes[alto].mean())}
 
 
+PERFILES = {"servidor": dict(cuant="ninguna", cuant_torre="ninguna", sin_poda=True),
+            "movil": dict(cuant="codificador", cuant_torre="dinamico", sin_poda=False)}
+
+
+def textos_de(ruta):
+    """Textos de un `.txt` (uno por línea) o `.jsonl` (cadenas de `texto`, `text`, `pregunta`, `opciones` y `descripciones`)."""
+    ruta = Path(ruta)
+    if ruta.suffix != ".jsonl":
+        return [l.strip() for l in ruta.read_text(encoding="utf-8").splitlines() if l.strip()]
+    out = []
+    for l in ruta.read_text(encoding="utf-8").splitlines():
+        if not l.strip():
+            continue
+        r = json.loads(l)
+        for k in ("texto", "text", "pregunta"):
+            if isinstance(r.get(k), str):
+                out.append(r[k])
+        out += [o for o in r.get("opciones") or [] if isinstance(o, str)]
+        out += [d for d in (r.get("descripciones") or {}).values() if isinstance(d, str)]
+    return out
+
+
+def ampliar_vocab(enc, vocab, rutas, lote=512):
+    """Une al vocabulario podado los ids de los tokens de los textos de `rutas` (con los prefijos `query: ` y `passage: `)."""
+    ids = set(vocab["ids_originales"])
+    nuevos = set()
+    textos = [t for r in rutas for t in textos_de(r)]
+    for pre in ("query: ", "passage: "):
+        for i in range(0, len(textos), lote):
+            for x in enc.tok([pre + t for t in textos[i:i + lote]], truncation=True, max_length=512)["input_ids"]:
+                nuevos.update(int(j) for j in x)
+    uni = sorted(ids | nuevos)
+    return {**vocab, "ids_originales": uni, "conservados": len(uni)}, {"textos": len(textos), "ids_antes": len(ids), "ids_despues": len(uni)}
+
+
 def fraccion_unk_textos(enc, textos, vocab):
     """Parte de los tokens de `textos` que la poda manda a <unk>."""
     keep = set(vocab["ids_originales"])
@@ -525,7 +574,7 @@ def meta_de(filas, dorado=""):
     lic = {}
     for r in filas:
         lic.setdefault(r.get("fuente", "?"), r.get("licencia", "?"))
-    return {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
+    return {"version": VERSION_CLAVES, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
 
 
 def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo, vocab=None, filas_paridad=(), latencias=(16, 64, 256),
@@ -579,7 +628,7 @@ def latencia_torre(sess, ids, calentar=3):
     return {"n": len(ts), "p50_ms": ts[len(ts) // 2], "p99_ms": ts[min(int(len(ts) * 0.99), len(ts) - 1)]}
 
 
-def main_torre(a, modelo, enc, encoder, vocab):
+def main_torre(a, modelo, enc, encoder, vocab, ampl=None):
     """`--torre-onnx`: exporta, y si se piden, mide la paridad y escribe el fixture."""
     sal = Path(a.torre_onnx)
     sal.parent.mkdir(parents=True, exist_ok=True)
@@ -595,7 +644,7 @@ def main_torre(a, modelo, enc, encoder, vocab):
     kw = dict(cuant=a.cuant_torre, per_channel=a.per_channel, max_len=enc.max_tok, ids_calib=ids_calib, metodo_calib=a.metodo_calib)
     with tempfile.TemporaryDirectory() as t:
         import gc
-        inf = {"max_len": enc.max_tok, "n_calib": len(ids_calib or [])}
+        inf = {"max_len": enc.max_tok, "n_calib": len(ids_calib or []), "perfil": a.perfil, "vocab_ampliado": ampl}
         tg = textos_golden(300) if a.medir_torre else []
         if a.medir_torre and vocab:  # primero y liberado: separa el efecto de la poda del de la cuantización (la VM tiene 4 GB)
             inf["tokens_unk"] = fraccion_unk_textos(enc, tg, vocab)
@@ -691,6 +740,42 @@ medida con el real.
        f(t["margen_medio"])), encoding="utf-8")
 
 
+def escribir_tabla_perfiles(dir_):
+    """DIR/LEEME.md con la tabla de los dos perfiles, a partir de DIR/{servidor,movil}/paridad.json (de `--medir-torre`)."""
+    dir_ = Path(dir_)
+    inf = {n: json.loads((dir_ / n / "paridad.json").read_text()) for n in sorted(PERFILES)}
+    f = lambda x: ("%.4f" % x).replace(".", ",")
+    pc = lambda x: ("%.2f %%" % (100 * x)).replace(".", ",")
+    filas = []
+    for n, i in inf.items():
+        am = i.get("vocab_ampliado") or {}
+        unk_m = "0 (sin poda)" if not i["vocab_podado"] else ("%s → %s" % (pc(am["unk_antes"]), pc(am["unk_despues"])) if am else pc(i["tokens_unk"]))
+        unk_q = "0 (sin poda)" if not i["vocab_podado"] else ("%s → %s" % (pc(am["unk_mensajes_antes"]), pc(am["unk_mensajes_despues"])) if am else "—")
+        filas.append("| %s | %.1f | %.1f | %.1f | %s | %s | %s | %s | %s | %s |" % (
+            n, i["consulta_mb"], i["mb"], i["consulta_mb"] + i["mb"], f(i["h"]["coseno_medio"]), f(i["h"]["coseno_min"]),
+            f(i["top1_choice"]["acuerdo"]), f(i["top1_choice"]["acuerdo_mitad_margen_alto"]), unk_m, unk_q))
+    (dir_ / "LEEME.md").write_text(PLANTILLA_PERFILES.replace("@FILAS@", "\n".join(filas)), encoding="utf-8")
+
+
+PLANTILLA_PERFILES = """# Perfiles del exportador: servidor y móvil
+
+Generado con `python -m model.l2.exportar --torre-onnx SALIDA --ckpt-aleatorio --perfil P [--vocab-ampliar …] --medir-torre DIR/P` y
+después `--tabla-perfiles DIR`. e5 de `~/hf` y **pesos de L2 aleatorios con semilla fija**: la fidelidad del codificador y el
+% de `<unk>` no dependen del entrenamiento; el top-1 con pesos aleatorios mide en parte empates (margen ~0,001), así que no
+extrapola a un checkpoint entrenado.
+
+| perfil | consulta MB | torre MB | total MB | coseno medio de `h` | coseno mín. | top-1 choice (300 filas) | top-1, mitad con más margen | `<unk>` textos de torre massive-es (antes → después) | `<unk>` mensajes massive-es dev |
+|---|---|---|---|---|---|---|---|---|---|
+@FILAS@
+
+- `servidor`: `--cuant ninguna --cuant-torre ninguna --sin-poda` (fp32, vocabulario completo).
+- `movil`: int8 dinámico por canal en consulta (ranuras en fp32) y torre, con el vocabulario podado + `--vocab-ampliar`.
+- Coseno y top-1: ONNX tal como se exporta frente a PyTorch fp32 (torres y consulta idénticas en los dos lados del top-1).
+- `<unk>` de torre: parte de los tokens de 300 textos de torre de massive-es (pregunta · intención · descripción, con `passage: `) que cae
+  en `<unk>`; «antes» = vocabulario podado actual, «después» = ampliado. `<unk>` de mensajes: ídem con 300 mensajes de validación (`query: `).
+"""
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--ckpt")
@@ -701,8 +786,8 @@ def main(argv=None):
     ap.add_argument("--ckpt-aleatorio", type=int, nargs="?", const=SEMILLA_TORRE, metavar="SEMILLA", help="con --torre-onnx: pesos aleatorios con semilla fija en vez de --ckpt")
     ap.add_argument("--medir-torre", metavar="DIR", help="con --torre-onnx: mide la paridad (300 textos, top-1 de choice) y escribe DIR/LEEME.md y DIR/paridad.json")
     ap.add_argument("--fixture-torre", metavar="DIR", help="con --torre-onnx: escribe DIR/torre.json, el fixture de paridad para Go")
-    ap.add_argument("--cuant-torre", choices=CUANT_TORRE, default="dinamico",
-                    help="con --torre-onnx: ninguna (fp32), dinamico (int8 dinámico por canal) o estatico (QDQ calibrado con --calib-torre)")
+    ap.add_argument("--cuant-torre", choices=CUANT_TORRE,
+                    help="con --torre-onnx: ninguna (fp32), dinamico (defecto; int8 dinámico por canal) o estatico (QDQ calibrado con --calib-torre)")
     ap.add_argument("--calib-torre", nargs="+", metavar="JSONL", help="con --cuant-torre estatico: filas (split train) cuyos textos de torre calibran las activaciones")
     ap.add_argument("--n-calib", type=int, default=500, help="textos de torre distintos para la calibración estática")
     ap.add_argument("--metodo-calib", choices=METODOS_CALIB, default="minmax", help="rango de las activaciones en la calibración estática")
@@ -711,12 +796,27 @@ def main(argv=None):
     ap.add_argument("--n-paridad", type=int, default=500)
     ap.add_argument("--vocab-podado", default=str(VOCAB_PODADO))
     ap.add_argument("--sin-poda", action="store_true", help="no aplicar el vocabulario podado")
-    ap.add_argument("--cuant", choices=CUANT, default="codificador",
-                    help="todo: todo el grafo en int8; codificador: solo MatMul y embeddings del codificador (ranuras en fp32); ninguna: fp32")
+    ap.add_argument("--perfil", choices=sorted(PERFILES), help="servidor = --cuant ninguna --cuant-torre ninguna --sin-poda; "
+                    "movil = int8 dinámico por canal en consulta y torre con la poda ampliada con --vocab-ampliar")
+    ap.add_argument("--vocab-ampliar", nargs="+", action="extend", default=[], metavar="JSONL|TXT",
+                    help="une al vocabulario podado los tokens de estos textos (repetible; jsonl con texto/pregunta/opciones/descripciones, o txt)")
+    ap.add_argument("--tabla-perfiles", metavar="DIR", help="escribe DIR/LEEME.md con DIR/servidor/paridad.json y DIR/movil/paridad.json (de --medir-torre) y sale")
+    ap.add_argument("--cuant", choices=CUANT,
+                    help="todo: todo el grafo en int8; codificador (defecto): solo MatMul y embeddings del codificador (ranuras en fp32); ninguna: fp32")
     ap.add_argument("--per-channel", action=argparse.BooleanOptionalAction, default=True, help="pesos int8 con una escala por canal de salida")
     ap.add_argument("--min-top1", type=float, default=MIN_TOP1, help="falla si el acuerdo top-1 con PyTorch queda por debajo")
     ap.add_argument("--trabajo", help="directorio de los ONNX (por defecto, temporal)")
     a = ap.parse_args(argv)
+    if a.tabla_perfiles:
+        escribir_tabla_perfiles(a.tabla_perfiles)
+        return 0
+    for k, v in (PERFILES[a.perfil] if a.perfil else {}).items():
+        if getattr(a, k) not in (None, False) and getattr(a, k) != v:
+            ap.error("--perfil %s fija --%s %s" % (a.perfil, k.replace("_", "-"), v))
+        setattr(a, k, v)
+    a.cuant, a.cuant_torre = a.cuant or "codificador", a.cuant_torre or "dinamico"
+    if a.vocab_ampliar and a.sin_poda:
+        ap.error("--vocab-ampliar no tiene sentido con --sin-poda")
     if a.torre_onnx:
         if not (a.ckpt or a.ckpt_aleatorio is not None):
             ap.error("--torre-onnx pide --ckpt o --ckpt-aleatorio")
@@ -733,16 +833,25 @@ def main(argv=None):
     ruta = os.environ.get("CHISPA_E5") or "intfloat/multilingual-e5-small"
     encoder = AutoModel.from_pretrained(ruta, attn_implementation="eager", local_files_only=os.path.exists(os.path.expanduser("~/hf/hub"))).eval()
     encoder.load_state_dict(enc.enc.state_dict())
-    if a.torre_onnx:
-        vocab = None if a.sin_poda else json.loads(Path(a.vocab_podado).read_text())
-        return main_torre(a, modelo, enc, encoder, vocab)
-    calib = json.loads(Path(a.calib).read_text(encoding="utf-8"))
     vocab = None if a.sin_poda else json.loads(Path(a.vocab_podado).read_text())
+    ampl = None
+    if vocab and a.vocab_ampliar:
+        base = vocab
+        vocab, ampl = ampliar_vocab(enc, base, a.vocab_ampliar)
+        tx, tg = [r["texto"] for r in filas_massive(300)], textos_golden(300)
+        ampl.update(unk_antes=fraccion_unk_textos(enc, tg, base), unk_despues=fraccion_unk_textos(enc, tg, vocab),
+                    unk_mensajes_antes=fraccion_unk_textos(enc, tx, base), unk_mensajes_despues=fraccion_unk_textos(enc, tx, vocab))
+        print("vocabulario ampliado: %s" % ampl, file=sys.stderr)
+    if a.torre_onnx:
+        return main_torre(a, modelo, enc, encoder, vocab, ampl)
+    calib = json.loads(Path(a.calib).read_text(encoding="utf-8"))
     filas = D.leer(a.esquemas)
     par = D.leer(a.paridad)[:a.n_paridad] if a.paridad else []
     with tempfile.TemporaryDirectory() as t:
         inf = construir(modelo, enc, encoder, ck, calib, filas, a.salida, a.trabajo or t, vocab, par, cuant=a.cuant, per_channel=a.per_channel)
     inf.pop("torres_entradas")
+    if ampl:
+        inf["vocab_ampliado"] = ampl
     Path(a.salida + ".informe.json").write_text(json.dumps(inf, indent=1) + "\n")
     print(json.dumps(inf, indent=1))
     if inf["l2_mb"] > MAX_L2_MB:
