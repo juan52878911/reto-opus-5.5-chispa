@@ -73,6 +73,8 @@ quedan_min() { echo $(( 75 - ($(date +%s) - T0) / 60 )); }
 
 # --- 1. entorno ---------------------------------------------------------------------------------------------------------------
 export HF_HOME="$HOME/hf"; mkdir -p "$HF_HOME"
+# microVM de kindling: torch CPU muere a veces con SIGILL (instrucción ilegal, rc 132) al detectar un ISA que la VM no ejecuta; en seco se limita a AVX2
+[ "$LOCAL" = 1 ] && export ONEDNN_MAX_CPU_ISA=${ONEDNN_MAX_CPU_ISA:-AVX2}
 if [ "$LOCAL" != 1 ]; then
   echo "== 1. entorno $(date -u +%T)"
   dnf install -y -q gcc tar gzip git python3.11 python3.11-pip || { fallo "dnf install"; cierre; }
