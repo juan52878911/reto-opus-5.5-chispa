@@ -437,7 +437,7 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		prm := paramsDe(l.calib, "noul")
 		return respuestaNoul(prm.A*sims[0]+prm.B, prm.Theta), nil
 	case KindMulti:
-		return respuestaMulti(p, sims, l.calib), nil
+		return respuestaMultiL2(p, sims, l.calib), nil
 	}
 	return l.score(p, sims[0])
 }

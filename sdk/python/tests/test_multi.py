@@ -174,3 +174,28 @@ class TestTiposMulti(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCalibPorCapa(unittest.TestCase):
+    """R9-5: la CALIB de L2 se ajusta con el MaxSim de L2 (otra escala), no con los cosenos de L1."""
+
+    def test_multi_l2_se_ajusta_con_maxsim_y_multi_con_cosenos(self):
+        from chispa.multi import calibrar_multi
+        import types
+        ops = [types.SimpleNamespace(id=i, description="") for i in "ab"]
+        q = types.SimpleNamespace(id="t", question="q", options=ops)
+        ex = [("x%d" % i, ("a",) if i % 2 else ("b",)) for i in range(40)]
+        rng = np.random.default_rng(0)
+        def emb(textos):
+            E = rng.normal(size=(len(textos), 4)); return E / np.linalg.norm(E, axis=1, keepdims=True), np.ones(len(textos), bool)
+        Y = np.array([[o.id in es for o in ops] for _, es in ex], float)
+        S = 20 * Y + 10 * (1 - Y)  # MaxSim en otra escala (10..20), no en [-1, 1]
+        tipos, inf = calibrar_multi(q, ex, emb, lambda textos: (S, np.ones(len(textos), bool)))
+        self.assertIn("multi_l2", tipos)
+        self.assertGreater(abs(tipos["multi_l2"]["b"] - tipos["multi"]["b"]), 5)  # b distinto: otra escala
+        p = 1 / (1 + np.exp(-(tipos["multi_l2"]["a"] * S + tipos["multi_l2"]["b"])))
+        self.assertTrue(((p > 0.5) == (Y > 0)).mean() > 0.95)  # separa en la escala de L2
+        q1 = 1 / (1 + np.exp(-(tipos["multi"]["a"] * S + tipos["multi"]["b"])))
+        self.assertFalse(((q1 > 0.5) == (Y > 0)).mean() > 0.95)  # la de L1 aplicada a MaxSim no separa
+        t2, _ = calibrar_multi(q, ex, emb)
+        self.assertNotIn("multi_l2", t2)  # sin maxsim_l2 no se inventa
