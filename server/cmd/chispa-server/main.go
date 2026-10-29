@@ -229,6 +229,7 @@ func nuevoHTTPServer(addr string, h http.Handler, timeout time.Duration) *http.S
 	if timeout > 0 {
 		srv.WriteTimeout = timeout + 5*time.Second
 	}
+	marcarOciosas(srv)
 	return srv
 }
 
@@ -258,33 +259,73 @@ func conLimites(h http.Handler, apagando *atomic.Bool) http.Handler {
 // plazoEscrituraAdmin es lo que tiene la recarga admin para terminar y responder.
 const plazoEscrituraAdmin = 10 * time.Minute
 
-// limitarConexiones envuelve ln con un tope de conexiones abiertas (como netutil.LimitListener): Accept espera un hueco.
+// limitarConexiones envuelve ln con un tope de conexiones abiertas (como netutil.LimitListener). Con el tope lleno, Accept
+// expulsa la conexión ociosa (keep-alive sin petición en curso) más antigua antes de esperar un hueco: las ociosas no
+// bloquean a una nueva. Las que tienen una petición en curso nunca se cortan. Ver marcarOciosas para avisar del estado.
 func limitarConexiones(ln net.Listener, n int) net.Listener {
 	if n <= 0 {
 		return ln
 	}
-	return &limitListener{Listener: ln, sem: make(chan struct{}, n), hecho: make(chan struct{})}
+	return &limitListener{Listener: ln, sem: make(chan struct{}, n), hecho: make(chan struct{}), aviso: make(chan struct{}, 1)}
 }
 
 type limitListener struct {
 	net.Listener
 	sem   chan struct{}
 	hecho chan struct{}
+	aviso chan struct{} // una conexión pasó a ociosa: Accept puede expulsarla
 	once  sync.Once
+	mu    sync.Mutex
+	ocio  map[*conLimitada]struct{}
+	seq   uint64
 }
 
 func (l *limitListener) Accept() (net.Conn, error) {
-	select {
-	case l.sem <- struct{}{}:
-	case <-l.hecho:
-		return nil, net.ErrClosed
+	for {
+		select {
+		case l.sem <- struct{}{}:
+			return l.aceptar()
+		case <-l.hecho:
+			return nil, net.ErrClosed
+		default:
+		}
+		if v := l.expulsarOciosa(); v != nil {
+			v.Close() // libera su hueco en sem
+			continue
+		}
+		select {
+		case l.sem <- struct{}{}:
+			return l.aceptar()
+		case <-l.hecho:
+			return nil, net.ErrClosed
+		case <-l.aviso:
+		}
 	}
+}
+
+func (l *limitListener) aceptar() (net.Conn, error) {
 	c, err := l.Listener.Accept()
 	if err != nil {
 		<-l.sem
 		return nil, err
 	}
-	return &conLimitada{Conn: c, liberar: func() { <-l.sem }}, nil
+	return &conLimitada{Conn: c, l: l}, nil
+}
+
+// expulsarOciosa saca del registro la ociosa más antigua (nil si no hay).
+func (l *limitListener) expulsarOciosa() *conLimitada {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var v *conLimitada
+	for c := range l.ocio {
+		if v == nil || c.desde < v.desde {
+			v = c
+		}
+	}
+	if v != nil {
+		delete(l.ocio, v)
+	}
+	return v
 }
 
 func (l *limitListener) Close() error {
@@ -295,14 +336,56 @@ func (l *limitListener) Close() error {
 
 type conLimitada struct {
 	net.Conn
-	once    sync.Once
-	liberar func()
+	once  sync.Once
+	l     *limitListener
+	desde uint64 // orden en que pasó a ociosa (protegido por l.mu)
+}
+
+// ociosa marca la conexión como ociosa (candidata a expulsión) o activa.
+func (c *conLimitada) ociosa(si bool) {
+	l := c.l
+	l.mu.Lock()
+	if si {
+		if l.ocio == nil {
+			l.ocio = map[*conLimitada]struct{}{}
+		}
+		l.seq++
+		c.desde = l.seq
+		l.ocio[c] = struct{}{}
+	} else {
+		delete(l.ocio, c)
+	}
+	l.mu.Unlock()
+	if si {
+		select {
+		case l.aviso <- struct{}{}:
+		default:
+		}
+	}
 }
 
 func (c *conLimitada) Close() error {
 	err := c.Conn.Close()
-	c.once.Do(c.liberar)
+	c.once.Do(func() {
+		c.l.mu.Lock()
+		delete(c.l.ocio, c)
+		c.l.mu.Unlock()
+		<-c.l.sem
+	})
 	return err
+}
+
+// marcarOciosas hace que el servidor avise al listener con tope de qué conexiones están ociosas (http.Server.ConnState).
+func marcarOciosas(srv *http.Server) {
+	prev := srv.ConnState
+	srv.ConnState = func(c net.Conn, st http.ConnState) {
+		if cl, ok := c.(*conLimitada); ok {
+			cl.ociosa(st == http.StateIdle)
+		}
+		if prev != nil {
+			prev(c, st)
+		}
+	}
 }
 
 // exigirClaves rechaza escuchar fuera de loopback sin api_keys salvo que se haya permitido abierto.
