@@ -75,6 +75,10 @@ export class ChispaCliente {
 
   async _pedir(ruta, cuerpo) {
     const json = JSON.stringify(cuerpo); // se serializa una vez: todos los intentos envían los mismos bytes y el mismo nonce
+    const n = bytes(json);
+    if (n > this.limites.maxCuerpo) {
+      throw new ErrorChispa({ codigo: "request_too_large", mensaje: `cuerpo: ${n} bytes, máximo ${this.limites.maxCuerpo}`, status: 0 });
+    }
     let ultimo;
     for (let i = 0; i <= this.reintentos; i++) {
       // backoff exponencial con jitter (×0,5–1); si el servidor pidió Retry-After, se espera al menos eso
