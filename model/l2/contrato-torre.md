@@ -10,8 +10,41 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
   medio U+00B7 y espacio.
 - **noul** y **score**: **un** vector por pregunta, el «vector de consulta», con el mismo formato y la **última** opción
   (`"true"` en noul y el nivel máximo en score).
-- La clave en ESQUEMAS es `HashEsquema(pregunta, [opción])` en choice y `HashEsquema(pregunta, opciones)` en noul y score,
-  como hoy.
+- La clave en ESQUEMAS y CONJ depende de la versión del formato de claves (siguiente sección). Desde la v2 incluye la descripción.
+
+## Claves de ESQUEMAS y CONJ: versión 2 (con descripción)
+**Dónde viaja la versión:** `META.version` del `.chispa` (entero; ya existía y el lector solo exige ≥ 1). `1` = claves antiguas, `2` = claves
+con descripción. No cambia el binario de ninguna sección, así que `format/chispa3` lee un fichero v2 sin tocarse; solo el runtime que
+busca las torres tiene que elegir la clave según `META.version`. `exportar.py` **siempre escribe 2**; los `.chispa` existentes dicen 1.
+
+`HashEsquema(pregunta, lista)` es el de siempre (`chispa3.HashEsquema`: sha256 con prefijos de longitud u64). Lo que cambia es la `lista`:
+
+| sección / tipo | v1 (`META.version` 1) | v2 (`META.version` 2) |
+|---|---|---|
+| ESQUEMAS, choice (una entrada por opción) | `[opción]` | `[opción, descripción]` |
+| ESQUEMAS, noul y score (una por pregunta) | `[o1, o2, …]` (en el orden de la pregunta) | `[o1, d1, o2, d2, …]` (ídem) |
+| CONJ y SOPL1 (solo choice) | `[id1, id2, …]` ordenados | `[id1, d1, id2, d2, …]` con los ids ordenados |
+
+`descripción` = la de la opción tal cual, y la cadena vacía si no hay (el mismo valor que entra en el texto de la torre). Es la clave de
+la torre al vuelo: dos esquemas con las mismas opciones y distinta descripción ya no comparten torre precalculada.
+
+Ejemplo (choice, pregunta `¿Qué quiere la persona?`, opción `alarma`, descripción `Poner una alarma.`):
+- v1: `HashEsquema("¿Qué quiere la persona?", ["alarma"])` = `5fc4d79dee73d7018f230686f9e139193461929ea3d3d8a0a0031f7ed5d459db`
+- v2: `HashEsquema("¿Qué quiere la persona?", ["alarma", "Poner una alarma."])` =
+  `6143d44c05f4222dee1832556566605bb109f52893a315334728e742121880d4`
+
+**Compatibilidad hacia atrás (qué hace el runtime):**
+- `META.version` 1 (o ausente): buscar con la clave v1, como hoy. Los fixtures v1 (`fixtures/calib-score.chispa`, `format/chispa3/testdata`) se
+  quedan tal cual para probarlo.
+- `META.version` ≥ 2: buscar con la v2. No hace falta reintentar con la otra.
+- Reintentar con la v1 si la v2 no aparece (y a la inversa) sería opcional y daría falsos aciertos en descripciones que cambian; no se recomienda.
+- **CONJ y SOPL1 no los escribe `exportar.py`** sino `chispa train --conjunta` (SDK): ese escritor debe pasar a la clave v2 y poner
+  `META.version` 2 cuando todas sus claves lo sean. Un fichero con ESQUEMAS v2 y CONJ v1 no es válido: la versión es única por fichero.
+
+**Fixture de paridad para el runtime:** `model/l2/tests/fixtures/esquemas-v2.chispa` (2,3 KB: ONNX de L2 de relleno, torres de un modelo diminuto) y
+`esquemas-v2.json` con, por entrada, `tipo`, `pregunta`, `opciones` (la lista v2), `hash` y `hash_v1` en hex, el `texto_torre`, y las claves de
+`conj`. Se regeneran con `python -m model.l2.tests.gen_esquemas_v2`; `test_esquemas_v2.py` comprueba que coinciden con un hashlib
+independiente y con la sección ESQUEMAS del fichero. Incluye dos filas con las mismas opciones y distinta descripción de «alarma».
 
 ## Tokenización
 - e5 (XLM-R unigram), igual que la consulta (`runtime/tok`), **pero con el prefijo `"passage: "`** en lugar de
@@ -41,6 +74,7 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
   - `estatico`: int8 **estático** con QDQ (`onnxruntime.quantization.quantize_static`): pesos por canal y escalas de activación
     por tensor fijadas con `--calib-torre <jsonl> --n-calib 500` (hasta 500 textos de torre distintos, `texto_opcion` de filas
     de train, elegidos al azar con semilla fija). `Torre` queda en fp32. `--metodo-calib minmax|percentil` elige el rango.
+  - `--perfil servidor|movil` fija la combinación elegida (ver «Perfiles»).
   - `--sin-poda` (con cualquiera de las tres) exporta la tabla de embeddings completa en vez de la podada.
   La paridad y la elección entre variantes salen de `model/bench/torre/e2e.sh` (`informe.md`, una tabla por variante).
 - **Opset:** 17.
@@ -77,3 +111,11 @@ Con e5 de `~/hf` y pesos de L2 aleatorios (semilla fija); tabla completa en `mod
   lote (y su relleno). Para reproducir un valor exacto, un texto por llamada. La caché por clave de ESQUEMAS no se ve afectada.
 - **Fixture para Go**: `model/l2/tests/fixtures_torre/torre.json` (20 textos, `input_ids` sin relleno con `<s>`=0, `</s>`=2 y
   `<pad>`=1, `h_fp32` y `h_onnx`). Un texto llega a los 128 tokens del truncado (el fixture es de `dinamico` con `max_len` 128).
+
+## Perfiles (`exportar.py --perfil`)
+- **`servidor`** = `--cuant ninguna --cuant-torre ninguna --sin-poda`: consulta y torre en fp32 con el vocabulario completo (250 037 ids). Sin `<unk>`
+  nuevos: la paridad con PyTorch es exacta. ~473 MB la consulta y ~472 MB la torre.
+- **`movil`**: int8 dinámico por canal en consulta (ranuras en fp32) y en torre, con el vocabulario podado **ampliado**.
+  `--vocab-ampliar F…` (repetible, `.jsonl` o `.txt`) une al podado los ids de los tokens de esos textos (con los prefijos `query: ` y
+  `passage: `); el informe da el % de `<unk>` antes y después. Ampliar es tolerable porque cada id nuevo cuesta una fila de 384 floats en int8.
+- Medidas (e5 real, pesos aleatorios) en `model/l2/resultados/perfiles/LEEME.md`.

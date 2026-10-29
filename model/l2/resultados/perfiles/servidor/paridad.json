@@ -1,0 +1,34 @@
+{
+ "max_len": 128,
+ "n_calib": 0,
+ "perfil": "servidor",
+ "vocab_ampliado": null,
+ "mb": 471.552113,
+ "fp32_mb": 471.552024,
+ "vocab_n": 250037,
+ "vocab_podado": false,
+ "cuant_torre": "ninguna",
+ "cuant": "ninguna",
+ "per_channel": true,
+ "opset": 17,
+ "h": {
+  "n": 300,
+  "coseno_medio": 0.9999999999999684,
+  "coseno_min": 0.9999999999999512,
+  "coseno_p1": 0.9999999999999565
+ },
+ "latencia_torre": {
+  "n": 100,
+  "p50_ms": 46.46075599998767,
+  "p99_ms": 94.37944500007234
+ },
+ "top1_choice": {
+  "acuerdo": 1.0,
+  "n": 300,
+  "margen_medio": 0.001001024842262268,
+  "opciones": 8,
+  "acuerdo_mitad_margen_alto": 1.0,
+  "margen_mitad_alta": 0.0016188502311706543
+ },
+ "consulta_mb": 473.048382
+}

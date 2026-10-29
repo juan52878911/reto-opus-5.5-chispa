@@ -1,0 +1,58 @@
+{
+ "max_len": 128,
+ "n_calib": 0,
+ "perfil": "movil",
+ "vocab_ampliado": {
+  "textos": 83344,
+  "ids_antes": 55000,
+  "ids_despues": 57893,
+  "unk_antes": 0.07549295774647888,
+  "unk_despues": 0.004507042253521127,
+  "unk_mensajes_antes": 0.0,
+  "unk_mensajes_despues": 0.0
+ },
+ "tokens_unk": 0.004507042253521127,
+ "mb_sin_poda": 47.825267,
+ "h_sin_poda": {
+  "n": 300,
+  "coseno_medio": 0.9997575408335035,
+  "coseno_min": 0.9994542054941309,
+  "coseno_p1": 0.9995916313903168
+ },
+ "mb": 47.822195,
+ "fp32_mb": 178.419314,
+ "vocab_n": 250037,
+ "vocab_podado": true,
+ "cuant_torre": "dinamico",
+ "cuant": "codificador",
+ "per_channel": true,
+ "opset": 17,
+ "h": {
+  "n": 300,
+  "coseno_medio": 0.9997184933869832,
+  "coseno_min": 0.9991783216435499,
+  "coseno_p1": 0.9992843145891901
+ },
+ "latencia_torre": {
+  "n": 100,
+  "p50_ms": 59.59811999991871,
+  "p99_ms": 108.31438199988952
+ },
+ "top1_choice": {
+  "acuerdo": 0.8066666666666666,
+  "n": 300,
+  "margen_medio": 0.0009801381826400758,
+  "opciones": 8,
+  "acuerdo_mitad_margen_alto": 0.98,
+  "margen_mitad_alta": 0.0016088831424713136
+ },
+ "top1_choice_sin_unk": {
+  "acuerdo": 0.75,
+  "n": 300,
+  "margen_medio": 0.0009801381826400758,
+  "opciones": 8,
+  "acuerdo_mitad_margen_alto": 0.9266666666666666,
+  "margen_mitad_alta": 0.0016088831424713136
+ },
+ "consulta_mb": 49.320283
+}
