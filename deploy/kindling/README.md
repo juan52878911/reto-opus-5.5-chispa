@@ -6,11 +6,14 @@ Solo ficheros: nada de esto se ha lanzado ni construido aquí (sin red, y kling 
 - `Dockerfile`: dos destinos. `imagen-cpu` (binario estático `CGO_ENABLED=0`, linux/amd64 y arm64, sin L2 ONNX) e
   `imagen-ort` (`-tags ort`, cgo, con `libonnxruntime.so` de las releases de Microsoft y `libstdc++`/`libgcc_s`; x64 y aarch64).
   Usuario 10001, `HEALTHCHECK` con `sondeo` (binario Go, sin shell ni curl), puerto por `CHISPA_PUERTO`.
-- `entrada.sh`: traduce variables de entorno a flags de `chispa-server` (`CHISPA_PUERTO`, `CHISPA_MODELO`, `CHISPA_TOK`, `CHISPA_CONFIG`).
+- `entrada.sh`: traduce variables de entorno a flags de `chispa-server` (`CHISPA_PUERTO`, `CHISPA_MODELO`, `CHISPA_TOK`, `CHISPA_CONFIG`). Exige `CHISPA_CONFIG` con `api_keys` (sale con 64 si falta); sin claves solo arranca con `CHISPA_ABIERTO=1` o `-abierto`. Rutas citadas, sin comodines.
 - `comprobar.sh`: valida el servicio sin contenedor ni kindling.
 - Base `debian:bookworm-slim` (no distroless) porque `entrada.sh` necesita `/bin/sh`.
 
 ## Construir (contexto = raíz del repo; requiere `gomod-proxy/`, igual que `server/deploy/Dockerfile`)
+`GOPROXY` es solo `file:///gomod-proxy` (`-mod=readonly`, sin `GONOSUMDB`): `gomod-proxy/` debe traer todos los módulos de `server/go.sum`.
+Rellena antes de construir (vacíos, el build falla): `--build-arg GO_DIGEST=sha256:… DEBIAN_DIGEST=sha256:…` y, para ort,
+`ORT_SHA256_X64=… ORT_SHA256_AARCH64=…` (sha256 de los `.tgz` de la release de ORT).
 ```
 docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-cpu -t chispa-server:cpu .
 docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-ort -t chispa-server:ort .
