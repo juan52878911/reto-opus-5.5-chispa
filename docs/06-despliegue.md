@@ -12,7 +12,13 @@
   La ruta de la `.so` se fija con `-ldflags -X …/decide.RutaORT=/ruta/libonnxruntime.so`.
 - Sin red: `GOFLAGS=-mod=mod GOPROXY=off`, con la caché de módulos ya llena ([`server/Makefile`](../server/Makefile)).
 - Los módulos locales (`format/chispa3`, `runtime/l1`) entran por `replace` en `server/go.mod`.
-- `-tags ort` compila con `onnxruntime_go v1.19.0` y ORT 1.22.0 ([`server/README.md`](../server/README.md#t45-tokenizador-de-e5-en-go-simproto-entero-y-e2e)).
+- Versiones de ORT: **hay dos pares y no coinciden.** `server/go.mod` pide `onnxruntime_go v1.38.0` y los tests de ORT se probaron con `libonnxruntime.so.1.31.1`
+  ([`server/README.md`](../server/README.md#compilar-y-probar-con-ort)). Los Dockerfile (`server/deploy`, `deploy/kindling`) fijan `ORT_VERSION` 1.22.0 y
+  `ORT_GO_VERSION` v1.19.0 y ejecutan `go get` de esa versión al construir. Regla: `onnxruntime_go` no debe pedir una API mayor que la de la `.so`.
+- Con ORT, el servidor calcula las torres de L2 al vuelo si el `.chispa` trae `TORR` y pasas `-tok`
+  ([`server/torre`](../server/torre/README.md), [08-esquemas-nuevos.md](08-esquemas-nuevos.md)). La caché de torres y el tope por petición se fijan con
+  `cache_torres` (por defecto 16 384) y `max_torres_nuevas` (por defecto 64; por encima, L2 no opina) en `-config`.
+- Probar con ORT sin red (nodo con Go y la `.so`): `cd server && CHISPA_ORT_LIB=/ruta/libonnxruntime.so go test -tags ort -race -count=1 ./...`. Sin ejecutar en este nodo.
 
 ## Flags
 De [`main.go`](../server/cmd/chispa-server/main.go):
@@ -22,7 +28,8 @@ De [`main.go`](../server/cmd/chispa-server/main.go):
 | `-addr` | dirección de escucha; por defecto `127.0.0.1:8090` |
 | `-modelo` | un `.chispa` v3 (o v2) del que armar las capas |
 | `-config` | JSON con capas, τ, modelos y cachés ([03-api.md](03-api.md#configuración--config)) |
-| `-tok` | `.chispa-tok` de e5; sin él, L2 queda en stub aunque se compile con `ort` |
+| `-tok` | `.chispa-tok` de e5; sin él, L2 queda en stub aunque se compile con `ort`, y con `TORR` no hay torres al vuelo (el servidor lo avisa en el log) |
+| `-timeout` | tope de tiempo por petición (30 s por defecto); al pasarlo responde 503 con `{"error":{"code":"timeout"}}`; 0 = sin tope |
 
 ## El tokenizador `-tok`
 L2 recibe ids de e5. El tokenizador está en Go puro ([`runtime/tok`](../runtime/tok/README.md)) y lee un `.chispa-tok`.
@@ -55,7 +62,40 @@ docker run --rm -p 8090:8090 -v /ruta/modelos:/modelos:ro chispa-server
 - El objetivo de tamaño es ≤ 150 MB. **No hay medida de la imagen en el repo.**
   Ver [`server/deploy/README.md`](../server/deploy/README.md).
 - Nix: `nix build ./nix#chispa-server` (sin cgo ni ORT). Sin probar.
+- Los README de `server/deploy` dicen que «L2 no responde aún» por falta de tokenizador: está desfasado. `main.go` ya acepta `-tok`; manda el código.
 
+## Imagen de kindling
+[`deploy/kindling/`](../deploy/kindling/README.md): `Dockerfile` con dos destinos, `imagen-cpu` (binario estático `CGO_ENABLED=0`, sin L2) e `imagen-ort`
+(`-tags ort`, con `libonnxruntime.so`), para linux/amd64 y arm64. Base `debian:bookworm-slim` (no distroless: `entrada.sh` necesita shell), usuario 10001,
+`HEALTHCHECK` con el binario `sondeo`.
+
+```
+docker buildx build --platform linux/amd64,linux/arm64 -f deploy/kindling/Dockerfile --target imagen-ort -t chispa-server:ort .
+```
+
+- `entrada.sh` traduce variables a flags: `CHISPA_PUERTO` (8090), `CHISPA_MODELO` (`/modelos/modelo.chispa`), `CHISPA_TOK` (`/modelos/e5.chispa-tok`, solo si el fichero existe)
+  y `CHISPA_CONFIG`. No pasa `-timeout`; se puede añadir como argumento.
+- Para torres al vuelo con `TORR`, monta `/modelos/e5.chispa-tok` junto al modelo (solo lectura).
+- Memoria orientativa, **sin medir en kindling**: `imagen-cpu` 256M (512M con el potion de 155 MB), `imagen-ort` `-mem 1G`, `-mem-max 2G`; `GOMEMLIMIT` va fijado a 400MiB.
+- Comprobación sin contenedor: `deploy/kindling/comprobar.sh [modelo.chispa]`.
+- Nada de esto se ha construido ni lanzado: los comandos de `kling` del README están **por confirmar con `kling --help`**.
+
+## Carga
+El arnés [`server/carga/`](../server/carga/README.md) mide decisiones/s, p50 y p99 por modo y concurrencia, y escribe `resultados-<host>-<fecha>.md` y `.csv`:
+
+```
+cd server && carga/correr.sh -t carga/textos-es-co.txt
+cd server && carga/correr.sh -O -M /ruta/modelo.chispa -T /ruta/e5.chispa-tok -t carga/textos-es-co.txt -m l2
+go run ./cmd/carga -url http://127.0.0.1:18090/v1/decide -textos carga/textos-es-co.txt -c 16 -d 30s -lote 4 -capas -csv
+make -C server carga-arnes ARGS="-d 10s -n 1"
+```
+
+- `correr.sh` (opciones `-m` modo `l1`|`l2`, `-c` concurrencias, `-d`, `-n` tandas, `-t` textos, `-M` modelo, `-T` tokenizador, `-O` compila con ORT, `-o`, `-p`) arranca el servidor
+  en el puerto 18090. `cmd/carga` tiene los flags `-url -c -d -lote -textos -csv -timeout -capas`; el arnés admite como máximo 64 conexiones.
+- `textos-es-co.txt`: 2 400 mensajes inventados en español de Colombia, 8 dominios; `textos.txt`: 260 frases sintéticas.
+- `esquemas-carga.json`: 8 preguntas zero-shot y 4 lotes. **`cmd/carga` aún no los manda** (`-lote N` repite la pregunta fija); el README trae un `curl` a mano.
+- Objetivos del plan: `l1` ≥ 5 000 dec/s con p99 < 20 ms; `l2` ≥ 300 dec/s. Cifras medidas: [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md#carga-del-arnés).
+- `-O`, `-M` y `-T` no se ejecutaron en este nodo (sin ORT ni modelos).
 ## Un solo `-modelo`
 Si tienes `l0l1.chispa` y `l2.chispa` por separado, únelos con `cd server && go run ./deploy/mkmodelo -unir l0l1.chispa,l2.chispa -out modelo.chispa`. Gana el primero si repiten sección.
 

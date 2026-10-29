@@ -15,6 +15,8 @@ son **benchmarks**: pruebas de que cada modo funciona, no el objetivo del produc
 | Few-shot | prototipos de L1 con 32 ejemplos por clase, macro-F1 medio en 5 tareas | 0,654 con potion | [`informe.md`](../model/l1/resultados/2026-10-28/informe.md) |
 | Few-shot | L0 con 50 ejemplos por clase en un sondeo de 13 clases | 0,821 (L0), 0,762 (cascada L0 → L1, lo escalado cuenta como fallo) | [`sdk/python/README.md`](../sdk/python/README.md#punta-a-punta-intención-del-sondeo-50-por-clase) |
 | Few-shot con k = 5 por opción | `chispa train` sin `--conjunta` | sin medir | — |
+| Few-shot con soporte `SOPL1` | mezcla del prototipo con la media de los ejemplos (`--shrinkage-lambda`); efecto de λ en la calidad | sin medir | — |
+| Zero-shot en `score` | L1 con la mediana de la distribución sobre niveles | sin medir | — |
 | Con datos del cliente | macro-F1 por `/v1/decide` en massive y clinc150 | 0,814 y 0,887 | [`e2e-20261028/LEEME.md`](../server/deploy/resultados/e2e-20261028/LEEME.md) |
 
 ## Zero-shot
@@ -70,6 +72,27 @@ el cliente de carga comparte la máquina y el ruido es de ±30 %
 | HTTP, 16 preguntas por petición, 8 conexiones, 1 núcleo | 11 323 | 9,6 ms | 38,1 ms |
 
 El lote amortiza el coste de HTTP y JSON. El objetivo del plan (≥ 5 k/s con L1 en un i7) no se confirmó.
+
+## Carga del arnés
+El arnés [`server/carga/`](../server/carga/README.md) corrió una vez, 10 s por punto y una tanda, en un i7-1255U (12 hilos lógicos) con **L2 en stub**
+(sin ORT, modelo ni tokenizador), L0 con los `.chispa` de `testdata` y `textos.txt` (260 frases). Con el máximo de loadavg en 12,07 durante la corrida: es una cota ruidosa.
+Fuente: [`resultados-…-20261028-210630.md`](../server/carga/resultados/resultados-MPC-NVKLGOK5UGQ-20261028-210630.md).
+
+| modo | conexiones | decisiones/s | p50 | p99 | objetivo del arnés |
+|---|---|---|---|---|---|
+| `l1` (L1 es stub aquí) | 1 | 1 531 | 0,64 ms | 1,10 ms | no cumple |
+| `l1` | 4 | 4 709 | 0,82 ms | 1,48 ms | no cumple |
+| `l1` | 16 | 10 432 | 1,40 ms | 3,85 ms | cumple |
+| `l1` | 64 | 19 797 | 2,67 ms | 9,87 ms | cumple |
+
+- Esa corrida **no mide L1 real ni L2 real**: sin modelo, la capa «L1» es un stub y el modo `l2` acaba en «escalar» (sus filas están en el CSV y no valen como cifra de L2).
+- Con `textos-es-co.txt` (2 400 mensajes en español de Colombia), con ORT y con modelos: sin medir. Tampoco se midió si la latencia de L1 depende de la longitud del texto.
+- Microbenchmarks sin HTTP ([`server/BENCH.md`](../server/BENCH.md), i7-1255U, `-benchtime 2s`): L0 TF-IDF con 150 clases 35,2 µs; L1 en lote de 16 (modelo de prueba)
+  70 µs; cabeza L2c 1,13 ms; cascada y handler `/v1/decide` 9,2 µs con 1 hilo. L2 con e5 y ONNX: no se mide ahí.
+- WASM (node v22, microVM compartida, L1 recortado): p50 de 238 µs a 16 tokens, 397 µs a 64 y 1,42 ms a 256, con p99 de 2,7 a 3,5 ms; en Chrome, sin medir
+  ([`demo/wasm/README.md`](../demo/wasm/README.md#latencia-cota-en-node-v22-wasm-microvm-de-4-vcpu-compartidas)).
+- Android «Medir» e iOS: sin medir en dispositivo. Imagen de kindling (tamaño, memoria): sin medir. Audio: diseño sin modelos ni medidas ([`audio/DISENO.md`](../audio/DISENO.md)).
+- Piloto en Colombia (PQRS, EPS, ferretería): sin medir; el kit pide medirlo en la semana 4 ([`pilotos/metrica.md`](../pilotos/metrica.md)).
 
 ## Few-shot: tiempos de entrenamiento
 `chispa train` con 13 clases × 50 ejemplos: 1,0 s para META + L0 + CALIB y 3,5 s con L1 (154,9 MB de fichero). En esa corrida, L0 solo
@@ -132,7 +155,8 @@ El ASR es bajo en parte porque el detector se abstiene mucho. Esa carga pasa a L
 Las corridas quedaron incompletas por el tope de tiempo (22–27 k ataques de 37 k pedidos).
 
 ## Qué no se midió
+- Throughput con ORT, e5 y torre al vuelo, y con el potion real en el arnés de carga: sin medir.
 - Latencia de L1 por HTTP con el potion real: sin medir ([`server/README.md`](../server/README.md#medidas-de-l1-real-microvm-kindling-de-4-vcpu-xeon-33-ghz-cota-del-i3)).
 - Tamaño de la imagen OCI.
-- Los SDK de iOS (sin compilar) y Android con L2 (sin tokenizador en el dispositivo).
+- Los SDK de iOS (sin compilar) y Android con L2 (L2 solo con el tokenizador del motor o de la app; sin medir en dispositivo), y los proveedores de ORT en móvil.
 - El hardware de destino: las cifras son de una microVM y de una c6a.xlarge.
