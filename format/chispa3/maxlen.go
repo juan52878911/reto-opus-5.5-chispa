@@ -14,7 +14,7 @@ import (
 //   - si no viene, MaxLenDefecto (128, el de G.7). Tope duro MaxLenTope; por encima, error.
 const (
 	MaxLenDefecto = 128
-	MaxLenMin     = 3 // <s>, al menos un token y </s>
+	MaxLenMin     = 3   // <s>, al menos un token y </s>
 	MaxLenTope    = 512 // e5-small tiene 512 posiciones; coincide con runtime/tok.TopeMaxLen
 
 	// ClaveMaxLenConsulta es la clave de metadata_props del ONNX de L2 con el truncado de la consulta.
