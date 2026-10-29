@@ -142,6 +142,7 @@ Ejemplo real: [`kind_invalido_400.resp.json`](../server/decide/testdata/kind_inv
 | 400 | `invalid_options` | `noul` con opciones distintas de `false` y `true` |
 | 400 | `missing_option_id` / `duplicate_option_id` | opción sin `id` / `id` repetido |
 | 400 | `field_too_long` | `question`, `description`, un `id` o el `nonce` por encima de `max_texto` / `max_id` |
+| 400 | `invalid_characters` | `question`, el `id` o la `description` de una opción con los caracteres de control U+001D–U+001F (separadores del hash del esquema) |
 | 401 | `unauthorized` | solo con `api_keys`: falta `Authorization: Bearer <clave>` o la clave es incorrecta (cabecera `WWW-Authenticate: Bearer`) |
 | 404 | `not_found` | ruta que no existe |
 | 405 | `method_not_allowed` | método distinto de POST en `/v1/decide` (cabecera `Allow: POST`) |

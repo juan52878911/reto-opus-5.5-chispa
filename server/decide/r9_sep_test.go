@@ -12,10 +12,10 @@ func TestRechazaSeparadoresDeClave(t *testing.T) {
 		body string
 		code string
 	}{
-		"pregunta":    {`{"questions":[{"id":"1","question":"a\u001db","kind":"choice","options":[{"id":"a"},{"id":"b"}]}]}`, ErrCampoLargo},
-		"id opción":   {`{"questions":[{"id":"1","question":"q","kind":"choice","options":[{"id":"a\u001e"},{"id":"b"}]}]}`, ErrOpcionesInvalidas},
-		"descripción": {`{"questions":[{"id":"1","question":"q","kind":"choice","options":[{"id":"a","description":"x\u001db\u001ey"},{"id":"b"}]}]}`, ErrOpcionesInvalidas},
-		"desc 0x1f":   {`{"questions":[{"id":"1","question":"q","kind":"multi","options":[{"id":"a","description":"\u001f"},{"id":"b"}]}]}`, ErrOpcionesInvalidas},
+		"pregunta":    {`{"questions":[{"id":"1","question":"a\u001db","kind":"choice","options":[{"id":"a"},{"id":"b"}]}]}`, ErrCaracteres},
+		"id opción":   {`{"questions":[{"id":"1","question":"q","kind":"choice","options":[{"id":"a\u001e"},{"id":"b"}]}]}`, ErrCaracteres},
+		"descripción": {`{"questions":[{"id":"1","question":"q","kind":"choice","options":[{"id":"a","description":"x\u001db\u001ey"},{"id":"b"}]}]}`, ErrCaracteres},
+		"desc 0x1f":   {`{"questions":[{"id":"1","question":"q","kind":"multi","options":[{"id":"a","description":"\u001f"},{"id":"b"}]}]}`, ErrCaracteres},
 	}
 	for nombre, c := range casos {
 		rr := post(h, c.body)

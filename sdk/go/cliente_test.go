@@ -600,3 +600,22 @@ func TestMultiRespuestaConAnswers(t *testing.T) {
 		t.Fatalf("petición: %+v", reg.cuerpos[0])
 	}
 }
+
+// R10 #10: los separadores U+001D–U+001F se rechazan antes de enviar, con el mismo código que el servidor.
+func TestSeparadoresInvalidCharacters(t *testing.T) {
+	l := LimitesPorDefecto()
+	op := []Opcion{{ID: "a"}, {ID: "b"}}
+	casos := map[string]Pregunta{
+		"pregunta":    {ID: "1", Texto: "a\x1db", Kind: KindChoice, Opciones: op},
+		"id opción":   {ID: "1", Texto: "q", Kind: KindChoice, Opciones: []Opcion{{ID: "a\x1e"}, {ID: "b"}}},
+		"descripción": {ID: "1", Texto: "q", Kind: KindMulti, Opciones: []Opcion{{ID: "a", Description: "\x1f"}, {ID: "b"}}},
+	}
+	for n, q := range casos {
+		if e := l.validar("x", []Pregunta{q}); e == nil || e.Codigo != "invalid_characters" {
+			t.Errorf("%s: %+v", n, e)
+		}
+	}
+	if e := l.validar("x", []Pregunta{{ID: "1", Texto: "a\x1cb\tc", Kind: KindChoice, Opciones: op}}); e != nil {
+		t.Errorf("0x1c y tab deben pasar: %+v", e)
+	}
+}
