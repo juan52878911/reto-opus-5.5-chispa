@@ -65,10 +65,13 @@ final class ConjTests: XCTestCase {
         XCTAssertEqual((j["l0"] as? [String: Double])?["soporte"], 0.3)
     }
 
-    func testTokenizadorDelMotorLeeInt32LittleEndian() {
+    func testTokenizadorDelMotorLeeInt32LittleEndian() throws {
         let m = MotorFalso()
         m.idsE5 = Data([0, 0, 0, 0, 0x91, 0x3A, 0x03, 0, 2, 0, 0, 0]) // 0, 211601, 2
-        XCTAssertEqual(TokenizadorMotor(motor: m).ids("x"), [0, 211601, 2])
-        XCTAssertEqual(TokenizadorMotor(motor: MotorFalso()).ids("x"), [])
+        XCTAssertEqual(try TokenizadorMotor(motor: m).ids("x"), [0, 211601, 2])
+        XCTAssertTrue(m.tieneTokenizadorE5())
+        XCTAssertThrowsError(try TokenizadorMotor(motor: MotorFalso()).ids("x")) { error in
+            XCTAssertEqual(error as? ErrorChispa, ErrorChispa("el motor no tiene el tokenizador de e5"))
+        }
     }
 }

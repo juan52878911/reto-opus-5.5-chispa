@@ -13,6 +13,9 @@ import java.io.File
  * L0 usa la sección L0TF si el fichero la trae. L2 (ONNX Runtime) solo se monta si el fichero trae las secciones L2
  * y ESQUEMAS **y** hay tokenizador de e5: el de la app ([Tokenizador]) o el del motor, cargado de un `.chispa-tok`
  * (`rutaTokenizador`, el mismo que usa el servidor). Con CONJ en el fichero, L2 es L2c (cabeza conjunta).
+ *
+ * Esquema nuevo (zero-shot): la pregunta trae sus opciones con descripciones. L1 las usa tal cual (torres de texto
+ * cacheadas en el motor); L2 recibe las torres al vuelo con un [CodificadorTorre] (opcional) y el motor las cachea.
  */
 class Chispa private constructor(
     private val motor: Motor,
@@ -42,6 +45,7 @@ class Chispa private constructor(
             rutaModelo: String,
             tokenizador: Tokenizador? = null,
             rutaTokenizador: String? = null,
+            codificadorTorres: CodificadorTorre? = null,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
             val motor = MotorNativo.abrir(fichero.absolutePath)
@@ -51,7 +55,7 @@ class Chispa private constructor(
                     motor.cargarTokenizadorE5(resolver(contexto, rutaTokenizador).absolutePath)
                     tok = TokenizadorMotor(motor)
                 }
-                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) })
+                montar(motor, tok, onnx = { motor.extraerL2ARuta(contexto, fichero) }, codificadorTorres = codificadorTorres)
             } catch (e: Throwable) {
                 motor.close()
                 throw e
@@ -64,12 +68,13 @@ class Chispa private constructor(
             tokenizador: Tokenizador?,
             onnx: () -> String,
             crearSesion: (String) -> SesionRanuras = { SesionOrt(it) },
+            codificadorTorres: CodificadorTorre? = null,
         ): Chispa {
             var sesion: SesionRanuras? = null
             var l2: CapaL2? = null
             if ("L2" in motor.capas() && tokenizador != null) {
                 sesion = crearSesion(onnx())
-                l2 = CapaL2(motor, sesion, tokenizador)
+                l2 = CapaL2(motor, sesion, tokenizador, codificadorTorres)
             }
             try {
                 return Chispa(motor, Cascada.armar(motor, l2), sesion)

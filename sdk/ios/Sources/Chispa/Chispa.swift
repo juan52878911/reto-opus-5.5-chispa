@@ -9,6 +9,9 @@ import Foundation
 /// L0 usa la sección L0TF si el fichero la trae. L2 (ONNX Runtime con CoreML) solo se monta si el fichero trae las
 /// secciones L2 y ESQUEMAS **y** hay tokenizador de e5: el de la app (`Tokenizador`) o el del motor, cargado de un
 /// `.chispa-tok` (`rutaTokenizador`, el mismo que usa el servidor). Con CONJ en el fichero, L2 es L2c (cabeza conjunta).
+///
+/// Esquema nuevo (zero-shot): la pregunta trae sus opciones con descripciones. L1 las usa tal cual (torres de texto
+/// cacheadas en el motor); L2 recibe las torres al vuelo con un `CodificadorTorre` (opcional) y el motor las cachea.
 public final class Chispa {
     private let motor: Motor
     private let cascada: Cascada
@@ -27,7 +30,7 @@ public final class Chispa {
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
-                             coreML: Bool = true) throws -> Chispa {
+                             coreML: Bool = true, codificadorTorres: CodificadorTorre? = nil) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
         let motor = try MotorNativo.abrir(ruta: ruta)
         do {
@@ -44,7 +47,7 @@ public final class Chispa {
                 let onnx = FileManager.default.temporaryDirectory.appendingPathComponent("chispa-l2-\(nombre)-\(tam).onnx").path
                 if !FileManager.default.fileExists(atPath: onnx) { try motor.extraerL2(a: onnx) }
                 return onnx
-            }, crearSesion: { try SesionOrt(rutaOnnx: $0, coreML: coreML) })
+            }, crearSesion: { try SesionOrt(rutaOnnx: $0, coreML: coreML) }, codificadorTorres: codificadorTorres)
         } catch {
             motor.cerrar()
             throw error
@@ -53,13 +56,14 @@ public final class Chispa {
 
     /// Monta la cascada sobre cualquier `Motor` (los tests usan uno falso). `onnx` da la ruta del ONNX de L2.
     static func montar(motor: Motor, tokenizador: Tokenizador?, onnx: () throws -> String,
-                       crearSesion: (String) throws -> SesionRanuras) throws -> Chispa {
+                       crearSesion: (String) throws -> SesionRanuras,
+                       codificadorTorres: CodificadorTorre? = nil) throws -> Chispa {
         var sesion: SesionRanuras?
         var l2: Capa?
         if motor.capas().contains("L2"), let tok = tokenizador {
             let s = try crearSesion(try onnx())
             sesion = s
-            l2 = CapaL2(motor: motor, sesion: s, tokenizador: tok)
+            l2 = CapaL2(motor: motor, sesion: s, tokenizador: tok, codificador: codificadorTorres)
         }
         return Chispa(motor: motor, cascada: try Cascada.armar(motor: motor, l2: l2), sesion: sesion)
     }
