@@ -134,12 +134,23 @@ def main(argv=None):
                 for q in preds:
                     capas[q["layer"]] = capas.get(q["layer"], 0) + 1
                 todos = {"casos": len(preds), "de": len(filas), "exactitud_servidor": res["exactitud"], "capas": capas}
+                # exactitud por tipo de pregunta (choice/noul/score): un fallo de un solo tipo (p. ej. noul invertido) se ve aquí
+                por_tipo = {}
+                for t in sorted({r["tipo"] for r in sub}):
+                    st = [r for r in sub if r["tipo"] == t]
+                    it = {r["id"] for r in st}
+                    por_tipo[t] = CE.evaluar(st, [{x: q[x] for x in ("id", "probs", "ms")} for q in preds if q["id"] in it])["global"]["exactitud"]
+                todos["exactitud_servidor_por_tipo"] = por_tipo
                 py = Path(a.pred) if a.pred else sal / "pred" / "l2_k0.jsonl"
                 if py.exists():
                     pp = [json.loads(l) for l in py.read_text().splitlines() if l.strip() and json.loads(l)["id"] in ids]
                     todos["exactitud_python_k0"] = CE.evaluar(sub, [{x: q[x] for x in ("id", "probs", "ms")} for q in pp])["global"]["exactitud"]
+                    todos["exactitud_python_k0_por_tipo"] = {
+                        t: CE.evaluar([r for r in sub if r["tipo"] == t], [{x: q[x] for x in ("id", "probs", "ms")} for q in pp
+                                                                           if q["id"] in {r["id"] for r in sub if r["tipo"] == t}])["global"]["exactitud"]
+                        for t in sorted({r["tipo"] for r in sub})}
                 out["todos"] = todos
-                (sal / "capas_por_caso.jsonl").write_text("".join(json.dumps({"id": q["id"], "layer": q["layer"], "escalate": q["escalate"]}) + "\n" for q in preds))
+                (sal / "capas_por_caso.jsonl").write_text("".join(json.dumps({"id": q["id"], "layer": q["layer"], "escalate": q["escalate"], "probs": q.get("probs")}) + "\n" for q in preds))
             m = metricas(url)
             out["metricas"] = m
             # comprobación obligatoria: la torre se calculó de verdad y L2 decidió algo (si no, todo salió de L0/L1 o escaló por el τ)
