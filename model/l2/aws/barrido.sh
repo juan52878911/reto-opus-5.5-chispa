@@ -11,6 +11,8 @@ CHISPA_G8_S3=__CHISPA_G8_S3__
 #   3. model.l2.barrido --l1: λ ∈ {0, 1, 2, 4, 8, ∞} y el κ de dev, en las tareas no vistas y JevBench con k = 8, e5 una vez por texto;
 #      tabla λ × tarea y «τ para esquemas nuevos» en comparacion.md. Si --l1 falla, repite sin L1. tasksource_fuera no entra (no hay meta
 #      aquí; es zero-shot y sale en la comparación de general.sh);
+#   3b. .chispa score K≥3 (G.7b): datos_g7 dev + calibrar + exportar con el ckpt de G.8 → $CHISPA_S3/score/l2-score.chispa (más su log y
+#      las claves CALIB scoreK, scoreK#j en score/claves.json). Si falla, solo se anota; el log se sube igual;
 #   4. al salir (trap) sube comparacion.md, barrido.json, FALLO y log.txt, y apaga. Apagado forzoso a los 90 min.
 # CHISPA_LOCAL=1: prueba en seco en kindling (fixtures, checkpoint sin entrenar, ~/venv, sin dnf, pip, descargas ni shutdown; el "s3" es
 # /tmp/chispa/s3/<prefijo>). CHISPA_MAX_FILAS (por conjunto, 600; 60 en seco).
@@ -48,6 +50,9 @@ subir_y_apagar() {
   for f in comparacion.md barrido.json FALLO; do
     [ -f "$OUT/$f" ] && { s3cp "$OUT/$f" "$CHISPA_S3/$f" || echo "no se pudo subir $f"; }
   done
+  for f in exportar-score.log calib-score.log claves.json; do
+    [ -f "$OUT/score/$f" ] && { s3cp "$OUT/score/$f" "$CHISPA_S3/score/$f" || echo "no se pudo subir score/$f"; }
+  done
   s3cp "$BASE/log.txt" "$CHISPA_S3/log.txt" || echo "no se pudo subir log.txt"
   [ "$LOCAL" = 1 ] || shutdown -h now
 }
@@ -66,8 +71,14 @@ else
   "$PY" -m pip install -q --no-cache-dir -U pip \
     && "$PY" -m pip install -q --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
     && "$PY" -m pip install -q --no-cache-dir transformers numpy huggingface_hub pyyaml pyarrow datasets model2vec scikit-learn \
+    && "$PY" -m pip install -q --no-cache-dir onnx onnxscript onnxruntime \
     || { fallo "pip install"; cierre; }
+  GO_VERSION=1.27.1   # solo para empaquetar_go del .chispa score; si falla, ese paso falla y el barrido sigue
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -xzC /usr/local || echo "aviso: descarga de Go"
 fi
+export PATH=/usr/local/go/bin:$HOME/go-sdk/bin:$PATH GOTOOLCHAIN=local GOFLAGS=-mod=mod GONOSUMDB='github.com/juan52878911/*'
+export GOPROXY=file://$BASE/repo/gomod-proxy,https://proxy.golang.org
+[ "$LOCAL" = 1 ] && export GOPROXY=off
 mkdir -p "$HF_HOME"
 "$PY" -c "import sys, torch, numpy; print(sys.version.split()[0], 'torch', torch.__version__, 'hilos', torch.get_num_threads())" || { fallo "imports"; cierre; }
 
@@ -132,4 +143,18 @@ BA=(--ckpt "$CK/mejor.pt" --salida "$OUT" --datos "$DATOS" --jevbench "$JEV" --k
   "$PY" -u -m model.l2.barrido "${BA[@]}" || fallo "barrido falló dos veces"
 }
 [ -f "$OUT/comparacion.md" ] || fallo "sin comparacion.md"
+
+# --- .chispa con score K≥3 (G.7b): calibrar + exportar con el checkpoint de G.8. Si falla no tumba el barrido; el log se sube igual ---
+echo "== .chispa score $(date -u +%T)"
+SC=$OUT/score; mkdir -p "$SC"
+if "$PY" -m model.bench.torre.datos_g7 dev "$SC/dev-score.jsonl" --jevbench "$JEV" \
+   && "$PY" -u -m model.l2.calibrar --ckpt "$CK/mejor.pt" --dev "$SC/dev-score.jsonl" --salida "$SC/calib-score.json" --device cpu > "$SC/calib-score.log" 2>&1 \
+   && "$PY" -u -m model.l2.exportar --ckpt "$CK/mejor.pt" --calib "$SC/calib-score.json" --esquemas "$SC/dev-score.jsonl" --salida "$SC/l2-score.chispa" \
+        > "$SC/exportar-score.log" 2>&1 \
+   && "$PY" -I -c "
+import json, sys
+k = sorted(x for x in json.load(open(sys.argv[1]))['chispa']['tipos'] if x.startswith('score'))
+open(sys.argv[2], 'w').write(json.dumps(k)); sys.exit(0 if k else 'sin claves score')" "$SC/calib-score.json" "$SC/claves.json" \
+   && s3cp "$SC/l2-score.chispa" "$CHISPA_S3/score/l2-score.chispa"; then echo "CHISPA_SCORE OK claves CALIB: $(cat "$SC/claves.json")"
+else echo "CHISPA_SCORE FALLO (no tumba el barrido)"; tail -5 "$SC/exportar-score.log" 2>/dev/null; fi
 cierre

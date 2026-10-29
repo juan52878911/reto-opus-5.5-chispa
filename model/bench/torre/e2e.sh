@@ -52,6 +52,9 @@ subir_y_apagar() {
       | LC_ALL=C sort > "$BASE/resultados.lista" && tar -czf "$BASE/resultados.tgz" -T "$BASE/resultados.lista" ) || echo "no se pudo crear resultados.tgz"
   [ -f "$BASE/resultados.tgz" ] && { s3cp "$BASE/resultados.tgz" "$CHISPA_S3/resultados.tgz" || echo "no se pudo subir resultados.tgz"; }
   s3cp "$BASE/log.txt" "$CHISPA_S3/log.txt" || echo "no se pudo subir log.txt"
+  for f in exportar-score.log calib-score.log; do   # además de ir en el tgz, sueltos: así se ve el fallo de G.7b aunque el tgz no suba
+    [ -f "$RES/$f" ] && { s3cp "$RES/$f" "$CHISPA_S3/score/$f" || echo "no se pudo subir $f"; }
+  done
   [ "$LOCAL" = 1 ] || shutdown -h now
 }
 PY=${CHISPA_PY:-$HOME/venv/bin/python}
@@ -147,6 +150,7 @@ done
 
 # --- 3b. .chispa con score K≥3 para la sesión SDK: calibrar.py + exportar.py sobre un dev con tareas score de JevBench -----------------
 echo "== 3b. .chispa score $(date -u +%T)"
+: > "$RES/exportar-score.log"   # existe siempre, falle el paso que falle
 if "$PY" -m model.bench.torre.datos_g7 dev "$RES/dev-score.jsonl" --jevbench "$JEV" \
    && "$PY" -u -m model.l2.calibrar --ckpt "$CKPT" --dev "$RES/dev-score.jsonl" --salida "$RES/calib-score.json" --device cpu > "$RES/calib-score.log" 2>&1 \
    && "$PY" -u -m model.l2.exportar --ckpt "$CKPT" --calib "$RES/calib-score.json" --esquemas "$RES/dev-score.jsonl" --salida "$RES/l2-score.chispa" \

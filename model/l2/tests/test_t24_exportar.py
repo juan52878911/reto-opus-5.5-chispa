@@ -138,6 +138,19 @@ class Exportacion(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertNotIn("SKIP", p.stdout)
 
+    def test_empaquetar_apaga_el_go_work(self):
+        """Con un go.work en la raíz (paquete SDK) `-mod=mod` fallaba: la llamada a Go debe llevar GOWORK=off."""
+        from unittest import mock
+        visto = {}
+
+        def falso(cmd, **kw):
+            visto.update(kw["env"])
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        with mock.patch.dict(os.environ, {"GOWORK": "/x/go.work"}), mock.patch.object(E.subprocess, "run", falso):
+            E.empaquetar({}, "a.onnx", {}, {}, "s.chispa")
+        self.assertEqual(visto["GOWORK"], "off")
+        self.assertEqual(visto["GOFLAGS"], "-mod=mod")
+
 
 if __name__ == "__main__":
     unittest.main()
