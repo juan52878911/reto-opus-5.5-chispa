@@ -19,7 +19,7 @@ func FuzzDecodificarEsquemas(f *testing.F) {
 			return
 		}
 		for i := 0; i < e.Len(); i++ {
-			if v, _, ok := e.Buscar([32]byte(e.hash(i))); !ok || len(v) != e.Dim() {
+			if v, _, ok := e.buscar(e.hash(i)); !ok || len(v) != e.Dim() {
 				t.Fatal("Buscar no encuentra una entrada válida")
 			}
 		}

@@ -25,6 +25,7 @@ import (
 //	C·K×f32 escala · C·K·d×int8 prototipos (cada ranura q·escala ≈ prototipo normalizado)
 const (
 	ConjVersion  = 1
+	ConjVersion2 = 2 // igual que la 1 salvo que el hash de cada entrada es HashEsquema2: 16 bytes en vez de 32
 	CabezaLR     = 1
 	ConjPesosLR  = 6
 	maxConjN     = 1 << 16
@@ -36,7 +37,8 @@ const (
 
 // EntradaConj es la cabeza de un esquema. Proto son C·K·d bytes int8 en crudo (en la lectura apunta a la sección).
 type EntradaConj struct {
-	Hash    [32]byte
+	Hash    [32]byte // clave v1 (ClaveConj); en una sección v2, vacío
+	Hash2   [16]byte // clave v2 (ClaveConj2); en una sección v1, vacío
 	Cabeza  uint32
 	K, D    int
 	T, Beta float32
@@ -89,24 +91,36 @@ func (e *EntradaConj) validar() error {
 }
 
 // CodificarConj serializa las entradas (ordena por hash).
-func CodificarConj(es []EntradaConj) ([]byte, error) {
+func CodificarConj(es []EntradaConj) ([]byte, error) { return codificarConj(es, ConjVersion) }
+
+// CodificarConj2 serializa CONJ v2: las entradas llevan Hash2 (y se ordenan por él).
+func CodificarConj2(es []EntradaConj) ([]byte, error) { return codificarConj(es, ConjVersion2) }
+
+func clave(e *EntradaConj, ver uint32) []byte {
+	if ver == ConjVersion2 {
+		return e.Hash2[:]
+	}
+	return e.Hash[:]
+}
+
+func codificarConj(es []EntradaConj, ver uint32) ([]byte, error) {
 	if len(es) > maxConjN {
 		return nil, fmt.Errorf("%w: CONJ con %d entradas", ErrContenido, len(es))
 	}
 	s := append([]EntradaConj(nil), es...)
-	sort.Slice(s, func(i, j int) bool { return bytes.Compare(s[i].Hash[:], s[j].Hash[:]) < 0 })
+	sort.Slice(s, func(i, j int) bool { return bytes.Compare(clave(&s[i], ver), clave(&s[j], ver)) < 0 })
 	le := binary.LittleEndian
-	b := le.AppendUint32(nil, ConjVersion)
+	b := le.AppendUint32(nil, ver)
 	b = le.AppendUint32(b, uint32(len(s)))
 	for i := range s {
 		e := &s[i]
 		if err := e.validar(); err != nil {
 			return nil, err
 		}
-		if i > 0 && s[i-1].Hash == e.Hash {
+		if i > 0 && bytes.Equal(clave(&s[i-1], ver), clave(e, ver)) {
 			return nil, fmt.Errorf("%w: CONJ hash repetido", ErrContenido)
 		}
-		b = append(b, e.Hash[:]...)
+		b = append(b, clave(e, ver)...)
 		for _, v := range []uint32{e.Cabeza, uint32(e.K), uint32(e.D), uint32(len(e.Clases)), uint32(len(e.W))} {
 			b = le.AppendUint32(b, v)
 		}
@@ -127,7 +141,8 @@ func CodificarConj(es []EntradaConj) ([]byte, error) {
 
 // Conj es la sección CONJ validada.
 type Conj struct {
-	es []EntradaConj
+	es  []EntradaConj
+	ver int // 1 o 2
 }
 
 type lector struct {
@@ -159,21 +174,30 @@ func (l *lector) f32() float32 { return math.Float32frombits(l.u32()) }
 
 func DecodificarConj(b []byte) (*Conj, error) {
 	l := &lector{b: b}
-	if v := l.u32(); l.err == nil && v != ConjVersion {
+	v := l.u32()
+	if l.err == nil && v != ConjVersion && v != ConjVersion2 {
 		return nil, fmt.Errorf("%w: CONJ versión %d", ErrContenido, v)
+	}
+	ancho := uint64(32)
+	if v == ConjVersion2 {
+		ancho = 16
 	}
 	n := l.u32()
 	if l.err != nil {
 		return nil, l.err
 	}
 	// Cada entrada mide al menos conjFijoEntr bytes: acota n antes de reservar.
-	if n > maxConjN || uint64(n)*conjFijoEntr > uint64(len(l.b)) {
+	if n > maxConjN || uint64(n)*(conjFijoEntr-32+ancho) > uint64(len(l.b)) {
 		return nil, fmt.Errorf("%w: CONJ con %d entradas", ErrContenido, n)
 	}
-	c := &Conj{es: make([]EntradaConj, 0, n)}
+	c := &Conj{es: make([]EntradaConj, 0, n), ver: int(v)}
 	for i := uint32(0); i < n; i++ {
 		e := EntradaConj{celda: new(celdaPk)}
-		copy(e.Hash[:], l.toma(32))
+		if v == ConjVersion2 {
+			copy(e.Hash2[:], l.toma(16))
+		} else {
+			copy(e.Hash[:], l.toma(32))
+		}
 		e.Cabeza = l.u32()
 		k, d, nc, nw := l.u32(), l.u32(), l.u32(), l.u32()
 		if l.err != nil {
@@ -217,7 +241,7 @@ func DecodificarConj(b []byte) (*Conj, error) {
 		if err := e.validar(); err != nil {
 			return nil, err
 		}
-		if i > 0 && bytes.Compare(c.es[i-1].Hash[:], e.Hash[:]) >= 0 {
+		if i > 0 && bytes.Compare(clave(&c.es[i-1], v), clave(&e, v)) >= 0 {
 			return nil, fmt.Errorf("%w: CONJ hashes no crecientes", ErrContenido)
 		}
 		c.es = append(c.es, e)
@@ -230,10 +254,28 @@ func DecodificarConj(b []byte) (*Conj, error) {
 
 func (c *Conj) Len() int { return len(c.es) }
 
-// Buscar devuelve la cabeza de un esquema.
+// Version es la versión de la sección (1 o 2): el runtime elige la función de clave con ella.
+func (c *Conj) Version() int { return c.ver }
+
+// Buscar devuelve la cabeza de un esquema por su clave v1 (ClaveConj); en una sección v2 no encuentra nada.
 func (c *Conj) Buscar(h [32]byte) (*EntradaConj, bool) {
-	i := sort.Search(len(c.es), func(i int) bool { return bytes.Compare(c.es[i].Hash[:], h[:]) >= 0 })
-	if i == len(c.es) || c.es[i].Hash != h {
+	if c.ver != ConjVersion {
+		return nil, false
+	}
+	return c.buscar(h[:])
+}
+
+// Buscar2 es Buscar con la clave v2 (ClaveConj2); en una sección v1 no encuentra nada.
+func (c *Conj) Buscar2(h [16]byte) (*EntradaConj, bool) {
+	if c.ver != ConjVersion2 {
+		return nil, false
+	}
+	return c.buscar(h[:])
+}
+
+func (c *Conj) buscar(h []byte) (*EntradaConj, bool) {
+	i := sort.Search(len(c.es), func(i int) bool { return bytes.Compare(clave(&c.es[i], uint32(c.ver)), h) >= 0 })
+	if i == len(c.es) || !bytes.Equal(clave(&c.es[i], uint32(c.ver)), h) {
 		return nil, false
 	}
 	return &c.es[i], true

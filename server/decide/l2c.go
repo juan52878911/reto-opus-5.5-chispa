@@ -49,7 +49,12 @@ func (l *L2c) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	return l.DecidirCon(ctx, p, nil)
 }
 
-// ClaveConj es el hash del esquema en CONJ: la pregunta y los ids de las opciones, ordenados.
+// buscarConj busca la cabeza del esquema con la clave de la versión de CONJ (v1: ids ordenados; v2: HashEsquema2).
+func (l *L2c) buscarConj(p Pregunta) (*chispa3.EntradaConj, bool) {
+	return l.conj.BuscarEsquema(p.Texto, p.Kind, clavesDe(p.Opciones))
+}
+
+// ClaveConj es la clave v1 del esquema en CONJ y la de SOPL1 (que no cambia): la pregunta y los ids de las opciones, ordenados.
 func ClaveConj(p Pregunta) [32]byte {
 	ids := make([]string, len(p.Opciones))
 	for i, o := range p.Opciones {
@@ -67,7 +72,7 @@ func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 	if p.Kind != KindChoice || len(p.Opciones) == 0 {
 		return l.L2.Decidir(ctx, p)
 	}
-	e, ok := l.conj.Buscar(ClaveConj(p))
+	e, ok := l.buscarConj(p)
 	l0, hay := previas["L0"]
 	if !ok || !hay || len(l0.Probs) == 0 {
 		return l.L2.Decidir(ctx, p)
@@ -98,7 +103,7 @@ func (l *L2c) torreDe(p Pregunta, o Opcion) (vec []byte, escala float32, ok bool
 	if l.L2 == nil {
 		return nil, 0, false
 	}
-	if v, esc, ok := l.esq.Buscar(chispa3.HashEsquema(p.Texto, []string{o.ID})); ok {
+	if v, esc, ok := buscarTorre(l.esq, p, []Opcion{o}); ok {
 		return v, esc, true
 	}
 	if l.cache != nil {
@@ -119,7 +124,7 @@ func (l *L2c) mezclarSimproto(p Pregunta, S [][]float32, ts []torreDin) []float6
 	if !ok {
 		return nil
 	}
-	e, ok := l.conj.Buscar(ClaveConj(p))
+	e, ok := l.buscarConj(p)
 	if !ok {
 		return nil
 	}

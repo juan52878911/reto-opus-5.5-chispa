@@ -174,6 +174,11 @@ func HashEsquema(pregunta string, opciones []string) [32]byte {
 	return out
 }
 
+// ESQUEMAS v2: la primera palabra es versión<<16 | dim (en v1 es dim ≤ 4096, o sea versión 0 = v1) y las claves son
+// HashEsquema2 (16 bytes). Resto igual: u32 (versión<<16|dim) · u32 n · n×[16]byte clave (estrictamente crecientes) ·
+// n×f32 escala · n×dim×int8.
+const EsquemasVersion2 = 2
+
 // EntradaEsquema es una torre de opción cuantizada: vector int8 y su escala.
 type EntradaEsquema struct {
 	Hash   [32]byte
@@ -183,26 +188,56 @@ type EntradaEsquema struct {
 
 // CodificarEsquemas serializa las entradas (ordena por hash; todas con la misma dimensión).
 func CodificarEsquemas(dim int, es []EntradaEsquema) ([]byte, error) {
+	cs := make([]entradaClave, len(es))
+	for i, e := range es {
+		cs[i] = entradaClave{e.Hash[:], e.Escala, e.Vec}
+	}
+	return codificarEsquemas(dim, 32, 0, cs)
+}
+
+// EntradaEsquema2 es una torre de ESQUEMAS v2: la clave es HashEsquema2.
+type EntradaEsquema2 struct {
+	Hash   [16]byte
+	Escala float32
+	Vec    []int8
+}
+
+// CodificarEsquemas2 serializa ESQUEMAS v2 (ordena por clave).
+func CodificarEsquemas2(dim int, es []EntradaEsquema2) ([]byte, error) {
+	cs := make([]entradaClave, len(es))
+	for i, e := range es {
+		cs[i] = entradaClave{e.Hash[:], e.Escala, e.Vec}
+	}
+	return codificarEsquemas(dim, 16, EsquemasVersion2, cs)
+}
+
+type entradaClave struct {
+	hash   []byte
+	escala float32
+	vec    []int8
+}
+
+func codificarEsquemas(dim, w int, ver uint32, es []entradaClave) ([]byte, error) {
 	if dim < 1 || dim > maxEsqDim || len(es) > maxEsqN {
 		return nil, fmt.Errorf("%w: ESQUEMAS dim=%d n=%d", ErrContenido, dim, len(es))
 	}
-	s := append([]EntradaEsquema(nil), es...)
-	sort.Slice(s, func(i, j int) bool { return bytes.Compare(s[i].Hash[:], s[j].Hash[:]) < 0 })
+	s := append([]entradaClave(nil), es...)
+	sort.Slice(s, func(i, j int) bool { return bytes.Compare(s[i].hash, s[j].hash) < 0 })
 	n := len(s)
-	b := make([]byte, 8+n*(32+4+dim))
-	binary.LittleEndian.PutUint32(b[0:], uint32(dim))
+	b := make([]byte, 8+n*(w+4+dim))
+	binary.LittleEndian.PutUint32(b[0:], ver<<16|uint32(dim))
 	binary.LittleEndian.PutUint32(b[4:], uint32(n))
-	hs, ss, vs := 8, 8+32*n, 8+36*n
+	hs, ss, vs := 8, 8+w*n, 8+(w+4)*n
 	for i, e := range s {
-		if len(e.Vec) != dim || !(e.Escala >= 0) || math.IsInf(float64(e.Escala), 0) {
+		if len(e.vec) != dim || !(e.escala >= 0) || math.IsInf(float64(e.escala), 0) {
 			return nil, fmt.Errorf("%w: ESQUEMAS entrada %d", ErrContenido, i)
 		}
-		if i > 0 && s[i-1].Hash == e.Hash {
+		if i > 0 && bytes.Equal(s[i-1].hash, e.hash) {
 			return nil, fmt.Errorf("%w: ESQUEMAS hash repetido", ErrContenido)
 		}
-		copy(b[hs+32*i:], e.Hash[:])
-		binary.LittleEndian.PutUint32(b[ss+4*i:], math.Float32bits(e.Escala))
-		for j, v := range e.Vec {
+		copy(b[hs+w*i:], e.hash)
+		binary.LittleEndian.PutUint32(b[ss+4*i:], math.Float32bits(e.escala))
+		for j, v := range e.vec {
 			b[vs+i*dim+j] = byte(v)
 		}
 	}
@@ -212,6 +247,8 @@ func CodificarEsquemas(dim int, es []EntradaEsquema) ([]byte, error) {
 // Esquemas es la tabla de torres de opción, validada, sobre los bytes de la sección (sin copiar).
 type Esquemas struct {
 	dim, n int
+	ver    int // 1 (claves de 32 bytes, HashEsquema) o 2 (16 bytes, HashEsquema2)
+	w      int // ancho de la clave
 	b      []byte
 }
 
@@ -219,16 +256,25 @@ func DecodificarEsquemas(b []byte) (*Esquemas, error) {
 	if len(b) < 8 {
 		return nil, fmt.Errorf("%w: ESQUEMAS truncado", ErrContenido)
 	}
-	dim := uint64(binary.LittleEndian.Uint32(b[0:]))
+	w0 := binary.LittleEndian.Uint32(b[0:])
+	ver, w := 1, 32
+	switch w0 >> 16 {
+	case 0:
+	case EsquemasVersion2:
+		ver, w = 2, 16
+	default:
+		return nil, fmt.Errorf("%w: ESQUEMAS versión %d", ErrContenido, w0>>16)
+	}
+	dim := uint64(w0 & 0xffff)
 	n := uint64(binary.LittleEndian.Uint32(b[4:]))
 	if dim < 1 || dim > maxEsqDim || n > maxEsqN {
 		return nil, fmt.Errorf("%w: ESQUEMAS dim=%d n=%d", ErrContenido, dim, n)
 	}
-	if want := 8 + n*(36+dim); want != uint64(len(b)) { // ≤ 8 + 2^24·4132: no desborda
+	if want := 8 + n*(uint64(w)+4+dim); want != uint64(len(b)) { // ≤ 8 + 2^24·4132: no desborda
 		return nil, fmt.Errorf("%w: ESQUEMAS mide %d y debería medir %d", ErrContenido, len(b), want)
 	}
-	e := &Esquemas{dim: int(dim), n: int(n), b: b}
-	ss := 8 + 32*e.n
+	e := &Esquemas{dim: int(dim), n: int(n), ver: ver, w: w, b: b}
+	ss := 8 + w*e.n
 	for i := 0; i < e.n; i++ {
 		if i > 0 && bytes.Compare(e.hash(i-1), e.hash(i)) >= 0 {
 			return nil, fmt.Errorf("%w: ESQUEMAS hashes no crecientes", ErrContenido)
@@ -241,19 +287,38 @@ func DecodificarEsquemas(b []byte) (*Esquemas, error) {
 	return e, nil
 }
 
-func (e *Esquemas) hash(i int) []byte { return e.b[8+32*i : 8+32*i+32] }
+func (e *Esquemas) hash(i int) []byte { return e.b[8+e.w*i : 8+e.w*i+e.w] }
 
 func (e *Esquemas) Dim() int { return e.dim }
 func (e *Esquemas) Len() int { return e.n }
 
-// Buscar devuelve el vector (bytes int8 en crudo, sin copiar) y la escala de un hash.
+// Version es la versión de la sección (1 o 2): el runtime elige la función de clave con ella.
+func (e *Esquemas) Version() int { return e.ver }
+
+// Buscar devuelve el vector (bytes int8 en crudo, sin copiar) y la escala de un hash v1 (HashEsquema).
+// En una sección v2 no encuentra nada: las claves de las dos versiones no se mezclan.
 func (e *Esquemas) Buscar(h [32]byte) (vec []byte, escala float32, ok bool) {
-	i := sort.Search(e.n, func(i int) bool { return bytes.Compare(e.hash(i), h[:]) >= 0 })
-	if i == e.n || !bytes.Equal(e.hash(i), h[:]) {
+	if e.ver != 1 {
 		return nil, 0, false
 	}
-	vs := 8 + 36*e.n + i*e.dim
-	return e.b[vs : vs+e.dim : vs+e.dim], math.Float32frombits(binary.LittleEndian.Uint32(e.b[8+32*e.n+4*i:])), true
+	return e.buscar(h[:])
+}
+
+// Buscar2 es Buscar con una clave HashEsquema2; no encuentra nada en una sección v1.
+func (e *Esquemas) Buscar2(h [16]byte) (vec []byte, escala float32, ok bool) {
+	if e.ver != 2 {
+		return nil, 0, false
+	}
+	return e.buscar(h[:])
+}
+
+func (e *Esquemas) buscar(h []byte) (vec []byte, escala float32, ok bool) {
+	i := sort.Search(e.n, func(i int) bool { return bytes.Compare(e.hash(i), h) >= 0 })
+	if i == e.n || !bytes.Equal(e.hash(i), h) {
+		return nil, 0, false
+	}
+	vs := 8 + (e.w+4)*e.n + i*e.dim
+	return e.b[vs : vs+e.dim : vs+e.dim], math.Float32frombits(binary.LittleEndian.Uint32(e.b[8+e.w*e.n+4*i:])), true
 }
 
 func (f *Fichero) Esquemas() (*Esquemas, error) {

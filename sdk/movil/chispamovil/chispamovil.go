@@ -801,35 +801,49 @@ type torreL2 struct {
 }
 
 func (c *Chispa) torresL2(p pregunta) ([]torreL2, error) {
-	buscar := func(ops []string) (torreL2, bool) {
-		v, e, ok := c.esq.Buscar(chispa3.HashEsquema(p.Texto, ops))
+	// La clave la elige la versión de ESQUEMAS (HashEsquema en v1, HashEsquema2 en v2: con v2 otra descripción u otro kind
+	// es otro esquema y sus torres las instala la app).
+	buscar := func(ops []opcion) (torreL2, bool) {
+		v, e, ok := c.esq.BuscarEsquema(p.Texto, p.Kind, clavesDe(ops))
 		return torreL2{v, e}, ok
 	}
 	var ts []torreL2
 	switch p.Kind {
 	case "choice", "multi": // una torre por opción
 		for _, o := range p.Opciones {
-			t, ok := buscar([]string{o.ID})
+			t, ok := buscar([]opcion{o})
 			if !ok {
 				return c.torresNuevas(p)
 			}
 			ts = append(ts, t)
 		}
 	default:
-		ids := make([]string, len(p.Opciones))
-		for i, o := range p.Opciones {
-			ids[i] = o.ID
-		}
+		ops := p.Opciones
 		if p.Kind == "noul" {
-			ids = []string{"false", "true"}
+			ops = []opcion{{ID: "false"}, {ID: "true"}}
+			for _, o := range p.Opciones {
+				for i := range ops {
+					if o.ID == ops[i].ID {
+						ops[i].Description = o.Description
+					}
+				}
+			}
 		}
-		t, ok := buscar(ids)
+		t, ok := buscar(ops)
 		if !ok {
 			return c.torresNuevas(p)
 		}
 		ts = []torreL2{t}
 	}
 	return ts, nil
+}
+
+func clavesDe(ops []opcion) []chispa3.OpcionClave {
+	out := make([]chispa3.OpcionClave, len(ops))
+	for i, o := range ops {
+		out[i] = chispa3.OpcionClave{ID: o.ID, Descripcion: o.Description}
+	}
+	return out
 }
 
 // ranurasDe lee las ranuras K×d float32 little endian que salen del ONNX.
@@ -995,7 +1009,7 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 	for i, o := range p.Opciones {
 		ids[i] = o.ID
 	}
-	e, ok := c.conj.Buscar(chispa3.ClaveConj(p.Texto, ids))
+	e, ok := c.conj.BuscarEsquema(p.Texto, p.Kind, clavesDe(p.Opciones)) // clave de la versión de CONJ
 	if !ok {
 		return sinOpinar
 	}

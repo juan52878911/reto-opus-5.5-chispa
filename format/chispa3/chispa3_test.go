@@ -384,7 +384,7 @@ func FuzzAbrir(f *testing.F) {
 		ValidarL1(data)
 		if e, err := DecodificarEsquemas(data); err == nil {
 			for i := 0; i < e.Len(); i++ {
-				if v, _, ok := e.Buscar([32]byte(e.hash(i))); !ok || len(v) != e.Dim() {
+				if v, _, ok := e.buscar(e.hash(i)); !ok || len(v) != e.Dim() {
 					t.Fatal("Buscar no encuentra una entrada válida")
 				}
 			}
@@ -406,7 +406,7 @@ func FuzzAbrir(f *testing.F) {
 			case ESQUEMAS:
 				if e, err := DecodificarEsquemas(b); err == nil {
 					for i := 0; i < e.Len(); i++ {
-						if v, _, ok := e.Buscar([32]byte(e.hash(i))); !ok || len(v) != e.Dim() {
+						if v, _, ok := e.buscar(e.hash(i)); !ok || len(v) != e.Dim() {
 							t.Fatal("Buscar no encuentra una entrada válida")
 						}
 					}
