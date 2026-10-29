@@ -31,7 +31,7 @@ type Torre struct {
 
 // CodificarTORR serializa una torre; el prefijo debe ser UTF-8 válido.
 func CodificarTORR(t Torre) ([]byte, error) {
-	if t.Dim <= 0 || t.Dim > maxTorrDim || t.MaxLen <= 0 || t.MaxLen > maxTorrLen ||
+	if t.Dim <= 0 || t.Dim > maxTorrDim || t.MaxLen < MaxLenMin || t.MaxLen > maxTorrLen ||
 		len(t.Prefijo) > maxTorrPref || !utf8.ValidString(t.Prefijo) || len(t.ONNX) == 0 {
 		return nil, fmt.Errorf("%w: TORR dim=%d max_len=%d (tope %d) prefijo=%d onnx=%d", ErrContenido, t.Dim, t.MaxLen, MaxLenTope, len(t.Prefijo), len(t.ONNX))
 	}
@@ -55,7 +55,7 @@ func DecodificarTORR(b []byte) (Torre, error) {
 		return Torre{}, fmt.Errorf("%w: TORR versión %d", ErrContenido, v)
 	}
 	dim, ml, np := le.Uint32(b[4:]), le.Uint32(b[8:]), le.Uint32(b[12:])
-	if dim == 0 || dim > maxTorrDim || ml == 0 || ml > maxTorrLen || np > maxTorrPref {
+	if dim == 0 || dim > maxTorrDim || ml < MaxLenMin || ml > maxTorrLen || np > maxTorrPref {
 		return Torre{}, fmt.Errorf("%w: TORR dim=%d max_len=%d (tope %d) prefijo=%d", ErrContenido, dim, ml, MaxLenTope, np)
 	}
 	if uint64(len(b)) <= uint64(torrCab)+uint64(np) {

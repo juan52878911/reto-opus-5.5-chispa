@@ -1,3 +1,4 @@
+import struct
 import unittest
 from pathlib import Path
 
@@ -128,6 +129,36 @@ class TestSOPL1(unittest.TestCase):
     def test_el_fichero_v3_guardado_es_el_que_se_genera(self):
         self.assertTrue(TESTDATA_V3.is_file(), "falta " + str(TESTDATA_V3))
         self.assertEqual(TESTDATA_V3.read_bytes(), fichero(v3=True))
+
+    def test_paridad_con_go_rechaza_lo_mismo(self):
+        """Los mismos bytes corruptos que TestSOPL1ParidadConPythonRechazaLoMismo (Go): el lector y el escritor Python los rechazan."""
+        raw = formato.sopl1(DIM, entradas_v3())
+        formato.leer_sopl1(raw)
+        casos = {"escala NaN": (62, "<I", 0x7fc00000), "escala negativa": (62, "<I", 0xbf800000), "escala +Inf": (62, "<I", 0x7f800000),
+                 "norma NaN": (82, "<I", 0x7fc00000), "norma > 1.001": (82, "<I", 0x40000000), "ids no crecientes": (50, "<B", ord("c"))}
+        for nombre, (off, fmt, val) in casos.items():
+            m = bytearray(raw)
+            struct.pack_into(fmt, m, off, val)
+            with self.assertRaises(ValueError, msg=nombre):
+                formato.leer_sopl1(bytes(m))
+        dup = struct.pack("<III", 3, DIM, 2) + raw[12:] + raw[12:]
+        with self.assertRaises(ValueError):
+            formato.leer_sopl1(dup)
+
+    def test_escritor_rechaza_lo_que_go_rechaza(self):
+        e = entradas_v3()[0]
+        for mal in (np.array([np.nan, 0], dtype=np.float32), np.array([-1.0, 0], dtype=np.float32), np.array([np.inf, 0], dtype=np.float32)):
+            with self.assertRaises(ValueError):
+                formato.sopl1(DIM, [{**e, "escala": mal}])
+        with self.assertRaises(ValueError):
+            formato.sopl1(DIM, [e, {**e}])  # hashes repetidos
+        with self.assertRaises(ValueError):
+            formato.sopl1(DIM, [{**e, "normas": np.array([[np.nan, 0], [0, 0]], dtype=np.float32)}])
+        for grande in (2 ** 32, 2 ** 40):  # antes se truncaba a 0 («sin dato, usa k»)
+            with self.assertRaises(ValueError):
+                formato.sopl1(DIM, [{**e, "n_l2": np.array([grande, 0], dtype=np.uint64)}])
+            with self.assertRaises(ValueError):
+                formato.sopl1(DIM, [{**e, "n_l2": [grande, 0]}])
 
 
 if __name__ == "__main__":

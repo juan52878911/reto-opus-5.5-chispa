@@ -1,3 +1,4 @@
+import struct
 import unittest
 from pathlib import Path
 
@@ -22,6 +23,16 @@ class TestTORR(unittest.TestCase):
         sec = formato.leer(fichero())
         self.assertEqual(formato.leer_torr(sec[formato.TORR]),
                          {"dim": 256, "max_len": 128, "prefijo": "passage: ", "onnx": ONNX})
+
+    def test_max_len_menor_de_3_se_rechaza(self):
+        for ml in (-1, 0, 1, 2):
+            with self.assertRaises(ValueError):
+                formato.torr(ONNX, max_len=ml)
+        b = formato.torr(ONNX, max_len=3)
+        self.assertEqual(formato.leer_torr(b)["max_len"], 3)
+        for ml in (1, 2):
+            with self.assertRaises(ValueError):
+                formato.leer_torr(b[:8] + struct.pack("<I", ml) + b[12:])
 
     def test_max_len_256_y_tope(self):
         b = formato.torr(ONNX, max_len=256)

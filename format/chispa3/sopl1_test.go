@@ -2,6 +2,7 @@ package chispa3
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"math"
 	"os"
@@ -487,4 +488,49 @@ func TestShrinkageL2cUsaNL2(t *testing.T) {
 	// n_l2 = k reproduce el comportamiento de antes.
 	igual := &EntradaSopl1{Ids: []string{"a"}, K: []uint32{5}, Ranuras: 2, Normas: norma, NL2: []uint32{5}}
 	casiTol(t, "n_l2=k", SimprotoMezclado(e, igual, &tres, []string{"a"}, S, tor), g, 1e-12)
+}
+
+// Los mismos bytes corruptos que `test_paridad_con_go_rechaza_lo_mismo` de sdk/python/tests/test_sopl1.py: el lector Go los rechaza
+// (y el de Python también). Offsets sobre la sección v3 de soporte-v3.chispa (entrada de 98+12 bytes: C=2, K=2, M=2).
+func TestSOPL1ParidadConPythonRechazaLoMismo(t *testing.T) {
+	f, err := Abrir(filepath.Join("testdata", "soporte-v3.chispa"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	raw, err := f.Bytes(SOPL1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodificarSopl1(raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		nombre string
+		off    int
+		val    uint32
+	}{
+		{"escala NaN", 62, 0x7fc00000},
+		{"escala negativa", 62, 0xbf800000},
+		{"escala +Inf", 62, 0x7f800000},
+		{"norma NaN", 82, 0x7fc00000},
+		{"norma > 1.001", 82, 0x40000000},
+		{"ids no crecientes", 50, 'c'},
+	} {
+		m := append([]byte(nil), raw...)
+		if c.nombre == "ids no crecientes" {
+			m[c.off] = byte(c.val)
+		} else {
+			binary.LittleEndian.PutUint32(m[c.off:], c.val)
+		}
+		if _, err := DecodificarSopl1(m); !errors.Is(err, ErrContenido) {
+			t.Errorf("%s: %v", c.nombre, err)
+		}
+	}
+	dup := append([]byte(nil), raw[:12]...)
+	binary.LittleEndian.PutUint32(dup[8:], 2)
+	dup = append(append(dup, raw[12:]...), raw[12:]...)
+	if _, err := DecodificarSopl1(dup); !errors.Is(err, ErrContenido) {
+		t.Errorf("hashes repetidos: %v", err)
+	}
 }

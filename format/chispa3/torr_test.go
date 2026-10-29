@@ -2,6 +2,7 @@ package chispa3
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -99,5 +100,24 @@ func TestTORRFicheroEscritoPorPython(t *testing.T) {
 	raw, err := f.Bytes(TORR)
 	if err != nil || !bytes.Equal(raw, want) {
 		t.Fatalf("bytes distintos: %x vs %x (%v)", raw, want, err)
+	}
+}
+
+func TestTorrMaxLenMinimo(t *testing.T) {
+	for _, ml := range []int{-1, 0, 1, 2} {
+		if _, err := CodificarTORR(Torre{Dim: 4, MaxLen: ml, Prefijo: "passage: ", ONNX: []byte("x")}); !errors.Is(err, ErrContenido) {
+			t.Errorf("max_len %d: %v", ml, err)
+		}
+	}
+	b, err := CodificarTORR(Torre{Dim: 4, MaxLen: 3, Prefijo: "passage: ", ONNX: []byte("x")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ml := range []uint32{1, 2} {
+		c := append([]byte(nil), b...)
+		binary.LittleEndian.PutUint32(c[8:], ml)
+		if _, err := DecodificarTORR(c); !errors.Is(err, ErrContenido) {
+			t.Errorf("decodificar max_len %d: %v", ml, err)
+		}
 	}
 }

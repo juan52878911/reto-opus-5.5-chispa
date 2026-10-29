@@ -173,6 +173,7 @@ def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
 # --- TORR (ver format/chispa3/torr.go para la disposición) ---
 TORR_VERSION = 1
 TORR_PREFIJO_POR_VERSION = {1: "passage: "}  # regla por versión: una versión futura añade su fila
+TORR_MAX_LEN_MIN = 3  # `chispa3.MaxLenMin`: <s>, al menos un token y </s>
 TORR_MAX_LEN_TOPE = 512  # `chispa3.MaxLenTope` / `runtime/tok.TopeMaxLen`: e5-small tiene 512 posiciones; por encima, error
 
 
@@ -188,8 +189,8 @@ def validar_prefijo_torr(version: int, prefijo: str) -> None:
 def torr(onnx: bytes, dim: int = 256, max_len: int = 128, prefijo: str = "passage: ") -> bytes:
     """Sección TORR: u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX (`chispa3.CodificarTORR`)."""
     p = prefijo.encode("utf-8")
-    if not 0 < dim <= 4096 or not 0 < max_len <= TORR_MAX_LEN_TOPE or len(p) > 256 or not onnx:
-        raise ValueError("TORR mal formada")
+    if not 0 < dim <= 4096 or not TORR_MAX_LEN_MIN <= max_len <= TORR_MAX_LEN_TOPE or len(p) > 256 or not onnx:
+        raise ValueError(f"TORR mal formada (dim={dim}, max_len={max_len}: se exige {TORR_MAX_LEN_MIN}..{TORR_MAX_LEN_TOPE})")
     return struct.pack("<IIII", TORR_VERSION, dim, max_len, len(p)) + p + onnx
 
 
@@ -198,7 +199,7 @@ def leer_torr(b: bytes) -> dict:
     if len(b) < 16:
         raise ValueError("TORR truncada")
     ver, dim, ml, n = struct.unpack("<IIII", b[:16])
-    if ver != TORR_VERSION or not 0 < dim <= 4096 or not 0 < ml <= TORR_MAX_LEN_TOPE or n > 256 or len(b) <= 16 + n:
+    if ver != TORR_VERSION or not 0 < dim <= 4096 or not TORR_MAX_LEN_MIN <= ml <= TORR_MAX_LEN_TOPE or n > 256 or len(b) <= 16 + n:
         raise ValueError("TORR inválida")
     return {"dim": dim, "max_len": ml, "prefijo": b[16:16 + n].decode("utf-8"), "onnx": b[16 + n:]}
 
@@ -228,6 +229,14 @@ def cuantizar_media(M):
     return esc, q
 
 
+def _validar_sopl1_escala(esc):
+    """Como `EntradaSopl1.validar`: cada escala es finita y ≥ 0 (NaN, ∞ y negativas se rechazan)."""
+    import numpy as np
+    a = np.asarray(esc, dtype=np.float32)
+    if not np.all(np.isfinite(a) & (a >= 0)):
+        raise ValueError("SOPL1: escala no finita o negativa")
+
+
 def sopl1(dim: int, entradas) -> bytes:
     """Sección SOPL1: soporte few-shot por pregunta (k y media int8 de los embeddings de L1 por opción). Cada entrada:
     dict con `hash` (32 bytes, `clave_conj`), `ids` (estrictamente crecientes), `k` (C,), `escala` (C,) y `media` (C,dim) int8.
@@ -243,13 +252,18 @@ def sopl1(dim: int, entradas) -> bytes:
     ver = SOPL1_VERSION3 if con_n else SOPL1_VERSION2 if con_normas else SOPL1_VERSION
     con_normas = ver >= SOPL1_VERSION2
     out = [struct.pack("<III", ver, dim, len(entradas))]
+    previo = None
     for e in sorted(entradas, key=lambda e: e["hash"]):
+        if previo is not None and previo == e["hash"]:
+            raise ValueError("SOPL1: hashes repetidos")
+        previo = e["hash"]
         media = np.ascontiguousarray(e["media"], dtype=np.int8)
         c = len(e["ids"])
         if len(e["hash"]) != 32 or c < 1 or media.shape != (c, dim) or len(e["k"]) != c or len(e["escala"]) != c:
             raise ValueError("entrada de SOPL1 mal formada")
         if any(a >= b for a, b in zip(e["ids"], e["ids"][1:])):
             raise ValueError("SOPL1: ids no crecientes")
+        _validar_sopl1_escala(e["escala"])
         out.append(e["hash"] + struct.pack("<I", c))
         for n in e["ids"]:
             b = n.encode("utf-8")
@@ -260,7 +274,7 @@ def sopl1(dim: int, entradas) -> bytes:
         if con_normas:
             nm = e.get("normas")
             nm = np.zeros((c, 0), dtype="<f4") if nm is None else np.ascontiguousarray(nm, dtype="<f4")
-            if nm.ndim != 2 or nm.shape[0] != c or nm.shape[1] > SOPL1_MAX_K or not np.all((nm >= 0) & (nm <= 1.001)):
+            if nm.ndim != 2 or nm.shape[0] != c or nm.shape[1] > SOPL1_MAX_K or not np.all((nm >= 0) & (nm <= 1.001)):  # NaN falla ambas
                 raise ValueError("SOPL1: normas mal formadas (C×K, en [0, 1])")
             out.append(struct.pack("<I", nm.shape[1]) + nm.tobytes())
         if con_n:
@@ -269,7 +283,7 @@ def sopl1(dim: int, entradas) -> bytes:
                 out.append(struct.pack("<I", 0))
             else:
                 nl = np.asarray(nl)
-                if nl.shape != (c,) or np.any(nl < 0) or np.any(nl != np.floor(nl)):
+                if nl.shape != (c,) or np.any(nl < 0) or np.any(nl != np.floor(nl)) or np.any(nl >= 2 ** 32):
                     raise ValueError("SOPL1: n_l2 mal formado (C enteros ≥ 0)")
                 out.append(struct.pack("<I", c) + nl.astype("<u4").tobytes())
     return b"".join(out)
@@ -311,6 +325,13 @@ def leer_sopl1(b: bytes) -> dict:
                 raise ValueError("SOPL1 inválida")
             if m:
                 n_l2 = np.frombuffer(b, "<u4", c, pos); pos += 4 * c
+        _validar_sopl1_escala(esc)
+        if any(a >= b2 for a, b2 in zip(ids, ids[1:])):
+            raise ValueError("SOPL1 inválida: ids no crecientes")
+        if normas is not None and not np.all((normas >= 0) & (normas <= 1.001)):
+            raise ValueError("SOPL1 inválida: norma de ranura fuera de [0, 1.001] o NaN")
+        if es and es[-1]["hash"] >= h:
+            raise ValueError("SOPL1 inválida: hashes no crecientes")
         es.append({"hash": h, "ids": ids, "k": k, "escala": esc, "media": media, "normas": normas, "n_l2": n_l2})
     if pos != len(b):
         raise ValueError("SOPL1 con bytes sobrantes")

@@ -14,6 +14,7 @@ import (
 //   - si no viene, MaxLenDefecto (128, el de G.7). Tope duro MaxLenTope; por encima, error.
 const (
 	MaxLenDefecto = 128
+	MaxLenMin     = 3 // <s>, al menos un token y </s>
 	MaxLenTope    = 512 // e5-small tiene 512 posiciones; coincide con runtime/tok.TopeMaxLen
 
 	// ClaveMaxLenConsulta es la clave de metadata_props del ONNX de L2 con el truncado de la consulta.
@@ -23,7 +24,7 @@ const (
 // ComprobarMaxLen devuelve un error claro si n no cabe en 3..MaxLenTope (<s>, al menos un token y </s>). `donde` dice de qué
 // valor se trata («metadato chispa.consulta.max_len», «TORR max_len»…).
 func ComprobarMaxLen(n int, donde string) error {
-	if n < 3 || n > MaxLenTope {
+	if n < MaxLenMin || n > MaxLenTope {
 		return fmt.Errorf("%s: max_len %d fuera de rango (3..%d)", donde, n, MaxLenTope)
 	}
 	return nil
@@ -104,24 +105,32 @@ func entradaMeta(b []byte) (clave, valor string, err error) {
 	return clave, valor, nil
 }
 
-// MaxLenConsulta es el truncado de la consulta que declara el ONNX de L2: `chispa.consulta.max_len` o MaxLenDefecto si no viene
-// (o si el ONNX no se puede leer: ORT dará su propio error al abrirlo). Un valor que no es un entero, o fuera de 3..MaxLenTope,
-// es un error claro.
+// MaxLenConsulta es el truncado de la consulta que declara el ONNX de L2: `chispa.consulta.max_len` o MaxLenDefecto si no viene.
+// Si los metadatos no se pueden leer devuelve MaxLenDefecto y un aviso en MaxLenConsultaConAviso; aquí se descarta (ORT dará su propio
+// error al abrir un ONNX roto). Quien pueda mostrar avisos (ArmarDesde, chispamovil) debe usar MaxLenConsultaConAviso.
+// Un valor que no es un entero, o fuera de 3..MaxLenTope, es un error claro.
 func MaxLenConsulta(onnx []byte) (int, error) {
+	n, _, err := MaxLenConsultaConAviso(onnx)
+	return n, err
+}
+
+// MaxLenConsultaConAviso es MaxLenConsulta pero no esconde que no pudo leer los metadatos: si fallan, devuelve MaxLenDefecto, un aviso
+// claro («no se sabe si declara chispa.consulta.max_len») y error nil; el aviso es "" en los demás casos.
+func MaxLenConsultaConAviso(onnx []byte) (int, string, error) {
 	meta, err := MetadatosONNX(onnx)
 	if err != nil {
-		return MaxLenDefecto, nil
+		return MaxLenDefecto, fmt.Sprintf("metadatos del ONNX de L2 ilegibles (%v): no se sabe si declara %s; se usa %d", err, ClaveMaxLenConsulta, MaxLenDefecto), nil
 	}
 	v, ok := meta[ClaveMaxLenConsulta]
 	if !ok {
-		return MaxLenDefecto, nil
+		return MaxLenDefecto, "", nil
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil {
-		return 0, fmt.Errorf("metadato %s=%q: no es un entero", ClaveMaxLenConsulta, v)
+		return 0, "", fmt.Errorf("metadato %s=%q: no es un entero", ClaveMaxLenConsulta, v)
 	}
 	if err := ComprobarMaxLen(n, "metadato "+ClaveMaxLenConsulta); err != nil {
-		return 0, err
+		return 0, "", err
 	}
-	return n, nil
+	return n, "", nil
 }

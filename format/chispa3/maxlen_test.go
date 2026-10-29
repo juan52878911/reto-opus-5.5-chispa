@@ -85,3 +85,16 @@ func TestTorrMaxLenTope(t *testing.T) {
 		t.Fatalf("decodificar 513: %v", err)
 	}
 }
+
+func TestMaxLenConsultaConAvisoNoCallaElFalloDelParser(t *testing.T) {
+	n, aviso, err := MaxLenConsultaConAviso([]byte("onnx"))
+	if err != nil || n != MaxLenDefecto || !strings.Contains(aviso, ClaveMaxLenConsulta) || !strings.Contains(aviso, "ilegibles") {
+		t.Fatalf("%d, %q, %v", n, aviso, err)
+	}
+	if n, aviso, err := MaxLenConsultaConAviso(onnxConMeta([2]string{ClaveMaxLenConsulta, "256"})); err != nil || n != 256 || aviso != "" {
+		t.Fatalf("válido: %d, %q, %v", n, aviso, err)
+	}
+	if _, aviso, err := MaxLenConsultaConAviso(nil); err != nil || aviso != "" {
+		t.Fatalf("vacío: %q, %v", aviso, err)
+	}
+}
