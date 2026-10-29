@@ -61,6 +61,11 @@ python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chisp
   - **L2 y ESQUEMAS**: solo con `--ckpt` (corre `model.l2.calibrar` y `model.l2.exportar` sobre los ejemplos) o `--l2` (un `.chispa`
     ya exportado, de donde se copian L2 y ESQUEMAS). **No probado con un checkpoint real: no hay ninguno en la microVM**; sin ellos se avisa
     por stderr y el informe lo lista en `omitidas`. Los prototipos de T2.1b son parte de L2 y no están en el formato: no se usan.
+  - **Perfiles de L2** (`--perfil`, solo con `--ckpt`): `servidor` (defecto) exporta con `model.l2.exportar --perfil servidor`: consulta fp32,
+    sin cuantizar y **sin poda de vocabulario** (los 250.037 tokens), para que un esquema nuevo no caiga en `<unk>`. `movil` usa `--perfil movil`:
+    int8, vocabulario podado **ampliado** (`--vocab-ampliar`) con los textos del esquema; pesa menos. El esquema nunca poda por sí solo. Con
+    `--l2` el perfil ya lo fijó quien exportó. La CALIB global de L2 se conserva: de `l2.chispa` solo se copian L2 y ESQUEMAS, y la
+    CALIB del `.chispa` final es la de `chispa train` (la que `calibrar` escribe sobre las filas del esquema no llega al fichero).
 - **`--conjunta`** (T2.6b): añade `CONJ`, la cabeza lineal L0 + L2 por tarea. Necesita `--ckpt` (el modelo de L2 y e5 dan las
   características; el ONNX no basta) y L2, de `--l2` o de `--ckpt`; sólo `choice`. Importa `model/l2/conjunta.py` (no lo copia):
   L0 fuera de pliegue (5 pliegues; es el `correr_l0` de sklearn de las líneas base), L2 con el soporte de 32 por clase y los
@@ -81,7 +86,7 @@ python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chisp
 
 ### Multietiqueta (`tipo: multi`)
 Cada opción es un sí/no independiente; un ejemplo puede llevar varias etiquetas separadas por `|` en el CSV (`texto,etiqueta` → `Me cobraron dos veces y nadie contesta,cobro|atencion`), una lista en el JSONL, o ninguna (celda vacía). Los ids de opción no pueden llevar `|`.
-`chispa train` con ejemplos escribe SOPL1 (k y media de los ejemplos activos de cada opción) y ajusta en `CALIB` la sigmoide `multi` (a, b) y un θ por opción (`multi#<id>`, el que maximiza F1, si hay ≥ 3 positivos y ≥ 3 negativos); necesita `--l1` y Go para embeber. **No entrena L0** (el lineal es multiclase: en `multi` no opina) ni admite `--conjunta`. La calibración usa los prototipos de la descripción, sin encogimiento. `chispa evaluar` aún no mide `multi`.
+`chispa train` con ejemplos escribe SOPL1 (k y media de los ejemplos activos de cada opción) y ajusta en `CALIB` la sigmoide `multi@<hash>` (a, b) y un θ por opción (`multi@<hash>#<id>`; el que maximiza F1, si hay ≥ 3 positivos y ≥ 3 negativos; las claves sin `@` son del formato antiguo); necesita `--l1` y Go para embeber. **No entrena L0** (el lineal es multiclase: en `multi` no opina) ni admite `--conjunta`. La calibración usa los prototipos de la descripción, sin encogimiento. SOPL1 se escribe, pero en multi el servidor la ignora por defecto (train quita `l1_lambda_calib` de CALIB, porque se calibró sin encogimiento): solo actúa si el operador fija `l1_shrinkage_lambda`, y con λ finito las probabilidades cambian. Con `multi_l2` (hace falta el tokenizador y la sesión de L2) se calibra también L2 (`multi_l2@<hash>`); sin él L2 no opina en multi. `chispa evaluar` mide `multi`.
 `Multi("t", "¿Qué temas toca?", [("cobro", "habla de un cobro"), "atencion"])` crea la pregunta; `Resultado.answers` trae las activas.
 
 ## Punta a punta: intención del sondeo, 50 por clase

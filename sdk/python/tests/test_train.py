@@ -55,6 +55,13 @@ class TestDatos(unittest.TestCase):
         q, extra = cargar_esquema(self.d / "e.yaml")
         self.assertEqual((q.kind, [o.id for o in q.options], extra["licencias"]), ("noul", ["false", "true"], {"x": "mit"}))
 
+    def test_esquema_con_separadores(self):
+        for c in "\x1d\x1e\x1f":
+            for d in (dict(ESQ, pregunta="¿a" + c + "b?"), dict(ESQ, id="x" + c), dict(ESQ, opciones=["a" + c, "b"]),
+                      dict(ESQ, opciones={"a": "d" + c, "b": ""})):
+                with self.assertRaisesRegex(ChispaError, "U\\+001D–U\\+001F"):
+                    cargar_esquema(self.esq(d))
+
     def test_esquema_invalido(self):
         for d, msg in [(dict(ESQ, tipo="raro"), "tipo"), (dict(ESQ, opciones=["a"]), "≥ 2"), ({"id": "x"}, "pregunta"),
                        (dict(ESQ, tipo="noul", opciones=["a", "b"]), "false y true"),
@@ -89,6 +96,65 @@ class TestComandosL2(unittest.TestCase):
         self.assertEqual(c[0][:4], ["py", "-m", "model.l2.calibrar", "--ckpt"])
         self.assertEqual(c[1][2], "model.l2.exportar")
         self.assertIn("/t/l2.chispa", c[1])
+
+    def test_perfil_servidor_por_defecto_sin_poda_por_esquema(self):
+        e = comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), python="py")[1]
+        self.assertEqual(e[e.index("--perfil") + 1], "servidor")
+        self.assertNotIn("--vocab-ampliar", e)
+        self.assertNotIn("--vocab-podado", e)
+
+    def test_perfil_movil_amplia_el_vocabulario_con_el_esquema(self):
+        e = comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), python="py", perfil="movil")[1]
+        self.assertEqual(e[e.index("--perfil") + 1], "movil")
+        self.assertEqual(e[e.index("--vocab-ampliar") + 1], "/t/f.jsonl")
+        self.assertNotIn("--sin-poda", e)
+
+    def test_perfil_desconocido(self):
+        with self.assertRaises(ChispaError):
+            comandos_l2("ck", Path("/t/f.jsonl"), Path("/t"), perfil="gpu")
+
+    def test_calib_de_l2_pasa_a_tipos_l2(self):
+        """La CALIB de L1 del `.chispa` final es la del esquema (zero-shot: sin calibrar, τ 0,6); la que escribe el exportador en l2.chispa
+        pasa a `tipos_l2`, `tau_escalate_l2` y `tau_l2c`, que son los que leen L2 y L2c."""
+        from unittest import mock
+        from chispa import formato
+        d = Path(tempfile.mkdtemp())
+        (d / "e.json").write_text(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a", "description": "A"}, {"id": "b", "description": "B"}]}))
+        l2 = formato.escribir({formato.L2: b"x", formato.ESQUEMAS: b"y", formato.CALIB: formato.calib({"choice": {"T": 9.0}, "score3": {"T": 1.0}}, 0.123, tau_l2c=0.31)})
+        llamadas = []
+
+        def falso(cmd, **kw):
+            llamadas.append(cmd)
+            if cmd[2] == "model.l2.exportar":
+                Path(cmd[cmd.index("--salida") + 1]).write_bytes(l2)
+            return mock.Mock(returncode=0, stderr="")
+        with mock.patch("chispa.train.subprocess.run", falso):
+            entrenar(None, d / "e.json", d / "o.chispa", ckpt="ck", repo=str(d), log=lambda m: None, perfil="movil")
+        self.assertEqual(llamadas[0][2], "model.l2.exportar")
+        self.assertIn("movil", llamadas[0])
+        secs = formato.leer((d / "o.chispa").read_bytes())
+        self.assertEqual(json.loads(secs[formato.CALIB]), json.loads(formato.calib(
+            {}, 0.6, tau_l2c=0.31, tipos_l2={"choice": {"T": 9.0}, "score3": {"T": 1.0}}, tau_escalate_l2=0.123)))
+        self.assertEqual(secs[formato.L2], b"x")
+
+    def test_calib_de_l2_con_l2_y_sin_calib(self):
+        """`--l2 x.chispa` deja en tipos_l2/tau_escalate_l2/tau_l2c exactamente lo de x; si x no trae CALIB, no añade nada."""
+        d = Path(tempfile.mkdtemp())
+        (d / "e.json").write_text(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a"}, {"id": "b"}]}))
+        tipos = {"choice": {"T": 0.7, "a": 1.0, "b": 0.0, "theta": 0.5}, "multi_l2@ab": {"T": 1.0, "a": 2.0, "b": -1.0, "theta": 0.4}}
+        for nombre, calib in (("con", formato.calib(tipos, 0.35, tau_l2c=0.5)), ("sin_l2c", formato.calib(tipos, 0.35)), ("sin", None)):
+            secs = {formato.L2: b"x", formato.ESQUEMAS: b"y"}
+            if calib:
+                secs[formato.CALIB] = calib
+            (d / f"{nombre}.chispa").write_bytes(formato.escribir(secs))
+            entrenar(None, d / "e.json", d / f"{nombre}.out", l2=str(d / f"{nombre}.chispa"), log=lambda m: None)
+            c = json.loads(formato.leer((d / f"{nombre}.out").read_bytes())[formato.CALIB])
+            self.assertEqual((c["tipos"], c["tau_escalate"]), ({}, 0.6))  # lo de L1 no cambia
+            if nombre == "sin":
+                self.assertEqual(set(c), {"tipos", "tau_escalate"})
+                continue
+            self.assertEqual((c["tipos_l2"], c["tau_escalate_l2"]), (tipos, 0.35))
+            self.assertEqual(c.get("tau_l2c"), 0.5 if nombre == "con" else None)
 
 
 class TestEntrenar(unittest.TestCase):
@@ -221,6 +287,20 @@ class TestModos(unittest.TestCase):
             self.assertNotIn(formato.L0, formato.leer((self.d / f"k{k}.chispa").read_bytes()))
 
     @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_few_shot_copia_la_calib_de_l2_a_tipos_l2(self):
+        """Con el entrenador de Go, `--l2 x.chispa` deja en tipos_l2/tau_escalate_l2/tau_l2c lo de x, y tipos/tau_escalate son los de siempre."""
+        tipos = {"choice": {"T": 0.7, "a": 1.0, "b": 0.0, "theta": 0.5}, "score3#1": {"T": 1.0, "a": 0.5, "b": 0.0, "theta": 0.5}}
+        sec = formato.leer((self.d / "l2.chispa").read_bytes())
+        sec[formato.CALIB] = formato.calib(tipos, 0.35, tau_l2c=0.5)
+        (self.d / "l2c.chispa").write_bytes(formato.escribir(sec))
+        self.correr(self.jsonl(5), "base.chispa", l2=str(self.d / "l2.chispa"))
+        self.correr(self.jsonl(5), "con.chispa", l2=str(self.d / "l2c.chispa"))
+        base = json.loads(formato.leer((self.d / "base.chispa").read_bytes())[formato.CALIB])
+        con = json.loads(formato.leer((self.d / "con.chispa").read_bytes())[formato.CALIB])
+        self.assertEqual((con["tipos"], con["tau_escalate"]), (base["tipos"], base["tau_escalate"]))
+        self.assertEqual((con["tipos_l2"], con["tau_escalate_l2"], con["tau_l2c"]), (tipos, 0.35, 0.5))
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
     def test_con_diez_por_opcion_sigue_entrenando_l0(self):
         inf = self.correr(self.jsonl(10))
         self.assertEqual(inf["secciones"], ["META", "L0", "CALIB"])
@@ -238,3 +318,22 @@ class TestModos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCalibL2YaEntrenada(unittest.TestCase):
+    def test_calib_de_l2_prefiere_tipos_l2(self):
+        from chispa import formato
+        from chispa.train import calib_de_l2
+        c = formato.calib({"choice": {"T": 0.05}}, 0.9, tipos_l2={"choice": {"T": 0.7}}, tau_escalate_l2=0.6)
+        r = calib_de_l2({formato.CALIB: c})
+        self.assertEqual(r["tipos_l2"], {"choice": {"T": 0.7}})
+        self.assertEqual(r["tau_escalate_l2"], 0.6)
+
+    def test_aviso_l2_sin_calib(self):
+        from chispa import formato
+        d = Path(tempfile.mkdtemp())
+        (d / "e.json").write_text(json.dumps({"id": "t", "pregunta": "q", "tipo": "choice", "opciones": [{"id": "a"}, {"id": "b"}]}))
+        (d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"x", formato.ESQUEMAS: b"y"}))
+        msgs = []
+        entrenar(None, d / "e.json", d / "o.chispa", l2=str(d / "l2.chispa"), log=msgs.append)
+        self.assertTrue(any("--l2 sin CALIB" in m for m in msgs))

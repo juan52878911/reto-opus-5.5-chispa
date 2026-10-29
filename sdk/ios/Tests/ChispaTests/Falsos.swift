@@ -48,6 +48,7 @@ final class MotorFalso: Motor {
     /// false = `instalarTorresL2` rechaza las torres (y no las cachea).
     var aceptaTorres = true
     var tauConj = -1.0
+    var tauL2: Double?
     /// `tau_l2_esquema_nuevo` de CALIB (−1 = falta).
     var tauNuevo = -1.0
     var hashes: [Int: String] = [:]
@@ -65,6 +66,7 @@ final class MotorFalso: Motor {
         llamadas.append("L2"); ultimasRanuras = ranuras; ultimoK = k; return marcar(l2())
     }
     func extraerL2(a destino: String) throws { extracciones += 1; try alExtraer(destino) }
+    func tauEscalateL2() -> Double { tauL2 ?? tau }
     func tauL2c() -> Double { tauConj }
     func tauL2EsquemaNuevo() -> Double { tauNuevo }
     func hashSeccion(_ tipo: Int) -> String { hashes[tipo] ?? "" }

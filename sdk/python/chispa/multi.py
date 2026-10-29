@@ -110,7 +110,7 @@ def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dic
         S, ok2 = maxsim_l2([t for t, _ in ex])
         S, Y2 = np.asarray(S)[ok2], Y_todo[ok2]
         if len(Y2) == 0 or Y2.all() or not Y2.any():
-            inf["motivo_l2"] = "multi_l2: sin variación en los ejemplos que L2 pueda puntuar; L2 usará la CALIB de noul"
+            inf["motivo_l2"] = "multi_l2: sin variación en los ejemplos que L2 pueda puntuar; L2 no opina en este esquema (sin CALIB multi_l2)"
         else:
             t2, a2, b2 = _ajustar_capa("multi_l2" + esq, ops, S, Y2)
             tipos.update(t2)
@@ -119,16 +119,18 @@ def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dic
 
 
 def escribir_calib(salida: Path, tipos: Dict[str, dict]) -> None:
-    """Pone `tipos` en la CALIB de `salida` (el resto de campos se conserva)."""
+    """Pone `tipos` en la CALIB de `salida` (el resto de campos se conserva). Las claves `multi_l2…` son de L2: van a `tipos_l2` si el
+    fichero lo trae (L2 lee solo ese), y si no a `tipos`."""
     secs = formato.leer(Path(salida).read_bytes())
     d = json.loads(secs[formato.CALIB])
-    d.setdefault("tipos", {}).update(tipos)
+    for k, v in tipos.items():
+        d.setdefault("tipos_l2" if k.startswith("multi_l2") and "tipos_l2" in d else "tipos", {})[k] = v
     secs[formato.CALIB] = json.dumps(d).encode()
     Path(salida).write_bytes(formato.escribir(secs))
 
 
 def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, repo=None, shrinkage_lambda=None, sin_soporte=False,
-                   embeber: Optional[Callable] = None, maxsim_l2: Optional[Callable] = None, log=print) -> dict:
+                   embeber: Optional[Callable] = None, maxsim_l2: Optional[Callable] = None, perfil="servidor", log=print) -> dict:
     """Entrena un `.chispa` de una pregunta multi. Sin `ejemplos`: zero-shot (como choice). Con ellos: lo mismo más SOPL1 y la CALIB de
     multi (ver el docstring del módulo). Devuelve el informe de `entrenar`."""
     import time
@@ -137,13 +139,13 @@ def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, r
     salida = Path(salida)
     salida.parent.mkdir(parents=True, exist_ok=True)
     if not ejemplos:
-        inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log)
+        inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log, perfil)
         inf["omitidas"]["L0"] = "multi: el L0 entrenado es multiclase y no da una probabilidad por opción"
         return inf
     ex = cargar_ejemplos(ejemplos, q.id, multi=True)
     cuenta = validar_multi(ex, q)
     log(f"{len(ex)} ejemplos multietiqueta, {sum(len(es) == 0 for _, es in ex)} sin etiquetas; positivos por opción {dict(sorted(cuenta.items()))}")
-    inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log)
+    inf = T._zero_shot(q, extra, l1, l2, ckpt, T.encontrar_repo(repo), salida, t0, log, perfil)
     inf["modo"] = "few-shot"
     inf["omitidas"]["L0"] = "multi: el L0 entrenado es multiclase y no da una probabilidad por opción"
     inf["omitidas"].pop("CALIB", None)

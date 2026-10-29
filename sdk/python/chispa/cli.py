@@ -52,6 +52,9 @@ def main(argv=None) -> int:
     t.add_argument("--salida", required=True, help="el .chispa que se escribe")
     t.add_argument("--l1", help=".chispa-l1 (potion exportado con runtime/l1/exportar.py)")
     t.add_argument("--ckpt", help="checkpoint de L2: calibra y exporta L2 y ESQUEMAS con model/l2")
+    t.add_argument("--perfil", choices=("servidor", "movil"), default="servidor",
+                   help="con --ckpt, perfil del exportador de L2: servidor (defecto: fp32, sin poda de vocabulario) o movil (int8, vocabulario podado y "
+                        "ampliado con el esquema). La CALIB de L2 de --ckpt pasa a tipos_l2/tau_escalate_l2; la de L1 no se toca. Con --l2 no hace nada: ese .chispa ya se exportó con su perfil")
     t.add_argument("--l2", help=".chispa ya exportado por model/l2/exportar.py: de aquí salen L2 y ESQUEMAS")
     t.add_argument("--conjunta", action="store_true",
                    help="modo «con datos del cliente»: añade la cabeza conjunta L0 + L2 (sección CONJ) y L0TF; necesita train etiquetado "
@@ -124,7 +127,7 @@ def main(argv=None) -> int:
                      pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, sin_soporte=a.sin_soporte, tau_l2_esquema_nuevo=a.tau_l2_esquema_nuevo, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
-                     torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo,
+                     torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo, perfil=a.perfil,
                      log=lambda m: print(m, file=sys.stderr))
         elif a.cmd == "evaluar":
             from .evaluar import evaluar

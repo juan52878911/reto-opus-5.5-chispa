@@ -8,9 +8,11 @@ struct CapaConTau {
     let tau: Double
     /// τ de la capa cuando su salida trae `esquemaNuevo`; nil = el mismo `tau`.
     var tauEsquemaNuevo: Double? = nil
+    /// τ de la salida de respaldo de L2c (L2 base: `tau_escalate_l2`) cuando `tau` es el `tau_l2c` de la cabeza; nil = el mismo `tau`.
+    var tauRespaldo: Double? = nil
 }
 
-/// τ por defecto de cada capa (los de `ConfigPorDefecto` del servidor). Con CALIB, L1 y L2 usan `tau_escalate`.
+/// τ por defecto de cada capa (los de `ConfigPorDefecto` del servidor). Con CALIB, L1 usa `tau_escalate` y L2 `tau_escalate_l2` (si falta, `tau_escalate`).
 enum TauPorDefecto {
     static let l0 = 0.80
     static let l1 = 0.80
@@ -60,7 +62,7 @@ final class Cascada {
             }
             previas[c.capa.nombre] = r
             if r.confianza > mejor.confianza { mejor = r }
-            let tau = (r.esquemaNuevo ? c.tauEsquemaNuevo : nil) ?? c.tau
+            let tau = (r.esquemaNuevo ? c.tauEsquemaNuevo : nil) ?? (r.respaldo ? c.tauRespaldo : nil) ?? c.tau
             if r.opina && r.confianza >= tau {
                 return Respuesta(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs,
                                  capa: c.capa.nombre, escalar: false, ms: ms(), respuestas: r.respuestas ?? [])
@@ -71,19 +73,22 @@ final class Cascada {
     }
 
     /// Arma la cascada con las capas del motor (L0 y L1 si el fichero las trae) y L2 si además hay `l2`.
-    /// Con CALIB, el τ de L1 y L2 es su `tau_escalate`; con CONJ (L2c) el de L2 es `tau_l2c` si el fichero lo trae
+    /// Con CALIB, el τ de L1 es `tau_escalate` y el de L2 `tau_escalate_l2` (o `tau_escalate` si falta); con CONJ (L2c) el de L2 es `tau_l2c` si el fichero lo trae
     /// (`aplicarTauL2c` del servidor). Con `tau_l2_esquema_nuevo`, L2 lo usa en lugar de ese τ cuando sus torres salieron al vuelo.
     static func armar(motor: Motor, l2: Capa? = nil, tauL0: Double = TauPorDefecto.l0,
                       alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa) throws -> Cascada {
         let presentes = motor.capas()
         let tauCalib: Double? = motor.tieneCalib() ? motor.tauEscalate() : nil
+        let tauCalibL2: Double? = motor.tieneCalib() ? motor.tauEscalateL2() : nil
         var capas: [CapaConTau] = []
         if presentes.contains("L0") { capas.append(CapaConTau(capa: CapaL0(motor: motor), tau: tauL0)) }
         if presentes.contains("L1") { capas.append(CapaConTau(capa: CapaL1(motor: motor), tau: tauCalib ?? TauPorDefecto.l1)) }
         let tauL2c: Double? = motor.tieneConj() && motor.tauL2c() >= 0 ? motor.tauL2c() : nil
         if presentes.contains("L2"), let l2 = l2 {
             let tauNuevo: Double? = motor.tauL2EsquemaNuevo() >= 0 ? motor.tauL2EsquemaNuevo() : nil
-            capas.append(CapaConTau(capa: l2, tau: tauL2c ?? tauCalib ?? TauPorDefecto.l2, tauEsquemaNuevo: tauNuevo))
+            capas.append(CapaConTau(capa: l2, tau: tauL2c ?? tauCalibL2 ?? TauPorDefecto.l2, tauEsquemaNuevo: tauNuevo,
+                                    // las respuestas de respaldo de L2c (L2 base, por tipos_l2) se cortan con tau_escalate_l2, no con tau_l2c
+                                    tauRespaldo: tauL2c != nil ? tauCalibL2 : nil))
         }
         if capas.isEmpty { throw ErrorChispa("el fichero no trae ninguna capa utilizable (capas: \(presentes))") }
         return Cascada(capas, alErrorCapa: alErrorCapa)

@@ -54,8 +54,14 @@ def meta(tareas, licencias=None, dorado="") -> bytes:
     return json.dumps({"version": 1, "tareas": list(tareas), "licencias": licencias or {}, "dorado": dorado}).encode()
 
 
-def calib(tipos: dict, tau_escalate: float, tau_l2c=None, tau_l2_esquema_nuevo=None, l1_lambda_calib=None) -> bytes:
+def calib(tipos: dict, tau_escalate: float, tau_l2c=None, tau_l2_esquema_nuevo=None, l1_lambda_calib=None,
+          tipos_l2=None, tau_escalate_l2=None) -> bytes:
+    """`tipos_l2` y `tau_escalate_l2` (opcionales) son lo que leen L2 y L2c en lugar de `tipos` y `tau_escalate`; L1 lee siempre los suyos."""
     d = {"tipos": tipos, "tau_escalate": tau_escalate}
+    if tipos_l2 is not None:
+        d["tipos_l2"] = tipos_l2
+    if tau_escalate_l2 is not None:
+        d["tau_escalate_l2"] = tau_escalate_l2
     if tau_l2c is not None:
         d["tau_l2c"] = tau_l2c
     if tau_l2_esquema_nuevo is not None:

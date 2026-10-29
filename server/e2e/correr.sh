@@ -66,6 +66,19 @@ for n in ('zs','fs'):
 assert formato.SOPL1 in formato.leer(open('$W/fs.chispa','rb').read()), 'fs.chispa sin SOPL1'
 " 2>&1 | sed 's/^/        /' && ok "secciones: TORR, L1, L2, ESQUEMAS (+SOPL1 en few-shot)" || fallo "secciones del .chispa"
 
+# H8: la CALIB de l2.chispa (gensint: choice T=0,02, τ=0,37) debe llegar al .chispa final como tipos_l2 y tau_escalate_l2, distintos de los de L1.
+$PY -I -c "
+import sys, json; sys.path.insert(0, '$RAIZ/sdk/python')
+from chispa import formato
+for n in ('zs', 'fs'):
+    c = json.loads(formato.leer(open('$W/%s.chispa' % n, 'rb').read())[formato.CALIB])
+    assert 'tipos_l2' in c and 'tau_escalate_l2' in c, (n, sorted(c))
+    assert c['tipos_l2']['choice']['T'] == 0.02 and c['tau_escalate_l2'] == 0.37, (n, c['tipos_l2'], c['tau_escalate_l2'])
+    assert c['tipos_l2'] != c['tipos'], (n, 'tipos_l2 igual que los tipos de L1')
+    print(n, 'L1 choice.T=%s τ=%s | L2 choice.T=%s τ=%s' % (c['tipos'].get('choice', {}).get('T'), c['tau_escalate'], c['tipos_l2']['choice']['T'], c['tau_escalate_l2']))
+" 2>&1 | sed 's/^/        /' && ok "CALIB final: tipos_l2 y tau_escalate_l2 de l2.chispa, distintos de los de L1 (zs, fs)" || fallo "CALIB final sin tipos_l2/tau_escalate_l2 de L2"
+grep -q "AVISO: --l2 sin CALIB" "$W"/train_*.log && fallo "train avisa «--l2 sin CALIB» aunque l2.chispa trae CALIB"
+
 arrancar() { # puerto, log, args… → deja el pid en SPID
   local puerto=$1 log=$2; shift 2
   "$W/chispa-server" -addr "127.0.0.1:$puerto" -tok "$CHISPA_TOK" "$@" >"$log" 2>&1 & SPID=$!; PIDS+=("$SPID")
@@ -124,6 +137,31 @@ pase "esquema_nuevo_decididas ≥ 1" $CP metrica "$URL" chispa_esquema_nuevo_dec
 pase "2.ª petición idéntica: torres desde caché" bash -c "$CP decidir '$URL' '$D/peticion_nueva.json' --capa L2 && $CP metrica '$URL' chispa_torres_cache_aciertos_total --min 3"
 pase "sin errores de torre" $CP metrica "$URL" chispa_torres_errores_total --igual 0
 
+paso "7b. L2 lee tipos_l2 (H8): el mismo fs.chispa con y sin tipos_l2, con L2 decidiendo siempre (L0 y L1 con τ=1, L2 con τ=0)"
+cat > "$W/cfg_l2.json" <<JSON
+{"capas":[{"nombre":"L0","tau":1.0},{"nombre":"L1","tau":1.0},{"nombre":"L2","tau":0.0},{"nombre":"L3","tau":0.6}],
+ "tau_l2_esquema_nuevo":0.5, "l1_shrinkage_lambda":4, "cache_esquemas":64}
+JSON
+$PY -I -c "
+import sys, json; sys.path.insert(0, '$RAIZ/sdk/python')
+from chispa import formato
+s = formato.leer(open('$W/fs.chispa', 'rb').read())
+c = json.loads(s[formato.CALIB]); del c['tipos_l2']; del c['tau_escalate_l2']; s[formato.CALIB] = json.dumps(c).encode()
+open('$W/sin_l2.chispa', 'wb').write(formato.escribir(s))
+"
+P4=$((P2 + 2))
+for n in fs sin_l2; do
+  arrancar "$P4" "$W/srvT_$n.log" -modelo "$W/$n.chispa" -config "$W/cfg_l2.json"; PT=$SPID
+  $CP decidir "http://127.0.0.1:$P4" "$D/peticion_ferreteria.json" --capa L2 --guardar "$W/resp_t_$n.json" >/dev/null || fallo "ferretería con $n.chispa no decide en L2"
+  kill "$PT"; wait "$PT" 2>/dev/null
+done
+$PY -I -c "
+import json; a=json.load(open('$W/resp_t_fs.json'))['results'][0]; b=json.load(open('$W/resp_t_sin_l2.json'))['results'][0]
+print('con tipos_l2', a['layer'], {k: round(v,3) for k,v in a['probs'].items()}); print('sin tipos_l2', b['layer'], {k: round(v,3) for k,v in b['probs'].items()})
+assert a['layer'] == b['layer'] == 'L2'
+assert max(abs(a['probs'][k] - b['probs'][k]) for k in a['probs']) > 0.01, 'L2 no usa tipos_l2: mismas probabilidades'
+" 2>&1 | sed 's/^/        /' && ok "L2 usa tipos_l2 (probabilidades distintas a las que daría con los tipos de L1)" || fallo "L2 no lee tipos_l2"
+
 paso "8. Recarga con torres al vuelo en curso (las sesiones ORT se cierran y se reabren)"
 pase "3 SIGHUP con 8 hilos de esquema nuevo: ninguna petición falla" $CP recarga "$URL" "$D/peticion_nueva.json" --pid "$PB" --hups 3 --hilos 8 --segundos 1.5
 pase "recargas_total{ok} = 3 y torres sin errores" bash -c "$CP metrica '$URL' chispa_recargas_total '{resultado=\"ok\"}' --igual 3 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
@@ -132,7 +170,8 @@ pase "tras recargar, L2 con torre al vuelo sigue decidiendo" $CP decidir "$URL" 
 paso "9. multi (multietiqueta): zero-shot en el servidor B y few-shot con chispa train (etiqueta con «|»)"
 TORRES_ANTES=$($CP metrica "$URL" chispa_torres_calculadas_total --valor) || critico "no se pudo leer chispa_torres_calculadas_total"
 pase "zero-shot: 200, answers y una p por opción (esquema nuevo, torre al vuelo)" $CP decidir "$URL" "$D/peticion_multi.json" --multi-con-probs --guardar "$W/resp_multi_zs.json"
-pase "torres al vuelo del multi (≥ 4 más que antes de la petición) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --base '$TORRES_ANTES' --min 4 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
+# Sin multi_l2 en CALIB, L2 no opina en multi y no gasta torres (R11-3): el aumento debe ser exactamente 0.
+pase "multi sin multi_l2 no calcula torres (aumento 0) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --base '$TORRES_ANTES' --igual 0 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
 $TRAIN --esquema "$D/temas.yaml" --ejemplos "$D/ejemplos_multi.csv" --tau-l2-esquema-nuevo 0.5 --salida "$W/ms.chispa" >"$W/train_ms.log" 2>&1 || { tail -5 "$W/train_ms.log"; critico "train multi few-shot"; }
 grep -iE "multi|SOPL1" "$W/train_ms.log" | cut -c1-160 | sed 's/^/        /'; ok "few-shot multi → ms.chispa"
 $PY -I -c "
@@ -140,6 +179,7 @@ import sys; sys.path.insert(0, '$RAIZ/sdk/python')
 from chispa import formato
 import json
 s = formato.leer(open('$W/ms.chispa','rb').read()); print(sorted(s)); assert formato.SOPL1 in s and formato.CALIB in s, 'ms.chispa sin SOPL1 o CALIB'
+c = json.loads(s[formato.CALIB]); assert c.get('tipos_l2', {}).get('choice', {}).get('T') == 0.02 and c.get('tau_escalate_l2') == 0.37, ('ms.chispa sin tipos_l2/tau_escalate_l2 de L2', sorted(c))
 " 2>&1 | sed 's/^/        /' && ok "ms.chispa trae SOPL1 y CALIB" || fallo "ms.chispa sin SOPL1 o CALIB"
 grep -q "sin SOPL1" "$W/train_ms.log" && fallo "multi few-shot sin SOPL1 (HALLAZGOS.md H2)"
 kill "$PB"; wait "$PB" 2>/dev/null
@@ -167,8 +207,8 @@ for n in zs ms; do
   kill "$PL"; wait "$PL" 2>/dev/null
 done
 # Tres comprobaciones, con margen MARGEN (0,02) para distinguir efecto de ruido de flotantes:
-#  1) ms.chispa trae CALIB «multi» y «multi#<opción>» (a, b y θ);
-#  2) con λ ausente en -config (sin SOPL1 efectivo) las p de ms siguen a σ(a·cos+b) de CALIB multi: logit(p) = a·cos+b con cos∈[-1,1];
+#  1) ms.chispa trae CALIB «multi@<hash del esquema>» y «multi@<hash>#<opción>» (a, b y θ);
+#  2) con λ ausente en -config (sin SOPL1 efectivo) las p de ms siguen a σ(a·cos+b) de CALIB multi@<hash>: logit(p) = a·cos+b con cos∈[-1,1];
 #  3) λ=4 (SOPL1) mueve las p de ms ≥ MARGEN frente a λ ausente, y ms difiere del zero-shot (zs) ≥ MARGEN.
 cat > "$W/cfg_l1_sinl.json" <<JSON
 {"capas":[{"nombre":"L0","tau":0.8},{"nombre":"L1","tau":0.0},{"nombre":"L2","tau":0.5},{"nombre":"L3","tau":0.6}],
@@ -183,9 +223,10 @@ from chispa import formato
 MARGEN = 0.02
 W = '$W'
 cal = json.loads(formato.leer(open(W + '/ms.chispa', 'rb').read())[formato.CALIB])['tipos']
-assert 'multi' in cal and any(k.startswith('multi#') for k in cal), sorted(cal)
-a, b = cal['multi']['a'], cal['multi']['b']
-assert a > 0, cal['multi']
+esq = sorted(k for k in cal if k.startswith('multi@') and '#' not in k)
+assert len(esq) == 1 and any(k.startswith(esq[0] + '#') for k in cal), sorted(cal)
+a, b = cal[esq[0]]['a'], cal[esq[0]]['b']
+assert a > 0, cal[esq[0]]
 p = lambda n: json.load(open(W + '/resp_multi_l1_%s.json' % n))['results'][0]['probs']
 zs, ms, ms0 = p('zs'), p('ms'), p('ms0')
 assert len(ms) == 4 and set(ms) == set(ms0) == set(zs)

@@ -49,9 +49,12 @@ public struct SalidaCapa: Equatable {
     /// Solo en `multi` (el motor manda `answers`): las opciones activas en el orden de la pregunta, vacía si ninguna; nil en los
     /// demás tipos. En `multi`, `respuesta` es la activa más probable o "" y `confianza` es la de la opción más dudosa.
     public let respuestas: [String]?
+    /// L2c cayó a L2 base (sin cabeza para la pregunta, sin L0 o tipo ≠ choice): la cascada la corta con `tau_escalate_l2` y no con `tau_l2c`.
+    public let respaldo: Bool
 
     public init(respuesta: String, confianza: Double, probs: [String: Double], esquemaNuevo: Bool = false,
-                respuestas: [String]? = nil) {
+                respuestas: [String]? = nil, respaldo: Bool = false) {
+        self.respaldo = respaldo
         self.respuesta = respuesta
         self.confianza = confianza
         self.probs = probs

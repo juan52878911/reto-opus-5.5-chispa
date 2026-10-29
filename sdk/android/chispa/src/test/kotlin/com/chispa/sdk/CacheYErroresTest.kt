@@ -108,6 +108,22 @@ class CacheYErroresTest {
     }
 
     @Test
+    fun l2UsaTauEscalateL2YL1ConservaTauEscalate() {
+        val m = MotorFalso(
+            presentes = listOf("L1", "L2"), calib = true, tau = 0.6, tauL2 = 0.9,
+            l1 = { json("compra", 0.7, "compra" to 0.7) },
+            l2 = { json("compra", 0.7, "compra" to 0.7) },
+        )
+        val r = Cascada.armar(m, CapaL2(m, SesionFalsa(), { longArrayOf(1) })).decidir("x", PREGUNTA)
+        assertEquals("L1", r.capa) // 0.7 ≥ 0.6 de L1: no llega a L2 (cuyo τ es 0.9)
+        val s = MotorFalso(
+            presentes = listOf("L2"), calib = true, tau = 0.6, tauL2 = 0.9,
+            l2 = { json("compra", 0.7, "compra" to 0.7) },
+        )
+        assertTrue(Cascada.armar(s, CapaL2(s, SesionFalsa(), { longArrayOf(1) })).decidir("x", PREGUNTA).escalar)
+    }
+
+    @Test
     fun sinTauL2cL2UsaTauEscalate() {
         val m = MotorFalso(
             presentes = listOf("L2"), calib = true, tau = 0.6, conj = true, tauConj = -1.0,

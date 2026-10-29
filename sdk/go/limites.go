@@ -69,14 +69,14 @@ func (l Limites) validar(estado string, qs []Pregunta) *ErrorChispa {
 		if tieneSeparador(q.Texto) {
 			return falla("invalid_characters", r+".question: no admite los caracteres de control U+001D–U+001F", q.ID)
 		}
+		if lon(q.Nonce) > l.MaxID {
+			return falla("field_too_long", fmt.Sprintf("%s.nonce: %d bytes, máximo %d", r, lon(q.Nonce), l.MaxID), q.ID)
+		}
 		if q.Kind == "" {
 			return falla("missing_kind", r+".kind: obligatorio", q.ID)
 		}
 		if q.Kind != KindChoice && q.Kind != KindScore && q.Kind != KindNoul && q.Kind != KindMulti {
 			return falla("invalid_kind", fmt.Sprintf("%s.kind: %q no válido (choice, score, noul o multi)", r, q.Kind), q.ID)
-		}
-		if lon(q.Nonce) > l.MaxID {
-			return falla("field_too_long", fmt.Sprintf("%s.nonce: %d bytes, máximo %d", r, lon(q.Nonce), l.MaxID), q.ID)
 		}
 		if e := l.validarOpciones(q, r); e != nil {
 			return e
@@ -109,9 +109,6 @@ func (l Limites) validarOpciones(q Pregunta, r string) *ErrorChispa {
 		if lon(o.ID) > l.MaxID {
 			return falla("field_too_long", fmt.Sprintf("%s.id: %d bytes, máximo %d", ro, lon(o.ID), l.MaxID), q.ID)
 		}
-		if vistas[o.ID] {
-			return falla("duplicate_option_id", fmt.Sprintf("%s.id: %q repetido", ro, o.ID), q.ID)
-		}
 		if lon(o.Description) > l.MaxTexto {
 			return falla("field_too_long", fmt.Sprintf("%s.description: %d bytes, máximo %d", ro, lon(o.Description), l.MaxTexto), q.ID)
 		}
@@ -120,6 +117,9 @@ func (l Limites) validarOpciones(q Pregunta, r string) *ErrorChispa {
 		}
 		if tieneSeparador(o.Description) {
 			return falla("invalid_characters", ro+".description: no admite los caracteres de control U+001D–U+001F", q.ID)
+		}
+		if vistas[o.ID] {
+			return falla("duplicate_option_id", fmt.Sprintf("%s.id: %q repetido", ro, o.ID), q.ID)
 		}
 		vistas[o.ID] = true
 	}

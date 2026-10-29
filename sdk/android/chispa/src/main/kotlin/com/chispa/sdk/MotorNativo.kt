@@ -13,6 +13,7 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
 
     override fun tieneCalib(): Boolean = go.tieneCalib()
     override fun tauEscalate(): Double = go.tauEscalate()
+    override fun tauEscalateL2(): Double = go.tauEscalateL2()
     override fun tauL2c(): Double = go.tauL2c()
     override fun tauL2EsquemaNuevo(): Double = go.tauL2EsquemaNuevo()
 

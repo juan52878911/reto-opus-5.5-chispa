@@ -87,6 +87,20 @@ final class CacheYErroresTests: XCTestCase {
         XCTAssertTrue(try l2c(tauConj: 0.9).escalar) // 0.7 < 0.9: el servidor también escala
     }
 
+    func testL2UsaTauEscalateL2YL1ConservaTauEscalate() throws {
+        let m = MotorFalso()
+        m.presentes = ["L1", "L2"]; m.calib = true; m.tau = 0.6; m.tauL2 = 0.9
+        m.l1 = { json("compra", 0.7, ["compra": 0.7]) }
+        m.l2 = { json("compra", 0.7, ["compra": 0.7]) }
+        let l2 = CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [1]))
+        XCTAssertEqual(try Cascada.armar(motor: m, l2: l2).decidir("x", pregunta).capa, "L1") // 0.7 ≥ 0.6 de L1
+        let s = MotorFalso()
+        s.presentes = ["L2"]; s.calib = true; s.tau = 0.6; s.tauL2 = 0.9
+        s.l2 = { json("compra", 0.7, ["compra": 0.7]) }
+        let l2s = CapaL2(motor: s, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [1]))
+        XCTAssertTrue(try Cascada.armar(motor: s, l2: l2s).decidir("x", pregunta).escalar)
+    }
+
     func testSinTauL2cL2UsaTauEscalate() throws {
         let r = try l2c(tauConj: -1)
         XCTAssertFalse(r.escalar)

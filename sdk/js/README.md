@@ -99,7 +99,8 @@ catch (e) {
 
 Antes de enviar, el cliente comprueba los límites del OpenAPI **en bytes UTF-8** (una `ñ` o una tilde pesan 2 bytes): `state` 262144,
 `id`, `nonce` e ids de opción 256, `question` y `description` 4096, 256 preguntas y 256 opciones; ids únicos; al menos 2 opciones en
-`choice`, `score` y `multi`; en `noul` solo `false` y `true`. Falla con el mismo `codigo` que daría el servidor y `status: 0`, sin tocar la red.
+`choice`, `score` y `multi`; en `noul` solo `false` y `true`; sin los separadores U+001D–U+001F en `question`, ids de opción y
+`description` (`invalid_characters`). Falla con el mismo `codigo` que daría el servidor y `status: 0`, sin tocar la red.
 Todo o nada, como el servidor.
 
 ## Pruebas

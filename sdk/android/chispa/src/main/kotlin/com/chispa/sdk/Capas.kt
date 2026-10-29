@@ -10,6 +10,9 @@ interface Motor : AutoCloseable {
     fun tieneCalib(): Boolean
     fun tauEscalate(): Double
 
+    /** `tau_escalate_l2` de CALIB si existe; si no, `tauEscalate()` (ficheros anteriores). Es el τ de L2. */
+    fun tauEscalateL2(): Double = tauEscalate()
+
     /** `tau_l2c` de CALIB (el τ de L2 con CONJ, como en el servidor), o −1 si falta. */
     fun tauL2c(): Double = -1.0
 
@@ -204,7 +207,8 @@ class CapaL2(
             val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConj(pj, l0, s)))
             if (c.opina) return c
         }
-        return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+        val r = SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+        return if (motor.tieneConj()) r.copy(respaldo = true) else r // con CONJ, esta es L2 base: respaldo de la cabeza
     }
 
     private fun torresAlVuelo(preguntaJson: String): Boolean {

@@ -39,7 +39,7 @@ export type CodigoServidor =
   | "invalid_json" | "request_too_large" | "method_not_allowed" | "not_found" | "empty_questions"
   | "too_many_questions" | "state_too_long" | "missing_id" | "missing_question" | "missing_kind"
   | "invalid_kind" | "too_few_options" | "too_many_options" | "invalid_options" | "missing_option_id"
-  | "duplicate_question_id" | "duplicate_option_id" | "field_too_long" | "timeout";
+  | "duplicate_question_id" | "duplicate_option_id" | "field_too_long" | "invalid_characters" | "unauthorized" | "rate_limited" | "reload_failed" | "timeout";
 
 /** Códigos propios del cliente: `network_error`, `timeout`, `bad_response`, y `http_<status>` si el error no es tipado. */
 export type CodigoCliente = "network_error" | "timeout" | "bad_response" | `http_${number}`;

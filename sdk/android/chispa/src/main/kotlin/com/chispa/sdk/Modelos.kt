@@ -35,6 +35,8 @@ data class SalidaCapa(
      * demás tipos. En `multi` [respuesta] es la activa más probable o "" y la [confianza] es la de la opción más dudosa.
      */
     val respuestas: List<String>? = null,
+    /** L2c cayó a L2 base (sin cabeza para la pregunta, sin L0 o tipo ≠ choice): la cascada la corta con `tau_escalate_l2` y no con `tau_l2c`. */
+    val respaldo: Boolean = false,
 ) {
     /** En `multi`, «ninguna activa» (respuesta vacía, [respuestas] vacía) es una opinión válida si hay confianza. */
     val opina: Boolean get() = confianza > 0 && (respuesta.isNotEmpty() || respuestas != null)

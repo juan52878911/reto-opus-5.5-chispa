@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { readFileSync } from "node:fs";
 import { ChispaCliente, ErrorChispa, bytes } from "../src/index.js";
+import { LIMITES, validar } from "../src/limites.js";
 
 const servidores = [];
 afterEach(async () => {
@@ -251,6 +252,20 @@ test("validación local: mismos códigos que el servidor", async () => {
   await caso([q({ kind: "multi", options: [{ id: "a" }, { id: "a" }] })], "duplicate_option_id");
 });
 
+test("separadores U+001D–U+001F: invalid_characters en local, sin red", async () => {
+  const caso = (preguntas, extra = {}) => assert.rejects(sinRed().decidir("x", preguntas), { codigo: "invalid_characters", status: 0, ...extra });
+  for (const c of ["\x1d", "\x1e", "\x1f"]) {
+    await caso([q({ question: `a${c}b` })], { idPregunta: "q" });
+    await caso([q({ options: [{ id: `a${c}` }, { id: "b" }] })]);
+    await caso([q({ options: [{ id: "a", description: `d${c}` }, { id: "b" }] })]);
+  }
+  // el límite de longitud va antes, como en el servidor
+  await assert.rejects(sinRed().decidir("x", [q({ question: "\x1f".repeat(4097) })]), { codigo: "field_too_long" });
+  // otros caracteres de control sí pasan
+  const c = cliente("http://x", { fetch: async () => { throw new Error("stop"); }, reintentos: 0 });
+  await assert.rejects(c.decidir("x", [q({ question: "a\x1cb\n" })]), { codigo: "network_error" });
+});
+
 test("noul con false/true y sin opciones es válido", async () => {
   const { url } = await falso(eco());
   const c = cliente(url);
@@ -461,4 +476,9 @@ test("el cuerpo solo lleva campos de openapi.yaml (el servidor es estricto)", as
   for (const o of cuerpo.questions[0].options) for (const k of Object.keys(o)) assert.ok(okO.includes(k), `opción: campo ${k} fuera del contrato`);
   assert.equal(cuerpo.questions[0].nonce, "n1");
   assert.deepEqual(cuerpo.questions[0].options[1], { id: "y" });
+});
+
+test("orden de validación como el servidor: nonce largo antes que kind vacío", () => {
+  const q = { id: "q1", question: "x", kind: "", nonce: "n".repeat(LIMITES.maxId + 1) };
+  assert.throws(() => validar("", [q]), (e) => e instanceof ErrorChispa && e.codigo === "field_too_long");
 });

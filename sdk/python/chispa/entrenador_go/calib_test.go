@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chispa/format/chispa3"
 	"math"
 	"testing"
 )
@@ -47,5 +48,22 @@ func TestTauEscalate(t *testing.T) {
 	}
 	if tau, hay = tauEscalate(conf, []bool{false, false, false, false, false, false}, 0.95, 3); hay || tau != 1 {
 		t.Fatalf("sin objetivo: τ=%v hay=%v", tau, hay)
+	}
+}
+
+func TestCopiarCalibL2UsaTiposL2(t *testing.T) {
+	tau2 := 0.6
+	c2 := chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"choice": {T: 0.05}}, TauEscalate: 0.9,
+		TiposL2: map[string]chispa3.ParamsTipo{"choice": {T: 0.7}}, TauEscalateL2: &tau2}
+	var c chispa3.Calib
+	copiarCalibL2(&c, c2)
+	if c.TiposL2["choice"].T != 0.7 || c.TauEscalateL2 == nil || *c.TauEscalateL2 != 0.6 {
+		t.Fatalf("copió la CALIB de L1: %+v", c)
+	}
+	c2 = chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"choice": {T: 0.3}}, TauEscalate: 0.4}
+	c = chispa3.Calib{}
+	copiarCalibL2(&c, c2)
+	if c.TiposL2["choice"].T != 0.3 || *c.TauEscalateL2 != 0.4 {
+		t.Fatalf("sin tipos_l2 debe copiar tipos/tau_escalate: %+v", c)
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
@@ -106,6 +107,11 @@ type Chispa struct {
 	lambdaL2    *float64       // ídem en L2c
 	explicitoL1 bool           // el λ de L1 lo pidió el llamador (AbrirConSoporte), no es el default de Abrir
 	avisos      []string       // problemas no fatales al abrir (p. ej. SOPL1 inválida con el encogimiento activo)
+
+	calibOnce  sync.Once
+	calibInfo  [2]infoMulti // [0] tipos (L1), [1] tipos que lee L2
+	multiAus   atomic.Int64 // peticiones multi cuya CALIB tiene claves con esquema de la capa y ninguna casa
+	avisoMulti sync.Once
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -279,8 +285,11 @@ func (c *Chispa) Capas() string {
 	return string(b)
 }
 
-// TauEscalate es el τ de CALIB para L1 y L2 (0 si el fichero no trae CALIB; entonces la cascada usa el suyo).
+// TauEscalate es el τ de CALIB para L1 (0 si el fichero no trae CALIB; entonces la cascada usa el suyo).
 func (c *Chispa) TauEscalate() float64 { return c.calib.TauEscalate }
+
+// TauEscalateL2 es el τ de CALIB para L2: tau_escalate_l2 si el fichero lo trae y, si no, TauEscalate (ficheros anteriores).
+func (c *Chispa) TauEscalateL2() float64 { return c.calib.ParaL2().TauEscalate }
 
 // TieneConj dice si el fichero trae la sección CONJ (con L2 y ESQUEMAS): entonces la cascada puede usar CabezaConjunta.
 func (c *Chispa) TieneConj() bool { return c.conj != nil }
@@ -401,16 +410,7 @@ func leerPregunta(js string) (pregunta, error) {
 	return p, comprobarPregunta(&p)
 }
 
-func comprobarPregunta(p *pregunta) error {
-	switch p.Kind {
-	case "choice", "noul", "score", "multi":
-	case "":
-		return errors.New("kind: obligatorio (choice, score, noul o multi)")
-	default:
-		return fmt.Errorf("kind no válido: %q", p.Kind)
-	}
-	return validarPregunta(p)
-}
+func comprobarPregunta(p *pregunta) error { return validarPregunta(p) }
 
 // maxEstadoByte es el tope del servidor para el texto (server/decide MaxEstadoByte).
 const maxEstadoByte = 256 << 10
@@ -430,42 +430,46 @@ const (
 // {false,true} (vacío → por defecto), ids de opción no vacíos ni repetidos, y MaxOpciones.
 func validarPregunta(p *pregunta) error {
 	if p.Texto == "" {
-		return errors.New("question: obligatorio")
+		return codigo("missing_question", "question: obligatorio")
 	}
 	if len(p.Texto) > maxTextoByte {
-		return fmt.Errorf("question: más de %d bytes", maxTextoByte)
+		return codigo("field_too_long", "question: más de %d bytes", maxTextoByte)
 	}
 	if tieneSeparador(p.Texto) {
 		return errSeparador("question")
 	}
 	if len(p.Nonce) > maxIDByte {
-		return fmt.Errorf("nonce: más de %d bytes", maxIDByte)
+		return codigo("field_too_long", "nonce: más de %d bytes", maxIDByte)
 	}
 	switch p.Kind {
 	case "choice", "score", "multi":
 		if len(p.Opciones) < 2 {
-			return fmt.Errorf("%s necesita al menos 2 opciones", p.Kind)
+			return codigo("too_few_options", "%s necesita al menos 2 opciones", p.Kind)
 		}
 	case "noul":
 		if len(p.Opciones) == 0 {
 			p.Opciones = []opcion{{ID: "false"}, {ID: "true"}}
 		} else if len(p.Opciones) != 2 || firma([]string{p.Opciones[0].ID, p.Opciones[1].ID}) != firma([]string{"false", "true"}) {
-			return errors.New(`noul solo admite los ids "false" y "true"`)
+			return codigo("invalid_options", `noul solo admite los ids "false" y "true"`)
 		}
+	case "":
+		return codigo("missing_kind", "kind: obligatorio (choice, score, noul o multi)")
+	default:
+		return codigo("invalid_kind", "kind: %q no válido (choice, score, noul o multi)", p.Kind)
 	}
 	if len(p.Opciones) > maxOpciones {
-		return fmt.Errorf("máximo %d opciones", maxOpciones)
+		return codigo("too_many_options", "máximo %d opciones", maxOpciones)
 	}
 	seen := map[string]bool{}
 	for j, o := range p.Opciones {
 		if o.ID == "" {
-			return fmt.Errorf("options[%d].id: obligatorio", j)
-		}
-		if seen[o.ID] {
-			return fmt.Errorf("options[%d].id: %q repetido", j, o.ID)
+			return codigo("missing_option_id", "options[%d].id: obligatorio", j)
 		}
 		if len(o.ID) > maxIDByte {
-			return fmt.Errorf("options[%d].id: más de %d bytes", j, maxIDByte)
+			return codigo("field_too_long", "options[%d].id: más de %d bytes", j, maxIDByte)
+		}
+		if len(o.Description) > maxTextoByte {
+			return codigo("field_too_long", "options[%d].description: más de %d bytes", j, maxTextoByte)
 		}
 		if tieneSeparador(o.ID) {
 			return errSeparador(fmt.Sprintf("options[%d].id", j))
@@ -473,12 +477,17 @@ func validarPregunta(p *pregunta) error {
 		if tieneSeparador(o.Description) {
 			return errSeparador(fmt.Sprintf("options[%d].description", j))
 		}
-		if len(o.Description) > maxTextoByte {
-			return fmt.Errorf("options[%d].description: más de %d bytes", j, maxTextoByte)
+		if seen[o.ID] {
+			return codigo("duplicate_option_id", "options[%d].id: %q repetido", j, o.ID)
 		}
 		seen[o.ID] = true
 	}
 	return nil
+}
+
+// codigo da un error «<código>: mensaje» con el código del servidor (server/decide http.go Err*); Android e iOS solo ven el texto.
+func codigo(code, format string, a ...any) error {
+	return fmt.Errorf("%s: %s", code, fmt.Sprintf(format, a...))
 }
 
 // tieneSeparador dice si s trae U+001D–U+001F, los separadores de HashEsquema2 (sin prefijos de longitud); como el servidor.
@@ -488,8 +497,16 @@ func errSeparador(campo string) error {
 	return fmt.Errorf("invalid_characters: %s no admite los caracteres de control U+001D–U+001F", campo)
 }
 
-func (c *Chispa) params(tipo string) chispa3.ParamsTipo {
-	if p, ok := c.calib.Tipos[tipo]; ok {
+// params son los parámetros de un tipo en los tipos de L1.
+func (c *Chispa) params(tipo string) chispa3.ParamsTipo { return paramsTipo(c.calib.Tipos, tipo) }
+
+// paramsL2 son los parámetros de un tipo en los tipos que lee L2 (tipos_l2 si existen, si no tipos).
+func (c *Chispa) paramsL2(tipo string) chispa3.ParamsTipo {
+	return paramsTipo(c.calib.ParaL2().Tipos, tipo)
+}
+
+func paramsTipo(tipos map[string]chispa3.ParamsTipo, tipo string) chispa3.ParamsTipo {
+	if p, ok := tipos[tipo]; ok {
 		return p
 	}
 	return chispa3.ParamsTipo{T: tDefecto, A: 4, B: -2, Theta: 0.5}
@@ -642,14 +659,46 @@ func claveCalibMulti(p pregunta) string {
 	return "@" + hex.EncodeToString(h[:])
 }
 
-// calibPorEsquema: CALIB trae alguna clave de multi con esquema; si la trae, las claves sin esquema (ficheros antiguos) no se aplican.
-func (c *Chispa) calibPorEsquema() bool {
-	for k := range c.calib.Tipos {
-		if strings.HasPrefix(k, "multi@") || strings.HasPrefix(k, "multi_l2@") {
-			return true
+// infoMulti dice qué claves de multi con esquema trae un mapa de tipos.
+type infoMulti struct {
+	esq  bool    // alguna clave de multi con esquema («multi@…» o «multi_l2@…»)
+	capa [2]bool // por capa: [0] «multi@», [1] «multi_l2@»
+}
+
+// calibPorEsquema: los tipos de la capa (L2 o L1) traen alguna clave de multi con esquema; si la traen, las claves sin esquema
+// (ficheros antiguos) no se aplican. Se calcula una vez (no por opción). Sin tipos_l2, L1 y L2 leen el mismo mapa.
+func (c *Chispa) calibPorEsquema(l2 bool) infoMulti {
+	c.calibOnce.Do(func() {
+		for i, tipos := range [2]map[string]chispa3.ParamsTipo{c.calib.Tipos, c.calib.ParaL2().Tipos} {
+			inf := &c.calibInfo[i]
+			for k := range tipos {
+				if strings.HasPrefix(k, "multi@") {
+					inf.capa[0] = true
+				} else if strings.HasPrefix(k, "multi_l2@") {
+					inf.capa[1] = true
+				}
+			}
+			inf.esq = inf.capa[0] || inf.capa[1]
 		}
+	})
+	if l2 {
+		return c.calibInfo[1]
 	}
-	return false
+	return c.calibInfo[0]
+}
+
+// MultiCalibAusente cuenta las peticiones de multi cuya CALIB trae claves con esquema para esa capa y ninguna casa con la pregunta
+// (el texto o las descripciones cambiaron: L1 cae a la CALIB de noul). Equivale a chispa_multi_calib_ausente_total del servidor.
+func (c *Chispa) MultiCalibAusente() int64 { return c.multiAus.Load() }
+
+// avisarCalibAusente apunta la CALIB de multi perdida; el aviso (Avisos) sale una sola vez.
+func (c *Chispa) avisarCalibAusente(capa string) {
+	c.multiAus.Add(1)
+	c.avisoMulti.Do(func() {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.avisos = append(c.avisos, "CALIB de "+capa+" trae claves multi con esquema y ninguna casa con la pregunta (¿cambió el texto o una descripción?): cae a la CALIB de noul")
+	})
 }
 
 // paramsMultiCapa son (a, b, θ) de una opción de multi en la capa `clave` («multi» L1, «multi_l2» L2) para el esquema `esq`:
@@ -662,51 +711,73 @@ func (c *Chispa) paramsMultiCapa(clave, esq, id string) chispa3.ParamsTipo {
 
 // buscarParamsMulti es paramsMultiCapa diciendo además si salió de una CALIB de multi (true) o es el respaldo de noul.
 func (c *Chispa) buscarParamsMulti(clave, esq, id string) (chispa3.ParamsTipo, bool) {
-	if p, ok := c.calib.Tipos[clave+esq+"#"+id]; ok {
+	l2 := clave == "multi_l2"
+	tipos := c.calib.Tipos
+	if l2 {
+		tipos = c.calib.ParaL2().Tipos
+	}
+	if p, ok := tipos[clave+esq+"#"+id]; ok {
 		return p, true
 	}
-	if p, ok := c.calib.Tipos[clave+esq]; ok {
+	if p, ok := tipos[clave+esq]; ok {
 		return p, true
 	}
-	if !c.calibPorEsquema() {
-		if p, ok := c.calib.Tipos[clave+"#"+id]; ok {
+	if !c.calibPorEsquema(l2).esq {
+		if p, ok := tipos[clave+"#"+id]; ok {
 			return p, true
 		}
-		if p, ok := c.calib.Tipos[clave]; ok {
+		if p, ok := tipos[clave]; ok {
 			return p, true
 		}
 	}
-	return c.params("noul"), false
+	return paramsTipo(tipos, "noul"), false
 }
 
-func (c *Chispa) paramsMultiDe(p pregunta, clave string) []chispa3.ParamsTipo {
-	esq := claveCalibMulti(p)
+func (c *Chispa) paramsMultiDe(p pregunta, esq, clave string) []chispa3.ParamsTipo {
 	prms := make([]chispa3.ParamsTipo, len(p.Opciones))
+	casa := false
 	for i, o := range p.Opciones {
-		prms[i] = c.paramsMultiCapa(clave, esq, o.ID)
+		var ok bool
+		prms[i], ok = c.buscarParamsMulti(clave, esq, o.ID)
+		casa = casa || ok
+	}
+	if inf := c.calibPorEsquema(clave == "multi_l2"); !casa && inf.esq {
+		capa := 0
+		if clave == "multi_l2" {
+			capa = 1
+		}
+		if inf.capa[capa] {
+			c.avisarCalibAusente(clave)
+		}
 	}
 	return prms
+}
+
+// l2OpinaMulti: L2 solo opina en multi con alguna CALIB «multi_l2» del esquema (como server/decide.respuestaMultiL2); si no, no vale
+// calcular torres ni ejecutar el ONNX.
+func (c *Chispa) l2OpinaMulti(p pregunta, esq string) bool {
+	for _, o := range p.Opciones {
+		if _, ok := c.buscarParamsMulti("multi_l2", esq, o.ID); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // multiL2 es multi sobre el MaxSim de L2 con las cabezas por capa.
 // Sin CALIB «multi_l2» del esquema L2 no opina en multi (como server/decide.respuestaMultiL2).
 func (c *Chispa) multiL2(p pregunta, s []float64) respuesta {
-	esq, sin := claveCalibMulti(p), true
-	for _, o := range p.Opciones {
-		if _, ok := c.buscarParamsMulti("multi_l2", esq, o.ID); ok {
-			sin = false
-		}
-	}
-	if sin {
+	esq := claveCalibMulti(p)
+	if !c.l2OpinaMulti(p, esq) {
 		return respuesta{Ok: true, Probs: map[string]float64{}}
 	}
-	return multiDe(p, s, c.paramsMultiDe(p, "multi_l2"))
+	return multiDe(p, s, c.paramsMultiDe(p, esq, "multi_l2"))
 }
 
 // multi: cada opción es un sí/no con su σ(a·s + b) y su θ; answers son las activas, probs la p de cada una (no suman 1) y conf la de la
 // opción más dudosa (min de p si activa, 1−p si no), como server/decide.respuestaMulti.
 func (c *Chispa) multi(p pregunta, s []float64) respuesta {
-	return multiDe(p, s, c.paramsMultiDe(p, "multi"))
+	return multiDe(p, s, c.paramsMultiDe(p, claveCalibMulti(p), "multi"))
 }
 
 func multiDe(p pregunta, s []float64, prms []chispa3.ParamsTipo) respuesta {
@@ -869,11 +940,23 @@ func (c *Chispa) TokenizarE5(texto string) []byte {
 // TorresL2 dice si hay torres de ESQUEMAS para la pregunta; la cascada lo consulta antes de tokenizar y llamar a ORT.
 func (c *Chispa) TorresL2(preguntaJSON string) bool {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 {
+	if err != nil || !c.tieneL2 || c.sinOpinionMulti(p) {
 		return false
 	}
 	_, err = c.torresL2(p)
 	return err == nil
+}
+
+// sinOpinionMulti: multi sin CALIB «multi_l2» del esquema; L2 no opinará, así que ni se piden torres ni se ejecuta ONNX.
+func (c *Chispa) sinOpinionMulti(p pregunta) bool {
+	if p.Kind != "multi" || c.l2OpinaMulti(p, claveCalibMulti(p)) {
+		return false
+	}
+	// CALIB multi_l2 con esquema pero ninguna casa con la pregunta: lo cuenta como el servidor (multi_l2_sin_calib).
+	if c.calibPorEsquema(true).capa[1] {
+		c.avisarCalibAusente("multi_l2")
+	}
+	return true
 }
 
 type torreL2 struct {
@@ -1012,6 +1095,9 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	if !c.tieneL2 {
 		return fallo(errors.New("el fichero no trae las secciones L2 y ESQUEMAS"))
 	}
+	if c.sinOpinionMulti(p) {
+		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
+	}
 	ts, err := c.torresL2(p)
 	if err != nil {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
@@ -1024,9 +1110,9 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	var r respuesta
 	switch p.Kind {
 	case "choice":
-		r = softmax(p, sims, c.params("choice").T)
+		r = softmax(p, sims, c.paramsL2("choice").T)
 	case "noul":
-		prm := c.params("noul")
+		prm := c.paramsL2("noul")
 		r = noul(prm.A*sims[0]+prm.B, prm.Theta)
 	case "multi":
 		r = c.multiL2(p, sims)
@@ -1047,7 +1133,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 		}
 	}
 	clave := "score" + strconv.Itoa(K)
-	base, ok := c.calib.Tipos[clave]
+	base, ok := c.calib.ParaL2().Tipos[clave]
 	if !ok || K < 2 {
 		return vacia
 	}
@@ -1055,7 +1141,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 	b := base.B
 	for j := 0; j < K-1; j++ {
 		if j > 0 {
-			inc, ok := c.calib.Tipos[fmt.Sprintf("%s#%d", clave, j)]
+			inc, ok := c.calib.ParaL2().Tipos[fmt.Sprintf("%s#%d", clave, j)]
 			if !ok {
 				return vacia
 			}

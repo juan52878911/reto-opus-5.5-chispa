@@ -164,6 +164,16 @@ func entrenar(p *Plan) (*Informe, error) {
 			}
 			secs = append(secs, chispa3.Seccion{Tipo: tp, Datos: b})
 		}
+		// De la CALIB de l2.chispa pasan a la final los campos de L2 (L2 y L2c los leen en lugar de tipos y tau_escalate); la de L1 no se toca.
+		if f.Tiene(chispa3.CALIB) {
+			c2, err := f.Calib()
+			if err != nil {
+				return nil, fmt.Errorf("--l2: %w", err)
+			}
+			copiarCalibL2(&calib, c2)
+		} else {
+			fmt.Fprintln(os.Stderr, "AVISO: --l2 sin CALIB: L2 usará la CALIB de L1")
+		}
 	}
 
 	if p.Conj != "" {
@@ -335,4 +345,13 @@ func calibrarL1(m *l1.Modelo, p *Plan, exs, va []chispa.Example, calib *chispa3.
 	inf.L1Valid = float64(n) / float64(len(ok))
 	calib.L1LambdaCalib = lam
 	calib.TauEscalate, inf.L1TauOK = tauEscalate(conf, ok, p.TauObj, 10)
+}
+
+// copiarCalibL2 copia a calib los campos de L2 de la CALIB de l2.chispa tal como L2 los lee (ParaL2): si ya trae tipos_l2/tau_escalate_l2
+// valen esos y no sus tipos/tau_escalate, que son los de L1.
+func copiarCalibL2(calib *chispa3.Calib, c2 chispa3.Calib) {
+	p := c2.ParaL2()
+	calib.TiposL2 = p.Tipos
+	calib.TauEscalateL2 = &p.TauEscalate
+	calib.TauL2c = c2.TauL2c
 }

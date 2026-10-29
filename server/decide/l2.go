@@ -31,6 +31,7 @@ type L2 struct {
 	tok   Tokenizador
 	esq   *chispa3.Esquemas
 	calib chispa3.Calib
+	multi indiceCalib // índice de CALIB de multi, calculado una vez
 
 	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
 	torres CodificadorTorre
@@ -268,7 +269,9 @@ var ErrSinTokenizador = errors.New("L2: hace falta un Tokenizador de e5 (no hay 
 
 // NuevoL2Con monta L2 sobre cualquier SesionS (el ONNX real solo existe con la etiqueta ort).
 func NuevoL2Con(ses SesionS, esq *chispa3.Esquemas, calib chispa3.Calib, tok Tokenizador) *L2 {
-	return &L2{ses: ses, tok: tok, esq: esq, calib: calib}
+	l := &L2{ses: ses, tok: tok, esq: esq, calib: calib}
+	l.multi.carga(calib)
+	return l
 }
 
 func (l *L2) Nombre() string { return "L2" }
@@ -430,6 +433,13 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
+	var esqMulti string
+	if p.Kind == KindMulti { // sin multi_l2 no opinará: no se gastan torres (ni presupuesto de la petición) en calcularlas
+		var opina bool
+		if esqMulti, opina = l.multi.opinaMultiL2(p, l.calib, l.met); !opina {
+			return Respuesta{}, nil
+		}
+	}
 	_, sims, ok, err := l.Similitudes(ctx, p)
 	if errors.Is(err, errSinPresupuestoTorres) {
 		return Respuesta{Incompleto: true}, nil
@@ -444,7 +454,7 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		prm := paramsDe(l.calib, "noul")
 		return respuestaNoul(prm.A*sims[0]+prm.B, prm.Theta), nil
 	case KindMulti:
-		return respuestaMultiL2(p, sims, l.calib), nil
+		return respuestaMultiCapa(p, sims, l.calib, l.multi.porEsquema, claveMultiL2, esqMulti), nil
 	}
 	return l.score(p, sims[0])
 }

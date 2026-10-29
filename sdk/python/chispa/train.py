@@ -256,12 +256,24 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
         + ("; con normas por ranura y n_l2 (v3)" if normas_ranuras is not None else "; sin normas por ranura (v1): L2c usa la media normalizada"))
 
 
-def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable) -> List[List[str]]:
-    """calibrar → exportar de `model/l2` (necesitan el repo en el cwd y torch/transformers)."""
+PERFILES_L2 = ("servidor", "movil")
+
+
+def comandos_l2(ckpt: str, filas: Path, trabajo: Path, python=sys.executable, perfil: str = "servidor") -> List[List[str]]:
+    """calibrar → exportar de `model/l2` (necesitan el repo en el cwd y torch/transformers).
+
+    `perfil` es el del exportador: `servidor` (defecto: consulta fp32, sin cuantizar y sin poda de vocabulario) o `movil` (int8, vocabulario
+    podado y ampliado con los textos del esquema). El esquema nunca poda por sí solo: con `servidor` no hay poda y con `movil` solo amplía.
+    De `l2.chispa` se copian L2 y ESQUEMAS y, de su CALIB, `tipos` → `tipos_l2`, `tau_escalate` → `tau_escalate_l2` y `tau_l2c`
+    (ver `calib_de_l2`): la CALIB de L1 del `.chispa` final no se toca."""
+    if perfil not in PERFILES_L2:
+        raise ChispaError(f"--perfil: {perfil!r} no es uno de {', '.join(PERFILES_L2)}")
     calib, salida = trabajo / "calib_l2.json", trabajo / "l2.chispa"
-    return [[python, "-m", "model.l2.calibrar", "--ckpt", ckpt, "--dev", str(filas), "--salida", str(calib), "--device", "cpu"],
-            [python, "-m", "model.l2.exportar", "--ckpt", ckpt, "--calib", str(calib), "--esquemas", str(filas),
-             "--salida", str(salida)]]
+    exportar = [python, "-m", "model.l2.exportar", "--ckpt", ckpt, "--calib", str(calib), "--esquemas", str(filas),
+                "--salida", str(salida), "--perfil", perfil]
+    if perfil == "movil":
+        exportar += ["--vocab-ampliar", str(filas)]
+    return [[python, "-m", "model.l2.calibrar", "--ckpt", ckpt, "--dev", str(filas), "--salida", str(calib), "--device", "cpu"], exportar]
 
 
 def _filas_l2(q, ejemplos, ruta: Path):
@@ -274,7 +286,25 @@ def _filas_l2(q, ejemplos, ruta: Path):
                                ensure_ascii=False) + "\n")
 
 
-def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
+def calib_de_l2(secciones) -> dict:
+    """Campos de CALIB del `.chispa` final que salen de la CALIB de un `l2.chispa` (`secciones` = `formato.leer`): `tipos_l2` (sus `tipos_l2` si ya los trae, si no sus `tipos`, con
+    `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate_l2` (su `tau_escalate_l2` o, si no, `tau_escalate`) y `tau_l2c`. Sin CALIB (o sin cada campo) no devuelve la clave."""
+    if formato.CALIB not in secciones:
+        return {}
+    d = json.loads(secciones[formato.CALIB])
+    r = {}
+    tipos = d.get("tipos_l2", d.get("tipos"))
+    if isinstance(tipos, dict):
+        r["tipos_l2"] = tipos
+    tau = d.get("tau_escalate_l2", d.get("tau_escalate"))
+    if tau is not None:
+        r["tau_escalate_l2"] = tau
+    if d.get("tau_l2c") is not None:
+        r["tau_l2c"] = d["tau_l2c"]
+    return r
+
+
+def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="servidor") -> dict:
     """Sin ejemplos: META, CALIB sin calibrar, L1 (los prototipos de las opciones salen de «pregunta · opción · descripción»
     y los calcula el servidor al cargar) y, con `l2` o `ckpt`, L2 y ESQUEMAS (con `ckpt` no hay validación: no se calibra)."""
     if not (l1 or l2 or ckpt):
@@ -297,7 +327,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
             _filas_l2(q, [(q.question, q.options[0].id)], filas)  # solo el esquema cuenta: las torres no usan la etiqueta
             (tmp / "calib_l2.json").write_text(json.dumps({"chispa": {"tipos": {}, "tau_escalate": TAU_ZERO_SHOT}}))
             t = time.time()
-            cmd = comandos_l2(ckpt, filas, tmp)[1]
+            cmd = comandos_l2(ckpt, filas, tmp, perfil=perfil)[1]
             log("L2: " + " ".join(cmd[1:4]))
             r = subprocess.run(cmd, cwd=repo, capture_output=True, text=True)
             if r.returncode:
@@ -312,6 +342,10 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
             if t_ not in sec:
                 raise ChispaError(f"--l2: falta la sección {n}")
             secs[t_] = sec[t_]
+        c2 = calib_de_l2(sec)
+        if "tipos_l2" not in c2 and "tau_escalate_l2" not in c2:
+            log("AVISO: --l2 sin CALIB: L2 usará la CALIB de L1")
+        secs[formato.CALIB] = json.dumps({**json.loads(secs[formato.CALIB]), **c2}).encode()
     else:
         omitidas["L2"] = omitidas["ESQUEMAS"] = "sin --l2/--ckpt"
     salida.write_bytes(formato.escribir(secs))
@@ -331,7 +365,7 @@ LAMBDA_L1_SUGERIDA = 4.0
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
-             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, log=print) -> dict:
+             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, perfil="servidor", log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
@@ -366,14 +400,14 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
             raise ChispaError("--conjunta solo sirve para preguntas choice (esta es multi)")
         from .multi import entrenar_multi
         inf = entrenar_multi(ejemplos, q_tipo, extra_tipo, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, shrinkage_lambda=shrinkage_lambda,
-                             sin_soporte=sin_soporte, embeber=embeber, log=log)
+                             sin_soporte=sin_soporte, embeber=embeber, perfil=perfil, log=log)
         return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log)
     lam = LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda
     con_soporte = not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos))
     inf = _entrenar(ejemplos, esquema, salida, lambda_l1=lam if con_soporte and l1 and ejemplos and lam != float("inf") else None, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
                     frac_valid=frac_valid, l0_max_mb=l0_max_mb, usar_go=usar_go, conjunta=conjunta, modelo_l2=modelo_l2,
                     l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,
-                    margen=margen, suelo=suelo, tope_tau=tope_tau, log=log)
+                    margen=margen, suelo=suelo, tope_tau=tope_tau, perfil=perfil, log=log)
     normas = inf.pop("_normas_ranuras", None)
     if con_soporte:
         q, _ = cargar_esquema(esquema, pregunta)
@@ -395,7 +429,7 @@ def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log) -> dict:
 
 
 def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, pregunta, semilla, frac_valid, l0_max_mb, usar_go, conjunta,
-              modelo_l2, l0tf_f16, l0tf_max_mb, precision_objetivo, validacion, margen, suelo, tope_tau, log) -> dict:
+              modelo_l2, l0tf_f16, l0tf_max_mb, precision_objetivo, validacion, margen, suelo, tope_tau, perfil, log) -> dict:
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
     if l1 and not Path(l1).is_file():
@@ -405,7 +439,7 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
         if conjunta:
             raise ChispaError("--conjunta es el modo «con datos del cliente»: necesita --ejemplos (train etiquetado)")
         salida.parent.mkdir(parents=True, exist_ok=True)
-        return _zero_shot(q, extra, l1, l2, ckpt, encontrar_repo(repo), salida, t0, log)
+        return _zero_shot(q, extra, l1, l2, ckpt, encontrar_repo(repo), salida, t0, log, perfil)
     ex = cargar_ejemplos(ejemplos, q.id)
     cuenta = validar(ex, q)
     log(f"{len(ex)} ejemplos, {len(cuenta)} clases (mín {min(cuenta.values())}, máx {max(cuenta.values())})")
@@ -446,7 +480,7 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
             filas = tmp / "filas.jsonl"
             _filas_l2(q, ex, filas)
             t = time.time()
-            for cmd in comandos_l2(ckpt, filas, tmp):
+            for cmd in comandos_l2(ckpt, filas, tmp, perfil=perfil):
                 log("L2: " + " ".join(cmd[1:4]))
                 r = subprocess.run(cmd, cwd=repo, capture_output=True, text=True)
                 if r.returncode:

@@ -97,6 +97,38 @@ type Calib struct {
 	TauL2EsquemaNuevo *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
 	// L1LambdaCalib es el λ de encogimiento del soporte (SOPL1) con el que se calibró el τ de L1; nil = calibrado sin encogimiento.
 	L1LambdaCalib *float64 `json:"l1_lambda_calib,omitempty"`
+	// TiposL2 es el espacio de nombres de L2 y L2c (mismo formato que Tipos: choice, noul, scoreK, scoreK#j, multi_l2@…); nil = L2 lee Tipos.
+	// L1 lee siempre Tipos.
+	TiposL2 map[string]ParamsTipo `json:"tipos_l2,omitempty"`
+	// TauEscalateL2 es el tau_escalate de L2; nil = L2 usa TauEscalate.
+	TauEscalateL2 *float64 `json:"tau_escalate_l2,omitempty"`
+}
+
+// ParaL2 devuelve la CALIB tal como la ve L2: con TiposL2 en lugar de Tipos y TauEscalateL2 en lugar de TauEscalate si el fichero los trae.
+// Sin ellos devuelve c tal cual (los ficheros anteriores deciden igual).
+func (c Calib) ParaL2() Calib {
+	if c.TiposL2 != nil {
+		c.Tipos = c.TiposL2
+	}
+	if c.TauEscalateL2 != nil {
+		c.TauEscalate = *c.TauEscalateL2
+	}
+	return c
+}
+
+// MarshalJSON escribe tipos_l2 siempre que TiposL2 no sea nil, también vacío ({}): un mapa vacío significa
+// «L2 no mira tipos», distinto de la ausencia del campo.
+func (c Calib) MarshalJSON() ([]byte, error) {
+	type plano Calib
+	return json.Marshal(struct {
+		plano
+		TiposL2 *map[string]ParamsTipo `json:"tipos_l2,omitempty"`
+	}{plano: plano(c), TiposL2: func() *map[string]ParamsTipo {
+		if c.TiposL2 == nil {
+			return nil
+		}
+		return &c.TiposL2
+	}()})
 }
 
 func (c Calib) validar() error {
@@ -109,13 +141,18 @@ func (c Calib) validar() error {
 	if c.TauL2EsquemaNuevo != nil && !(*c.TauL2EsquemaNuevo >= 0 && *c.TauL2EsquemaNuevo <= 1) {
 		return fmt.Errorf("%w: CALIB.tau_l2_esquema_nuevo %v", ErrContenido, *c.TauL2EsquemaNuevo)
 	}
+	if c.TauEscalateL2 != nil && !(*c.TauEscalateL2 >= 0 && *c.TauEscalateL2 <= 1) {
+		return fmt.Errorf("%w: CALIB.tau_escalate_l2 %v", ErrContenido, *c.TauEscalateL2)
+	}
 	if c.L1LambdaCalib != nil && !(*c.L1LambdaCalib >= 0) {
 		return fmt.Errorf("%w: CALIB.l1_lambda_calib %v", ErrContenido, *c.L1LambdaCalib)
 	}
-	for k, p := range c.Tipos {
-		if !(p.T > 0) || math.IsInf(p.T, 0) || math.IsNaN(p.A) || math.IsInf(p.A, 0) ||
-			math.IsNaN(p.B) || math.IsInf(p.B, 0) || !(p.Theta >= 0 && p.Theta <= 1) {
-			return fmt.Errorf("%w: CALIB.tipos[%q] fuera de rango", ErrContenido, k)
+	for campo, m := range map[string]map[string]ParamsTipo{"tipos": c.Tipos, "tipos_l2": c.TiposL2} {
+		for k, p := range m {
+			if !(p.T > 0) || math.IsInf(p.T, 0) || math.IsNaN(p.A) || math.IsInf(p.A, 0) ||
+				math.IsNaN(p.B) || math.IsInf(p.B, 0) || !(p.Theta >= 0 && p.Theta <= 1) {
+				return fmt.Errorf("%w: CALIB.%s[%q] fuera de rango", ErrContenido, campo, k)
+			}
 		}
 	}
 	return nil

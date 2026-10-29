@@ -23,7 +23,7 @@ Una sección es opcional. La cascada arma las capas con las que encuentra.
 | 3 | `L1` | el `.chispa-l1` de `runtime/l1` (embedding estático), tal cual | L1 |
 | 4 | `L2` | ONNX int8 del codificador y las ranuras (blob) | L2 y L2c |
 | 5 | `ESQUEMAS` | torres de opción int8, una por hash `HashEsquema(pregunta, opciones)` | L2 |
-| 6 | `CALIB` | JSON: `tipos` (T, a, b, θ por tipo de pregunta), `tau_escalate` y `tau_l2c` opcional | τ y calibración |
+| 6 | `CALIB` | JSON: `tipos` (T, a, b, θ por tipo de pregunta), `tau_escalate`, y opcionales `tau_l2c`, `tipos_l2` y `tau_escalate_l2` | τ y calibración |
 | 7 | `CONJ` | cabeza conjunta L0 + L2 por esquema: pesos, T, β y prototipos int8 por clase | L2c |
 | 8 | `L0TF` | L0 TF-IDF de caracteres con regresión logística; vocabulario ordenado, coeficientes f32 o f16 | L0, y entrada de L2c |
 | 9 | `TORR` | ONNX de la torre de esquemas (e5 de pasaje + cabeza de torre) con dim, max_len y prefijo | L2 al vuelo |
@@ -34,10 +34,10 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 ### Notas por sección
 - **META**: `dorado` guarda la huella del conjunto dorado con que se evaluó, si la hay.
 - **L0**: elegido por el conjunto de etiquetas igual al de ids de las opciones. Un modelo por esquema.
-- **L1**: `choice` y `noul`. Los parámetros de calibración están en `CALIB`.
+- **L1**: `choice`, `noul`, `score` y `multi`. Los parámetros de calibración están en `CALIB`.
 - **L2**: el ONNX acepta los ids del tokenizador de e5. El servidor necesita `-tok` ([06-despliegue.md](06-despliegue.md)).
 - **ESQUEMAS**: el hash se calcula sobre la pregunta y las opciones. Cambiar la pregunta cambia el hash. Versión 1: `HashEsquema(pregunta, ids)` (32 bytes; no ve descripción ni `kind`). Versión 2: `HashEsquema2` (16 bytes, ver «Clave de esquema v2»); la versión va en la cabecera.
-- **CALIB**: la clave `scoreK` guarda a y b de la cabeza ordinal; los incrementos van en `scoreK#j`.
+- **CALIB**: ver «Claves de CALIB». La clave `scoreK` guarda a y b de la cabeza ordinal; los incrementos van en `scoreK#j`.
 - **CONJ**: el hash es `HashEsquema(pregunta, ids ordenados)` (v1) o `HashEsquema2(pregunta, kind, opciones)` (v2). La pregunta debe ser la misma que al entrenar. Solo `choice`.
 - **L0TF**: si está, el servidor usa este L0 y no el de la sección `L0`.
 - **TORR**: `u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX` (little endian; [`torr.go`](../format/chispa3/torr.go)). `max_len` es el truncado del pasaje que aplica el runtime (por defecto 128; tope duro 512, `chispa3.MaxLenTope`; por encima, error al escribir o abrir). El del mensaje no va en ninguna sección: es la clave `chispa.consulta.max_len` de `metadata_props` del ONNX de la sección `L2` (misma convención que `chispa.torre.*`; sin ella, 128; tope 512 con error claro; [`maxlen.go`](../format/chispa3/maxlen.go), que lo lee en Go puro sin ORT). `chispa train --l2 <fichero>` no la escribe: la pone el exportador del modelo. El servidor y el núcleo móvil la leen al abrir (`MaxLenConsulta`/`MaxLenPasaje`); Kotlin y Swift no recortan por su cuenta. El escritor Python (`formato.torr`) da los mismos bytes: `format/chispa3/testdata/torre.chispa` lo escribe Python y lo lee un test de Go.
@@ -45,13 +45,31 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 
 **Semántica de λ** (L1 y L2c, igual): ausente/`nil` = **apagado** (el comportamiento de antes del soporte); λ = 0 → `λ_c = 0`, solo ejemplos; λ = +∞ → `λ_c = 1`, solo descripción (en L2c antes +∞ apagaba; ya no). La config es `l1_shrinkage_lambda` y `l2_shrinkage_lambda` (JSON no tiene ∞: un valor enorme, p. ej. 1e300, hace de ∞); en el núcleo móvil `AbrirConSoporte(ruta, λL1, λL2)` con `SoporteApagado` (−1; negativo o NaN también) como apagado, y en Kotlin/Swift `lambdaSoporteL1/L2` nulos = apagado. `chispa train --l1 … --ejemplos … --shrinkage-lambda λ` la escribe (sin la opción no se escribe nada). `formato.sopl1` (Python) da los mismos bytes: `format/chispa3/testdata/soporte.chispa` (v1) `soporte-v2.chispa` (v2, con normas, caso a mano n = 3) y `soporte-v3.chispa` (v3, con n_l2).
 
+## Espacio de nombres de L2 en CALIB
+`tipos` y `tau_escalate` son de L1; L2 y L2c leen, si existen, sus propios campos:
+- `tipos_l2` (opcional): mismo formato que `tipos` (T, a, b, θ). Es lo que lee L2 (`choice`, `noul`, `scoreK`, `scoreK#j`, `multi_l2@…`) y, con `CONJ`, también L2c. Si falta, L2 lee `tipos`, como antes.
+- `tau_escalate_l2` (opcional, en [0,1]): el τ de L2. Si falta, L2 usa `tau_escalate`. Con `CONJ`, `tau_l2c` sigue mandando sobre él.
+- L1 lee siempre `tipos` y `tau_escalate`; ningún campo de los de L2 se usa en L1 en el runtime (servidor `decide.ArmarDesde`, `chispamovil` con `TauEscalateL2()`, Kotlin/Swift `Motor.tauEscalateL2()`).
+- `tau_l2_esquema_nuevo` y `l1_lambda_calib` no cambian.
+- Un fichero sin estos campos se lee y decide exactamente igual que antes. Si `tipos_l2` existe (aunque esté vacío) L2 no mira `tipos`: sus claves `multi_l2@…` deben estar en `tipos_l2`.
+- `chispa train --l2 x.chispa` y `--ckpt` copian de la CALIB de `x.chispa`: `tipos` → `tipos_l2` (con `scoreK`, `scoreK#j` y `multi_l2@…`), `tau_escalate` → `tau_escalate_l2` y `tau_l2c` → `tau_l2c`; la CALIB de L1 del fichero final no se toca. Si `x.chispa` no trae CALIB, no se escribe nada de L2. Con `--conjunta`, `tau_l2c` es el calibrado para la nueva cabeza y no el de `x.chispa`. Las claves `multi_l2@…` que `chispa train` calibre con ejemplos van a `tipos_l2` si el fichero lo trae.
+- **Un runtime anterior rechaza el fichero.** El lector de CALIB decodifica con `DisallowUnknownFields` (`format/chispa3/secciones.go`): un servidor, SDK o app móvil sin estos campos falla al cargar con `chispa3: contenido de sección inválido: json: unknown field "tipos_l2"` (igual con `tau_escalate_l2`); no cae a `tipos` ni falla en silencio. Versión mínima de servidor, SDK y `chispamovil` para abrirlos: commit `2b7096a` o posterior. No hay marca de versión: no hagas rollback del runtime, ni distribuyas a apps móviles ya publicadas, un fichero que traiga `tipos_l2` o `tau_escalate_l2`. Un fichero sin esos campos sigue abriéndose en cualquier runtime.
+
+## Claves de CALIB
+Las de `multi` (ver [03-api.md](03-api.md#multi-varias-etiquetas-a-la-vez)):
+- `multi@<hex>`: (a, b, θ) de todas las opciones de un esquema; `<hex>` es el `HashEsquema2` (pregunta, kind y opciones con descripción) en hex. `multi@<hex>#<id>`: los de una opción.
+- `multi_l2@<hex>` y `multi_l2@<hex>#<id>`: lo mismo para L2 (MaxSim); se leen de `tipos_l2` si existe y, si no, de `tipos`. **Sin ellas L2 no opina en `multi`.** `chispa train` no las calibra (no tiene el ONNX de L2); las escribe un exportador de modelos o `multi.escribir_calib` con `maxsim_l2` por la API, y van a `tipos_l2`. Un `chispa train` posterior con `--l2` copia a `tipos_l2` las que ya traiga la CALIB de `x.chispa`.
+- `multi` y `multi#<id>` (sin `@`): ficheros anteriores; solo se leen si el fichero no tiene ninguna clave con `@`.
+- `#<id>` en general: sufijo de parámetros por opción.
+
 ## Compatibilidad
 - **v2 se carga.** Un `.chispa` v2 de kindling se abre como un v3 con solo `L0`.
 - **v1 no se carga.** kindling v0.17.0 no la conoce; da `ErrVersion`.
 - **Los ficheros viejos cargan.** `CONJ`, `L0TF`, `TORR` y `SOPL1` se añadieron al final del enum sin renumerar. Un fichero sin ellas carga igual
   (el README del formato lo comprueba con `TestTORRAusenteEnTestdata` y `TestSOPL1AusenteEnTestdata`).
-- **Un servidor viejo no abre un fichero nuevo.** Los tipos desconocidos se rechazan: un `.chispa` con `TORR` o `SOPL1` pide un servidor que las conozca.
+- **Un servidor viejo no abre un fichero nuevo.** Los tipos desconocidos se rechazan: un `.chispa` con `TORR` o `SOPL1` pide un servidor que las conozca y uno con `tipos_l2`/`tau_escalate_l2` en `CALIB` pide `2b7096a` o posterior (campo desconocido en el JSON de CALIB).
 - **Claves v1 y v2.** `META.version` 1 (todos los ficheros anteriores) usa las claves sin descripción; 2, las claves con descripción. No cambia ninguna sección ni el número de formato (sigue siendo 3). Un runtime que no conozca la v2 abre el fichero igual pero no encontrará las torres (cae a la torre al vuelo, si la hay).
+- **`multi@…` y servidores anteriores.** Añadir estas claves no cambia ninguna sección ni el número de formato, así que **un servidor anterior abre el fichero sin error** y, como solo busca `multi#<id>` y `multi`, ignora `multi@…`/`multi_l2@…` y calibra multi con `noul`. Versión mínima del servidor para esos ficheros: la de la CALIB por esquema (commit `5b00084` o posterior). Excepción a «Un servidor viejo no abre un fichero nuevo»: aquí falla en silencio (a diferencia de `tipos_l2`, que sí se rechaza). No hay marca de versión en CALIB; no hagas rollback del binario con un modelo que traiga `multi@…`.
 - **Cambio de pregunta.** Cambia el hash de `ESQUEMAS` y `CONJ` (desde la v2, también el de una descripción). L2c cae a L2 y L2 no encuentra la torre de esa pregunta: reentrena con la pregunta nueva.
 - Un servidor `chispa-server` admite un solo `-modelo`. Para unir secciones de varios ficheros: `deploy/mkmodelo -unir`
   ([`server/deploy/README.md`](../server/deploy/README.md)).

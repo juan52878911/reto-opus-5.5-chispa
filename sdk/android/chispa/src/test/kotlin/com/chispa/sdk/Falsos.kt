@@ -32,6 +32,7 @@ class MotorFalso(
     var cabeza: () -> String = { json(null, 0.0) },
     var idsE5: ByteArray? = null,
     var tauConj: Double = -1.0,
+    var tauL2: Double? = null,
     var hashes: Map<Int, String> = emptyMap(),
 ) : Motor {
     /**
@@ -95,6 +96,7 @@ class MotorFalso(
         extracciones++; alExtraer(destino)
     }
 
+    override fun tauEscalateL2() = tauL2 ?: tau
     override fun tauL2c() = tauConj
     override fun tauL2EsquemaNuevo() = tauNuevo
     override fun hashSeccion(tipo: Int) = hashes[tipo] ?: ""

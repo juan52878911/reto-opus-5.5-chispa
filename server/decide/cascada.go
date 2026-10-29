@@ -103,7 +103,10 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 		t := time.Now()
 		var r Respuesta
 		var err error
-		if cp, ok := l.d.(DecisorConPrevias); ok {
+		respaldo := false
+		if cr, ok := l.d.(DecisorConRespaldo); ok {
+			r, respaldo, err = cr.DecidirConOrigen(ctx, p, previas)
+		} else if cp, ok := l.d.(DecisorConPrevias); ok {
 			r, err = cp.DecidirCon(ctx, p, previas)
 		} else {
 			r, err = l.d.Decidir(ctx, p)
@@ -121,6 +124,12 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			mejor = r
 		}
 		tau := l.tau
+		if cr, ok := l.d.(DecisorConRespaldo); ok && respaldo && !r.EsquemaNuevo {
+			// respaldo de L2c: τ de L2 base (tau_escalate_l2), solo si el τ de la capa es el de la cabeza (tau_l2c de CALIB)
+			if tr, tc, ok := cr.TauRespaldo(); ok && l.tau == tc {
+				tau = tr
+			}
+		}
 		if r.EsquemaNuevo {
 			c.met.EsquemaNuevoPreguntas.Add(1)
 			if l.tauNuevo != nil {
