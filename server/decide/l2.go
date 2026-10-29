@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
+	"sync/atomic"
 
 	"chispa/format/chispa3"
 )
@@ -28,6 +30,88 @@ type L2 struct {
 	tok   Tokenizador
 	esq   *chispa3.Esquemas
 	calib chispa3.Calib
+
+	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
+	torres CodificadorTorre
+	cache  *LRU[[]torreDin] // ClaveEsquema → torres de ese esquema (una por opción en choice, una en noul y score)
+	// Hits y Misses cuentan las peticiones de esquema nuevo servidas desde la caché o calculadas.
+	Hits, Misses atomic.Uint64
+}
+
+// CodificadorTorre calcula la torre de opción (d floats) de un texto de pasaje, con el prefijo «passage: » y el
+// formato de model/l2/modelo.py (texto_opcion). Es el e5 de pasaje más la cabeza de torre: hoy el ONNX del .chispa solo
+// exporta las ranuras S, así que la implementación real necesita un segundo ONNX (descrito en el informe).
+type CodificadorTorre interface {
+	Torre(texto string) ([]float32, error)
+}
+
+type torreDin struct {
+	v []byte
+	e float32
+}
+
+// ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheEsquemas entradas.
+func (l *L2) ConTorres(c CodificadorTorre, cacheEsquemas int) *L2 {
+	l.torres = c
+	l.cache = NewLRU[[]torreDin](cacheEsquemas)
+	return l
+}
+
+const sepTorre = " · "
+
+// textoTorre es texto_opcion de model/l2/modelo.py: «passage: pregunta · opción · descripción».
+func textoTorre(pregunta string, o Opcion) string {
+	return strings.Join([]string{"passage: " + pregunta, o.ID, o.Description}, sepTorre)
+}
+
+func cuantizarTorre(h []float32) torreDin {
+	var m float64
+	for _, x := range h {
+		m = math.Max(m, math.Abs(float64(x)))
+	}
+	esc := m / 127
+	if m == 0 {
+		esc = 1
+	}
+	q := make([]byte, len(h))
+	for i, x := range h {
+		q[i] = byte(int8(math.Max(-127, math.Min(127, math.Round(float64(x)/esc)))))
+	}
+	return torreDin{q, float32(esc)}
+}
+
+// torresNuevas calcula (o recupera de la caché) las torres de un esquema que ESQUEMAS no trae.
+// noul y score usan la última opción como consulta (texto_consulta), como en el export.
+func (l *L2) torresNuevas(p Pregunta) ([]torreDin, error) {
+	k := ClaveEsquema(p)
+	if v, ok := l.cache.Get(k); ok {
+		l.Hits.Add(1)
+		return v, nil
+	}
+	l.Misses.Add(1)
+	ops := p.Opciones
+	if p.Kind != KindChoice {
+		if p.Kind == KindNoul { // la consulta es «true»
+			ops = []Opcion{{ID: "true"}}
+			for _, o := range p.Opciones {
+				if o.ID == "true" {
+					ops = []Opcion{o}
+				}
+			}
+		} else {
+			ops = ops[len(ops)-1:]
+		}
+	}
+	out := make([]torreDin, len(ops))
+	for i, o := range ops {
+		h, err := l.torres.Torre(textoTorre(p.Texto, o))
+		if err != nil {
+			return nil, err
+		}
+		out[i] = cuantizarTorre(h)
+	}
+	l.cache.Put(k, out)
+	return out, nil
 }
 
 // ErrSinTokenizador: L2 necesita el tokenizador de e5.
@@ -62,16 +146,13 @@ func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
 	torre := func(opciones []string) ([]byte, float32, bool) {
 		return l.esq.Buscar(chispa3.HashEsquema(p.Texto, opciones))
 	}
-	type vt struct {
-		v []byte
-		e float32
-	}
+	type vt = torreDin
 	var ts []vt
 	if p.Kind == KindChoice {
 		for _, id := range ids {
 			v, e, ok := torre([]string{id})
 			if !ok {
-				return nil, nil, false, nil
+				return l.similitudesNuevas(p)
 			}
 			ts = append(ts, vt{v, e})
 		}
@@ -81,10 +162,26 @@ func (l *L2) Similitudes(p Pregunta) ([][]float32, []float64, bool, error) {
 		}
 		v, e, ok := torre(ids)
 		if !ok {
-			return nil, nil, false, nil
+			return l.similitudesNuevas(p)
 		}
 		ts = []vt{{v, e}}
 	}
+	return l.simsDe(p, ts)
+}
+
+// similitudesNuevas: esquema ausente de ESQUEMAS. Sin CodificadorTorre, sin opinión; con él, torres al vuelo.
+func (l *L2) similitudesNuevas(p Pregunta) ([][]float32, []float64, bool, error) {
+	if l.torres == nil {
+		return nil, nil, false, nil
+	}
+	ts, err := l.torresNuevas(p)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	return l.simsDe(p, ts)
+}
+
+func (l *L2) simsDe(p Pregunta, ts []torreDin) ([][]float32, []float64, bool, error) {
 	if l.tok == nil {
 		return nil, nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}

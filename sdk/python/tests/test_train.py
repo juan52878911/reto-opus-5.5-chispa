@@ -159,5 +159,82 @@ class TestEntrenar(unittest.TestCase):
         self.assertFalse((self.d / "s.chispa").exists())
 
 
+class TestModos(unittest.TestCase):
+    """Zero-shot (sin ejemplos), few-shot (k por opción) y --conjunta con train escaso. Sin torch: L1 y L2 son bytes falsos."""
+
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.d)
+        (self.d / "e.json").write_text(json.dumps(ESQ))
+        (self.d / "l1.bin").write_bytes(b"l1-falso")
+        (self.d / "l2.chispa").write_bytes(formato.escribir({formato.L2: b"onnx", formato.ESQUEMAS: b"esq"}))
+
+    def jsonl(self, k, nombre="ej.jsonl"):
+        with open(self.d / nombre, "w") as f:
+            for c in ("alta", "baja"):
+                for i in range(k):
+                    f.write(json.dumps({"texto": f"{PAL[c]} caso{i}", "etiqueta": c}) + "\n")
+        return self.d / nombre
+
+    def correr(self, ej, salida="s.chispa", **kw):
+        kw.setdefault("log", lambda m: None)
+        return entrenar(ej, self.d / "e.json", self.d / salida, **kw)
+
+    def test_zero_shot_sin_ejemplos(self):
+        logs = []
+        inf = self.correr(None, l1=self.d / "l1.bin", l2=str(self.d / "l2.chispa"), log=logs.append)
+        self.assertEqual(inf["modo"], "zero-shot")
+        self.assertEqual(inf["secciones"], ["META", "L1", "L2", "ESQUEMAS", "CALIB"])
+        self.assertIn("L0", inf["omitidas"])
+        sec = formato.leer((self.d / "s.chispa").read_bytes())
+        self.assertEqual((sec[formato.L1], sec[formato.L2], sec[formato.ESQUEMAS]), (b"l1-falso", b"onnx", b"esq"))
+        self.assertNotIn(formato.L0, sec)
+        calib = json.loads(sec[formato.CALIB])
+        self.assertEqual((calib["tipos"], calib["tau_escalate"]), ({}, 0.6))
+        self.assertTrue(any("sin calibrar" in m for m in logs))
+
+    def test_zero_shot_solo_l1(self):
+        inf = self.correr(None, l1=self.d / "l1.bin")
+        self.assertEqual(inf["secciones"], ["META", "L1", "CALIB"])
+        self.assertIn("L2", inf["omitidas"])
+
+    def test_zero_shot_sin_ninguna_capa_o_con_conjunta_falla(self):
+        with self.assertRaisesRegex(ChispaError, "--l1 o --l2"):
+            self.correr(None)
+        with self.assertRaisesRegex(ChispaError, "train etiquetado"):
+            self.correr(None, l1=self.d / "l1.bin", conjunta=True)
+
+    def test_zero_shot_l2_sin_esquemas(self):
+        (self.d / "roto.chispa").write_bytes(formato.escribir({formato.L2: b"onnx"}))
+        with self.assertRaisesRegex(ChispaError, "ESQUEMAS"):
+            self.correr(None, l2=str(self.d / "roto.chispa"))
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_few_shot_k1_y_k5(self):
+        for k in (1, 5):
+            logs = []
+            inf = self.correr(self.jsonl(k), f"k{k}.chispa", l2=str(self.d / "l2.chispa"), log=logs.append)
+            self.assertEqual(inf["secciones"], ["META", "L2", "ESQUEMAS", "CALIB"], k)
+            self.assertIn("L0", inf["omitidas"])
+            self.assertEqual(inf["n_valid"], 2 * k)
+            self.assertTrue(any("few-shot" in m for m in logs), logs)
+            self.assertNotIn(formato.L0, formato.leer((self.d / f"k{k}.chispa").read_bytes()))
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_con_diez_por_opcion_sigue_entrenando_l0(self):
+        inf = self.correr(self.jsonl(10))
+        self.assertEqual(inf["secciones"], ["META", "L0", "CALIB"])
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_conjunta_con_train_escaso_cae_a_few_shot(self):
+        logs = []
+        inf = self.correr(self.jsonl(5), "c.chispa", l2=str(self.d / "l2.chispa"), conjunta=True, log=logs.append)
+        self.assertTrue(any("--conjunta necesita al menos 20" in m for m in logs), logs)
+        self.assertNotIn("CONJ", inf["secciones"])
+        self.assertNotIn("L0TF", inf["secciones"])
+        self.assertEqual(inf["modo"], "few-shot")
+        self.assertTrue((self.d / "c.chispa").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-"""`chispa train`: de un CSV/JSONL de ejemplos y un esquema a un `.chispa` v3 (META, L0, L1, CALIB, y L2/ESQUEMAS si hay L2).
+"""`chispa train`: de un esquema y, opcionalmente, un CSV/JSONL de ejemplos a un `.chispa` v3 (META, L0, L1, CALIB, y L2/ESQUEMAS si hay L2).
 
 El entrenamiento (L0 lineal, calibración de L1) lo hace `entrenador_go/` con `go run`; este módulo prepara el plan,
 lo ejecuta y, sin Go, deja el fichero sin L0 y lo dice."""
@@ -19,6 +19,11 @@ from .cliente import ChispaError
 from .datos import cargar_ejemplos, cargar_esquema, validar
 
 GO_DIR = Path(__file__).resolve().parent / "entrenador_go"
+
+# Tres modos según los datos: sin ejemplos (zero-shot), pocos por opción (few-shot) y suficientes (con datos del cliente).
+MIN_L0_POR_OPCION = 10     # con menos ejemplos en alguna opción no se entrena L0 (few-shot: L1 se calibra con todos)
+MIN_CONJ_POR_OPCION = 20   # --conjunta con menos en alguna opción avisa y cae a few-shot
+TAU_ZERO_SHOT = 0.6        # τ de escalado sin calibrar (CALIB sin tipos: L1 usa T = 0,05 por defecto)
 
 
 def encontrar_repo(repo=None) -> Optional[Path]:
@@ -73,10 +78,61 @@ def _filas_l2(q, ejemplos, ruta: Path):
                                ensure_ascii=False) + "\n")
 
 
+def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
+    """Sin ejemplos: META, CALIB sin calibrar, L1 (los prototipos de las opciones salen de «pregunta · opción · descripción»
+    y los calcula el servidor al cargar) y, con `l2` o `ckpt`, L2 y ESQUEMAS (con `ckpt` no hay validación: no se calibra)."""
+    if not (l1 or l2 or ckpt):
+        raise ChispaError("sin --ejemplos hace falta --l1 o --l2/--ckpt: un .chispa zero-shot sin ninguna capa no decide nada")
+    secs = {formato.META: formato.meta([q.id], extra["licencias"], extra["dorado"]),
+            formato.CALIB: formato.calib({}, TAU_ZERO_SHOT)}
+    omitidas = {"L0": "zero-shot: sin ejemplos", "CALIB": f"zero-shot: sin calibrar (τ {TAU_ZERO_SHOT})"}
+    tiempos = {}
+    if l1:
+        secs[formato.L1] = Path(l1).read_bytes()
+    else:
+        omitidas["L1"] = "sin --l1"
+    l2_ch = l2
+    if ckpt and not l2:
+        if not repo:
+            raise ChispaError("--ckpt necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
+        with tempfile.TemporaryDirectory(prefix="chispa-train-") as tmp:
+            tmp = Path(tmp)
+            filas = tmp / "filas.jsonl"
+            _filas_l2(q, [(q.question, q.options[0].id)], filas)  # solo el esquema cuenta: las torres no usan la etiqueta
+            (tmp / "calib_l2.json").write_text(json.dumps({"chispa": {"tipos": {}, "tau_escalate": TAU_ZERO_SHOT}}))
+            t = time.time()
+            cmd = comandos_l2(ckpt, filas, tmp)[1]
+            log("L2: " + " ".join(cmd[1:4]))
+            r = subprocess.run(cmd, cwd=repo, capture_output=True, text=True)
+            if r.returncode:
+                raise ChispaError(f"{cmd[2]} falló:\n{r.stderr[-2000:]}")
+            tiempos["l2"] = time.time() - t
+            l2_ch = str(tmp / "l2.chispa")
+            sec = formato.leer(Path(l2_ch).read_bytes())
+    elif l2:
+        sec = formato.leer(Path(l2).read_bytes())
+    if l2_ch:
+        for t_, n in ((formato.L2, "L2"), (formato.ESQUEMAS, "ESQUEMAS")):
+            if t_ not in sec:
+                raise ChispaError(f"--l2: falta la sección {n}")
+            secs[t_] = sec[t_]
+    else:
+        omitidas["L2"] = omitidas["ESQUEMAS"] = "sin --l2/--ckpt"
+    salida.write_bytes(formato.escribir(secs))
+    nombres = {formato.META: "META", formato.L1: "L1", formato.L2: "L2", formato.ESQUEMAS: "ESQUEMAS", formato.CALIB: "CALIB"}
+    inf = {"salida": str(salida), "modo": "zero-shot", "secciones": [nombres[t_] for t_ in sorted(secs)], "omitidas": omitidas,
+           "bytes": salida.stat().st_size, "tiempos_s": tiempos, "reloj_s": time.time() - t0, "l0_valid_acc": 0.0}
+    for k, v in omitidas.items():
+        log(f"AVISO: sin {k}: {v}")
+    log(f"{salida}: zero-shot, {'+'.join(inf['secciones'])}, {inf['bytes']} bytes")
+    return inf
+
+
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, log=print) -> dict:
-    """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
+    """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
+    (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
     `l0_max_mb` topa la tabla de pesos de L0 (el lector de kindling rechaza más de 64 MiB): se reducen los buckets de hashing
     (potencias de dos) hasta que cabe; con muchas clases, más colisiones. `conjunta` añade la sección CONJ (cabeza L0 + L2): necesita L2 (`l2` o `ckpt`) y el checkpoint `ckpt` para las
@@ -84,12 +140,25 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     vocabulario por frecuencia, `l0tf_f16` los guarda en media precisión). `validacion` (JSONL/CSV de texto y etiqueta, fuera de `ejemplos`) fija el τ de L2c sobre esas filas; sin ella, `margen` y `suelo` (H2 de T4.6c). `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests)."""
     t0 = time.time()
     q, extra = cargar_esquema(esquema, pregunta)
-    ex = cargar_ejemplos(ejemplos, q.id)
-    cuenta = validar(ex, q)
-    log(f"{len(ex)} ejemplos, {len(cuenta)} clases (mín {min(cuenta.values())}, máx {max(cuenta.values())})")
     if l1 and not Path(l1).is_file():
         raise ChispaError(f"--l1: no existe {l1}")
     salida = Path(salida)
+    if not ejemplos:
+        if conjunta:
+            raise ChispaError("--conjunta es el modo «con datos del cliente»: necesita --ejemplos (train etiquetado)")
+        salida.parent.mkdir(parents=True, exist_ok=True)
+        return _zero_shot(q, extra, l1, l2, ckpt, encontrar_repo(repo), salida, t0, log)
+    ex = cargar_ejemplos(ejemplos, q.id)
+    cuenta = validar(ex, q)
+    log(f"{len(ex)} ejemplos, {len(cuenta)} clases (mín {min(cuenta.values())}, máx {max(cuenta.values())})")
+    if conjunta and min(cuenta.values()) < MIN_CONJ_POR_OPCION:
+        log(f"AVISO: --conjunta necesita al menos {MIN_CONJ_POR_OPCION} ejemplos por opción (mín {min(cuenta.values())}): "
+            "sin cabeza conjunta ni L0TF, se entrena en few-shot")
+        conjunta = False
+    sin_l0 = min(cuenta.values()) < MIN_L0_POR_OPCION
+    if sin_l0:
+        log(f"few-shot: {min(cuenta.values())} ejemplos en la opción con menos (< {MIN_L0_POR_OPCION}): sin L0, "
+            "L1 se calibra con todos los ejemplos")
     salida.parent.mkdir(parents=True, exist_ok=True)
     repo, go = encontrar_repo(repo), encontrar_go()
     if ckpt and not repo:
@@ -137,7 +206,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
             for t_, e in ex:
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
-                "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
+                "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "sin_l0": sin_l0, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
                 "conj": conj_ruta, "l0tf": l0tf_ruta, "tau_l2c": (conj_inf or {}).get("tau_l2c"),
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
@@ -167,8 +236,9 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     inf["omitidas"] = inf.get("omitidas") or {}
     for k, v in inf["omitidas"].items():
         log(f"AVISO: sin {k}: {v}")
-    log(f"{salida}: {'+'.join(inf['secciones'])}, {inf['bytes']} bytes, L0 validación {inf['l0_valid_acc']:.3f}, "
-        f"{inf['reloj_s']:.1f} s")
+    inf["modo"] = "con datos del cliente" if conj_inf else "few-shot"
+    log(f"{salida}: {'+'.join(inf['secciones'])}, {inf['bytes']} bytes, "
+        + ("" if sin_l0 else f"L0 validación {inf['l0_valid_acc']:.3f}, ") + f"{inf['reloj_s']:.1f} s")
     return inf
 
 
