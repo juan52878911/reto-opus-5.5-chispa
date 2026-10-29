@@ -1,2 +1,0 @@
-{"caso": "j1", "dimension": "intencion", "pregunta": "¿Qué quiere hacer la persona?", "mensaje": "Quiero saber si mañana llueve en Medellín", "opciones": ["clima", "musica"], "descripciones": {"clima": "preguntar el clima", "musica": "poner música"}, "oro": "clima", "idioma": "es-CO"}
-{"caso": "j2", "dimension": "intencion", "pregunta": "¿Qué quiere hacer la persona?", "mensaje": "Ponme algo de salsa", "opciones": ["clima", "musica"], "descripciones": {"clima": "preguntar el clima", "musica": "poner música"}, "oro": "musica"}

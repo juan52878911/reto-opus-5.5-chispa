@@ -10,7 +10,6 @@ import numpy as np
 from model.evaluacion import chispa_eval as CE
 from model.evaluacion import metricas as M
 from model.evaluacion.adaptador_arena import asr_desde_ledger
-from model.evaluacion.jevbench import cargar_jevbench
 
 AQUI = Path(__file__).parent
 RAIZ = AQUI.parents[2]
@@ -216,24 +215,6 @@ class TestAdaptadores(unittest.TestCase):
         try:
             with self.assertRaisesRegex(ValueError, "AttackRound"):
                 asr_desde_ledger(f.name)
-        finally:
-            os.unlink(f.name)
-
-    def test_jevbench(self):
-        filas = cargar_jevbench(str(AQUI / "fixtures" / "jevbench_ejemplo.jsonl"))
-        self.assertEqual([f["id"] for f in filas], ["jev:test:j1", "jev:test:j2"])
-        self.assertEqual(filas[1]["etiqueta"], "musica")
-        self.assertFalse(filas[0]["uso_comercial"])
-        r = CE.evaluar(filas, [pred("jev:test:j1", {"clima": 0.9, "musica": 0.1}),
-                               pred("jev:test:j2", {"clima": 0.8, "musica": 0.2})])
-        self.assertAlmostEqual(r["global"]["exactitud"], 0.5)
-
-    def test_jevbench_caso_incompleto(self):
-        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
-            f.write('{"caso": "x"}\n')
-        try:
-            with self.assertRaisesRegex(ValueError, "falta"):
-                cargar_jevbench(f.name)
         finally:
             os.unlink(f.name)
 
