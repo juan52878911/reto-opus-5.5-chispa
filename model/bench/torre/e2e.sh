@@ -105,7 +105,10 @@ if [ "$LOCAL" = 1 ]; then export GOPROXY=off; else export GOPROXY=file://$REPO/g
 { lscpu; echo "nproc: $(nproc)"; free -m 2>/dev/null; } > "$RES/hardware.txt"
 
 CKPT=$BASE/mejor.pt
-if [ "$LOCAL" = 1 ]; then CKPT_ARG=(--ckpt-aleatorio); else
+if [ "$LOCAL" = 1 ]; then CKPT_ARG=(--ckpt-aleatorio)   # y un mejor.pt aleatorio para calibrar.py y el .chispa score
+  "$PY" -I -c "import sys; sys.path.insert(0, sys.argv[1]); import torch; from model.l2.exportar import modelo_aleatorio
+torch.save({'modelo': modelo_aleatorio().state_dict(), 'cabezas': [], 'max_tok': 128}, sys.argv[2])" "$REPO" "$CKPT" || { fallo "checkpoint aleatorio"; cierre; }
+else
   s3cp "$CKPT_S3" "$CKPT" || { fallo "no se pudo bajar el checkpoint $CKPT_S3"; cierre; }
   ls -l "$CKPT"; CKPT_ARG=(--ckpt "$CKPT")
 fi

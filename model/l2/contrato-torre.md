@@ -16,7 +16,8 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
 ## Tokenización
 - e5 (XLM-R unigram), igual que la consulta (`runtime/tok`), **pero con el prefijo `"passage: "`** en lugar de
   `"query: "`. El prefijo forma parte del texto que se tokeniza.
-- Truncado a **128** tokens (`MAX_TOK`), con los especiales `<s>` y `</s>` incluidos, y relleno con máscara de atención.
+- Truncado a `max_len` tokens, con los especiales `<s>` y `</s>` incluidos, y relleno con máscara de atención. `max_len` es el
+  `max_tok` con que se entrenó el checkpoint (G.8: 256; antes 128) y viaja en las `metadata_props` (abajo); el runtime lo lee de ahí.
 
 ## Red
 1. e5-small: el mismo codificador que la consulta, congelado en T2.1b.
@@ -32,13 +33,23 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
   - Son ids del tokenizador **original** de e5. Si el vocabulario está podado, el grafo trae la tabla id→id podado, como el
     de la consulta.
 - **Salida:** `h` float32 (B, 256), ya normalizada.
-- **Cuantización:** int8 dinámico **por canal**, solo en los MatMul de e5. Las capas de `Torre` quedan en fp32, igual que
-  las ranuras en la consulta.
+- **Variantes** (`exportar.py --torre-onnx SALIDA --cuant-torre ninguna|dinamico|estatico`; por defecto `dinamico`). Las tres
+  tienen las mismas entradas, salida y `metadata_props`, así que el runtime no distingue una de otra:
+  - `ninguna`: fp32, sin cuantizar (~175 MB con el vocabulario podado compartido).
+  - `dinamico`: int8 dinámico **por canal** en los MatMul y la tabla de embeddings de e5; escalas de activación calculadas en
+    cada llamada. Las capas de `Torre` quedan en fp32, igual que las ranuras en la consulta (~47 MB).
+  - `estatico`: int8 **estático** con QDQ (`onnxruntime.quantization.quantize_static`): pesos por canal y escalas de activación
+    por tensor fijadas con `--calib-torre <jsonl> --n-calib 500` (hasta 500 textos de torre distintos, `texto_opcion` de filas
+    de train, elegidos al azar con semilla fija). `Torre` queda en fp32. `--metodo-calib minmax|percentil` elige el rango.
+  - `--sin-poda` (con cualquiera de las tres) exporta la tabla de embeddings completa en vez de la podada.
+  La paridad y la elección entre variantes salen de `model/bench/torre/e2e.sh` (`informe.md`, una tabla por variante).
 - **Opset:** 17.
 - **`metadata_props`** (las escribe `exportar.py` y las lee `chispa train --torre`; valores en texto):
   - `chispa.torre.dim` = `256` (dimensión de `h`);
-  - `chispa.torre.max_len` = `128` (truncado en tokens);
+  - `chispa.torre.max_len` = el `max_tok` del checkpoint (truncado en tokens; `--max-tok`, por defecto 128, si el checkpoint no lo guarda);
   - `chispa.torre.prefijo` = `passage: ` (con el espacio final; forma parte del texto que se tokeniza).
+
+- **Consulta:** el ONNX de consulta lleva `chispa.consulta.max_len` con el mismo valor. Sin esa propiedad el runtime trunca a 128.
 
 ## Cómo se combinan torre y consulta
 - La consulta (el ONNX que ya existe) da las ranuras `S` (K = 16, d = 256), normalizadas.
@@ -62,7 +73,7 @@ Con e5 de `~/hf` y pesos de L2 aleatorios (semilla fija); tabla completa en `mod
   el margen entre opciones es ~0,001, así que mide ruido sobre empates (0,93 en la mitad de filas con más margen). **No confirma ni
   refuta el 0,98** hasta repetirlo con el checkpoint real.
 - **Tamaño**: 46,7 MB con el vocabulario podado compartido (fp32: 174 MB).
-- **Lote**: la escala int8 de las activaciones es dinámica y por tensor, así que `h` varía ~1e-4 según qué otros textos vayan en el
+- **Lote** (solo `dinamico`; `ninguna` y `estatico` no dependen del lote): la escala int8 de las activaciones es dinámica y por tensor, así que `h` varía ~1e-4 según qué otros textos vayan en el
   lote (y su relleno). Para reproducir un valor exacto, un texto por llamada. La caché por clave de ESQUEMAS no se ve afectada.
 - **Fixture para Go**: `model/l2/tests/fixtures_torre/torre.json` (20 textos, `input_ids` sin relleno con `<s>`=0, `</s>`=2 y
-  `<pad>`=1, `h_fp32` y `h_onnx`). Un texto llega a los 128 tokens del truncado.
+  `<pad>`=1, `h_fp32` y `h_onnx`). Un texto llega a los 128 tokens del truncado (el fixture es de `dinamico` con `max_len` 128).
