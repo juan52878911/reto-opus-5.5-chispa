@@ -5,6 +5,8 @@ probabilidades suman 1) y no da una probabilidad por opción, así que en multi 
 sí se aprende de los ejemplos, en L1/L2:
   - SOPL1: por opción, k y la media de los embeddings de los ejemplos donde está activa (encogimiento del prototipo, como en choice);
   - CALIB: la sigmoide σ(a·coseno + b) de multi (a y b globales) y un umbral θ por opción (`multi#<id>`) que maximiza F1.
+  - CALIB de L2: `multi_l2` y `multi_l2#<id>` (mismos campos), ajustadas con el MaxSim de L2 (otra escala que el coseno de L1). Solo se
+    escriben si se da `maxsim_l2`; sin ellas el servidor usa en L2 la CALIB de `noul` (nunca la `multi` de L1).
 Sin ejemplos es zero-shot (como choice): CALIB sin multi y el servidor usa la de noul como aproximación."""
 from __future__ import annotations
 
@@ -63,30 +65,46 @@ def mejor_theta(p, y) -> float:
     return float(mejor)
 
 
-def calibrar_multi(q, ex, embeber) -> Tuple[Dict[str, dict], dict]:
+def _ajustar_capa(clave, ops, sims, Y) -> Tuple[Dict[str, dict], float, float]:
+    a, b = ajustar_sigmoide(sims.ravel(), Y.ravel())
+    tipos = {clave: {"T": T_MULTI, "a": a, "b": b, "theta": 0.5}}
+    P_ = _sigmoide(a * sims + b)
+    for j, o in enumerate(ops):
+        pos = int(Y[:, j].sum())
+        if pos >= MIN_POS_THETA and len(Y) - pos >= MIN_POS_THETA:
+            tipos[clave + "#" + o.id] = {"T": T_MULTI, "a": a, "b": b, "theta": mejor_theta(P_[:, j], Y[:, j])}
+    return tipos, a, b
+
+
+def calibrar_multi(q, ex, embeber, maxsim_l2=None) -> Tuple[Dict[str, dict], dict]:
     """CALIB.tipos de multi y un informe, de los ejemplos `ex` ([(texto, etiquetas)]) y de `embeber(textos) → (E, ok)` (L1).
-    `multi` lleva a y b globales (θ 0,5) y `multi#<id>` el θ de cada opción con suficientes positivos y negativos. Sin variación en las
-    etiquetas (todo activo o todo inactivo) no se puede ajustar: devuelve ({}, informe con el motivo)."""
+    `multi` lleva a y b globales (θ 0,5) y `multi#<id>` el θ de cada opción con suficientes positivos y negativos (puntuación: coseno de L1).
+    Con `maxsim_l2(textos) → (S, ok)` (S (n, K): MaxSim de L2 de cada ejemplo con cada opción, en el orden de la pregunta) se ajusta lo
+    mismo sobre esa puntuación y va en `multi_l2` / `multi_l2#<id>`. Sin variación en las etiquetas (todo activo o todo inactivo) no se
+    puede ajustar: devuelve ({}, informe con el motivo)."""
     import numpy as np
     ops = list(q.options)
     textos = [texto_opcion(q, o) for o in ops] + [t for t, _ in ex]
     E, ok = embeber(textos)
     P, X, ok = E[:len(ops)], E[len(ops):], ok[len(ops):]
     sims = X @ P.T  # (n, K): coseno con el prototipo de la descripción
-    Y = np.array([[o.id in es for o in ops] for _, es in ex], dtype=bool)
-    sims, Y = sims[ok], Y[ok]
+    Y_todo = np.array([[o.id in es for o in ops] for _, es in ex], dtype=bool)
+    sims, Y = sims[ok], Y_todo[ok]
     inf = {"ejemplos": int(len(Y)), "positivos": {o.id: int(Y[:, j].sum()) for j, o in enumerate(ops)}}
     if len(Y) == 0 or Y.all() or not Y.any():
         inf["motivo"] = "sin variación: todas las etiquetas iguales (o ningún ejemplo que L1 pueda embeber)"
         return {}, inf
-    a, b = ajustar_sigmoide(sims.ravel(), Y.ravel())
-    tipos = {"multi": {"T": T_MULTI, "a": a, "b": b, "theta": 0.5}}
-    P_ = _sigmoide(a * sims + b)
-    for j, o in enumerate(ops):
-        pos = int(Y[:, j].sum())
-        if pos >= MIN_POS_THETA and len(Y) - pos >= MIN_POS_THETA:
-            tipos["multi#" + o.id] = {"T": T_MULTI, "a": a, "b": b, "theta": mejor_theta(P_[:, j], Y[:, j])}
+    tipos, a, b = _ajustar_capa("multi", ops, sims, Y)
     inf.update(a=a, b=b, thetas={k[6:]: v["theta"] for k, v in tipos.items() if k.startswith("multi#")})
+    if maxsim_l2 is not None:
+        S, ok2 = maxsim_l2([t for t, _ in ex])
+        S, Y2 = np.asarray(S)[ok2], Y_todo[ok2]
+        if len(Y2) == 0 or Y2.all() or not Y2.any():
+            inf["motivo_l2"] = "multi_l2: sin variación en los ejemplos que L2 pueda puntuar; L2 usará la CALIB de noul"
+        else:
+            t2, a2, b2 = _ajustar_capa("multi_l2", ops, S, Y2)
+            tipos.update(t2)
+            inf["l2"] = {"a": a2, "b": b2, "thetas": {k[9:]: v["theta"] for k, v in t2.items() if k.startswith("multi_l2#")}}
     return tipos, inf
 
 
@@ -100,7 +118,7 @@ def escribir_calib(salida: Path, tipos: Dict[str, dict]) -> None:
 
 
 def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, repo=None, shrinkage_lambda=None, sin_soporte=False,
-                   embeber: Optional[Callable] = None, log=print) -> dict:
+                   embeber: Optional[Callable] = None, maxsim_l2: Optional[Callable] = None, log=print) -> dict:
     """Entrena un `.chispa` de una pregunta multi. Sin `ejemplos`: zero-shot (como choice). Con ellos: lo mismo más SOPL1 y la CALIB de
     multi (ver el docstring del módulo). Devuelve el informe de `entrenar`."""
     import time
@@ -134,8 +152,11 @@ def entrenar_multi(ejemplos, q, extra, salida, *, l1=None, ckpt=None, l2=None, r
                 inf["omitidas"]["SOPL1"] = inf["omitidas"]["CALIB multi"] = "sin Go o sin fuentes de runtime/l1"
                 return inf
             emb = lambda textos: T.embeber_con_go(l1, textos, fuentes, go, Path(tmp))
-        tipos, cal = calibrar_multi(q, ex, emb)
+        tipos, cal = calibrar_multi(q, ex, emb, maxsim_l2)
         inf["calib_multi"] = cal
+        if maxsim_l2 is None and (l2 or ckpt):
+            inf.setdefault("avisos", []).append("sin `maxsim_l2`: no se calibra multi_l2; L2 usa la CALIB de noul en multi")
+            log("AVISO: " + inf["avisos"][-1])
         if tipos:
             escribir_calib(salida, tipos)
             log(f"CALIB multi: a={cal['a']:.3f}, b={cal['b']:.3f}, θ propio en {sorted(cal['thetas']) or 'ninguna opción'}")
