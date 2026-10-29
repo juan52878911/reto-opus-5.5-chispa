@@ -255,7 +255,7 @@ type simsFijas struct {
 	sims []float64
 }
 
-func (s simsFijas) Similitudes(decide.Pregunta) ([][]float32, []float64, bool, error) {
+func (s simsFijas) Similitudes(context.Context, decide.Pregunta) ([][]float32, []float64, bool, error) {
 	return s.S, s.sims, true, nil
 }
 

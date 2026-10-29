@@ -157,7 +157,7 @@ class TestCabeza(unittest.TestCase):
             (Pregunta("a", "q", "choice", [Opcion("x")]), "al menos 2"),
             (Pregunta("a", "q", "choice", [Opcion("x"), Opcion("x")]), "repetidos"),
             (Pregunta("a", "q", "noul", [Opcion("si"), Opcion("no")]), "false"),
-            (Pregunta("a", "q", "score", [Opcion("1"), Opcion("3")]), "1…K"),
+            (Pregunta("a", "q", "score", [Opcion("1"), Opcion("3")]), "en orden"),
             (Pregunta("", "q", "noul"), "id"),
         ]
         for p, msg in casos:
