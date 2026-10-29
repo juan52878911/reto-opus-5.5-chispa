@@ -8,5 +8,6 @@ Monorepo. Mapa:
 - `nix/`: entorno reproducible (`nix/flake.nix`: Python con torch, sentence-transformers, onnxruntime y optimum, más Go 1.27).
 - `model/`: informes y conjunto de sondeo de la fase 0.
 - `plan/`: encargos y briefs.
+- `docs/`: documentación de producto, empieza en [`docs/00-indice.md`](docs/00-indice.md).
 
 Desde la raíz, `make test` y `make smoke` delegan en `arena/`.

@@ -1,0 +1,106 @@
+# Rendimiento y límites
+
+Todo lo de aquí es medido y lleva su fuente. Lo que no se midió, se dice.
+
+## Calidad de punta a punta
+Macro-F1 por `/v1/decide`, modo forzado, con la cascada de producción (`chispa train --conjunta`: L0TF + L2c).
+Referencia: la cabeza conjunta en Python (`conjunta.py`).
+
+| tarea | `/v1/decide` | cascada | `conjunta.py` | Δ |
+|---|---|---|---|---|
+| massive | 0,814 | 0,814 | 0,817 | −0,2 |
+| clinc150 | 0,887 | 0,886 | 0,890 | −0,3 |
+
+Fuente: [`e2e-20261028/LEEME.md`](../server/deploy/resultados/e2e-20261028/LEEME.md#intento-5-tras-la-ablación-t45b-y-el-l0-tf-idf-en-el-servidor-t45c-h2-se-cumple).
+
+Líneas base con 32 ejemplos por clase, para ponerlas en contexto ([fase 1](../model/informes/fase-1.md#líneas-base-t17a)): MASSIVE es 0,678 con L0 solo,
+CLINC150 0,811. Ninguna tarea llega a 0,9.
+
+## Latencia
+En una c6a.xlarge, 1 cliente, cascada ([misma fuente](../server/deploy/resultados/e2e-20261028/LEEME.md)):
+
+| | cifra |
+|---|---|
+| L0 (TF-IDF) responde | 54–57 % de las consultas, p99 de 0,2 ms |
+| L2c responde el resto | p99 de 9,8–11 ms |
+| p99 total en el cliente | 9,6 ms en massive y 11,3 ms en clinc150 |
+
+L2: 48 MB y 20 ms de p99 a 64 tokens en AVX2 ([fase 2](../model/informes/fase-2.md#criterios), criterio T2.6).
+
+## Rendimiento del servidor
+Medido en una microVM de 4 vCPU (Xeon 3,3 GHz), con stubs en L1–L3 y un modelo de 4 clases. Es una cota, no un objetivo:
+el cliente de carga comparte la máquina y el ruido es de ±30 %
+([`server/README.md`](../server/README.md#medidas-microvm-kindling-de-4-vcpu-xeon-33-ghz-cota-del-i3-no-el-objetivo)).
+
+| Prueba | decisiones/s | p50 | p99 |
+|---|---|---|---|
+| HTTP, 1 pregunta por petición, 8 conexiones, 1 núcleo | 2 176 | 2,6 ms | 17,0 ms |
+| HTTP, 16 preguntas por petición, 8 conexiones, 1 núcleo | 11 323 | 9,6 ms | 38,1 ms |
+
+El lote amortiza el coste de HTTP y JSON. El objetivo del plan (≥ 5 k/s con L1 en un i7) no se confirmó.
+
+## Entrenar
+`chispa train` con 13 clases × 50 ejemplos: 1,0 s para META + L0 + CALIB y 3,5 s con L1 (154,9 MB de fichero). En esa corrida, L0 solo
+tiene un macro-F1 de 0,821 y la cascada L0 → L1 resuelve el 81 % con un 94 % de acierto. Una corrida, 390 filas de test: ±2 puntos
+([`sdk/python/README.md`](../sdk/python/README.md#punta-a-punta-intención-del-sondeo-50-por-clase)).
+El tiempo de `--conjunta` con un checkpoint real no está medido en este README; lo da `informe["conjunta"]["s"]`.
+
+## Calibración (T2.4) y excepciones de G2
+Cifras de la cabeza conjunta ([fase 2](../model/informes/fase-2.md#t24-con-el-criterio-por-tarea-cifras-de-t22d-cabeza-cvtest-sin-cómputo-nuevo)).
+Criterio: ECE ≤ 0,05.
+
+| tarea | macro-F1 | ECE | cobertura a p 0,95 | resultado |
+|---|---|---|---|---|
+| clinc150 | 0,891 | 0,022 | 80 % | cumple |
+| massive | 0,818 | 0,012 | 72 % | cumple |
+| herramientas | 0,734 | 0,037 | 49 % | cumple |
+| inyecciones | 0,922 | 0,053 | 84 % | **no cumple por ECE** (116 filas, sin calibrar) |
+| hatecheck | 0,667 | 0,060 | 7 % | **no cumple por ECE** |
+
+Decisión de Juan del 2026-10-28: **G2 pasa con dos excepciones anotadas** ([fase 2](../model/informes/fase-2.md#cierre-de-g2-2026-10-28)).
+
+### Excepción 1: el ECE de hatecheck e inyecciones
+- **hatecheck**: ni la temperatura ni Platt bajan su ECE de 0,058. Su macro-F1 es 0,667 y su cobertura a p 0,95 es del 7 %.
+  No trates sus probabilidades como calibradas.
+- **inyecciones**: queda a 0,003 del criterio con 116 filas. Ese margen está dentro del ruido.
+- Con tus ejemplos, la cabeza se ajusta fuera de pliegue sobre tus datos, que rinde más en hatecheck
+  ([fase 2](../model/informes/fase-2.md#para-juan-g2), punto 3).
+
+### Excepción 2: la abstención
+La abstención es el porcentaje de preguntas que escalan. **Objetivo con tráfico normal: ≤ 20 %, por ahora**
+([fase 2](../model/informes/fase-2.md#cierre-de-g2-2026-10-28)).
+
+Medido con el τ de `CALIB` anterior a T4.6b, en modo cascada
+([`abstencion-20261028/LEEME.md`](../server/deploy/resultados/abstencion-20261028/LEEME.md)):
+
+| tarea | n | escala | precisión en lo contestado | τ para abstención ≤ 20 % | precisión con ese τ |
+|---|---|---|---|---|---|
+| clinc150 | 5500 | 46 % | 0,984 | 0,791 | 0,949 |
+| massive | 2974 | 43 % | 0,969 | 0,687 | 0,928 |
+| injection (Arena) | 108 | 50 % | 1,000 | 0,902 | 1,000 |
+| spam (Arena) | 108 | 84 % | 1,000 | 0,812 | 1,000 |
+
+- Con ese τ, el objetivo del 20 % **no se cumplía**: escalaba entre el 43 % y el 84 %. La causa era el τ, no el modelo.
+- T4.6b hace que `chispa train --conjunta` fije `tau_l2c` fuera de pliegue al 0,95 de precisión. **No hay una medida de la abstención
+  con ese τ en el repo.** Mídela con tus datos antes de ir a producción
+  ([`server/deploy/abstencion/`](../server/deploy/abstencion)).
+- spam e injection tienen 108 filas: mucha varianza.
+- Se puede fijar el τ por tarea con `-config`: los τ de la tabla dejan la abstención en el 20 %.
+
+## Robustez ante ataques (Arena)
+ASR (tasa de ataques que engañan al detector; ≤ 0,15 pedido). El detector cascada
+([`arena-20261028/LEEME.md`](../server/deploy/resultados/arena-20261028/LEEME.md)):
+
+| dimensión | ASR | el detector escala |
+|---|---|---|
+| injection | 0,021 | 47 % de los ataques |
+| spam | 0,021 | 83 % de los ataques |
+
+El ASR es bajo en parte porque el detector se abstiene mucho. Esa carga pasa a L3 o a una persona.
+Las corridas quedaron incompletas por el tope de tiempo (22–27 k ataques de 37 k pedidos).
+
+## Qué no se midió
+- Latencia de L1 por HTTP con el potion real: sin medir ([`server/README.md`](../server/README.md#medidas-de-l1-real-microvm-kindling-de-4-vcpu-xeon-33-ghz-cota-del-i3)).
+- Tamaño de la imagen OCI.
+- Los SDK de iOS (sin compilar) y Android con L2 (sin tokenizador en el dispositivo).
+- El hardware de destino: las cifras son de una microVM y de una c6a.xlarge.
