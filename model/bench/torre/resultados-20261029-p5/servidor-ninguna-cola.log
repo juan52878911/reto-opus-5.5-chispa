@@ -1,0 +1,12 @@
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/chispa/repo/model/bench/torre/servidor.py", line 41, in entrenar
+    raise RuntimeError("chispa train --torre: " + (r.stderr or r.stdout)[-800:])
+RuntimeError: chispa train --torre: 16 ejemplos, 2 clases (mín 8, máx 8)
+few-shot: 8 ejemplos en la opción con menos (< 10): sin L0, L1 se calibra con todos los ejemplos
+L2: -m model.l2.calibrar --ckpt
+L2: -m model.l2.exportar --ckpt
+AVISO: sin L0: pocos ejemplos por opción (few-shot): L0 necesita más
+AVISO: sin L1: sin --l1 (.chispa-l1)
+/opt/chispa/resultados/servidor-ninguna/servidor/minimo.chispa: META+L2+ESQUEMAS+CALIB, 48216125 bytes, 24.0 s
+chispa: --torre: la dim de la torre (256) no casa con la de L2/ESQUEMAS (131328)
+
