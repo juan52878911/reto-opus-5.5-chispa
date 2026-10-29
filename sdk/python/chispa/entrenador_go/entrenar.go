@@ -75,33 +75,43 @@ func entrenar(p *Plan) (*Informe, error) {
 	if err != nil {
 		return nil, err
 	}
-	tr, va := train.SplitValidation(exs, p.FracValid, p.Semilla)
-	inf.NTrain, inf.NValid = len(tr), len(va)
-	if len(tr) == 0 || len(va) == 0 {
-		return nil, fmt.Errorf("partición vacía (train %d, validación %d): faltan ejemplos", len(tr), len(va))
-	}
+	var tr, va []chispa.Example
+	var secs []chispa3.Seccion
+	if p.SinL0 {
+		// Few-shot: un lineal con k ejemplos por opción no sirve. Todos los ejemplos calibran L1 (que no entrena con ellos).
+		va = exs
+		inf.NValid = len(va)
+		inf.Omitidas["L0"] = "pocos ejemplos por opción (few-shot): L0 necesita más"
+	} else {
+		tr, va = train.SplitValidation(exs, p.FracValid, p.Semilla)
+		inf.NTrain, inf.NValid = len(tr), len(va)
+		if len(tr) == 0 || len(va) == 0 {
+			return nil, fmt.Errorf("partición vacía (train %d, validación %d): faltan ejemplos", len(tr), len(va))
+		}
 
-	// L0: lineal sobre los ejemplos; la validación fija el τ propio del modelo.
+		// L0: lineal sobre los ejemplos; la validación fija el τ propio del modelo.
+		t := time.Now()
+		spec := chispa.DefaultSpec()
+		spec.Buckets = uint32(bucketsParaL0(len(p.Pregunta.Opciones), p.L0MaxMB))
+		inf.L0Buckets = int(spec.Buckets)
+		res, err := train.Train(tr, va, train.Config{Spec: spec, Seed: p.Semilla})
+		if err != nil {
+			return nil, fmt.Errorf("L0: %w", err)
+		}
+		l0, err := res.Model.Marshal()
+		if err != nil {
+			return nil, err
+		}
+		inf.L0Bytes = len(l0)
+		inf.Tiempos["l0"] = time.Since(t).Seconds()
+		if res.Valid != nil {
+			inf.L0Valid = res.Valid.Accuracy
+			inf.L0MacroF1 = res.Valid.MacroF1
+		}
+		secs = append(secs, chispa3.Seccion{Tipo: chispa3.L0, Datos: l0})
+	}
 	t := time.Now()
-	spec := chispa.DefaultSpec()
-	spec.Buckets = uint32(bucketsParaL0(len(p.Pregunta.Opciones), p.L0MaxMB))
-	inf.L0Buckets = int(spec.Buckets)
-	res, err := train.Train(tr, va, train.Config{Spec: spec, Seed: p.Semilla})
-	if err != nil {
-		return nil, fmt.Errorf("L0: %w", err)
-	}
-	l0, err := res.Model.Marshal()
-	if err != nil {
-		return nil, err
-	}
-	inf.L0Bytes = len(l0)
-	inf.Tiempos["l0"] = time.Since(t).Seconds()
-	if res.Valid != nil {
-		inf.L0Valid = res.Valid.Accuracy
-		inf.L0MacroF1 = res.Valid.MacroF1
-	}
 
-	secs := []chispa3.Seccion{{Tipo: chispa3.L0, Datos: l0}}
 	calib := chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{}, TauEscalate: 1}
 
 	// L1: potion exportado; se calibra con la validación.
