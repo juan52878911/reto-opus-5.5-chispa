@@ -82,11 +82,17 @@ def preparar_filas(a):
     if a.herramientas:
         h = Path(__file__).resolve().parents[1] / "herramientas" / "train.jsonl"
         filas += D.leer(str(h), split="train", solo_comercial=True)
+    excl = set(a.excluir_tareas)
+    sin_filas = sorted(excl - {D.conjunto(r) for r in filas})
+    filas = D.sin_conjuntos(filas, excl)
     info = {"locales": len(filas)}
+    if excl:
+        info["excluir"] = {"conjuntos": sorted(excl), "sin_filas_locales": sin_filas}
     meta = []
     if a.meta:
         tope = max(a.max_filas - len(filas), 0)
         meta, cuentas, cupo = D.submuestrear_meta(a.meta, tope, semilla=a.semilla)
+        meta = D.sin_conjuntos(meta, excl)
         info["meta"] = {"cuentas": cuentas, "cupo": cupo, "elegidas": len(meta)}
         if not a.episodios:
             filas += meta
@@ -111,6 +117,7 @@ def preparar_dev(a):
     dev = []
     for d in a.datos + ([a.meta] if a.meta else []):
         dev += D.leer(d, split="dev", solo_comercial=True)
+    dev = D.sin_conjuntos(dev, a.excluir_tareas)
     if len(dev) > a.dev_max:
         dev = [r for r in dev if D._u(r["id"], 1) < a.dev_max / len(dev)]
     return dev
@@ -147,6 +154,8 @@ def main(argv=None):
     ap.add_argument("--frac-meta", type=float, default=0.5, help="tope de la fracción de pasos con datos de meta")
     ap.add_argument("--frac-zeroshot", type=float, default=0.25, help="fracción de pasos sin soporte")
     ap.add_argument("--cache-mensajes", action="store_true", help="guarda los estados e5 de cada mensaje (pruebas en seco)")
+    ap.add_argument("--excluir-tareas", type=lambda x: [t for t in x.split(",") if t], default=[],
+                    help="conjuntos (datos.conjunto) cuyas filas se quitan de train, meta y dev, p. ej. massive,hatecheck,inyecciones")
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args(argv)

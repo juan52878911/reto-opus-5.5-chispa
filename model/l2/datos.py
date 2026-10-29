@@ -36,6 +36,12 @@ def conjunto(r):
     return PREFIJO_CONJUNTO.get(r["id"].partition(":")[0], r["tarea"])
 
 
+def sin_conjuntos(filas, excluir):
+    """Filas que no son de ninguno de los `excluir` (nombres de conjunto de `conjunto`, no el campo `tarea`)."""
+    excluir = set(excluir)
+    return [r for r in filas if conjunto(r) not in excluir] if excluir else filas
+
+
 def iterar(rutas):
     """Filas de una o varias rutas. Comparte `opciones`, `descripciones` y `pregunta` entre filas iguales (ahorra RAM:
     clinc150 trae 151 descripciones por fila)."""
