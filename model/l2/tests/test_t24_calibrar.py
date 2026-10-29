@@ -7,7 +7,7 @@ import torch
 
 from model.evaluacion import metricas as M
 from model.l2 import calibrar as C
-from model.l2.modelo import ModeloL2
+from model.l2.modelo import Coral, ModeloL2
 from model.l2.tests.falso import CodificadorFalso, fila
 
 
@@ -110,6 +110,51 @@ class DeExtremoAExtremo(unittest.TestCase):
             self.assertTrue(v["T"] > 0 and 0 <= v["theta"] <= 1, k)
         self.assertIn("score5#3", cs["tipos"])
         self.assertNotIn("score5#4", cs["tipos"])
+
+
+class ScoreComoLista(unittest.TestCase):
+    def test_probs_de_coincide_con_coral(self):
+        for K in (3, 5):
+            torch.manual_seed(K)
+            c = Coral(K)
+            with torch.no_grad():
+                c.w.fill_(3.0), c.theta1.fill_(0.7), c.delta.normal_()
+            ini = {"a": float(c.w), "b": [float(x) for x in c.umbrales()]}
+            for s in (0.0, 0.4, 1.3):
+                x = torch.tensor([s])
+                p = C.probs_de("score%d" % K, x, ini)
+                self.assertEqual(len(p), K)
+                self.assertAlmostEqual(float(p.sum()), 1.0, places=5)
+                self.assertTrue(torch.allclose(p, c(x)[0], atol=1e-6))
+                self.assertEqual(C.M.etiqueta_coral(p), int(Coral.etiqueta(c.acumuladas(x))[0]))
+
+    def test_ida_y_vuelta_calib(self):
+        for K in (3, 5):
+            torch.manual_seed(10 + K)
+            c = Coral(K)
+            with torch.no_grad():
+                c.w.fill_(2.5), c.theta1.fill_(0.5), c.delta.normal_()
+            clave = "score%d" % K
+            inf = {"tipos": {clave: {"a": float(c.w), "b": [float(x) for x in c.umbrales()], "T": 1.0, "theta": 0.5}},
+                   "tau_escalate": 0.5}
+            t = C.a_calib_chispa(inf)["tipos"]
+            b = [t[clave]["b"]]
+            for j in range(1, K - 1):  # b_j = b_{j-1} + incremento de scoreK#j
+                b.append(b[-1] + t["%s#%d" % (clave, j)]["a"])
+            self.assertEqual(len(t), K - 1)
+            for s in (0.1, 0.9):
+                x = torch.tensor([s])
+                p = C.probs_de(clave, x, {"a": t[clave]["a"], "b": b})
+                self.assertTrue(torch.allclose(p, c(x)[0], atol=1e-5))
+
+    def test_tarea_con_dos_cabezas(self):
+        # misma tarea con score3 y score5 (y noul): el τ global usa los parámetros de cada cabeza
+        m, enc = ModeloL2().eval(), CodificadorFalso()
+        filas = [fila(i, "score", tarea="mixta", k=k) for k in (3, 5) for i in range(40)]
+        filas += [fila(i, "noul", 2, tarea="mixta") for i in range(40)]
+        inf = C.calibrar(m, enc, filas)
+        self.assertEqual(set(inf["tipos"]), {"score3", "score5", "noul"})
+        self.assertIn("score3#1", C.a_calib_chispa(inf)["tipos"])
 
 
 if __name__ == "__main__":

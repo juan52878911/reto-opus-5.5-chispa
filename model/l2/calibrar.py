@@ -220,7 +220,7 @@ def calibrar(modelo, enc, filas, lote=64):
         despues = _conf_ok([probs_de(clave, ss[i], p) for i in idx], y, clave)
         return antes, despues
 
-    tipos, tareas = {}, {}
+    tipos, tareas, params = {}, {}, {}
     for clave, idx in sorted(por_clave.items()):
         p0 = cabeza_inicial(modelo, clave)
         p, d, aj = ajuste(idx, clave)
@@ -231,13 +231,14 @@ def calibrar(modelo, enc, filas, lote=64):
         p, d, aj = ajuste(idx, clave)
         antes, despues = medir(idx, clave, p, p0)
         tau, cob, prec = tau_escalate(*despues)
+        params[(tarea, clave)] = p
         tareas[tarea] = {"cabeza": clave, **d, "n": len(idx), "ajustado": aj, "ece_antes": M.ece(*antes),
                          "ece_despues": M.ece(*despues), "tau": tau, "cobertura": cob, "precision_cubierta": prec,
                          "exactitud": float(np.mean(despues[1])), "auroc_escalate": auroc(*despues)}
     # τ único de la sección CALIB: filas de todas las tareas, calibradas con su propia tarea
     conf, ok = [], []
     for (tarea, clave), idx in por_tarea.items():
-        p = cabeza_params(clave, tareas[tarea])
+        p = params[(tarea, clave)]  # por (tarea, cabeza): una tarea con varias K tiene varias cabezas
         c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx], clave)
         conf += c
         ok += o
