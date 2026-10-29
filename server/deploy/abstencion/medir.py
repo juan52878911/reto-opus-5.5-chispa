@@ -116,6 +116,14 @@ def fila_h2(t, tope):
     return max(cand, key=lambda f: f[1]) if cand else None
 
 
+def columna_estimada(t, est):
+    """Celdas «estimada | real − estimada» (real = precisión de lo contestado)."""
+    if est is None:
+        return "— | — |"
+    real = t["precision_contestada"]
+    return f"{est:.3f} | " + ("—" if real is None else f"{real - est:+.3f}") + " |"
+
+
 def fmt(x, pct=False):
     if x is None:
         return "—"
@@ -176,12 +184,14 @@ def main():
     ap.add_argument("--pred", action="append", required=True, help="tarea=pred.jsonl")
     ap.add_argument("--verdad", action="append", required=True, help="tarea=test.jsonl")
     ap.add_argument("--salida", required=True)
+    ap.add_argument("--estimada", action="append", default=[], help="tarea=precisión que estimó `chispa train` para el τ de L2c (opcional)")
     ap.add_argument("--max-abstencion", type=float, default=0.20)
     a = ap.parse_args()
     preds = dict(kv.partition("=")[::2] for kv in a.pred)
     verdades = dict(kv.partition("=")[::2] for kv in a.verdad)
     if set(preds) != set(verdades):
         sys.exit(f"--pred y --verdad deben cubrir las mismas tareas: {sorted(preds)} frente a {sorted(verdades)}")
+    estimada = {k: float(v) for k, v in (kv.partition("=")[::2] for kv in a.estimada)}
     out = Path(a.salida)
     out.mkdir(parents=True, exist_ok=True)
     res = {}
@@ -195,7 +205,7 @@ def main():
               f"F1 contestada={fmt(t['macro_f1_contestada'])} F1 escala=fallo={fmt(t['macro_f1_escala_fallo'])}")
     inf = ["# Abstención de la cascada con tráfico no adversarial (T4.6)", "",
            "| tarea | n | escala | precisión contestada | macro-F1 contestada | macro-F1 escala=fallo | macro-F1 mejor respuesta | H1 | "
-           f"τ (abst. ≤ {100 * a.max_abstencion:.0f} %) | abstención | precisión |", "|" + "---|" * 11]
+           f"τ (abst. ≤ {100 * a.max_abstencion:.0f} %) | abstención | precisión | precisión estimada (train) | real − estimada |", "|" + "---|" * 13]
     for tarea, t in res.items():
         v = veredicto_h1(t)
         h1 = "no aplica (F1 < 0,85)" if v is None else ("se cumple" if all(v) else "se refuta (" + ", ".join(
@@ -203,7 +213,7 @@ def main():
         h2 = fila_h2(t, a.max_abstencion)
         inf.append(f"| {tarea} | {t['n']} | {fmt(t['escala'], True)} | {fmt(t['precision_contestada'])} | {fmt(t['macro_f1_contestada'])} | "
                    f"{fmt(t['macro_f1_escala_fallo'])} | {fmt(t['macro_f1_mejor_respuesta'])} | {h1} | "
-                   + (f"{h2[3]:.3f} | {100 * h2[1]:.1f} % | {h2[2]:.3f} |" if h2 else "— | — | — |"))
+                   + (f"{h2[3]:.3f} | {100 * h2[1]:.1f} % | {h2[2]:.3f} | " if h2 else "— | — | — | ") + columna_estimada(t, estimada.get(tarea)))
     (out / "informe.md").write_text("\n".join(inf) + "\n")
     (out / "abstencion.json").write_text(json.dumps(
         {k: {kk: vv for kk, vv in t.items() if kk != "puntos"} for k, t in res.items()}, ensure_ascii=False, indent=1))

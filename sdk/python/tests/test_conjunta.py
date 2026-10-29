@@ -85,6 +85,42 @@ class TestTauL2c(unittest.TestCase):
         t90, t99 = tau_l2c(p, y, 0.90)[0], tau_l2c(p, y, 0.99)[0]
         self.assertTrue(t90 is not None and (t99 is None or t99 >= t90))
 
+    def test_elegir_tau_margen_y_suelo(self):
+        from chispa.conjunta import elegir_tau, tau_l2c
+        rng = np.random.default_rng(3)
+        n = 1000
+        conf = rng.uniform(0.5, 1, n)  # calibrado: acierta con probabilidad conf
+        p = np.stack([conf, 1 - conf], 1)
+        y = np.where(rng.uniform(size=n) < conf, 0, 1)
+        base = tau_l2c(p, y, 0.95)[0]
+        r = elegir_tau(p, y, 0.95)
+        self.assertEqual(r["metodo"], "fuera_de_pliegue+margen")
+        self.assertGreaterEqual(r["tau"], base)  # el margen sube el τ
+        self.assertGreaterEqual(r["precision"], 0.95)
+        # clinc150: fuera de pliegue todo acierta (0,953 aceptándolo todo) -> τ sin suelo ≈ mínimo; el suelo deja fuera el 5 %.
+        y2 = np.where(rng.uniform(size=n) < 0.96, 0, 1)
+        p2 = np.stack([np.full(n, 0.5) + rng.uniform(0, 0.4, n), np.zeros(n)], 1)
+        p2[:, 1] = 1 - p2[:, 0]
+        r2 = elegir_tau(p2, y2, 0.95)
+        self.assertLessEqual(r2["cobertura"], 0.951)
+        self.assertGreaterEqual(r2["tau"], np.quantile(p2.max(1), 0.05))
+        self.assertIsNone(elegir_tau(p, 1 - y, 0.95)["tau"])
+
+    def test_elegir_tau_con_validacion_manda_sobre_fuera_de_pliegue(self):
+        from chispa.conjunta import elegir_tau, tau_l2c
+        rng = np.random.default_rng(4)
+        n = 400
+        conf = rng.uniform(0.5, 1, n)
+        p = np.stack([conf, 1 - conf], 1)
+        y_oof = np.zeros(n, int)  # fuera de pliegue todo acierta: optimista
+        y_val = np.where(rng.uniform(size=n) < conf, 0, 1)
+        r = elegir_tau(p, y_oof, 0.95, (p, y_val))
+        self.assertEqual(r["metodo"], "validacion")
+        self.assertEqual(r["tau"], tau_l2c(p, y_val, 0.95)[0])
+        self.assertGreater(r["tau"], elegir_tau(p, y_oof, 0.95)["tau"] - 1e-12)
+        # pocas filas de validación: se ignora
+        self.assertEqual(elegir_tau(p, y_oof, 0.95, (p[:10], y_val[:10]))["metodo"], "fuera_de_pliegue+margen")
+
     def test_calib_con_y_sin_tau(self):
         self.assertNotIn("tau_l2c", json.loads(formato.calib({}, 0.7)))
         self.assertEqual(json.loads(formato.calib({}, 0.7, 0.3))["tau_l2c"], 0.3)
@@ -159,6 +195,36 @@ class TestTrainConjunta(unittest.TestCase):
             self.assertEqual(c["tau_l2c"], cj["tau_l2c"])
             self.assertGreaterEqual(cj["precision_oof"], 0.9)
             self.assertTrue(any("cobertura esperada" in m for m in logs), logs)
+
+    def _ejemplos_sinteticos(self, n, semilla):
+        rng = np.random.default_rng(semilla)
+        o1, o2 = list(ESQ["opciones"])
+        pal = {o1: ["rojo", "fuego", "cálido"], o2: ["azul", "mar", "frío"]}
+        out = []
+        for i in range(n):
+            e = (o1, o2)[i % 2]
+            t = " ".join(rng.choice(pal[e], 2)) + f" {i % 7}" + (" " + rng.choice(pal[(o2, o1)[i % 2]]) if i % 5 == 0 else "")
+            out.append({"texto": t, "etiqueta": e})
+        return out
+
+    def test_validacion_fija_el_tau_y_el_informe_dice_el_metodo(self):
+        with open(self.d / "ej.jsonl", "w") as f:
+            for r in self._ejemplos_sinteticos(400, 1):
+                f.write(json.dumps(r) + "\n")
+        with open(self.d / "val.jsonl", "w") as f:
+            for r in self._ejemplos_sinteticos(120, 9):
+                f.write(json.dumps(r) + "\n")
+        logs = []
+        inf = self.correr("val.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, log=logs.append,
+                          precision_objetivo=0.9, validacion=self.d / "val.jsonl")
+        cj = inf["conjunta"]
+        self.assertEqual(cj["metodo_tau"], "validacion")
+        self.assertTrue(any("por validacion sobre 120 filas" in m for m in logs) or cj["tau_l2c"] is None, logs)
+        if cj["tau_l2c"] is not None:
+            self.assertGreaterEqual(cj["precision_esperada"], 0.9)
+        # sin validación, el método es el del margen
+        sin = self.correr("sinval.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, precision_objetivo=0.9)
+        self.assertEqual(sin["conjunta"]["metodo_tau"], "fuera_de_pliegue+margen")
 
     def test_l0tf_podado_y_f16(self):
         con = self.correr("p.chispa", conjunta=True, ckpt="falso", modelo_l2=self.modelo_enc, l0tf_f16=True, l0tf_max_mb=0.002)
