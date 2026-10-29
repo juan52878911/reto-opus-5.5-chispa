@@ -15,6 +15,6 @@ Esta documentación es para quien integra Chispa. El detalle de desarrollo está
 | [05-sdks.md](05-sdks.md) | Python, Android, iOS y WASM |
 | [06-despliegue.md](06-despliegue.md) | Imagen OCI, ONNX Runtime, tokenizador y AWS |
 | [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md) | Benchmarks por modo, límites del zero-shot y excepciones de G2 |
-| [08-esquemas-nuevos.md](08-esquemas-nuevos.md) | Qué pasa con un esquema sin `.chispa` y qué falta para L2 al vuelo (en desarrollo) |
+| [08-esquemas-nuevos.md](08-esquemas-nuevos.md) | Qué pasa con un esquema sin `.chispa` y cómo funciona L2 al vuelo con `TORR` y qué falta medir |
 
 Convención: cada cifra lleva enlace a su fuente. Si no hay enlace, no es una cifra medida.

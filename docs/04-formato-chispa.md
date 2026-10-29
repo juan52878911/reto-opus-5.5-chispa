@@ -26,6 +26,7 @@ Una sección es opcional. La cascada arma las capas con las que encuentra.
 | 6 | `CALIB` | JSON: `tipos` (T, a, b, θ por tipo de pregunta), `tau_escalate` y `tau_l2c` opcional | τ y calibración |
 | 7 | `CONJ` | cabeza conjunta L0 + L2 por esquema: pesos, T, β y prototipos int8 por clase | L2c |
 | 8 | `L0TF` | L0 TF-IDF de caracteres con regresión logística; vocabulario ordenado, coeficientes f32 o f16 | L0, y entrada de L2c |
+| 9 | `TORR` | ONNX de la torre de esquemas (e5 de pasaje + cabeza de torre) con dim, max_len y prefijo | L2 al vuelo |
 
 Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 
@@ -38,6 +39,7 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 - **CALIB**: la clave `scoreK` guarda a y b de la cabeza ordinal; los incrementos van en `scoreK#j`.
 - **CONJ**: el hash es `HashEsquema(pregunta, ids ordenados)`. La pregunta debe ser la misma que al entrenar. Solo `choice`.
 - **L0TF**: si está, el servidor usa este L0 y no el de la sección `L0`.
+- **TORR**: `u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX` (little endian; [`torr.go`](../format/chispa3/torr.go)). El escritor Python (`formato.torr`) da los mismos bytes: `format/chispa3/testdata/torre.chispa` lo escribe Python y lo lee un test de Go.
 
 ## Compatibilidad
 - **v2 se carga.** Un `.chispa` v2 de kindling se abre como un v3 con solo `L0`.

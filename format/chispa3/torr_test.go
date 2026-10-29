@@ -80,3 +80,24 @@ func TestTORRInvalida(t *testing.T) {
 		}
 	}
 }
+
+// testdata/torre.chispa lo escribe el escritor Python (sdk/python/tests/test_torr.py): los bytes de TORR deben ser los de CodificarTORR.
+func TestTORRFicheroEscritoPorPython(t *testing.T) {
+	f, err := Abrir(filepath.Join("testdata", "torre.chispa"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	g, err := f.Torre()
+	if err != nil || g.Dim != 256 || g.MaxLen != 128 || g.Prefijo != "passage: " || string(g.ONNX) != "ONNX-torre-falso" {
+		t.Fatalf("%+v %v", g, err)
+	}
+	want, err := CodificarTORR(Torre{Dim: 256, MaxLen: 128, Prefijo: "passage: ", ONNX: []byte("ONNX-torre-falso")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := f.Bytes(TORR)
+	if err != nil || !bytes.Equal(raw, want) {
+		t.Fatalf("bytes distintos: %x vs %x (%v)", raw, want, err)
+	}
+}

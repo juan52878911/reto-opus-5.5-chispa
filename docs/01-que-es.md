@@ -50,7 +50,7 @@ L0 → L1 → L2 → escalar
 | escalar | Ninguna capa llegó a su τ | siempre |
 
 - L1 no opina en `score`.
-- Para un esquema que solo llega en la petición, hoy decide L1. L2 con torre al vuelo está **(en desarrollo)**:
+- Para un esquema que solo llega en la petición decide L1; si el `.chispa` trae `TORR` (y el servidor usa `-tags ort` y `-tok`), también L2 con torre al vuelo:
   [08-esquemas-nuevos.md](08-esquemas-nuevos.md).
 - L2c y L0TF pertenecen al modo con datos del cliente y a la tarea con la que se entrenó el `.chispa`.
 - L3 existe como capa de la cascada, pero es un stub sin opinión.
