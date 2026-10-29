@@ -132,7 +132,8 @@ pase "tras recargar, L2 con torre al vuelo sigue decidiendo" $CP decidir "$URL" 
 paso "9. multi (multietiqueta): zero-shot en el servidor B y few-shot con chispa train (etiqueta con «|»)"
 TORRES_ANTES=$($CP metrica "$URL" chispa_torres_calculadas_total --valor) || critico "no se pudo leer chispa_torres_calculadas_total"
 pase "zero-shot: 200, answers y una p por opción (esquema nuevo, torre al vuelo)" $CP decidir "$URL" "$D/peticion_multi.json" --multi-con-probs --guardar "$W/resp_multi_zs.json"
-pase "torres al vuelo del multi (≥ 4 más que antes de la petición) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --base '$TORRES_ANTES' --min 4 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
+# Sin multi_l2 en CALIB, L2 no opina en multi y no gasta torres (R11-3): el aumento debe ser exactamente 0.
+pase "multi sin multi_l2 no calcula torres (aumento 0) y sin errores" bash -c "$CP metrica '$URL' chispa_torres_calculadas_total --base '$TORRES_ANTES' --igual 0 && $CP metrica '$URL' chispa_torres_errores_total --igual 0"
 $TRAIN --esquema "$D/temas.yaml" --ejemplos "$D/ejemplos_multi.csv" --tau-l2-esquema-nuevo 0.5 --salida "$W/ms.chispa" >"$W/train_ms.log" 2>&1 || { tail -5 "$W/train_ms.log"; critico "train multi few-shot"; }
 grep -iE "multi|SOPL1" "$W/train_ms.log" | cut -c1-160 | sed 's/^/        /'; ok "few-shot multi → ms.chispa"
 $PY -I -c "
