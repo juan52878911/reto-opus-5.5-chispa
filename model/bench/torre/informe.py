@@ -43,6 +43,17 @@ def fila_estado(filas, estado, k, txt):
                                        v if v and v.startswith("OMITIDO") else v.partition(" ")[2] if v else "no llegó"))
 
 
+def fila_torres(fila, srv, sufijo):
+    """Comprobación obligatoria: /metrics tras las peticiones. Sin torres calculadas o sin L2 en las capas, FALLO."""
+    m = srv.get("metricas")
+    if m is None:
+        return fila("`/metrics` leído tras las peticiones" + sufijo, False, "no se leyó")
+    capas = (srv.get("todos") or {}).get("capas") or {}
+    fila("`chispa_torres_calculadas_total` > 0 y L2 entre las capas" + sufijo, bool(srv.get("torres_ok")),
+         "torres calculadas %d (errores %d); capas por caso %s; decididas %s" % (m.get("chispa_torres_calculadas_total", 0), m.get("chispa_torres_errores_total", 0),
+         capas or [c["layer"] for c in srv.get("cinco", [])], {k.split('"')[1]: int(x) for k, x in m.items() if k.startswith("chispa_decididas_total")}))
+
+
 def tabla_variante(res, estado, v):
     """Tabla de una variante: lo que mide exportar.py --medir-torre (paridad-V/paridad.json) y servidor.py (servidor-V/servidor.json)."""
     par, srv = cargar(res / ("paridad-" + v) / "paridad.json"), cargar(res / ("servidor-" + v) / "servidor.json")
@@ -76,10 +87,19 @@ def tabla_variante(res, estado, v):
         t = srv.get("todos")
         if t:
             py = t.get("exactitud_python_k0")
-            fila("JevBench por el servidor, %d/%d casos" % (t["casos"], t["de"]), None,
+            fila("JevBench por el servidor, %d/%d casos (exactitud a ≤ 0,01 de Python k=0)" % (t["casos"], t["de"]),
+                 None if py is None else abs(t["exactitud_servidor"] - py) <= 0.01,
                  "exactitud servidor %s; Python k=0 sobre los mismos casos %s; capas %s" % (f(t["exactitud_servidor"]), f(py) if py is not None else "—", t["capas"]))
+        fila_torres(fila, srv, "")
     else:
         fila("servidor con torres al vuelo", None, "sin servidor-%s/servidor.json" % v)
+    tau = cargar(res / ("servidor-" + v + "-tau") / "servidor.json")
+    if tau:
+        t = tau.get("todos")
+        fila_torres(fila, tau, " [tau_l2_esquema_nuevo=%s]" % tau.get("tau_l2_esquema_nuevo"))
+        if t:
+            fila("pasada con tau_l2_esquema_nuevo=%s: %d/%d casos, contesta L2 en" % (tau.get("tau_l2_esquema_nuevo"), t["casos"], t["de"]), None,
+                 "%s de %d (%.1f %%); exactitud servidor %s" % (t["capas"].get("L2", 0), t["casos"], 100 * t["capas"].get("L2", 0) / max(t["casos"], 1), f(t["exactitud_servidor"])))
     return "\n".join(filas)
 
 
