@@ -253,10 +253,10 @@ func TestL3EnCascada(t *testing.T) {
 	if res.Layer != CapaEscalar || !res.Escalate || res.Answer != "b" {
 		t.Fatalf("%+v", res)
 	}
-	// basura: L3 no opina y sigue escalada, sin marcar la respuesta como incompleta
+	// basura: L3 no opina, sigue escalada y queda Incompleto (R10-7: no se cachea bajo el nonce)
 	f.contenido = "basura"
 	res = c.Decidir(context.Background(), pregL3(KindChoice, "a", "b"))
-	if res.Layer != CapaEscalar || !res.Escalate || res.Answer != "" || res.Incompleto {
+	if res.Layer != CapaEscalar || !res.Escalate || res.Answer != "" || !res.Incompleto {
 		t.Fatalf("%+v", res)
 	}
 	// fallo del endpoint: escala e Incompleto (no se cachea bajo nonce)
