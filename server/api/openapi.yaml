@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: chispa-server
   version: "1.0.0"
-  description: Clasificador tipado (choice, score, noul) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion. Las longitudes se cuentan en BYTES UTF-8 como hace el servidor, y por eso se declaran con la extension x-max-bytes y no con maxLength (que cuenta caracteres). Presupuesto de torres: el servidor calcula como mucho max_torres_nuevas (64 por defecto) torres de esquemas nuevos POR PETICION, sumando todas sus preguntas; agotado, L2 no opina y la pregunta sube a la capa siguiente.
+  description: "Clasificador tipado (choice, score, noul) de bajo coste. El esquema viaja en la peticion, asi que decide sobre preguntas y opciones nuevas (zero-shot) sin reentrenar. Los limites son los valores por defecto; se cambian en la seccion limites del JSON de configuracion. Las longitudes se cuentan en BYTES UTF-8 como hace el servidor, y por eso se declaran con la extension x-max-bytes y no con maxLength (que cuenta caracteres). Presupuesto de torres: el servidor calcula como mucho max_torres_nuevas (64 por defecto) torres de esquemas nuevos POR PETICION, sumando todas sus preguntas; agotado, L2 no opina y la pregunta sube a la capa siguiente."
 servers:
   - url: http://127.0.0.1:8090
 paths:
@@ -88,7 +88,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "429":
-          description: Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar. Semantica de rps: el cubo cobra 1 token por peticion mas 1 por cada pregunta adicional, sin bajar de 0 (un lote valido vacia el cubo pero no deja deuda: tras esperar lo que tarde en llegar un token la clave vuelve a pasar). Con rps pequeno y lotes grandes, la tasa efectiva de preguntas es de unas rps por segundo mas la rafaga. Tambien sale como 429 con Retry-After cuando el servidor esta saturado (tope de peticiones en curso, que se toma tras leer el cuerpo)
+          description: "Solo con api_keys. La clave agoto su rafaga y su rps (code rate_limited). Esperar Retry-After segundos (entero, minimo 1) antes de reintentar. Semantica de rps: el cubo cobra 1 token por peticion mas 1 por cada pregunta adicional, sin bajar de 0 (un lote valido vacia el cubo pero no deja deuda: tras esperar lo que tarde en llegar un token la clave vuelve a pasar). Con rps pequeno y lotes grandes, la tasa efectiva de preguntas es de unas rps por segundo mas la rafaga. Tambien sale como 429 con Retry-After cuando el servidor esta saturado (tope de peticiones en curso, que se toma tras leer el cuerpo)"
           headers:
             Retry-After:
               description: Segundos a esperar antes de reintentar
@@ -129,7 +129,7 @@ paths:
       summary: Metricas en formato de texto Prometheus
       responses:
         "200":
-          description: Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) recargas del modelo (chispa_recargas_total{resultado="ok"|"error"}) y, con api_keys, chispa_auth_rechazos_total y chispa_clave_peticiones_total{clave="<id>",resultado="ok"|"limitada"}. Con la opcion ConMetricasProtegidas del servidor pide Authorization Bearer con el admin_token o una clave de API (401 unauthorized si no); por defecto sigue abierto. Sin clave de API (publico)
+          description: "Contadores y latencias (chispa_peticiones_total, chispa_preguntas_total, chispa_decididas_total, chispa_escalados_total...). Para lo nuevo: torres al vuelo (chispa_torres_calculadas_total, chispa_torres_cache_aciertos_total, chispa_torres_esperas_total, chispa_torres_errores_total, chispa_torres_presupuesto_agotado_total, histograma chispa_torre_latencia_segundos), esquemas nuevos (chispa_esquema_nuevo_preguntas_total, chispa_esquema_nuevo_decididas_total, gauge chispa_esquema_nuevo_tau si hay τ propio), nonces repetidos servidos de caché (chispa_cache_nonce_aciertos_total) plazos vencidos (chispa_timeouts_total) recargas del modelo (chispa_recargas_total{resultado=\"ok\"|\"error\"}) y, con api_keys, chispa_auth_rechazos_total y chispa_clave_peticiones_total{clave=\"<id>\",resultado=\"ok\"|\"limitada\"}. Con la opcion ConMetricasProtegidas del servidor pide Authorization Bearer con el admin_token o una clave de API (401 unauthorized si no); por defecto sigue abierto. Sin clave de API (publico)"
           content:
             text/plain:
               schema:
@@ -246,7 +246,7 @@ components:
         description:
           type: string
           x-max-bytes: 4096
-          description: Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion. Ojo: si el modelo trae torres precalculadas (ESQUEMAS/CONJ), se buscan por hash(question, ids de opciones), que NO incluye description ni kind: con la misma pregunta e ids, L2 usa esas torres y no tiene en cuenta una description distinta (ver docs/03-api.md, "Qué identifica a un esquema").
+          description: "Max max_texto BYTES UTF-8. En zero-shot es lo unico que Chispa ve de la opcion. Ojo: si el modelo trae torres precalculadas (ESQUEMAS/CONJ), se buscan por hash(question, ids de opciones), que NO incluye description ni kind: con la misma pregunta e ids, L2 usa esas torres y no tiene en cuenta una description distinta (ver docs/03-api.md, \"Qué identifica a un esquema\")."
     DecideResponse:
       type: object
       additionalProperties: false
