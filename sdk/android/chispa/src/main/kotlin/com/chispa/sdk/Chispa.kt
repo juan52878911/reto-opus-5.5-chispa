@@ -46,8 +46,10 @@ class Chispa private constructor(
          * `filesDir`, porque el motor lo mapea en memoria y necesita un fichero de verdad).
          * [proveedorOrt] elige el proveedor de ORT de L2 y de la torre (XNNPACK por defecto; si falla al crear la sesión, CPU).
          * [lambdaSoporteL1]/[lambdaSoporteL2]: λ del soporte few-shot (`AbrirConSoporte`, mismo nombre y semántica que
-         * `l1_shrinkage_lambda`/`l2_shrinkage_lambda` del servidor): nulo = apagado (`Abrir` de siempre), 0 = solo ejemplos,
-         * `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga); negativo o NaN lanza [ErrorChispa].
+         * `l1_shrinkage_lambda`/`l2_shrinkage_lambda` del servidor). [lambdaSoporteL1] vale [LAMBDA_SOPORTE_L1_POR_DEFECTO] (4,0; medido en G.8b)
+         * si no se pasa; pasar `null` es el apagado explícito de L1 (lo de antes del default). [lambdaSoporteL2] nulo = apagado (sin default).
+         * 0 = solo ejemplos, `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga); negativo o NaN lanza [ErrorChispa].
+         * Sin sección SOPL1 en el fichero el default no tiene efecto.
          */
         fun abrir(
             contexto: Context,
@@ -57,7 +59,7 @@ class Chispa private constructor(
             codificadorTorres: CodificadorTorre? = null,
             alErrorCapa: (String, Throwable) -> Unit = ::registrarErrorCapa,
             proveedorOrt: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO,
-            lambdaSoporteL1: Double? = null,
+            lambdaSoporteL1: Double? = LAMBDA_SOPORTE_L1_POR_DEFECTO,
             lambdaSoporteL2: Double? = null,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
@@ -76,16 +78,19 @@ class Chispa private constructor(
             }
         }
 
+        /** λ de L1 por defecto (`chispamovil.SoporteL1PorDefecto`; G.8b: massive 0,395 vs 0,266, inyecciones 0,740 vs 0,326, hatecheck 0,492 vs 0,224, JevBench 0,379 vs 0,398). */
+        const val LAMBDA_SOPORTE_L1_POR_DEFECTO = 4.0
+
         /** `chispamovil.SoporteApagado`: el λ negativo que apaga el encogimiento en el puente (que no tiene opcionales). */
         internal const val LAMBDA_APAGADO = -1.0
 
-        /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es apagado (LAMBDA_APAGADO); sin ninguno, null = `Abrir` de siempre. */
-        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double>? {
+        /** (λL1, λL2) para `AbrirConSoporte`; un λ nulo es apagado (LAMBDA_APAGADO). Siempre explícito: `Abrir` del puente ya usa 4 en L1. */
+        internal fun soporteDe(l1: Double?, l2: Double?): Pair<Double, Double> {
             // Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`): el puente usa el negativo como apagado.
             for ((nombre, l) in listOf("lambdaSoporteL1" to l1, "lambdaSoporteL2" to l2)) {
                 if (l != null && (l.isNaN() || l < 0)) throw ErrorChispa("$nombre inválido ($l): debe ser nulo (apagado) o >= 0")
             }
-            return if (l1 == null && l2 == null) null else Pair(l1 ?: LAMBDA_APAGADO, l2 ?: LAMBDA_APAGADO)
+            return Pair(l1 ?: LAMBDA_APAGADO, l2 ?: LAMBDA_APAGADO)
         }
 
         /** Monta la cascada sobre cualquier [Motor] (los tests usan uno falso). [onnx] da la ruta del ONNX de L2. */

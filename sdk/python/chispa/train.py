@@ -181,9 +181,10 @@ def anadir_tau_l2_esquema_nuevo(salida, tau) -> None:
     salida.write_bytes(formato.escribir(secs))
 
 
-def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None, normas_ranuras=None) -> None:
+def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=None, normas_ranuras=None, explicito=True) -> None:
     """Reescribe `salida` con la sección SOPL1 (soporte few-shot para el encogimiento del prototipo de L1/L2). Sin `embeber`, los
-    embeddings salen de runtime/l1 en Go (hace falta Go y las fuentes); sin eso, avisa y no escribe nada."""
+    embeddings salen de runtime/l1 en Go (hace falta Go y las fuentes); sin eso, avisa y no escribe nada. `explicito=False` (el default,
+    sin --shrinkage-lambda) degrada cualquier fallo al embeber a un aviso y deja el fichero sin SOPL1, en vez de abortar un entrenamiento que no lo pidió."""
     salida = Path(salida)
     if not (l1 and ex):
         motivo = "sin --l1" if not l1 else "sin --ejemplos"
@@ -198,7 +199,14 @@ def anadir_sopl1(salida, q, ex, l1, lambda_, inf: dict, log, embeber=None, repo=
                 log("AVISO: sin SOPL1: " + inf["omitidas"]["SOPL1"])
                 return
             embeber = lambda textos: embeber_con_go(l1, textos, fuentes, go, Path(tmp))
-        b, ks, dim = seccion_sopl1(q, ex, embeber, normas_ranuras)
+        try:
+            b, ks, dim = seccion_sopl1(q, ex, embeber, normas_ranuras)
+        except ChispaError as e:
+            if explicito:
+                raise
+            inf.setdefault("omitidas", {})["SOPL1"] = f"no se pudieron embeber los ejemplos: {str(e).splitlines()[0]}"
+            log("AVISO: sin SOPL1: " + inf["omitidas"]["SOPL1"])
+            return
     secs = formato.leer(salida.read_bytes())
     secs[formato.SOPL1] = b
     tmp_f = salida.with_name(salida.name + ".tmp")
@@ -286,10 +294,14 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log) -> dict:
     return inf
 
 
+# λ de L1 por defecto del runtime (servidor, chispamovil, Kotlin, Swift); medido en G.8b (model/l2/resultados/barrido-20261029/LEEME.md, rama de modelos).
+LAMBDA_L1_SUGERIDA = 4.0
+
+
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
-             shrinkage_lambda=None, embeber=None, tau_l2_esquema_nuevo=None, log=print) -> dict:
+             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
@@ -298,14 +310,18 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     características. `conjunta` también escribe L0TF (el L0 tfidf que alimenta a la cabeza; `l0tf_max_mb` topa su tabla de coeficientes podando el
     vocabulario por frecuencia, `l0tf_f16` los guarda en media precisión). `validacion` (JSONL/CSV de texto y etiqueta, fuera de `ejemplos`) fija el τ de L2c sobre esas filas; sin ella, `margen` y `suelo` (H2 de T4.6c). `modelo_l2` = (ModeloL2, Codificador) ya cargados, en vez de leer `ckpt` (tests).
 
-    `shrinkage_lambda` (≥ 0; por defecto None) activa la sección SOPL1: con `ejemplos` y `l1`, guarda por opción k y la media de los
-    embeddings de L1 de sus ejemplos, para que el runtime encoja el prototipo de la descripción hacia ellos (w = k/(k+λ)). Sin él
-    no se escribe nada (apagado) y el fichero es el de siempre. Cualquier λ ≥ 0, también 0 (solo ejemplos) e inf (solo descripción),
-    escribe SOPL1: con `--conjunta` la sección es la versión 3, con la norma de cada ranura de la media sin normalizar de L2c y el n del soporte de CONJ (`n_l2`;
+    SOPL1: con `ejemplos` y `l1` se escribe por defecto (el runtime usa λ = 4 en L1 si su config no dice otra cosa: sin esta sección no habría
+    soporte con el que mezclar); guarda por opción k y la media de los embeddings de L1 de sus ejemplos, para que el runtime encoja el
+    prototipo de la descripción hacia ellos (w = k/(k+λ)). `sin_soporte=True` (`--sin-soporte`) no la escribe y el fichero es el de antes.
+    `shrinkage_lambda` (≥ 0; por defecto 4) solo es el valor sugerido del informe: cualquier λ ≥ 0, también 0 (solo ejemplos) e inf (solo
+    descripción). Con `--conjunta` la sección es la versión 3, con la norma de cada ranura de la media sin normalizar de L2c y el n del soporte de CONJ (`n_l2`;
     como `modelo.py`); sin ella, la versión 1. λ no va en el fichero: lo lee el runtime de su config (`l1_shrinkage_lambda`,
-    `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe (`soporte.lambda_sugerida`, "inf" si es infinito). `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
+    `l2_shrinkage_lambda`) y aquí solo se anota como valor sugerido en el informe (`soporte.lambda_sugerida`, "inf" si es infinito). Sin `l1` o sin
+    `ejemplos` el default no escribe nada (sin aviso); con `shrinkage_lambda` explícito sí avisa de la omisión. `embeber(textos) → (E, ok)` sustituye a runtime/l1 (tests)."""
     if shrinkage_lambda is not None and (shrinkage_lambda != shrinkage_lambda or shrinkage_lambda < 0):
-        raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (0 = solo ejemplos, inf = solo descripción; sin la opción = apagado): {shrinkage_lambda}")
+        raise ChispaError(f"--shrinkage-lambda debe ser ≥ 0 (0 = solo ejemplos, inf = solo descripción; por defecto {LAMBDA_L1_SUGERIDA:g}): {shrinkage_lambda}")
+    if sin_soporte and shrinkage_lambda is not None:
+        raise ChispaError("--sin-soporte y --shrinkage-lambda a la vez: elige uno")
     if tau_l2_esquema_nuevo is not None and not 0 <= tau_l2_esquema_nuevo <= 1:  # también descarta NaN
         raise ChispaError(f"--tau-l2-esquema-nuevo debe estar en [0,1]: {tau_l2_esquema_nuevo}")
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
@@ -319,9 +335,10 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
                     l0tf_f16=l0tf_f16, l0tf_max_mb=l0tf_max_mb, precision_objetivo=precision_objetivo, validacion=validacion,
                     margen=margen, suelo=suelo, tope_tau=tope_tau, log=log)
     normas = inf.pop("_normas_ranuras", None)
-    if shrinkage_lambda is not None:
+    if not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos)):
         q, _ = cargar_esquema(esquema, pregunta)
-        anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, shrinkage_lambda, inf, log, embeber, repo, normas)
+        anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda,
+                     inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
         log(f"τ de L2 para esquemas nuevos {tau_l2_esquema_nuevo:g} en CALIB (tau_l2_esquema_nuevo)")

@@ -70,12 +70,12 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
   "cache_esquemas": 1024, "cache_respuestas": 4096,
   "cache_torres": 16384, "max_torres_nuevas": 64,
   "limites": {"max_cuerpo": 1048576, "max_preguntas": 256, "max_opciones": 256, "max_estado": 262144, "max_texto": 4096, "max_id": 256},
-  "l1_shrinkage_lambda": 5.0,
+  "l1_shrinkage_lambda": 4.0,
   "tau_l2_esquema_nuevo": 0.7,
   "api_keys": [{"id": "piloto-banco", "hash_sha256": "<64 hex de chispa-server -hash-clave>", "rps": 20, "rafaga": 40}]
 }
 ```
-(Los valores son los por defecto salvo `l1_shrinkage_lambda` y `tau_l2_esquema_nuevo`, que se ponen solo si se usan; el 5.0 de arriba es un ejemplo, no una recomendación.)
+(Los valores son los por defecto; `l1_shrinkage_lambda` = 4 aparece escrito pero es lo que se aplica si falta, y `tau_l2_esquema_nuevo` se pone solo si se usa; su 0.7 es un ejemplo, no una recomendación.)
 
 | Clave | Efecto | Cuidado |
 |---|---|---|
@@ -83,9 +83,9 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 | `limites.*` | Topes de entrada. 0 u omitido = por defecto; negativo = error de arranque. Son bytes UTF-8 | Pasarse da 400 (`too_many_questions`, `state_too_long`…) o 413 |
 | `cache_esquemas`, `cache_respuestas` | LRU de esquemas y de nonces (≥ 1) | Fragmentados en 16: tamaño aproximado |
 | `cache_torres`, `max_torres_nuevas` | Torres al vuelo de L2 (0 = por defecto 16 384 / 64); por encima del tope por petición, L2 no opina | Solo con `-tags ort`, `-tok` y sección `TORR` |
-| `l1_shrinkage_lambda`, `l2_shrinkage_lambda` | λ ≥ 0 del encogimiento del soporte (sección `SOPL1`); ausente = ∞ = sin mezcla | Solo few-shot con `SOPL1`. Un λ inválido es error de arranque |
+| `l1_shrinkage_lambda`, `l2_shrinkage_lambda` | λ ≥ 0 del encogimiento del soporte (sección `SOPL1`). L1: **ausente = 4**; apagarlo: `"l1_shrinkage_apagado": true`. L2: ausente = apagado | Solo few-shot con `SOPL1`. Un λ inválido es error de arranque; apagado + λ a la vez también. Medido con λ = 4 (`model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8)): con `l1_shrinkage_lambda` = 4 frente a sin soporte: massive 0,395 frente a 0,266, inyecciones 0,740 frente a 0,326, hatecheck 0,492 frente a 0,224; en JevBench cuesta 2 puntos (0,379 frente a 0,398) |
 | `api_keys` | Claves de API de `/v1/decide` con límite de tasa por clave (`rps`, `rafaga`). Ausente = abierto. Solo el hash SHA-256 en el fichero: `printf '%s' "$CLAVE" \| chispa-server -hash-clave` ([`docs/06`](../docs/06-despliegue.md#claves-de-api)) | **Recomendada en el piloto.** `/healthz` y `/metrics` nunca piden clave: no los exponga fuera de la red de operación. Se relee al recargar (rotación sin reinicio); `id` único; una clave en claro o un hash mal formado falla la config |
-| `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, se toma de `CALIB`, haya o no `-config` (calibrado contra el τ base de `CALIB`, no el de la config) |
+| `tau_l2_esquema_nuevo` | τ de L2 para esquemas cuya torre salió al vuelo; en [0,1] | Si falta, se toma de `CALIB`, haya o no `-config` (calibrado contra el τ base de `CALIB`, no el de la config). Su default no cambia. Guía medida en tareas no vistas (`model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8)): τ = 0,846 → precisión 0,95 con ~97 % de escalado; τ = 0,276 → escala ≤ 20 % con precisión ~0,53 |
 
 El `-timeout` es un flag, no una clave de la config. Al vencer, responde 503 `timeout` con `Retry-After: 5` (`chispa_timeouts_total` lo cuenta).
 Sin `-timeout` (0) no hay tope. *(Sugerencia: déjelo en 30 s; para el piloto un valor más bajo, p. ej. 5 s, evita que una torre lenta acapare conexiones; los SDK no reintentan este 503; un cliente propio debe respetar `Retry-After`.) **El `timeout` del cliente debe ser mayor que `-timeout`**: el SDK Python usa 35 s por defecto (frente a 30 s); si el cliente corta antes, el servidor cancela sin guardar el nonce y cada intento repite la cascada. Con `-timeout 5s`, un cliente de 10 s también cumple.*

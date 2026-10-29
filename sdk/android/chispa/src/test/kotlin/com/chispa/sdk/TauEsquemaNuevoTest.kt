@@ -68,7 +68,8 @@ class TauEsquemaNuevoTest {
 
     @Test
     fun lambdaDelSoporteLlegaAlMotor() {
-        assertNull(Chispa.soporteDe(null, null))
+        assertEquals(Pair(Chispa.LAMBDA_APAGADO, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(null, null))
+        assertEquals(4.0, Chispa.LAMBDA_SOPORTE_L1_POR_DEFECTO, 0.0)
         assertEquals(Pair(3.0, 5.0), Chispa.soporteDe(3.0, 5.0))
         assertEquals(Pair(3.0, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(3.0, null))
         assertEquals(Pair(Chispa.LAMBDA_APAGADO, 0.0), Chispa.soporteDe(null, 0.0))
@@ -83,6 +84,6 @@ class TauEsquemaNuevoTest {
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(null, -0.5) }
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(2.0, Double.NaN) }
         assertThrows(ErrorChispa::class.java) { Chispa.soporteDe(Double.NEGATIVE_INFINITY, 0.0) }
-        assertNull(Chispa.soporteDe(null, null))
+        assertEquals(Pair(Chispa.LAMBDA_APAGADO, Chispa.LAMBDA_APAGADO), Chispa.soporteDe(null, null))
     }
 }

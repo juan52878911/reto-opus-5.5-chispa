@@ -11,7 +11,7 @@ final class MotorNativo: Motor {
 
     private init(_ go: ChispamovilChispa) { self.go = go }
 
-    /// `soporte`: (λ de L1, λ de L2c) del encogimiento few-shot (`ChispamovilAbrirConSoporte`); nil = `Abrir` de siempre.
+    /// `soporte`: (λ de L1, λ de L2c) del encogimiento few-shot (`ChispamovilAbrirConSoporte`); nil = `Abrir` del puente (λ de L1 = 4, L2 apagado).
     static func abrir(ruta: String, soporte: (Double, Double)? = nil) throws -> MotorNativo {
         var error: NSError?
         let abierto: ChispamovilChispa?

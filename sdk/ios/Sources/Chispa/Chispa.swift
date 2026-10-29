@@ -35,12 +35,14 @@ public final class Chispa {
 
     /// Abre el modelo en `ruta` (un fichero de verdad: el motor lo mapea en memoria).
     /// `lambdaSoporteL1`/`lambdaSoporteL2`: λ del soporte few-shot (mismo nombre y semántica que `l1_shrinkage_lambda`/`l2_shrinkage_lambda`
-    /// del servidor): nil = apagado, 0 = solo ejemplos, `.infinity` = solo descripción; negativo o NaN lanza error.
+    /// del servidor). `lambdaSoporteL1` vale `lambdaSoporteL1PorDefecto` (4,0; medido en G.8b) si no se pasa; pasar `nil` es el apagado
+    /// explícito de L1 (lo de antes del default). `lambdaSoporteL2` nil = apagado (sin default). 0 = solo ejemplos, `.infinity` = solo
+    /// descripción; negativo o NaN lanza error. Sin sección SOPL1 en el fichero el default no tiene efecto.
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
                              coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
                              codificadorTorres: CodificadorTorre? = nil,
                              alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa,
-                             lambdaSoporteL1: Double? = nil, lambdaSoporteL2: Double? = nil) throws -> Chispa {
+                             lambdaSoporteL1: Double? = Chispa.lambdaSoporteL1PorDefecto, lambdaSoporteL2: Double? = nil) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
         let motor = try MotorNativo.abrir(ruta: ruta, soporte: try soporteDe(lambdaSoporteL1, lambdaSoporteL2))
         // `proveedorOrt` manda; sin él, `coreML` (true por defecto) elige entre CoreML y CPU.
@@ -63,17 +65,19 @@ public final class Chispa {
         }
     }
 
+    /// λ de L1 por defecto (`chispamovil.SoporteL1PorDefecto`; G.8b: massive 0,395 vs 0,266, inyecciones 0,740 vs 0,326, hatecheck 0,492 vs 0,224, JevBench 0,379 vs 0,398).
+    public static let lambdaSoporteL1PorDefecto: Double = 4.0
+
     /// `chispamovil.SoporteApagado`: el λ negativo que apaga el encogimiento en el puente (que no tiene opcionales).
     static let lambdaApagado: Double = -1
 
-    /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es apagado (`lambdaApagado`); sin ninguno, nil = `Abrir` de siempre.
+    /// (λL1, λL2) para `AbrirConSoporte`; un λ nil es apagado (`lambdaApagado`). Siempre explícito: `Abrir` del puente ya usa 4 en L1.
     /// 0 = solo ejemplos; `.infinity` = solo descripción (ya no apaga).
     /// Un λ negativo o NaN es error (como el servidor con `l1_shrinkage_lambda < 0`): el puente usa el negativo como apagado.
-    static func soporteDe(_ l1: Double?, _ l2: Double?) throws -> (Double, Double)? {
+    static func soporteDe(_ l1: Double?, _ l2: Double?) throws -> (Double, Double) {
         for (nombre, l) in [("lambdaSoporteL1", l1), ("lambdaSoporteL2", l2)] {
             if let l = l, l.isNaN || l < 0 { throw ErrorChispa("\(nombre) inválido (\(l)): debe ser nil (apagado) o >= 0") }
         }
-        if l1 == nil && l2 == nil { return nil }
         return (l1 ?? lambdaApagado, l2 ?? lambdaApagado)
     }
 

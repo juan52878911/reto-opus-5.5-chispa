@@ -106,13 +106,18 @@ func TestAbrirConSoporteLeeSOPL1(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ficheroV3(t, chispa3.Seccion{Tipo: chispa3.SOPL1, Datos: b})
-	if c.sopl != nil || c.lambdaL1 != nil || c.lambdaL2 != nil {
-		t.Fatalf("Abrir (apagado) no decodifica SOPL1: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
+	if c.sopl == nil || c.lambdaL1 == nil || *c.lambdaL1 != SoporteL1PorDefecto || c.lambdaL2 != nil {
+		t.Fatalf("Abrir usa λ=4 en L1 y L2 apagado: sopl=%v λ=%v/%v", c.sopl, c.lambdaL1, c.lambdaL2)
 	}
 	ruta := filepath.Join(t.TempDir(), "s.chispa")
 	if err := os.WriteFile(ruta, mustEscribir(t, b), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	off, err := AbrirConSoporte(ruta, SoporteApagado, SoporteApagado)
+	if err != nil || off.sopl != nil || off.lambdaL1 != nil || off.lambdaL2 != nil {
+		t.Fatalf("apagado explícito no decodifica SOPL1: %v %v", off, err)
+	}
+	off.Cerrar()
 	c2, err := AbrirConSoporte(ruta, 3, SoporteApagado)
 	if err != nil || c2.sopl == nil || c2.sopl.Len() != 1 || c2.lambdaL1 == nil || *c2.lambdaL1 != 3 || c2.lambdaL2 != nil || c2.Avisos() != "" {
 		t.Fatalf("%v %v", c2, err)
@@ -203,12 +208,17 @@ func TestSOPL1InvalidaApagadaAbreSinAviso_YActivaAvisa(t *testing.T) {
 	if err := os.WriteFile(ruta, mustEscribir(t, []byte{9, 9, 9}), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, err := Abrir(ruta)
+	c, err := AbrirConSoporte(ruta, SoporteApagado, SoporteApagado)
 	if err != nil {
 		t.Fatalf("apagado no debe fallar por una SOPL1 inválida: %v", err)
 	}
 	if c.sopl != nil || c.Avisos() != "" {
 		t.Fatalf("apagado: sopl=%v avisos=%q", c.sopl, c.Avisos())
+	}
+	c.Cerrar()
+	c, err = Abrir(ruta) // el default 4 está activo: ignora con aviso, sin fallar
+	if err != nil || c.sopl != nil || !strings.Contains(c.Avisos(), "SOPL1") {
+		t.Fatalf("Abrir (λ=4): %v sopl=%v avisos=%q", err, c.sopl, c.Avisos())
 	}
 	c.Cerrar()
 	c, err = AbrirConSoporte(ruta, 2, 2)

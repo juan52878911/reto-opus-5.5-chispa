@@ -58,10 +58,12 @@ def main(argv=None) -> int:
                         "(--ejemplos, ≥ 20 por opción: con menos avisa por stderr y cae a few-shot), --ckpt y --l2 (o --ckpt solo)")
     t.add_argument("--repo", help="raíz del repositorio de Chispa: solo para --ckpt/--conjunta (por defecto CHISPA_REPO o el que contiene este paquete). Para L0 no hace falta: el wheel trae las fuentes de Go")
     t.add_argument("--shrinkage-lambda", type=float, default=None, metavar="LAMBDA",
-                   help="few-shot con --l1: escribe la sección SOPL1 (k y media de los embeddings de L1 de los ejemplos por opción) para que el "
-                        "runtime encoja el prototipo hacia ellos, w = k/(k+λ). Sin esta opción no se escribe (apagado) y el fichero es el de siempre. λ (≥ 0; "
-                        "0 = solo ejemplos, inf = solo descripción) no va en el fichero: se pone en l1_shrinkage_lambda / l2_shrinkage_lambda del "
-                        "servidor o en AbrirConSoporte; aquí es el valor sugerido. Con --conjunta la sección lleva la norma de cada ranura de L2c (SOPL1 v2)")
+                   help="valor sugerido de λ en el informe (≥ 0; por defecto 4, el default del runtime en L1; 0 = solo ejemplos, inf = solo descripción). "
+                        "Con --l1 y ejemplos, la sección SOPL1 (k y media de los embeddings de L1 de los ejemplos por opción) se escribe siempre, para que el "
+                        "runtime encoja el prototipo hacia ellos, w = k/(k+λ). λ no va en el fichero: se pone en l1_shrinkage_lambda / l2_shrinkage_lambda del "
+                        "servidor o en AbrirConSoporte. Con --conjunta la sección lleva la norma de cada ranura de L2c (SOPL1 v2)")
+    t.add_argument("--sin-soporte", action="store_true",
+                   help="no escribe SOPL1 (el fichero es el de antes del default λ = 4); no se combina con --shrinkage-lambda")
     t.add_argument("--tau-l2-esquema-nuevo", type=float, default=None, metavar="TAU",
                    help="escribe tau_l2_esquema_nuevo (en [0,1]) en CALIB: el τ de L2 cuando la pregunta no estaba en ESQUEMAS y la torre sale al vuelo. "
                         "Sin esta opción no se escribe y L2 usa siempre tau_escalate")
@@ -119,7 +121,7 @@ def main(argv=None) -> int:
         if a.cmd == "train":
             from .train import entrenar
             entrenar(a.ejemplos, a.esquema, a.salida, l1=a.l1, ckpt=a.ckpt, l2=a.l2, conjunta=a.conjunta, repo=a.repo,
-                     pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, tau_l2_esquema_nuevo=a.tau_l2_esquema_nuevo, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
+                     pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, sin_soporte=a.sin_soporte, tau_l2_esquema_nuevo=a.tau_l2_esquema_nuevo, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
                      torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo,

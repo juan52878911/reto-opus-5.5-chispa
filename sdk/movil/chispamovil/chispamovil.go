@@ -93,9 +93,15 @@ type modeloL0 struct {
 	tf    *chispa3.L0TFModelo // el TF-IDF de la sección L0TF (manda si el fichero la trae, como en el servidor)
 }
 
-// Abrir abre un .chispa v3 (comprobando CRC y sha256 de cada sección que use) y monta las capas que tenga.
+// SoporteL1PorDefecto es el λ de L1 que usa Abrir (G.8b: massive 0,395 vs 0,266; inyecciones 0,740 vs 0,326; hatecheck 0,492 vs
+// 0,224; JevBench 0,379 vs 0,398). Sin sección SOPL1 en el fichero no tiene efecto. El de L2c queda apagado (sin default medido).
+const SoporteL1PorDefecto = 4
+
+// Abrir abre un .chispa v3 (comprobando CRC y sha256 de cada sección que use) y monta las capas que tenga. Equivale a
+// AbrirConSoporte(ruta, SoporteL1PorDefecto, SoporteApagado); para el comportamiento anterior en L1,
+// AbrirConSoporte(ruta, SoporteApagado, SoporteApagado).
 func Abrir(ruta string) (*Chispa, error) {
-	return AbrirConSoporte(ruta, SoporteApagado, SoporteApagado)
+	return AbrirConSoporte(ruta, SoporteL1PorDefecto, SoporteApagado)
 }
 
 // SoporteApagado es el valor de λ de AbrirConSoporte que apaga el encogimiento (el puente de gomobile no tiene opcionales:
@@ -105,7 +111,7 @@ const SoporteApagado = -1.0
 // AbrirConSoporte es Abrir con el encogimiento del soporte few-shot (sección SOPL1): con k ejemplos en una opción, su
 // prototipo es normaliza((1−w)·descripción + w·media de los ejemplos), w = k/(k+λ), con λ propio en L1 (lambdaL1: Decidir)
 // y en L2c (lambdaL2: CabezaConjunta; allí κ ≡ λ y la media lleva la norma por ranura de SOPL1 v2). SoporteApagado (o cualquier
-// valor negativo o NaN) = apagado, el comportamiento de Abrir; 0 = solo los ejemplos; +Infinito = solo la descripción, en las dos
+// valor negativo o NaN) = apagado explícito (sin soporte, lo que hacía Abrir antes del default 4); 0 = solo los ejemplos; +Infinito = solo la descripción, en las dos
 // capas (antes +Inf apagaba). Sin la sección, o con una pregunta que no está en ella, no cambia nada.
 func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
 	f, err := chispa3.Abrir(ruta)
@@ -130,7 +136,7 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
-	// SOPL1 solo hace falta con el encogimiento activo: apagado (el defecto) no se decodifica, y si está mal el fichero abre igual.
+	// SOPL1 solo hace falta con el encogimiento activo: apagado no se decodifica, y si está mal el fichero abre igual.
 	if f.Tiene(chispa3.SOPL1) && (c.lambdaL1 != nil || c.lambdaL2 != nil) {
 		sopl, err := f.Sopl1()
 		if err != nil {

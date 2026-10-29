@@ -26,12 +26,33 @@ type Config struct {
 	APIKeys         []ClaveAPI `json:"api_keys"`          // si no está vacío, /v1/decide exige Authorization: Bearer <clave> y limita por clave
 	AdminToken      string     `json:"admin_token"`       // si no está vacío, abre POST /v1/admin/recargar con Authorization: Bearer <token>
 	// λ del encogimiento del soporte (sección SOPL1): w = k/(k+λ) mezcla la media de los ejemplos con el prototipo de la
-	// descripción, en L1 y en L2c por separado. Ausente (nil) = ∞ = sin mezcla, el comportamiento de antes. En JSON, un número ≥ 0.
-	L1ShrinkageLambda *float64 `json:"l1_shrinkage_lambda,omitempty"`
-	L2ShrinkageLambda *float64 `json:"l2_shrinkage_lambda,omitempty"`
+	// descripción, en L1 y en L2c por separado. En JSON, un número ≥ 0.
+	// L1: ausente = L1ShrinkageLambdaPorDefecto (4, medido en G.8b); un valor explícito manda; para apagarlo (el comportamiento de
+	// antes de ese default) `"l1_shrinkage_apagado": true`. Se usa un booleano y no `null` porque null y ausente son indistinguibles
+	// en un *float64, y así la config estricta sigue rechazando solo lo que no existe. Apagado junto con un λ es error.
+	// L2: ausente (nil) = ∞ = sin mezcla; no hay default (el soporte de L2 solo entra por CONJ y se midió así).
+	L1ShrinkageLambda  *float64 `json:"l1_shrinkage_lambda,omitempty"`
+	L1ShrinkageApagado bool     `json:"l1_shrinkage_apagado,omitempty"`
+	L2ShrinkageLambda  *float64 `json:"l2_shrinkage_lambda,omitempty"`
 	// τ de L2 solo para preguntas cuyas torres no estaban en ESQUEMAS (salieron al vuelo). Ausente (nil) = el τ de L2 de siempre.
 	// Si viene aquí, manda sobre el tau_l2_esquema_nuevo de CALIB; si no, se usa el de CALIB aunque haya -config.
 	TauL2EsquemaNuevo *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
+}
+
+// L1ShrinkageLambdaPorDefecto: λ de L1 cuando la config no lo dice (G.8b: massive 0,395 vs 0,266; inyecciones 0,740 vs 0,326;
+// hatecheck 0,492 vs 0,224; JevBench 0,379 vs 0,398). Sin SOPL1 en el .chispa no tiene efecto.
+const L1ShrinkageLambdaPorDefecto = 4.0
+
+// LambdaL1 es el λ efectivo de L1: nil si está apagado, el explícito si lo hay, y si no el default.
+func (c Config) LambdaL1() *float64 {
+	if c.L1ShrinkageApagado {
+		return nil
+	}
+	if c.L1ShrinkageLambda != nil {
+		return c.L1ShrinkageLambda
+	}
+	v := L1ShrinkageLambdaPorDefecto
+	return &v
 }
 
 // CacheTorresPorDefecto: una torre cuantizada pesa ~0,3 KB, así que 16384 son pocos MB.
@@ -86,9 +107,12 @@ func (c Config) Validar() error {
 	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
 		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)
 	}
+	if c.L1ShrinkageApagado && c.L1ShrinkageLambda != nil {
+		return fmt.Errorf("config: l1_shrinkage_apagado y l1_shrinkage_lambda a la vez; elige uno")
+	}
 	for n, v := range map[string]*float64{"l1_shrinkage_lambda": c.L1ShrinkageLambda, "l2_shrinkage_lambda": c.L2ShrinkageLambda} {
 		if v != nil && (math.IsNaN(*v) || *v < 0) {
-			return fmt.Errorf("config: %s debe ser ≥ 0 (ausente = apagado; 0 = solo ejemplos; muy grande = solo descripción): %v", n, *v)
+			return fmt.Errorf("config: %s debe ser ≥ 0 (0 = solo ejemplos; muy grande = solo descripción): %v", n, *v)
 		}
 	}
 	if err := validarClaves(c.APIKeys); err != nil {

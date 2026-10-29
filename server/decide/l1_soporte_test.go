@@ -3,6 +3,8 @@ package decide
 import (
 	"context"
 	"math"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -36,7 +38,8 @@ func l1Con(t *testing.T, sopl []byte, lambda *float64) *L1 {
 	if sopl != nil {
 		extra = append(extra, chispa3.Seccion{Tipo: chispa3.SOPL1, Datos: sopl})
 	}
-	cfg := Config{CacheEsquemas: 16, CacheRespuestas: 16, L1ShrinkageLambda: lambda}
+	// lambda nil = apagado explícito (el comportamiento anterior al default 4); ver TestL1DefaultCuatro para el ausente.
+	cfg := Config{CacheEsquemas: 16, CacheRespuestas: 16, L1ShrinkageLambda: lambda, L1ShrinkageApagado: lambda == nil}
 	mt, err := ArmarDesde(v3Tiny(t, calibTiny(), extra...), NuevoL0(8), &cfg, false, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -126,9 +129,21 @@ func TestL1SoportePreguntaAusenteNoCambia(t *testing.T) {
 
 func TestConfigShrinkageLambda(t *testing.T) {
 	c := ConfigPorDefecto()
-	if c.L1ShrinkageLambda != nil || c.L2ShrinkageLambda != nil {
-		t.Fatal("por defecto apagado (nil)")
+	if c.L1ShrinkageLambda != nil || c.L2ShrinkageLambda != nil || c.L1ShrinkageApagado {
+		t.Fatal("la config por defecto no fija λ: L1 usa el default en LambdaL1, L2 apagado (nil)")
 	}
+	if l := c.LambdaL1(); l == nil || *l != 4 {
+		t.Fatalf("λ de L1 ausente debe ser 4: %v", l)
+	}
+	c.L1ShrinkageApagado = true
+	if c.LambdaL1() != nil || c.Validar() != nil {
+		t.Fatal("apagado explícito: λ efectivo nil y config válida")
+	}
+	c.L1ShrinkageLambda = floatPtr(2)
+	if c.Validar() == nil {
+		t.Fatal("apagado + λ a la vez debe ser error")
+	}
+	c.L1ShrinkageApagado, c.L1ShrinkageLambda = false, nil
 	for _, v := range []float64{-1, math.NaN()} {
 		c.L1ShrinkageLambda = &v
 		if c.Validar() == nil {
@@ -162,5 +177,66 @@ func TestL1SoporteLambdaCeroEInfinito(t *testing.T) {
 	}
 	if got := l1Con(t, sopl, &inf).opciones(p); !reflect.DeepEqual(got, base.opciones(p)) {
 		t.Fatal("λ=∞ debe dar solo la descripción")
+	}
+}
+
+// Sin λ en la config el default 4 se aplica; apagado explícito da exactamente lo de antes; un valor explícito manda; sin SOPL1 nada cambia.
+func TestL1DefaultCuatro(t *testing.T) {
+	p := Pregunta{Kind: KindChoice, Texto: "¿Qué área?", Estado: "paquete retraso", Opciones: opsReembolso()}
+	base := l1Con(t, nil, nil)
+	sopl := soplL1(t, base, p, map[string]string{"facturacion": "paquete retraso"}, map[string]uint32{"facturacion": 4})
+	conSopl := func(cfg Config) *L1 {
+		cfg.CacheEsquemas, cfg.CacheRespuestas = 16, 16
+		extra := []chispa3.Seccion{{Tipo: chispa3.SOPL1, Datos: sopl}}
+		mt, err := ArmarDesde(v3Tiny(t, calibTiny(), extra...), NuevoL0(8), &cfg, false, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return mt.L1.(*L1)
+	}
+	ausente, cuatro, apagado := conSopl(Config{}), l1Con(t, sopl, floatPtr(4)), conSopl(Config{L1ShrinkageApagado: true})
+	if !reflect.DeepEqual(ausente.opciones(p), cuatro.opciones(p)) {
+		t.Fatal("λ ausente debe equivaler a λ=4")
+	}
+	if reflect.DeepEqual(ausente.opciones(p)["facturacion"], base.opciones(p)["facturacion"]) {
+		t.Fatal("con el default 4 y SOPL1 el prototipo de facturacion debe moverse")
+	}
+	if !reflect.DeepEqual(apagado.opciones(p), base.opciones(p)) {
+		t.Fatal("apagado explícito: igualdad exacta con el comportamiento anterior (sin soporte)")
+	}
+	rA, _ := apagado.Decidir(context.Background(), p)
+	rB, _ := base.Decidir(context.Background(), p)
+	if !reflect.DeepEqual(rA, rB) {
+		t.Fatalf("apagado: %+v ≠ %+v", rA, rB)
+	}
+	if reflect.DeepEqual(conSopl(Config{L1ShrinkageLambda: floatPtr(1)}).opciones(p), ausente.opciones(p)) {
+		t.Fatal("un λ explícito debe mandar sobre el default")
+	}
+	// .chispa sin SOPL1: el default no cambia nada.
+	sin := l1Con(t, nil, nil)
+	mt, err := ArmarDesde(v3Tiny(t, calibTiny()), NuevoL0(8), &Config{CacheEsquemas: 16, CacheRespuestas: 16}, false, nil)
+	if err != nil || !reflect.DeepEqual(mt.L1.(*L1).opciones(p), sin.opciones(p)) {
+		t.Fatalf("sin SOPL1 no debe cambiar: %v", err)
+	}
+}
+
+func TestConfigJSONShrinkageApagado(t *testing.T) {
+	escribir := func(js string) string {
+		f := filepath.Join(t.TempDir(), "c.json")
+		os.WriteFile(f, []byte(js), 0o644)
+		return f
+	}
+	c, err := CargarConfig(escribir(`{"l1_shrinkage_apagado": true}`))
+	if err != nil || c.LambdaL1() != nil {
+		t.Fatalf("apagado por JSON: %v %v", c.LambdaL1(), err)
+	}
+	if c, err = CargarConfig(escribir(`{}`)); err != nil || c.LambdaL1() == nil || *c.LambdaL1() != 4 {
+		t.Fatalf("ausente = 4: %v", err)
+	}
+	if c, err = CargarConfig(escribir(`{"l1_shrinkage_lambda": 0}`)); err != nil || *c.LambdaL1() != 0 {
+		t.Fatalf("0 explícito manda: %v", err)
+	}
+	if _, err = CargarConfig(escribir(`{"l1_shrinkage_apagado": true, "l1_shrinkage_lambda": 1}`)); err == nil {
+		t.Fatal("apagado + λ debe fallar")
 	}
 }

@@ -106,15 +106,19 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 	}
 	var sopl *chispa3.Sopl1
-	if f.Tiene(chispa3.SOPL1) && (cfg.L1ShrinkageLambda != nil || cfg.L2ShrinkageLambda != nil) {
+	lambdaL1 := cfg.LambdaL1()
+	explicito := cfg.L1ShrinkageLambda != nil || cfg.L2ShrinkageLambda != nil // el operador pidió el soporte: SOPL1 ilegible es error
+	if f.Tiene(chispa3.SOPL1) && explicito {
 		var err error
 		if sopl, err = f.Sopl1(); err != nil {
 			return mt, fmt.Errorf("sección SOPL1: %w", err)
 		}
 	} else if f.Tiene(chispa3.SOPL1) {
-		// Con el encogimiento apagado (λ ausente en las dos capas) el soporte no se usa: una SOPL1 ilegible no impide arrancar.
-		if _, err := f.Sopl1(); err != nil {
-			mt.Avisos = append(mt.Avisos, "SOPL1 inválida, se ignora (el encogimiento está apagado): "+err.Error())
+		// Sin λ explícito (solo el default de L1, o apagado) una SOPL1 ilegible no impide arrancar: se ignora con aviso.
+		if s, err := f.Sopl1(); err != nil {
+			mt.Avisos = append(mt.Avisos, "SOPL1 inválida, se ignora: "+err.Error())
+		} else if lambdaL1 != nil {
+			sopl = s
 		}
 	}
 	if f.Tiene(chispa3.L1) {
@@ -126,7 +130,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			return mt, fmt.Errorf("sección L1: %w", err)
 		}
-		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, cfg.L1ShrinkageLambda)
+		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, lambdaL1)
 		if sopl != nil && sopl.Dim() != m.Dim() {
 			mt.Avisos = append(mt.Avisos, fmt.Sprintf("SOPL1 de dimensión %d y L1 de %d: L1 no mezcla el soporte", sopl.Dim(), m.Dim()))
 		}

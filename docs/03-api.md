@@ -197,8 +197,14 @@ El servidor valida la config al arrancar: una clave desconocida o mal escrita (t
 dentro de la lista falla el arranque como cualquier clave desconocida. Vacío o ausente = sin autenticación. Se releen en cada recarga (SIGHUP o `/v1/admin/recargar`),
 así que se rotan sin reiniciar; los cubos empiezan llenos tras una recarga.
 
+`l1_shrinkage_lambda` / `l1_shrinkage_apagado` / `l2_shrinkage_lambda` (soporte few-shot, sección `SOPL1`; sin ella no hacen nada):
+- `l1_shrinkage_lambda` (número ≥ 0): **ausente = 4**; un valor explícito manda (0 = solo ejemplos, muy grande = solo descripción). Medido en `model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8): con `l1_shrinkage_lambda` = 4 frente a sin soporte: massive 0,395 frente a 0,266, inyecciones 0,740 frente a 0,326, hatecheck 0,492 frente a 0,224; en JevBench cuesta 2 puntos (0,379 frente a 0,398).
+- Apagado explícito de L1 (el comportamiento de antes del default): `"l1_shrinkage_apagado": true`. Es un booleano y no `null` porque `null` y ausente son indistinguibles para un número opcional; así el apagado queda escrito y la config estricta no cambia. Junto con `l1_shrinkage_lambda` es error de arranque.
+- `l2_shrinkage_lambda`: **sin cambio**, ausente = apagado. El soporte de L2 solo entra por `CONJ` y se midió así.
+- Con el default activo, un `SOPL1` ilegible no impide arrancar (se ignora con aviso); con un λ explícito sí es error. El τ de `CALIB` se calibró sin el encogimiento.
+
 Con `-modelo` y sin `-config`, el τ de L1 y L2 sale de `CALIB`. Con `-config`, manda la config.
 
 `tau_l2_esquema_nuevo` (opcional, en [0,1]): τ de L2 solo para las preguntas cuyas torres no están en `ESQUEMAS` y salen al vuelo (sección `TORR`);
 las que L2 conoce siguen con el τ de L2 de siempre. Ausente, no cambia nada. Si falta aquí se toma del campo
-`tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`), haya o no `-config` (la config no lo desactiva); si viene en la config, manda la config. Ojo: el de `CALIB` se calibró contra el τ base de `CALIB`, no contra el de la config. Es interno: la respuesta JSON no cambia.
+`tau_l2_esquema_nuevo` de `CALIB` (`chispa train --tau-l2-esquema-nuevo`), haya o no `-config` (la config no lo desactiva); si viene en la config, manda la config. Ojo: el de `CALIB` se calibró contra el τ base de `CALIB`, no contra el de la config. Es interno: la respuesta JSON no cambia. Guía: `tau_l2_esquema_nuevo`, medido sobre tareas no vistas: τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Son dos puntos de la curva como guía, no una recomendación: el default no cambia (ausente = el τ de L2 de siempre) y lo decide el dueño del producto. Fuente: `model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8).

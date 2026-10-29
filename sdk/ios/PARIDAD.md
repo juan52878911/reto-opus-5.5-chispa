@@ -40,7 +40,7 @@ esta tabla sale de leer el código, no de ejecutarlo. Líneas de después de W3.
 Resumen: 27 filas (la 26 y la 27 son de R2), ninguna pendiente (arregladas: 6, 7, 9, 11, 14, 19, 21 y 22 a 24; la 25 es nueva y distinta a propósito; el resto igual), **0 faltan** en los SDK. Lo abierto está en el motor Go
 (sección siguiente), no en la paridad.
 | 28 | τ de L2 para esquemas nuevos: `SalidaCapa.esquemaNuevo` lo pone `CapaL2` cuando las torres salieron al vuelo (también las siguientes pasadas, cuando el motor ya las cacheó: se recuerdan las claves instaladas); la cascada usa `Motor.tauL2EsquemaNuevo()` (−1 por defecto; CALIB `tau_l2_esquema_nuevo`) en vez del τ de L2/L2c solo con `esquemaNuevo`, como `cascada.go`. Sin τ nuevo, nada cambia | K:Capas, Cascada, Modelos | S:Capas, Cascada, Modelos | igual (sin compilar). Tests `TauEsquemaNuevoTest` / `TauEsquemaNuevoTests` |
-| 29 | λ del soporte few-shot: `Chispa.abrir(..., lambdaSoporteL1, lambdaSoporteL2)` (nulos = ∞ = `Abrir` de siempre; con uno solo, el otro es ∞) llama a `AbrirConSoporte` del motor | K:Chispa, MotorNativo | S:Chispa, MotorNativo (`ChispamovilAbrirConSoporte`) | igual (sin compilar) |
+| 29 | λ del soporte few-shot: `Chispa.abrir(..., lambdaSoporteL1, lambdaSoporteL2)` (`lambdaSoporteL1` = 4,0 por defecto; `nil` = apagado explícito; `lambdaSoporteL2` nil = apagado; con uno solo, el otro queda apagado) llama siempre a `AbrirConSoporte` del motor | K:Chispa, MotorNativo | S:Chispa, MotorNativo (`ChispamovilAbrirConSoporte`) | igual (sin compilar) |
 
 ## FG: `chispamovil` TauL2c y HashSeccion
 `Motor` gana `tauL2c() -> Double` (−1 por defecto) y `hashSeccion(tipo) -> String` ("" por defecto), con `MotorNativo` sobre

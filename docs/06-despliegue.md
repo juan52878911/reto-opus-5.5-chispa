@@ -20,6 +20,8 @@
 - Con ORT, el servidor calcula las torres de L2 al vuelo si el `.chispa` trae `TORR` y pasas `-tok`
   ([`server/torre`](../server/torre/README.md), [08-esquemas-nuevos.md](08-esquemas-nuevos.md)). La caché de torres y el tope por petición se fijan con
   `cache_torres` (por defecto 16 384) y `max_torres_nuevas` (por defecto 64; por encima, L2 no opina) en `-config`.
+- Soporte few-shot: si el `.chispa` trae `SOPL1`, L1 mezcla el soporte con `l1_shrinkage_lambda` = 4 **por defecto** (sin tocar la config). Para el comportamiento de antes, `"l1_shrinkage_apagado": true` en `-config` (o `--sin-soporte` al entrenar para no escribir `SOPL1`). `l2_shrinkage_lambda` sigue apagado si falta. Cifras de `model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8): con `l1_shrinkage_lambda` = 4 frente a sin soporte: massive 0,395 frente a 0,266, inyecciones 0,740 frente a 0,326, hatecheck 0,492 frente a 0,224; en JevBench cuesta 2 puntos (0,379 frente a 0,398). Detalle: [03-api.md](03-api.md#configuración--config).
+- `tau_l2_esquema_nuevo` no cambia de default (ausente = el τ de L2 de siempre); guía: `tau_l2_esquema_nuevo`, medido sobre tareas no vistas: τ = 0,846 da precisión 0,95 con ~97 % de escalado; τ = 0,276 escala ≤ 20 % con precisión ~0,53. Son dos puntos de la curva como guía, no una recomendación: el default no cambia (ausente = el τ de L2 de siempre) y lo decide el dueño del producto.
 - Probar con ORT sin red (nodo con Go y la `.so`): `cd server && CHISPA_ORT_LIB=/ruta/libonnxruntime.so go test -tags ort -race -count=1 ./...`. Sin ejecutar en este nodo.
 
 ## Flags

@@ -45,14 +45,29 @@ class TestSOPL1EnTrain(unittest.TestCase):
         kw.setdefault("l1", self.d / "l1.bin")
         return entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / salida, usar_go=False, embeber=embeber_falso, **kw)
 
-    def test_sin_flag_el_fichero_es_el_de_siempre(self):
-        inf = self.correr("a.chispa")
+    def test_sin_soporte_el_fichero_es_el_de_siempre(self):
+        inf = self.correr("a.chispa", sin_soporte=True)
         self.assertNotIn("SOPL1", inf["secciones"])
         self.assertNotIn(formato.SOPL1, formato.leer((self.d / "a.chispa").read_bytes()))
+        with self.assertRaises(ChispaError):  # --sin-soporte y --shrinkage-lambda se excluyen
+            self.correr("x.chispa", sin_soporte=True, shrinkage_lambda=2.0)
+
+    def test_por_defecto_escribe_sopl1_con_lambda_sugerida_4(self):
+        inf = self.correr("p.chispa")
+        self.assertEqual(inf["secciones"][-1], "SOPL1")
+        self.assertEqual(inf["soporte"]["lambda_sugerida"], 4.0)
+        # mismo fichero que con --shrinkage-lambda explícito: λ no va en él
+        self.correr("q.chispa", shrinkage_lambda=1.0)
+        self.assertEqual((self.d / "p.chispa").read_bytes(), (self.d / "q.chispa").read_bytes())
+        # sin --l1 o sin ejemplos, el default no escribe nada ni avisa
+        logs = []
+        inf = self.correr("n.chispa", l1=None, log=logs.append)
+        self.assertNotIn("SOPL1", inf["secciones"])
+        self.assertFalse(any("SOPL1" in m for m in logs), logs)
 
     def test_con_flag_escribe_k_y_media(self):
         logs = []
-        base = self.correr("a.chispa")
+        base = self.correr("a.chispa", sin_soporte=True)
         inf = self.correr("b.chispa", shrinkage_lambda=2.0, log=logs.append)
         self.assertEqual(inf["secciones"][-1], "SOPL1")
         self.assertTrue(inf["soporte"]["tau_sin_encogimiento"])
@@ -70,8 +85,18 @@ class TestSOPL1EnTrain(unittest.TestCase):
         np.testing.assert_allclose(media[0], E.mean(axis=0), atol=0.005)
         np.testing.assert_allclose(media[1], embeber_falso(["luego caso 0"])[0][0], atol=0.005)
 
-    def test_lambda_cero_e_infinito_escriben_y_nil_apaga(self):
-        # nil = apagado; 0 (solo ejemplos) e inf (solo descripción) son valores de la fórmula: escriben la misma SOPL1.
+    def test_fallo_al_embeber_degrada_en_el_default_y_aborta_si_explicito(self):
+        def roto(textos):
+            raise ChispaError("embeber falló:\nx")
+        inf = entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / "r.chispa", usar_go=False, embeber=roto, l1=self.d / "l1.bin", log=lambda m: None)
+        self.assertNotIn("SOPL1", inf["secciones"])
+        self.assertIn("SOPL1", inf["omitidas"])
+        with self.assertRaises(ChispaError):
+            entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / "r2.chispa", usar_go=False, embeber=roto, l1=self.d / "l1.bin",
+                     shrinkage_lambda=4.0, log=lambda m: None)
+
+    def test_lambda_cero_e_infinito_escriben_y_sin_soporte_apaga(self):
+        # --sin-soporte = apagado; 0 (solo ejemplos) e inf (solo descripción) son valores de la fórmula: escriben la misma SOPL1.
         for nombre, lam in (("c.chispa", math.inf), ("c0.chispa", 0.0)):
             inf = self.correr(nombre, shrinkage_lambda=lam)
             self.assertIn("SOPL1", inf["secciones"])
@@ -79,7 +104,7 @@ class TestSOPL1EnTrain(unittest.TestCase):
             json.dumps(inf)  # el informe sigue siendo JSON estricto
         a, b = (formato.leer((self.d / n).read_bytes())[formato.SOPL1] for n in ("c.chispa", "c0.chispa"))
         self.assertEqual(a, b)
-        self.correr("a.chispa")  # sin la opción: apagado, sin SOPL1
+        self.correr("a.chispa", sin_soporte=True)  # --sin-soporte: sin SOPL1
         self.assertNotIn(formato.SOPL1, formato.leer((self.d / "a.chispa").read_bytes()))
         for mal in (-1.0, math.nan):
             with self.assertRaises(ChispaError):
