@@ -20,6 +20,11 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
         go.puntuarL2(preguntaJson, ranuras, k.toLong())
 
     override fun extraerL2(destino: String) = go.extraerL2(destino)
+    override fun tieneConj(): Boolean = go.tieneConj()
+    override fun cabezaConjunta(simsJson: String): String = go.cabezaConjunta(simsJson)
+    override fun tieneTokenizadorE5(): Boolean = go.tieneTokenizadorE5()
+    override fun cargarTokenizadorE5(ruta: String) = go.cargarTokenizadorE5(ruta)
+    override fun tokenizarE5(texto: String): ByteArray? = go.tokenizarE5(texto)
     override fun close() = go.cerrar()
 
     companion object {

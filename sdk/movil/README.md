@@ -8,7 +8,9 @@ punteros a structs. Abre un `.chispa` v3 y expone cada capa por separado; **la c
 |----|----------|
 | `Abrir(ruta) (*Chispa, error)` | abre el fichero (CRC y sha256 de cada sección que use) y monta L0, L1 y L2 si las trae |
 | `Decidir(texto, preguntaJSON) string` | **L1**: coseno con «pregunta · opción · descripción» y softmax con la T de CALIB (0,05 por defecto); `choice` y `noul` (`score` no opina) |
-| `DecidirL0(texto, preguntaJSON) string` | **L0**: el Chispa lineal de la sección L0 cuyo conjunto de etiquetas coincide con los ids de las opciones |
+| `DecidirL0(texto, preguntaJSON) string` | **L0**: el TF-IDF de la sección L0TF si el fichero la trae (manda, como en el servidor), si no el Chispa lineal de la sección L0; el modelo es el cuyo conjunto de etiquetas coincide con los ids de las opciones |
+| `CargarTokenizadorE5(ruta) error` · `TokenizarE5(texto) []byte` · `TieneTokenizadorE5()` | el tokenizador de e5 de `runtime/tok` (un `.chispa-tok`); devuelve los ids como int32 little endian |
+| `CabezaConjunta(simsJSON) string` · `TieneConj()` | **L2c**: la cabeza de la sección CONJ. `simsJSON` = la pregunta + `"l0"` (probabilidades de `DecidirL0` por id) + `"ranuras"` (las K×d salidas de ORT aplanadas, números JSON) + `"k"`. Las similitudes MaxSim se calculan contra ESQUEMAS. Sin CONJ, sin L0 o con otra pregunta devuelve `opina:false` y la cascada cae a `PuntuarL2` |
 | `TorresL2(preguntaJSON) bool` · `PuntuarL2(preguntaJSON, ranuras, k) string` | **L2** sin ONNX: MaxSim de las ranuras `S` (K×d float32 LE, las que da ONNX Runtime) contra las torres de ESQUEMAS y las cabezas de CALIB, como `server/decide/l2.go` (choice, noul, score/CORAL) |
 | `ExtraerL2(destino) error` | escribe el ONNX int8 de la sección L2 en un fichero para que ORT lo abra desde ruta |
 | `Capas()`, `TauEscalate()`, `TieneCalib()`, `Huella(frasesJSON)`, `Cerrar()` | metadatos y utilidades |
@@ -20,7 +22,8 @@ La pregunta es la del servidor (`{"question":…,"kind":"choice","options":[{"id
 ```
 source ~/.profile
 cd sdk/movil/chispamovil
-go test ./...                          # nativas, con un embebedor falso; no necesitan modelo
+go test ./...                          # nativas, con un embebedor falso; la paridad usa los fixtures del repo
+CHISPA_TOK=/tmp/e5.chispa-tok go test -run TokenizarE5 -v ./...   # paridad del tokenizador (se salta sin el fichero)
 GOOS=android GOARCH=arm64 go vet ./...  # compila para Android sin NDK (CGO desactivado)
 CHISPA_L1_RECORTADO=ruta/potion-es.chispa-l1 go test -run Huella -v ./...
 ```

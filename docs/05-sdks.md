@@ -41,8 +41,12 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
 ```
 
 - Cascada L0 → L1 → L2 con el mismo criterio que el servidor.
-- L2 pide un `Tokenizador` de e5 (`Chispa.abrir(contexto, ruta, tokenizador)`). La app debe aportarlo. Sin él, solo L0 y L1.
-- El SDK no tiene código para `CONJ` ni `L0TF` (L2c y el L0 TF-IDF son del servidor).
+- L0 usa la sección `L0TF` si el fichero la trae (si no, la sección `L0`). Si el fichero trae `CONJ`, L2 es L2c: ORT da las
+  ranuras, `chispamovil` calcula las similitudes y la cabeza conjunta (el mismo código que `server/decide`, en `format/chispa3`), y la
+  cascada le pasa las probabilidades de L0. Sin `CONJ`, o si la cabeza no opina, L2 es L2 a secas.
+- L2 necesita el tokenizador de e5: el del motor (`runtime/tok` en Go), con `Chispa.abrir(contexto, ruta, rutaTokenizador = "e5.chispa-tok")`
+  (el `.chispa-tok` es el del servidor, `runtime/tok/exportar.py`), o uno de la app (`tokenizador = …`). Sin ninguno, solo L0 y L1.
+- Sin compilar todavía: el Kotlin nuevo (L2c, `TokenizadorMotor`) y los tests `ConjTest`; los compila `sdk/android/aws/arranque.sh`.
 - Se compila en AWS con `sdk/android/aws/`; no en un portátil. Pasos en el README.
 
 ## iOS
@@ -56,7 +60,8 @@ let r = chispa.decidir("quiero comprar dos camisetas", [p])[0]   // r.respuesta,
 **No se ha compilado ni probado.** Hace falta Xcode ≥ 15 en una mac2 o en un runner macOS. Los nombres que genera gomobile y la API de ORT
 están escritos de memoria. Los primeros fallos estarán en `MotorNativo.swift` y `SesionOrt.swift`.
 Pasos de compilación: [`sdk/ios/README.md`](../sdk/ios/README.md#compilar-y-probar-mac2-o-runner-macos).
-Como en Android, L2 necesita un `Tokenizador` de e5 que aporte la app.
+Como en Android: L0TF, L2c (con `CONJ`) y el tokenizador del motor (`Chispa.abrir(ruta:, rutaTokenizador:)`) están escritos en Swift
+(`CapaL2`, `TokenizadorMotor`, `ConjTests`) pero **sin compilar**, igual que el resto.
 
 ## WASM
 `runtime/l1` en Go puro, compilado a `GOOS=js GOARCH=wasm`. Una página estática con L1 recortado: 50 000 piezas, 15,8 MB, frente a los 155 MB del completo.
@@ -67,5 +72,7 @@ Como en Android, L2 necesita un `Tokenizador` de e5 que aporte la app.
 - Construir: `./construir.sh` en `demo/wasm`, y servir con `python -m http.server`. Necesita `chispa.wasm` y `potion-es.chispa-l1`, que no van a git.
 
 ## Núcleo móvil
-`sdk/movil/chispamovil` es el paquete Go que usan Android e iOS: `Abrir`, `Decidir` (L1), `DecidirL0`, `PuntuarL2` y `ExtraerL2`
-([`sdk/movil/README.md`](../sdk/movil/README.md)).
+`sdk/movil/chispamovil` es el paquete Go que usan Android e iOS: `Abrir`, `Decidir` (L1), `DecidirL0` (L0TF o L0), `PuntuarL2`, `ExtraerL2`,
+`CargarTokenizadorE5`/`TokenizarE5` (`runtime/tok`) y `CabezaConjunta` (L2c) ([`sdk/movil/README.md`](../sdk/movil/README.md)).
+La cabeza conjunta, `simproto` y MaxSim viven en `format/chispa3` (`conj_cabeza.go`) y las usan igual el servidor y el móvil. Tests de paridad
+con el servidor (`decide.L0`, `decide.L2c`) y con `runtime/tok`: |Δp| ≤ 1e-6.

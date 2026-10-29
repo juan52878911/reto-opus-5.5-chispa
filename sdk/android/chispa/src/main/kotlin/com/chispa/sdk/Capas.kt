@@ -15,12 +15,31 @@ interface Motor : AutoCloseable {
     /** [ranuras]: K×d float32 little endian. */
     fun puntuarL2(preguntaJson: String, ranuras: ByteArray, k: Int): String
     fun extraerL2(destino: String)
+
+    /** El fichero trae CONJ (la cabeza conjunta, L2c). */
+    fun tieneConj(): Boolean = false
+
+    /**
+     * L2c: [simsJson] es la pregunta más `l0` (probabilidades de L0), `ranuras` (K×d aplanado) y `k`. Devuelve la
+     * misma forma que las demás capas; sin opinión si no hay cabeza para la pregunta.
+     */
+    fun cabezaConjunta(simsJson: String): String = throw UnsupportedOperationException("sin CONJ")
+
+    fun tieneTokenizadorE5(): Boolean = false
+    fun cargarTokenizadorE5(ruta: String): Unit = throw UnsupportedOperationException("sin tokenizador")
+
+    /** Ids de e5 como int32 little endian (4 bytes por id), o null si no se cargó el tokenizador. */
+    fun tokenizarE5(texto: String): ByteArray? = null
 }
 
 /** Una capa de la cascada. Devuelve [SalidaCapa.SIN_OPINION] si no tiene nada que decir; lanza si falla. */
 interface Capa {
     val nombre: String
     fun decidir(texto: String, pregunta: Pregunta): SalidaCapa
+
+    /** Como [decidir], con lo que dijeron las capas anteriores por nombre (L2c lee las probabilidades de L0). */
+    fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa =
+        decidir(texto, pregunta)
 }
 
 class CapaL0(private val motor: Motor) : Capa {
@@ -38,6 +57,15 @@ class CapaL1(private val motor: Motor) : Capa {
 /** Convierte un texto en los ids del tokenizador de e5 (con «query: » delante, tokens especiales y recorte a 128). */
 fun interface Tokenizador {
     fun ids(texto: String): LongArray
+}
+
+/** El tokenizador de e5 del propio motor (runtime/tok en Go): no hace falta que la app aporte uno. */
+class TokenizadorMotor(private val motor: Motor) : Tokenizador {
+    override fun ids(texto: String): LongArray {
+        val b = motor.tokenizarE5(texto) ?: throw ErrorChispa("el motor no tiene el tokenizador de e5")
+        val buf = java.nio.ByteBuffer.wrap(b).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        return LongArray(b.size / 4) { buf.getInt(4 * it).toLong() }
+    }
 }
 
 /** El ONNX de L2: ids → S ∈ R^{K×d}, aplanado por filas. */
@@ -60,7 +88,9 @@ class Ranuras(val datos: FloatArray, val k: Int) {
 
 /**
  * L2: ranuras del mensaje (ONNX Runtime) contra las torres de ESQUEMAS. Si el fichero no trae torres para la
- * pregunta no opina y no llega a tokenizar ni a llamar a ONNX.
+ * pregunta no opina y no llega a tokenizar ni a llamar a ONNX. Si el fichero trae CONJ y L0 ya dio probabilidades,
+ * es L2c: las similitudes salen de las mismas ranuras y la cabeza conjunta (en Go, la del servidor) decide; sin
+ * cabeza para la pregunta, cae a L2 a secas.
  */
 class CapaL2(
     private val motor: Motor,
@@ -68,12 +98,29 @@ class CapaL2(
     private val tokenizador: Tokenizador,
 ) : Capa {
     override val nombre = "L2"
-    override fun decidir(texto: String, pregunta: Pregunta): SalidaCapa {
+
+    override fun decidir(texto: String, pregunta: Pregunta): SalidaCapa =
+        decidir(texto, pregunta, emptyMap())
+
+    override fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa {
         val pj = pregunta.toJson()
         if (!motor.torresL2(pj)) return SalidaCapa.SIN_OPINION
         val ids = tokenizador.ids(texto)
         if (ids.isEmpty()) return SalidaCapa.SIN_OPINION
         val s = sesion.ranuras(ids)
+        val l0 = previas["L0"]?.probs
+        if (!l0.isNullOrEmpty() && motor.tieneConj()) {
+            val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConj(pj, l0, s)))
+            if (c.opina) return c
+        }
         return SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
+    }
+
+    private fun entradaConj(preguntaJson: String, l0: Map<String, Double>, s: Ranuras): String {
+        val ranuras = org.json.JSONArray()
+        for (x in s.datos) ranuras.put(x.toDouble()) // float → double es exacto; Go lo vuelve a float32
+        val p = org.json.JSONObject()
+        for ((k, v) in l0) p.put(k, v)
+        return org.json.JSONObject(preguntaJson).put("l0", p).put("ranuras", ranuras).put("k", s.k).toString()
     }
 }

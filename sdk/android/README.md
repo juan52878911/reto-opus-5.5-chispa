@@ -14,9 +14,12 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
   confianza top-1 sea < τ; una capa que falla o no opina se salta; si ninguna llega, `escalar = true` con la pista de
   mayor confianza y la última capa. τ: L0 = 0,80; L1 y L2 = `tau_escalate` de CALIB (0,80 y 0,70 si el fichero no trae
   CALIB).
-- **L2 pide un `Tokenizador`** (`fun interface`: texto → ids de e5, con «query: », especiales y recorte a 128). **No hay
-  tokenizador de e5 en Go ni en Kotlin todavía** (el servidor tiene el mismo hueco): sin él, `Chispa.abrir` monta
-  solo L0 y L1. La demo va así.
+- **L0TF y L2c**: `DecidirL0` usa la sección L0TF si está. Con CONJ en el fichero, `CapaL2` hace L2c: las ranuras de ORT van a
+  `Motor.cabezaConjunta` junto con las probabilidades de L0 (la cascada pasa a cada capa lo que dijeron las anteriores); si la
+  cabeza no opina, cae a `puntuarL2`.
+- **L2 necesita el tokenizador de e5**: el del motor (`Chispa.abrir(contexto, ruta, rutaTokenizador = "e5.chispa-tok")`, el
+  `.chispa-tok` de `runtime/tok/exportar.py`, ~12 MB, como asset o ruta) o uno de la app (`Tokenizador`, `fun interface`).
+  Sin ninguno, `Chispa.abrir` monta solo L0 y L1. La demo va así.
 - Los tests JVM (`chispa/src/test`) usan un `Motor` falso: la cascada y el parsing no dependen del AAR.
 
 ## Construir (en AWS, nunca en el Mac)
