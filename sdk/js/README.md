@@ -41,16 +41,17 @@ Los valores de `answer` y `probs` dependen de tu modelo.
 
 ## API
 
-`new ChispaCliente({ url, timeoutMs, reintentos, esperaMs, limites, fetch })`
+`new ChispaCliente({ url, timeoutMs, reintentos, esperaMs, limites, fetch, dormir })`
 
 | Opción | Por defecto | |
 |---|---|---|
 | `url` | `http://127.0.0.1:8090` | |
 | `timeoutMs` | `10000` | por intento, incluye leer el cuerpo |
-| `reintentos` | `2` | intentos extra; espera exponencial `esperaMs · 2^(n-1)` |
+| `reintentos` | `2` | intentos extra; ver «Reintentos» |
 | `esperaMs` | `200` | |
 | `limites` | los del OpenAPI | si el operador cambió la sección `limites` del servidor |
 | `fetch` | `globalThis.fetch` | |
+| `dormir` | `setTimeout` | para pruebas: recibe los ms de espera entre reintentos |
 
 - `await chispa.decidir(estado, preguntas, { nonce })` → `Resultado[]` en el orden de `preguntas`. `Pregunta` es
   `{ id, question, kind: "choice" | "score" | "noul", options?: [{ id, description? }], nonce? }`;
@@ -61,8 +62,18 @@ Los valores de `answer` y `probs` dependen de tu modelo.
 
 Cada pregunta sin `nonce` recibe un UUID antes del primer intento, y todos los reintentos reenvían exactamente los mismos bytes:
 si la respuesta se perdió, el servidor devuelve el resultado guardado en vez de decidir otra vez. Con `{ nonce }`, las preguntas
-sin nonce propio lo usan (una sola pregunta: tal cual; varias: `${nonce}:${id}`). Reintenta **solo** con error de red, timeout y 503;
+sin nonce propio lo usan (una sola pregunta: tal cual; varias: `${nonce}:${id}`). Reintenta **solo** lo de la sección siguiente;
 un 4xx, 405, 413, 500 o una respuesta ilegible se lanzan al instante.
+
+### Reintentos
+
+El `-timeout` del servidor responde 503 con código `timeout` y `Retry-After: 5`; es sobrecarga, y repetir en seguida gasta otra vez la cascada.
+- **Sí reintenta**: error de red, timeout propio del cliente (`timeoutMs`, `status` 0) y 503 ordinario.
+- **No reintenta**: el `timeout` del servidor (código `timeout` con respuesta HTTP) ni el 504; se lanzan al instante.
+- **Espera** `esperaMs · 2^(n-1)` con jitter (×0,5–1). En un 503 con `Retry-After` numérico (segundos), espera lo mayor entre eso y el
+  backoff, con tope de 30 s; una fecha HTTP cuenta como ausente. Sin `Retry-After`, solo backoff.
+- Diferencias con el cliente Python (`sdk/python/chispa/cliente.py`): comparte el tope de 30 s y que el `Retry-After` manda sobre el
+  backoff; Python además reintenta 429/500/502/504 y no reintenta un 503 sin `Retry-After`, y aún reintenta el `timeout` del servidor.
 
 ### Errores
 

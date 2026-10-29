@@ -72,10 +72,12 @@ export interface OpcionesCliente {
   url?: string;
   /** Por intento. Por defecto 10000. */
   timeoutMs?: number;
-  /** Reintentos extra tras el primero, solo en red, timeout y 503. Por defecto 2. */
+  /** Reintentos extra tras el primero, solo en red, timeout propio y 503 (no el `timeout` del servidor ni 504). Por defecto 2. */
   reintentos?: number;
   /** Base de la espera exponencial entre reintentos. Por defecto 200. */
   esperaMs?: number;
+  /** Para pruebas: sustituye la espera entre reintentos (recibe ms). */
+  dormir?: (ms: number) => Promise<void>;
   /** Si el operador cambió la sección `limites` del servidor. */
   limites?: Partial<Limites>;
   /** Para pruebas o entornos sin fetch global. */
