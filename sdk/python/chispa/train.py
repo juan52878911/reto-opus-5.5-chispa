@@ -75,7 +75,7 @@ def _filas_l2(q, ejemplos, ruta: Path):
 
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
-             validacion=None, margen=0.02, suelo=0.05, log=print) -> dict:
+             validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, log=print) -> dict:
     """Entrena y escribe `salida`. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
     `l0_max_mb` topa la tabla de pesos de L0 (el lector de kindling rechaza más de 64 MiB): se reducen los buckets de hashing
@@ -128,7 +128,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
             from . import conjunta as cj
             modelo, enc = modelo_l2 or cj.cargar_ckpt(ckpt, repo)
             b, b_l0, conj_inf = cj.seccion_conj(q, ex, modelo, enc, repo, log, l0tf_f16, l0tf_max_mb, precision_objetivo,
-                                               cargar_ejemplos(validacion, q.id) if validacion else None, margen, suelo)
+                                               cargar_ejemplos(validacion, q.id) if validacion else None, margen, suelo, tope_tau)
             conj_inf["s"] = time.time() - t
             conj_ruta, l0tf_ruta = str(tmp / "conj.bin"), str(tmp / "l0tf.bin")
             Path(conj_ruta).write_bytes(b)
@@ -162,7 +162,8 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     inf["reloj_s"] = time.time() - t0
     if conj_inf and conj_inf.get("tau_l2c") is not None:
         log(f"τ de L2c {conj_inf['tau_l2c']:.4f} en CALIB, método {conj_inf['metodo_tau']} (precisión esperada "
-            f"{conj_inf['precision_esperada']:.3f}, cobertura esperada {conj_inf['cobertura_esperada']:.3f})")
+            f"{conj_inf['precision_esperada']:.3f}, cobertura esperada {conj_inf['cobertura_esperada']:.3f})"
+            + (f"; tope de τ {conj_inf['tope_tau']} aplicado" if conj_inf.get("tope_tau_aplicado") else ""))
     inf["omitidas"] = inf.get("omitidas") or {}
     for k, v in inf["omitidas"].items():
         log(f"AVISO: sin {k}: {v}")

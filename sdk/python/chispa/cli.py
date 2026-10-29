@@ -36,6 +36,8 @@ def main(argv=None) -> int:
                    help="con --conjunta y sin --validacion: el τ fuera de pliegue se fija para precisión objetivo + margen (0,02)")
     t.add_argument("--suelo", type=float, default=0.05,
                    help="con --conjunta y sin --validacion: suelo de τ = el que deja fuera esta fracción fuera de pliegue (0,05)")
+    t.add_argument("--tope-tau", type=float, default=0.9,
+                   help="con --conjunta: tope del τ de L2c, solo si se fija fuera de pliegue (con < 500 filas de validación o sin ellas) (0,9)")
     t.add_argument("--l0tf-f16", action="store_true", help="con --conjunta: coeficientes de L0TF en f16 en vez de f32")
     d = sub.add_parser("decide", help="una pregunta contra un servidor")
     d.add_argument("--url", required=True)
@@ -50,7 +52,7 @@ def main(argv=None) -> int:
             entrenar(a.ejemplos, a.esquema, a.salida, l1=a.l1, ckpt=a.ckpt, l2=a.l2, conjunta=a.conjunta, repo=a.repo,
                      pregunta=a.pregunta, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
-                     precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo,
+                     precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
                      log=lambda m: print(m, file=sys.stderr))
         else:
             q = {"choice": lambda: Choice("q", a.pregunta, a.opciones), "noul": lambda: Noul("q", a.pregunta),
