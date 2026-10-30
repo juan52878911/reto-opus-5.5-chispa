@@ -1,4 +1,4 @@
-# W2 Robustez de L1 y L2 (M3) y español frente a inglés (M4), en la misma corrida de c6a que W1
+# W2 Línea base de regresión (M1), robustez de L1 y L2 (M3) y español frente a inglés (M4), en la misma corrida de c6a que W1
 
 ## Antecedentes
 - **Checkpoint:** el de G.8, `s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt`. En kindling, el
@@ -12,6 +12,22 @@
   `model.datos`.
 
 ## Terminado cuando
+0. **M1, línea base oficial con la batería de regresión** (`sdk/python/chispa/bateria.py`, manifiesto
+   `sdk/python/ejemplos/bateria.json`, que ya tiene los tipos y las rutas correctos). Añádelo a
+   `model/l2/aws/estabilidad.sh`:
+   - construye el `.chispa` con `chispa train --ckpt` (perfil `servidor`, igual que hace `model/bench/torre/e2e.sh` con su
+     esquema mínimo) y el `chispa-server` con `-tags ort`, y reutiliza el `.chispa-tok` de e5 de `e2e.sh`;
+   - convierte los datos: `python -m model.datos.convertir --salida $DATOS` → `CHISPA_DATOS`. `JEVBENCH_DIR` es
+     `…/jevbench/datasets/public` y `CHISPA_REPO`, la raíz;
+   - corre, **dos veces**, para medir el ruido entre corridas:
+     `PYTHONPATH=sdk/python python -m chispa evaluar --bateria sdk/python/ejemplos/bateria.json --modelo M.chispa --tok e5.chispa-tok --servidor server/chispa-server --salida $RES/bateria-g8-{1,2} --guardar-linea-base $RES/linea-base-g8.json`;
+     no uses `--robustez`;
+   - **códigos de salida:** 0 bien, 1 regresión, 2 configuración mal. Si sale 2, es un fallo de la batería (zona `sdk/`, de
+     la otra sesión): anótalo en `estado.tsv` con el mensaje y no lo arregles;
+   - en la prueba en seco, la batería corre con el checkpoint aleatorio, los fixtures de `model.datos.convertir --fixtures`
+     y el fixture de JevBench. Una regresión (código 1) da igual; un código 2, no;
+   - escribe `model/l2/umbrales_bateria.py`, que, a partir de las dos corridas y del IC95 de cada métrica, propone
+     umbrales para el manifiesto (sin cambiarlo) en `$RES/umbrales-propuestos.json`.
 1. **M3**, `model/l2/robustez.py` (nuevo).
    - **Generador** de variantes deterministas con semilla, sobre JevBench y el dev de las tareas de `model.datos`:
      - permutar el orden de las opciones;
@@ -43,7 +59,7 @@
 - Parada: si algo falla 2 veces, márcalo y para.
 
 ## Zona
-- `model/l2/robustez.py`, `model/l2/espanol.py`, `model/l2/aws/estabilidad.sh`, `model/l2/aws/empaquetar_estabilidad.sh` y
+- `model/l2/robustez.py`, `model/l2/espanol.py`, `model/l2/umbrales_bateria.py`, `model/l2/aws/estabilidad.sh`, `model/l2/aws/empaquetar_estabilidad.sh` y
   `model/l2/tests/**`.
 - No toques `server/`, `sdk/` ni `format/`.
 - Rama: la que te da delega. Base: `integracion-limpia`. Commits simples, sin firmas ni `Co-Authored-By`. Sin push ni
