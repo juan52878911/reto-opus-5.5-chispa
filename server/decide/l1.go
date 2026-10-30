@@ -271,7 +271,7 @@ func (l *L1) paramsScore() chispa3.ParamsTipo {
 func respuestaScore(p Pregunta, sims []float64, T float64) Respuesta {
 	r := respuestaSoftmax(p, sims, T)
 	var acc float64
-	for _, o := range p.Opciones {
+	for _, o := range opcionesPorNivel(p.Opciones) {
 		acc += r.Probs[o.ID]
 		if acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]

@@ -129,7 +129,7 @@ func ordinal(p Pregunta, r Respuesta) Respuesta {
 		return r
 	}
 	var acc float64
-	for _, o := range p.Opciones {
+	for _, o := range opcionesPorNivel(p.Opciones) {
 		if acc += r.Probs[o.ID]; acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
 			break

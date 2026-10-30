@@ -69,6 +69,14 @@ En `score`, `answer` depende de la capa que respondió:
 - **L0:** el clasificador entrenado con los ejemplos; `probs` es su distribución sobre los niveles y `answer` la **mediana**, como en L1 y L2.
 - **L3:** `answer` es la mediana de las `probs` normalizadas.
 
+**Orden de los niveles.** En todas las capas (L0, L1, L2, L3) y al agregar las ventanas de un texto largo, la mediana recorre los
+niveles por id numérico ("2" < "10"), no en el orden en que se declaran las opciones: permutar `options` no cambia `answer`
+(`tok.OrdenNivel`, `runtime/tok/orden.go`). Si algún id no es entero, el orden ordinal es el **declarado** (nunca lexicográfico):
+con ids como `["bajo","medio","alto"]` L2 sigue opinando, con los niveles en ese orden y la torre de consulta de la última
+opción. Es una diferencia con el entrenamiento en Python (`model/l2/modelo.py`, `exportar.py`), que solo admite niveles enteros
+y rechaza esos ids. En ese caso el orden de `options` **es** el orden ordinal y permutarlo cambia el significado de la pregunta
+(y la respuesta); con ids enteros no.
+
 En todos los casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
 
 ### Un ejemplo por tipo
