@@ -293,18 +293,27 @@ func (a *armadoDorado) capa(p PeticionDorada) Decisor {
 
 func (a *armadoDorado) decidir(t testing.TB, p PeticionDorada) (EsperadoDorado, CascadaDorada) {
 	t.Helper()
+	e, c, err := a.decidirErr(p)
+	if err != nil {
+		t.Fatalf("%s: %v", p.ID, err)
+	}
+	return e, c
+}
+
+// decidirErr no toca *testing.T: es seguro desde goroutines ajenas a la del test.
+func (a *armadoDorado) decidirErr(p PeticionDorada) (EsperadoDorado, CascadaDorada, error) {
 	if p.Capa == "cascada" {
 		r := a.casc.Decidir(context.Background(), p.pregunta())
-		return EsperadoDorado{}, CascadaDorada{Answer: r.Answer, Answers: r.Answers, Probs: r.Probs, Layer: r.Layer, Escalate: r.Escalate}
+		return EsperadoDorado{}, CascadaDorada{Answer: r.Answer, Answers: r.Answers, Probs: r.Probs, Layer: r.Layer, Escalate: r.Escalate}, nil
 	}
 	r, err := a.capa(p).Decidir(context.Background(), p.pregunta())
 	if err != nil {
-		t.Fatalf("%s: %v", p.ID, err)
+		return EsperadoDorado{}, CascadaDorada{}, err
 	}
 	if r.Probs == nil {
 		r.Probs = map[string]float64{}
 	}
-	return EsperadoDorado{Opina: r.Conf > 0, Answer: r.Answer, Answers: r.Answers, Conf: r.Conf, Probs: r.Probs}, CascadaDorada{}
+	return EsperadoDorado{Opina: r.Conf > 0, Answer: r.Answer, Answers: r.Answers, Conf: r.Conf, Probs: r.Probs}, CascadaDorada{}, nil
 }
 
 func generarDorados(t *testing.T) {
