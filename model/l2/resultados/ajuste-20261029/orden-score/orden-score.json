@@ -1,0 +1,8450 @@
+{
+ "total": {
+  "score": 51729,
+  "no_ascendente": 0,
+  "fuera_de_1k": 0,
+  "afectadas": 0
+ },
+ "filas": [
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "CONDAQA",
+   "split": "train",
+   "k": 3,
+   "score": 23,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "CONDAQA",
+   "split": "train",
+   "k": 4,
+   "score": 39,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "CONDAQA",
+   "split": "train",
+   "k": 5,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "CREAK",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "CREAK",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "CREAK",
+   "split": "train",
+   "k": 5,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FLUTE",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FLUTE",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FLUTE",
+   "split": "train",
+   "k": 5,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FOL-nli",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FOL-nli",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FOL-nli",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FOL-nli",
+   "split": "train",
+   "k": 3,
+   "score": 286,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FOL-nli",
+   "split": "train",
+   "k": 4,
+   "score": 64,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "FOL-nli",
+   "split": "train",
+   "k": 5,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HatemojiBuild",
+   "split": "train",
+   "k": 3,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HatemojiBuild",
+   "split": "train",
+   "k": 4,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HatemojiBuild",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/coherence",
+   "split": "dev",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/coherence",
+   "split": "test",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/coherence",
+   "split": "train",
+   "k": 3,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/coherence",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/coherence",
+   "split": "train",
+   "k": 5,
+   "score": 310,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/complexity",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/complexity",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/complexity",
+   "split": "train",
+   "k": 5,
+   "score": 296,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/correctness",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/correctness",
+   "split": "train",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/correctness",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/correctness",
+   "split": "train",
+   "k": 5,
+   "score": 314,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/helpfulness",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/helpfulness",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/helpfulness",
+   "split": "train",
+   "k": 3,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/helpfulness",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/helpfulness",
+   "split": "train",
+   "k": 5,
+   "score": 321,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/verbosity",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/verbosity",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/verbosity",
+   "split": "train",
+   "k": 3,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/verbosity",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer/verbosity",
+   "split": "train",
+   "k": 5,
+   "score": 283,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/coherence",
+   "split": "dev",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/coherence",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/coherence",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/coherence",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/coherence",
+   "split": "train",
+   "k": 5,
+   "score": 449,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "dev",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "train",
+   "k": 3,
+   "score": 21,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/complexity",
+   "split": "train",
+   "k": 5,
+   "score": 441,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/correctness",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/correctness",
+   "split": "dev",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/correctness",
+   "split": "test",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/correctness",
+   "split": "train",
+   "k": 3,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/correctness",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/correctness",
+   "split": "train",
+   "k": 5,
+   "score": 429,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/helpfulness",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/helpfulness",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/helpfulness",
+   "split": "train",
+   "k": 3,
+   "score": 22,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/helpfulness",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/helpfulness",
+   "split": "train",
+   "k": 5,
+   "score": 433,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/verbosity",
+   "split": "dev",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/verbosity",
+   "split": "test",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/verbosity",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/verbosity",
+   "split": "train",
+   "k": 4,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer2/verbosity",
+   "split": "train",
+   "k": 5,
+   "score": 403,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/feedback",
+   "split": "dev",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/feedback",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/feedback",
+   "split": "test",
+   "k": 5,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/feedback",
+   "split": "train",
+   "k": 3,
+   "score": 33,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/feedback",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/feedback",
+   "split": "train",
+   "k": 5,
+   "score": 613,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/preference_strength",
+   "split": "dev",
+   "k": 7,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/preference_strength",
+   "split": "test",
+   "k": 7,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/preference_strength",
+   "split": "train",
+   "k": 3,
+   "score": 20,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/preference_strength",
+   "split": "train",
+   "k": 7,
+   "score": 623,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/principle",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "HelpSteer3/principle",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "I2D2",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "I2D2",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "I2D2",
+   "split": "train",
+   "k": 5,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "MSciNLI",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "MSciNLI",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "MSciNLI",
+   "split": "train",
+   "k": 3,
+   "score": 42,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "MSciNLI",
+   "split": "train",
+   "k": 4,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "MSciNLI",
+   "split": "train",
+   "k": 5,
+   "score": 27,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "PARARULE-Plus",
+   "split": "train",
+   "k": 3,
+   "score": 36,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "PARARULE-Plus",
+   "split": "train",
+   "k": 4,
+   "score": 16,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Prompt-injection-dataset/full",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Prompt-injection-dataset/full",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Prompt-injection-dataset/full",
+   "split": "train",
+   "k": 4,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Prompt-injection-dataset/full",
+   "split": "train",
+   "k": 5,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "PromptShield",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "PromptShield",
+   "split": "train",
+   "k": 3,
+   "score": 20,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "PromptShield",
+   "split": "train",
+   "k": 4,
+   "score": 19,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "PromptShield",
+   "split": "train",
+   "k": 5,
+   "score": 17,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SDOH-NLI",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SDOH-NLI",
+   "split": "train",
+   "k": 3,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SDOH-NLI",
+   "split": "train",
+   "k": 4,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SDOH-NLI",
+   "split": "train",
+   "k": 5,
+   "score": 45,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SpaceNLI",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SpaceNLI",
+   "split": "train",
+   "k": 3,
+   "score": 33,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SpaceNLI",
+   "split": "train",
+   "k": 4,
+   "score": 39,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "SpaceNLI",
+   "split": "train",
+   "k": 5,
+   "score": 22,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Touche23-ValueEval",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Touche23-ValueEval",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "Touche23-ValueEval",
+   "split": "train",
+   "k": 5,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TroFi",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TroFi",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TroFi",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TuringBench",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TuringBench",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TuringBench",
+   "split": "train",
+   "k": 3,
+   "score": 41,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TuringBench",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "TuringBench",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "WANLI",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "WANLI",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "WANLI",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "WANLI",
+   "split": "train",
+   "k": 3,
+   "score": 100,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "WANLI",
+   "split": "train",
+   "k": 4,
+   "score": 77,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "WANLI",
+   "split": "train",
+   "k": 5,
+   "score": 93,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "acceptability-prediction/rating_votes",
+   "split": "dev",
+   "k": 4,
+   "score": 45,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "acceptability-prediction/rating_votes",
+   "split": "test",
+   "k": 4,
+   "score": 47,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "acceptability-prediction/rating_votes",
+   "split": "train",
+   "k": 4,
+   "score": 2777,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "acord",
+   "split": "dev",
+   "k": 5,
+   "score": 24,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "acord",
+   "split": "test",
+   "k": 5,
+   "score": 25,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "acord",
+   "split": "train",
+   "k": 5,
+   "score": 141,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "agent_action_safety",
+   "split": "train",
+   "k": 3,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "agent_action_safety",
+   "split": "train",
+   "k": 4,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "agent_action_safety",
+   "split": "train",
+   "k": 5,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_counterfactual/en",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_counterfactual/en",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_counterfactual/en",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_counterfactual/en",
+   "split": "train",
+   "k": 5,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_polarity/amazon_polarity",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_polarity/amazon_polarity",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_polarity/amazon_polarity",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "amazon_polarity/amazon_polarity",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "args_me",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "args_me",
+   "split": "train",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "args_me",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "args_me",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "autotnli",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "autotnli",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-coreference",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-coreference",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-deduction",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-deduction",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-deduction",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-induction",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-induction",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/basic-induction",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/compound-coreference",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/compound-coreference",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/compound-coreference",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/conjunction",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/conjunction",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/conjunction",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/counting",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/counting",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/indefinite-knowledge",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/indefinite-knowledge",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/lists-sets",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/lists-sets",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/lists-sets",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/path-finding",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/positional-reasoning",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/positional-reasoning",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/positional-reasoning",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/simple-negation",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/simple-negation",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/single-supporting-fact",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/size-reasoning",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/size-reasoning",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/three-arg-relations",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/three-arg-relations",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/three-arg-relations",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/three-supporting-facts",
+   "split": "train",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/three-supporting-facts",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/time-reasoning",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/time-reasoning",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/two-arg-relations",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/two-arg-relations",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/two-arg-relations",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/two-arg-relations",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/two-supporting-facts",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/two-supporting-facts",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/yes-no-questions",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/yes-no-questions",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "babi_nli/yes-no-questions",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/age",
+   "split": "train",
+   "k": 3,
+   "score": 27,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/age",
+   "split": "train",
+   "k": 4,
+   "score": 18,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/age",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/gender",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/gender",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/gender",
+   "split": "train",
+   "k": 3,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/gender",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "blog_authorship_corpus/gender",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "breaking_nli",
+   "split": "train",
+   "k": 3,
+   "score": 63,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "breaking_nli",
+   "split": "train",
+   "k": 4,
+   "score": 49,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "breaking_nli",
+   "split": "train",
+   "k": 5,
+   "score": 52,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "causal-news",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "causal-reasoning/transitivity",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/ambiance",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/ambiance",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/food",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/food",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/food",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/food",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/noise",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/rating",
+   "split": "dev",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/rating",
+   "split": "test",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/rating",
+   "split": "train",
+   "k": 5,
+   "score": 61,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cebab/service",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "circa",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "circa",
+   "split": "train",
+   "k": 3,
+   "score": 16,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "circa",
+   "split": "train",
+   "k": 4,
+   "score": 20,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "circa",
+   "split": "train",
+   "k": 5,
+   "score": 24,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "clcd-english",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "clcd-english",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "clcd-english",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "clcd-english",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "clcd-english",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "commonsense_qa_2.0",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "commonsense_qa_2.0",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "commonsense_qa_2.0",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "conceptrules_v2",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "conceptrules_v2",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "conceptrules_v2",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "conceptrules_v2",
+   "split": "train",
+   "k": 3,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "conceptrules_v2",
+   "split": "train",
+   "k": 4,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "conceptrules_v2",
+   "split": "train",
+   "k": 5,
+   "score": 18,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "corr2cause",
+   "split": "dev",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "corr2cause",
+   "split": "train",
+   "k": 3,
+   "score": 185,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "corr2cause",
+   "split": "train",
+   "k": 4,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cycic_classification",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cycic_classification",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "cycic_classification",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dbpedia_14/dbpedia_14",
+   "split": "train",
+   "k": 3,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dbpedia_14/dbpedia_14",
+   "split": "train",
+   "k": 4,
+   "score": 25,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dbpedia_14/dbpedia_14",
+   "split": "train",
+   "k": 5,
+   "score": 30,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/atomic",
+   "split": "train",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/atomic",
+   "split": "train",
+   "k": 4,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/atomic",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/snli",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/snli",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/snli",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/social",
+   "split": "train",
+   "k": 3,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/social",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "defeasible-nli/social",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "disrpt/eng.dep.scidtb.rels",
+   "split": "train",
+   "k": 3,
+   "score": 32,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "disrpt/eng.dep.scidtb.rels",
+   "split": "train",
+   "k": 4,
+   "score": 34,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "disrpt/eng.dep.scidtb.rels",
+   "split": "train",
+   "k": 5,
+   "score": 33,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dnd_style_intents",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dnd_style_intents",
+   "split": "train",
+   "k": 3,
+   "score": 42,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dnd_style_intents",
+   "split": "train",
+   "k": 4,
+   "score": 40,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dnd_style_intents",
+   "split": "train",
+   "k": 5,
+   "score": 31,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "dev",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "dev",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "test",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "test",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "train",
+   "k": 3,
+   "score": 181,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "train",
+   "k": 4,
+   "score": 66,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "doc-nli",
+   "split": "train",
+   "k": 5,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dynahate",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dynahate",
+   "split": "train",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dynahate",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "dynahate",
+   "split": "train",
+   "k": 5,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "emo/emo2019",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "emo/emo2019",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "emo/emo2019",
+   "split": "train",
+   "k": 4,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "emo/emo2019",
+   "split": "train",
+   "k": 5,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "equate",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "equate",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "esci",
+   "split": "train",
+   "k": 3,
+   "score": 47,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "esci",
+   "split": "train",
+   "k": 4,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "esci",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/commonsense",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/commonsense",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/deontology",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/deontology",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/justice",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/justice",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/virtue",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/virtue",
+   "split": "train",
+   "k": 4,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethics/virtue",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethos/multilabel",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethos/multilabel",
+   "split": "train",
+   "k": 4,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ethos/multilabel",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "faithdial/grounding",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "faithdial/grounding",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "faithdial/grounding",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "feasibilityQA",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "feasibilityQA",
+   "split": "train",
+   "k": 4,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "feasibilityQA",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fever-evidence-related",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fever-evidence-related",
+   "split": "train",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fever-evidence-related",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fever-evidence-related",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "folio",
+   "split": "train",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "folio",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "folio",
+   "split": "train",
+   "k": 5,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fool-me-twice",
+   "split": "train",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fool-me-twice",
+   "split": "train",
+   "k": 4,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "fool-me-twice",
+   "split": "train",
+   "k": 5,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "gap",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "gap",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "gap",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "github-issue-similarity",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "github-issue-similarity",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "github-issue-similarity",
+   "split": "train",
+   "k": 3,
+   "score": 21,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "github-issue-similarity",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "go_emotions/simplified",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "go_emotions/simplified",
+   "split": "train",
+   "k": 3,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "go_emotions/simplified",
+   "split": "train",
+   "k": 4,
+   "score": 31,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "go_emotions/simplified",
+   "split": "train",
+   "k": 5,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hallmarks-of-cancer/yesno",
+   "split": "train",
+   "k": 5,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hate_speech18",
+   "split": "train",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hate_speech18",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hate_speech18",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hatexplain/majority",
+   "split": "train",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hatexplain/majority",
+   "split": "train",
+   "k": 4,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hatexplain/majority",
+   "split": "train",
+   "k": 5,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "headline_cause/en_simple",
+   "split": "train",
+   "k": 3,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "headline_cause/en_simple",
+   "split": "train",
+   "k": 4,
+   "score": 16,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "headline_cause/en_simple",
+   "split": "train",
+   "k": 5,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "health_fact",
+   "split": "train",
+   "k": 3,
+   "score": 30,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "health_fact",
+   "split": "train",
+   "k": 4,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "health_fact",
+   "split": "train",
+   "k": 5,
+   "score": 24,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "help-nli",
+   "split": "train",
+   "k": 3,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "help-nli",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "help-nli",
+   "split": "train",
+   "k": 5,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hope_edi/english",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hope_edi/english",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hope_edi/english",
+   "split": "train",
+   "k": 3,
+   "score": 46,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hope_edi/english",
+   "split": "train",
+   "k": 4,
+   "score": 48,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hope_edi/english",
+   "split": "train",
+   "k": 5,
+   "score": 48,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hotpotqa/supporting-fact",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hotpotqa/supporting-fact",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hotpotqa/supporting-fact",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hover",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hover",
+   "split": "train",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hover",
+   "split": "train",
+   "k": 4,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hover",
+   "split": "train",
+   "k": 5,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hyperpartisan_news",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "hyperpartisan_news",
+   "split": "train",
+   "k": 3,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "infotabs",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "infotabs",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "infotabs",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "it-support-tickets",
+   "split": "train",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "it-support-tickets",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "it-support-tickets",
+   "split": "train",
+   "k": 5,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "jigsaw_toxicity",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "jigsaw_toxicity",
+   "split": "train",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "jigsaw_toxicity",
+   "split": "train",
+   "k": 4,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "jigsaw_toxicity",
+   "split": "train",
+   "k": 5,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lex_glue/scotus",
+   "split": "train",
+   "k": 3,
+   "score": 36,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lex_glue/unfair_tos",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lex_glue/unfair_tos",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lex_glue/unfair_tos",
+   "split": "train",
+   "k": 3,
+   "score": 42,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lex_glue/unfair_tos",
+   "split": "train",
+   "k": 4,
+   "score": 34,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lex_glue/unfair_tos",
+   "split": "train",
+   "k": 5,
+   "score": 34,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "logical-entailment",
+   "split": "train",
+   "k": 3,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "logical-entailment",
+   "split": "train",
+   "k": 4,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "logical-entailment",
+   "split": "train",
+   "k": 5,
+   "score": 19,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lonli",
+   "split": "train",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lonli",
+   "split": "train",
+   "k": 4,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "lonli",
+   "split": "train",
+   "k": 5,
+   "score": 43,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "magpie/idiomatic",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "magpie/idiomatic",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mams/atsa",
+   "split": "dev",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mams/atsa",
+   "split": "test",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mams/atsa",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mams/atsa",
+   "split": "train",
+   "k": 3,
+   "score": 73,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mams/atsa",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/antitrust-efforts",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/bringdown-timing",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/consideration",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/consideration",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/ordinary-course-consent",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/ordinary-course-consent",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/specific-performance",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/specific-performance",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/specific-performance",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "maud/specific-performance",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mindgames",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mindgames",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "mindgames",
+   "split": "train",
+   "k": 5,
+   "score": 20,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "monotonicity-entailment",
+   "split": "train",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "monotonicity-entailment",
+   "split": "train",
+   "k": 4,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "monotonicity-entailment",
+   "split": "train",
+   "k": 5,
+   "score": 16,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/airline/intent",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/airline/intent",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/fastfood/intent",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/fastfood/intent",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/finance/intent",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/insurance/intent",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/insurance/intent",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/insurance/intent",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/media/intent",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/media/intent",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/media/intent",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multidogo/software/intent",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/amh",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/amh",
+   "split": "train",
+   "k": 3,
+   "score": 65,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/amh",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/arq",
+   "split": "train",
+   "k": 3,
+   "score": 67,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/arq",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/ary",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/ary",
+   "split": "train",
+   "k": 3,
+   "score": 64,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/ary",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/hau",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/hau",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/hau",
+   "split": "train",
+   "k": 3,
+   "score": 59,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/hau",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/hau",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/ibo",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/ibo",
+   "split": "train",
+   "k": 3,
+   "score": 56,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/ibo",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/kin",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/kin",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/kin",
+   "split": "train",
+   "k": 3,
+   "score": 63,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/pcm",
+   "split": "dev",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/pcm",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/pcm",
+   "split": "train",
+   "k": 3,
+   "score": 62,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/por",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/por",
+   "split": "train",
+   "k": 3,
+   "score": 66,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/por",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/swa",
+   "split": "dev",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/swa",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/swa",
+   "split": "train",
+   "k": 3,
+   "score": 56,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/tso",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/tso",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/tso",
+   "split": "train",
+   "k": 3,
+   "score": 58,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/tso",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/twi",
+   "split": "train",
+   "k": 3,
+   "score": 46,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/yor",
+   "split": "dev",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/yor",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/yor",
+   "split": "train",
+   "k": 3,
+   "score": 58,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/AfriSenti-twitter-sentiment/yor",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/MLMA_hate_speech",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/MLMA_hate_speech",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/MLMA_hate_speech",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ace",
+   "split": "train",
+   "k": 3,
+   "score": 64,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ban",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ban",
+   "split": "train",
+   "k": 3,
+   "score": 72,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bbc",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bbc",
+   "split": "train",
+   "k": 3,
+   "score": 50,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bbc",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bjn",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bjn",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bjn",
+   "split": "train",
+   "k": 3,
+   "score": 66,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bjn",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bug",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bug",
+   "split": "train",
+   "k": 3,
+   "score": 45,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/bug",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/eng",
+   "split": "dev",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/eng",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/eng",
+   "split": "train",
+   "k": 3,
+   "score": 63,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/eng",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/eng",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ind",
+   "split": "dev",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ind",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ind",
+   "split": "train",
+   "k": 3,
+   "score": 49,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ind",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/ind",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/jav",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/jav",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/jav",
+   "split": "train",
+   "k": 3,
+   "score": 52,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/jav",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/jav",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/mad",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/mad",
+   "split": "train",
+   "k": 3,
+   "score": 54,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/mad",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/min",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/min",
+   "split": "train",
+   "k": 3,
+   "score": 48,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/min",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/nij",
+   "split": "train",
+   "k": 3,
+   "score": 48,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/sun",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/sun",
+   "split": "train",
+   "k": 3,
+   "score": 60,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/sun",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/NusaX-senti/sun",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/deu.rst.pcc.rels",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/deu.rst.pcc.rels",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/deu.rst.pcc.rels",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/eus.rst.ert.rels",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/eus.rst.ert.rels",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/eus.rst.ert.rels",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/eus.rst.ert.rels",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/fas.rst.prstc.rels",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/fas.rst.prstc.rels",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/fas.rst.prstc.rels",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/fra.sdrt.annodis.rels",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/fra.sdrt.annodis.rels",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/fra.sdrt.annodis.rels",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/nld.rst.nldt.rels",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/nld.rst.nldt.rels",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/nld.rst.nldt.rels",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/por.rst.cstn.rels",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/por.rst.cstn.rels",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/por.rst.cstn.rels",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/rus.rst.rrt.rels",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/rus.rst.rrt.rels",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/rus.rst.rrt.rels",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/spa.rst.rststb.rels",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/spa.rst.rststb.rels",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/spa.rst.rststb.rels",
+   "split": "train",
+   "k": 4,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/spa.rst.rststb.rels",
+   "split": "train",
+   "k": 5,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/tha.pdtb.tdtb.rels",
+   "split": "train",
+   "k": 3,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/tha.pdtb.tdtb.rels",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/disrpt/zho.rst.gcdt.rels",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/nli",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/nli",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/nli",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/nli",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/sts",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/sts",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/ynat",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/ynat",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/klue/ynat",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/amh",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/amh",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/amh",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/eng",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/eng",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/eng",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/eng",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/fra",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/fra",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/hau",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/hau",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/hau",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/ibo",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/ibo",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/lin",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/lin",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/lin",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/lug",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/orm",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/orm",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/orm",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/pcm",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/pcm",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/run",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/run",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/sna",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/sna",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/sna",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/som",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/som",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/som",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/swa",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/swa",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/tir",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/tir",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/xho",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/xho",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/xho",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/yor",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/masakhanews/yor",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/miam",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/miam",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/miam",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/miam",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/multilingual-sentiments/all",
+   "split": "dev",
+   "k": 3,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/multilingual-sentiments/all",
+   "split": "test",
+   "k": 3,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/multilingual-sentiments/all",
+   "split": "train",
+   "k": 3,
+   "score": 191,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/multilingual-sentiments/all",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/multilingual-sentiments/all",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/kannada",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/kannada",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/kannada",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/kannada",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/malayalam",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/malayalam",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/malayalam",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/malayalam",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/malayalam",
+   "split": "train",
+   "k": 5,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/tamil",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/tamil",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/offenseval_dravidian/tamil",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/tweet_sentiment_multilingual",
+   "split": "dev",
+   "k": 3,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/tweet_sentiment_multilingual",
+   "split": "test",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/tweet_sentiment_multilingual",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/tweet_sentiment_multilingual",
+   "split": "train",
+   "k": 3,
+   "score": 205,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/tweet_sentiment_multilingual",
+   "split": "train",
+   "k": 4,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/tweet_sentiment_multilingual",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/universal-joy",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/universal-joy",
+   "split": "train",
+   "k": 4,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/universal-joy",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multilingual/x-stance",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multiwoz22/categorical-slot",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multiwoz22/categorical-slot",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multiwoz22/categorical-slot",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multiwoz22/dialogue-act",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "multiwoz22/dialogue-act",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "nan-nli",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "nan-nli",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "nan-nli",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "naturallogic",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "naturallogic",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "naturallogic",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "newsmtsc",
+   "split": "dev",
+   "k": 3,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "newsmtsc",
+   "split": "test",
+   "k": 3,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "newsmtsc",
+   "split": "train",
+   "k": 3,
+   "score": 59,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "newsmtsc",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "numer_sense",
+   "split": "train",
+   "k": 3,
+   "score": 41,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "numer_sense",
+   "split": "train",
+   "k": 4,
+   "score": 36,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "numer_sense",
+   "split": "train",
+   "k": 5,
+   "score": 40,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "open_question_type",
+   "split": "train",
+   "k": 3,
+   "score": 40,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "open_question_type",
+   "split": "train",
+   "k": 4,
+   "score": 37,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "open_question_type",
+   "split": "train",
+   "k": 5,
+   "score": 37,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "patent-phrase-similarity",
+   "split": "train",
+   "k": 3,
+   "score": 41,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "patent-phrase-similarity",
+   "split": "train",
+   "k": 4,
+   "score": 38,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "patent-phrase-similarity",
+   "split": "train",
+   "k": 5,
+   "score": 34,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "perspectrum/stance",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "perspectrum/stance",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "perspectrum/stance",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "poem_sentiment",
+   "split": "train",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "poem_sentiment",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "poem_sentiment",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/arithmetic",
+   "split": "dev",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/arithmetic",
+   "split": "dev",
+   "k": 10,
+   "score": 20,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/arithmetic",
+   "split": "test",
+   "k": 3,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/arithmetic",
+   "split": "test",
+   "k": 10,
+   "score": 19,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/arithmetic",
+   "split": "train",
+   "k": 3,
+   "score": 589,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/arithmetic",
+   "split": "train",
+   "k": 10,
+   "score": 1300,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/event_state_reconstruction",
+   "split": "dev",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/event_state_reconstruction",
+   "split": "test",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/event_state_reconstruction",
+   "split": "train",
+   "k": 3,
+   "score": 2223,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/event_triggered_execution",
+   "split": "dev",
+   "k": 10,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/event_triggered_execution",
+   "split": "test",
+   "k": 10,
+   "score": 30,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/event_triggered_execution",
+   "split": "train",
+   "k": 10,
+   "score": 2222,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/goal_directed_planning",
+   "split": "dev",
+   "k": 10,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/goal_directed_planning",
+   "split": "test",
+   "k": 10,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/goal_directed_planning",
+   "split": "train",
+   "k": 10,
+   "score": 2222,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/instruction_execution",
+   "split": "dev",
+   "k": 10,
+   "score": 38,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/instruction_execution",
+   "split": "test",
+   "k": 10,
+   "score": 30,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/instruction_execution",
+   "split": "train",
+   "k": 10,
+   "score": 2686,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/multi_view_adjudication",
+   "split": "dev",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/multi_view_adjudication",
+   "split": "test",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/multi_view_adjudication",
+   "split": "train",
+   "k": 3,
+   "score": 2223,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/policy_applicability",
+   "split": "dev",
+   "k": 3,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/policy_applicability",
+   "split": "test",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/policy_applicability",
+   "split": "train",
+   "k": 3,
+   "score": 2222,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/record_aggregation",
+   "split": "dev",
+   "k": 10,
+   "score": 36,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/record_aggregation",
+   "split": "test",
+   "k": 10,
+   "score": 32,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/record_aggregation",
+   "split": "train",
+   "k": 10,
+   "score": 2762,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/record_eligibility",
+   "split": "dev",
+   "k": 10,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/record_eligibility",
+   "split": "test",
+   "k": 10,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/record_eligibility",
+   "split": "train",
+   "k": 10,
+   "score": 1083,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/state_perturbation",
+   "split": "dev",
+   "k": 3,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/state_perturbation",
+   "split": "test",
+   "k": 3,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/state_perturbation",
+   "split": "train",
+   "k": 3,
+   "score": 2223,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/table_lookup",
+   "split": "dev",
+   "k": 10,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/table_lookup",
+   "split": "test",
+   "k": 10,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/table_lookup",
+   "split": "train",
+   "k": 10,
+   "score": 1667,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/taxonomy_routing",
+   "split": "dev",
+   "k": 5,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/taxonomy_routing",
+   "split": "test",
+   "k": 5,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "procedural-typed-decisions/taxonomy_routing",
+   "split": "train",
+   "k": 5,
+   "score": 2227,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injection-dataset",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injection-dataset",
+   "split": "train",
+   "k": 3,
+   "score": 17,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injection-dataset",
+   "split": "train",
+   "k": 4,
+   "score": 19,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injection-dataset",
+   "split": "train",
+   "k": 5,
+   "score": 25,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injections",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injections",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injections",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prompt-injections",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "propsegment/nli",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "propsegment/nli",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "propsegment/nli",
+   "split": "train",
+   "k": 3,
+   "score": 93,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "propsegment/nli",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prosocial-dialog/safety",
+   "split": "dev",
+   "k": 5,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prosocial-dialog/safety",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prosocial-dialog/safety",
+   "split": "test",
+   "k": 5,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "prosocial-dialog/safety",
+   "split": "train",
+   "k": 5,
+   "score": 58,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ragtruth/grounding",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "recast/recast_megaveridicality",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "recast/recast_ner",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "recast/recast_verbnet",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "redial/preference",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "redial/preference",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "resnli",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "resnli",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "resnli",
+   "split": "train",
+   "k": 4,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "resnli",
+   "split": "train",
+   "k": 5,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/LI_LI",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/LI_LI",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/PI_CD",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/PI_SP",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/ST_NE",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/ST_SE",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli/ST_WO",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli_is_sd",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "robust_nli_li_ts",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ruletaker",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ruletaker",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ruletaker",
+   "split": "train",
+   "k": 3,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ruletaker",
+   "split": "train",
+   "k": 4,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "ruletaker",
+   "split": "train",
+   "k": 5,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "rumoureval_2019/RumourEval2019",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "rumoureval_2019/RumourEval2019",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "rumoureval_2019/RumourEval2019",
+   "split": "train",
+   "k": 3,
+   "score": 21,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "rumoureval_2019/RumourEval2019",
+   "split": "train",
+   "k": 4,
+   "score": 22,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "rumoureval_2019/RumourEval2019",
+   "split": "train",
+   "k": 5,
+   "score": 21,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sbic/intent",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sbic/offensiveness",
+   "split": "train",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sbic/offensiveness",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sbic/offensiveness",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scientific-exaggeration-detection",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scientific-exaggeration-detection",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scientific-exaggeration-detection",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scinli",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scinli",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scinli",
+   "split": "train",
+   "k": 3,
+   "score": 33,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scinli",
+   "split": "train",
+   "k": 4,
+   "score": 42,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scinli",
+   "split": "train",
+   "k": 5,
+   "score": 32,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scone",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scone",
+   "split": "test",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "scone",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sem_eval_2010_task_8",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sem_eval_2010_task_8",
+   "split": "train",
+   "k": 3,
+   "score": 40,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sem_eval_2010_task_8",
+   "split": "train",
+   "k": 4,
+   "score": 42,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sem_eval_2010_task_8",
+   "split": "train",
+   "k": 5,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentfin",
+   "split": "dev",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentfin",
+   "split": "test",
+   "k": 3,
+   "score": 9,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentfin",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentfin",
+   "split": "train",
+   "k": 3,
+   "score": 66,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentfin",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentihood/sentiment",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentihood/sentiment",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentihood/sentiment",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sentihood/sentiment",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "shell-safety-v2",
+   "split": "test",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "shell-safety-v2",
+   "split": "train",
+   "k": 3,
+   "score": 35,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "shell-safety-v2",
+   "split": "train",
+   "k": 4,
+   "score": 51,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "shell-safety-v2",
+   "split": "train",
+   "k": 5,
+   "score": 16,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sherliic",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "silicone/maptask",
+   "split": "train",
+   "k": 3,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "silicone/maptask",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "silicone/maptask",
+   "split": "train",
+   "k": 5,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sms_spam",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sms_spam",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sms_spam",
+   "split": "train",
+   "k": 5,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snips_built_in_intents",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snips_built_in_intents",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snips_built_in_intents",
+   "split": "train",
+   "k": 5,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snli",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snli",
+   "split": "train",
+   "k": 3,
+   "score": 40,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snli",
+   "split": "train",
+   "k": 4,
+   "score": 32,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "snli",
+   "split": "train",
+   "k": 5,
+   "score": 26,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "spartqa-yn",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "spartqa-yn",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "spartqa-yn",
+   "split": "train",
+   "k": 3,
+   "score": 52,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "spartqa-yn",
+   "split": "train",
+   "k": 4,
+   "score": 48,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "spartqa-yn",
+   "split": "train",
+   "k": 5,
+   "score": 25,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stackoverflow-questions",
+   "split": "dev",
+   "k": 4,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stackoverflow-questions",
+   "split": "test",
+   "k": 4,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stackoverflow-questions",
+   "split": "train",
+   "k": 3,
+   "score": 46,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stackoverflow-questions",
+   "split": "train",
+   "k": 4,
+   "score": 1735,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "starcon",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "starcon",
+   "split": "train",
+   "k": 3,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "starcon",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stepgame",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stepgame",
+   "split": "train",
+   "k": 3,
+   "score": 43,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stepgame",
+   "split": "train",
+   "k": 4,
+   "score": 42,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "stepgame",
+   "split": "train",
+   "k": 5,
+   "score": 38,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "streusle/noun",
+   "split": "test",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "streusle/noun",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "streusle/verb",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "streusle/verb",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "streusle/verb",
+   "split": "train",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sts-companion",
+   "split": "dev",
+   "k": 6,
+   "score": 79,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sts-companion",
+   "split": "test",
+   "k": 6,
+   "score": 81,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "sts-companion",
+   "split": "train",
+   "k": 6,
+   "score": 4760,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "subjectivity",
+   "split": "dev",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "subjectivity",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "subjectivity",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "subjectivity",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "syntactic-augmentation-nli",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "syntactic-augmentation-nli",
+   "split": "train",
+   "k": 3,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "syntactic-augmentation-nli",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "syntactic-augmentation-nli",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tabfact",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tabfact",
+   "split": "train",
+   "k": 3,
+   "score": 4,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "temporal-nli",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "temporal-nli",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "temporal-nli",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "temporal-nli",
+   "split": "train",
+   "k": 3,
+   "score": 34,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "temporal-nli",
+   "split": "train",
+   "k": 4,
+   "score": 30,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "temporal-nli",
+   "split": "train",
+   "k": 5,
+   "score": 28,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tomi-nli",
+   "split": "dev",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tomi-nli",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tomi-nli",
+   "split": "train",
+   "k": 3,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tomi-nli",
+   "split": "train",
+   "k": 4,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tomi-nli",
+   "split": "train",
+   "k": 5,
+   "score": 21,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tracie",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tracie",
+   "split": "train",
+   "k": 4,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tracie",
+   "split": "train",
+   "k": 5,
+   "score": 6,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tweets_hate_speech_detection",
+   "split": "dev",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tweets_hate_speech_detection",
+   "split": "train",
+   "k": 3,
+   "score": 7,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tweets_hate_speech_detection",
+   "split": "train",
+   "k": 4,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "tweets_hate_speech_detection",
+   "split": "train",
+   "k": 5,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "twitter-financial-news-sentiment",
+   "split": "train",
+   "k": 3,
+   "score": 16,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "twitter-financial-news-sentiment",
+   "split": "train",
+   "k": 4,
+   "score": 15,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "twitter-financial-news-sentiment",
+   "split": "train",
+   "k": 5,
+   "score": 11,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "utilitarianism",
+   "split": "train",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "utilitarianism",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "utilitarianism",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "vitaminc",
+   "split": "train",
+   "k": 3,
+   "score": 29,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "vitaminc",
+   "split": "train",
+   "k": 4,
+   "score": 27,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "vitaminc",
+   "split": "train",
+   "k": 5,
+   "score": 35,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wands",
+   "split": "dev",
+   "k": 3,
+   "score": 23,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wands",
+   "split": "test",
+   "k": 3,
+   "score": 24,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wands",
+   "split": "train",
+   "k": 3,
+   "score": 141,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "webinstruct/binary",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "webinstruct/binary",
+   "split": "train",
+   "k": 4,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wice",
+   "split": "train",
+   "k": 3,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wikipedia-detox/aggression_score",
+   "split": "dev",
+   "k": 7,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wikipedia-detox/aggression_score",
+   "split": "test",
+   "k": 7,
+   "score": 14,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wikipedia-detox/aggression_score",
+   "split": "train",
+   "k": 7,
+   "score": 896,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wikipedia-detox/toxicity_score",
+   "split": "dev",
+   "k": 5,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wikipedia-detox/toxicity_score",
+   "split": "test",
+   "k": 5,
+   "score": 13,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wikipedia-detox/toxicity_score",
+   "split": "train",
+   "k": 5,
+   "score": 897,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/prompt_harm",
+   "split": "test",
+   "k": 3,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/prompt_harm",
+   "split": "test",
+   "k": 5,
+   "score": 1,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/prompt_harm",
+   "split": "train",
+   "k": 3,
+   "score": 12,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/prompt_harm",
+   "split": "train",
+   "k": 4,
+   "score": 10,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/prompt_harm",
+   "split": "train",
+   "k": 5,
+   "score": 8,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/response_harm",
+   "split": "train",
+   "k": 3,
+   "score": 57,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/response_harm",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/response_refusal",
+   "split": "train",
+   "k": 3,
+   "score": 25,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "wildguardmix-cleaned/response_refusal",
+   "split": "train",
+   "k": 4,
+   "score": 3,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "winowhy",
+   "split": "train",
+   "k": 3,
+   "score": 5,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "winowhy",
+   "split": "train",
+   "k": 4,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  },
+  {
+   "fuente": "meta/tsjev",
+   "tarea": "winowhy",
+   "split": "train",
+   "k": 5,
+   "score": 2,
+   "no_ascendente": 0,
+   "fuera_de_1k": 0,
+   "afectadas": 0
+  }
+ ]
+}
