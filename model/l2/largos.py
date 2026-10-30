@@ -28,7 +28,7 @@ import torch.nn.functional as F
 
 from model.evaluacion import metricas as M
 
-from .modelo import MAX_TOK, maxsim, texto_consulta, texto_opcion
+from .modelo import MAX_TOK, maxsim, normalizar_mayusculas, texto_consulta, texto_opcion
 
 SOLAPE = 32
 ESTRATEGIAS = ("cabeza", "cola", "cabeza_cola", "trozos_max", "trozos_media")
@@ -39,7 +39,7 @@ REMUESTREOS = 2000
 # ---------------------------------------------------------------- tokenización y ventanas
 def tokenizar(tok, texto):
     """(prefijo, cuerpo): ids de «query: » + texto sin especiales; el prefijo son los tokens de «query: »."""
-    ids = tok(PREFIJO + texto, add_special_tokens=False)["input_ids"]
+    ids = tok(PREFIJO + normalizar_mayusculas(texto), add_special_tokens=False)["input_ids"]
     n = len(tok(PREFIJO, add_special_tokens=False)["input_ids"])
     return ids[:n], ids[n:]
 

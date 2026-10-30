@@ -39,3 +39,5 @@ implementar la que salga sin dudas. Si no sale ninguna con IC95 que no se solape
 ## Paridad con Python
 Comprobar: los ids de cada ventana (con `<s>`/`</s>`) iguales a `largos.ventanas` + `con_especiales`, y la `s` agregada con diferencia
 < 1e-4 sobre la misma ventana. Los casos de prueba son los de `model/l2/tests/test_largos.py` (cuerpos de 37, 68, 69, 100 y 250 ids, `max_tok` 40 y un prefijo inventado de 2 ids).
+
+La estrategia por defecto sigue siendo `cabeza`: en M2 dio 0,485 global y 0,366 en los 82 casos largos, y cola, cabeza+cola y trozos no la superan (`model/l2/resultados/estabilidad-20261029/m2/`).

@@ -25,6 +25,14 @@ SEP = " · "
 TIPOS_BETA = ("choice", "noul", "score")
 
 
+def normalizar_mayusculas(texto):
+    """Texto del mensaje: con ≥ 8 letras y más del 70 % en mayúsculas, `texto.lower()`; si no, igual. Ver contrato-normalizacion.md."""
+    letras = [c for c in texto if c.isalpha()]
+    if len(letras) >= 8 and sum(c.isupper() for c in letras) * 10 > 7 * len(letras):
+        return texto.lower()
+    return texto
+
+
 def texto_opcion(fila, opcion):
     return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, opcion, SEP, fila["descripciones"].get(opcion, ""))
 
@@ -113,6 +121,7 @@ class Codificador:
 
     def tokens(self, textos):
         """Estados de la última capa H (B,T,384) y máscara (B,T) de «query: » + texto."""
+        textos = [normalizar_mayusculas(t) for t in textos]
         with torch.set_grad_enabled(self._con_grad()):
             if self.msgs is None:
                 return self._pase(["query: " + t for t in textos])
