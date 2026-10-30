@@ -37,10 +37,11 @@ HOLGURA_MS = 5.0  # la latencia solo falla si empeora más que el umbral relativ
 MIN_MUESTRAS_LATENCIA = 30  # con menos muestras de latencia (filas con respuesta, en la base o en la corrida) p50/p99 no se juzgan
 
 # Umbral = empeoramiento máximo tolerado. Absoluto (en fracción, 0,01 = un punto) salvo p50_ms/p99_ms, que son relativos (0,5 = +50 %).
-UMBRALES = {"exactitud": 0.01, "f1_macro": 0.01, "cobertura": 0.02, "ece": 0.02, "escalado": 0.03, "errores": 0.0, "mae": 0.05,
+UMBRALES = {"exactitud": 0.01, "exactitud_contestada": 0.01, "f1_macro": 0.01, "cobertura": 0.02, "ece": 0.02, "escalado": 0.03, "errores": 0.0, "mae": 0.05,
             "estabilidad": 0.02, "delta_conf": 0.05, "p50_ms": 0.5, "p99_ms": 1.0}
-MEJOR_ALTO = {"exactitud", "f1_macro", "cobertura", "estabilidad"}  # el resto: menos es mejor
+MEJOR_ALTO = {"exactitud", "exactitud_contestada", "f1_macro", "cobertura", "estabilidad"}  # el resto: menos es mejor
 METRICAS = tuple(UMBRALES)
+METRICAS_NUEVAS = ("exactitud_contestada",)  # una línea base anterior no las trae: no falla, avisa
 SECCIONES = ("global", "tipos", "grupos", "conjuntos")
 
 
@@ -359,6 +360,15 @@ def _acierto_fila(r: dict) -> bool:
     return decisiones(r)[0][1]
 
 
+def _argmax_fila(r: dict) -> Optional[bool]:
+    """Acierto del argmax de `probs` (en multi, las opciones con p ≥ 0,5), escaló o no (lo que mide servidor.py). None si la fila no trae probs (error o escaló sin ellas)."""
+    if r["error"] or not r["probs"]:
+        return None
+    if r["tipo"] == "multi":
+        return {o for o in r["opciones"] if r["probs"].get(o, 0.0) >= 0.5} == set(r["etiqueta"])
+    return max(r["probs"], key=r["probs"].get) == r["etiqueta"]
+
+
 def ece(pares, cubos: int = CUBOS_ECE) -> Optional[float]:
     """ECE de [(confianza, acierto)] con `cubos` de igual ancho, cubo = (k/cubos, (k+1)/cubos]; conf = 0 va al primero. Ignora conf None."""
     pares = [(c, o) for c, o in pares if c is not None]
@@ -415,14 +425,20 @@ def _f1_macro(rs: List[dict]) -> Optional[float]:
 
 def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
     """Métricas de un grupo de filas medidas (un conjunto, un tipo o todo). Las fracciones van en [0, 1]; las latencias, en ms de cliente.
-    exactitud: acierto de la mejor respuesta (en multi, subconjunto exacto) sobre todas las filas; un error cuenta como fallo."""
+    exactitud: acierto del argmax de `probs` sobre todas las filas con probs, escaladas o no (en multi, subconjunto exacto de las de p ≥ 0,5); las filas sin probs
+    (error, o escaló sin ellas) no entran y se cuentan aparte en `sin_probs`. exactitud_contestada: acierto de la respuesta sobre lo que la cascada contestó (sin escalar).
+    exactitud_estricta: sobre todas las filas, con lo escalado y los errores como fallo (informativa, fuera de la puerta)."""
     n = len(rs)
     if not n:
         return {"n": 0}
     dec = [d for r in rs for d in decisiones(r)]
     total = sum(len(r["opciones"]) if r["tipo"] == "multi" else 1 for r in rs)
     cli = [r["cliente_ms"] for r in rs if r["cliente_ms"] is not None]
-    m = {"n": n, "n_latencia": len(cli), "errores": sum(1 for r in rs if r["error"]) / n, "exactitud": sum(_acierto_fila(r) for r in rs) / n, "f1_macro": _f1_macro(rs),
+    am = [a for a in (_argmax_fila(r) for r in rs) if a is not None]
+    cont = [r for r in rs if not r["error"] and not r["escalate"]]
+    m = {"n": n, "n_latencia": len(cli), "errores": sum(1 for r in rs if r["error"]) / n, "exactitud": sum(am) / len(am) if am else None,
+         "exactitud_contestada": sum(_acierto_fila(r) for r in cont) / len(cont) if cont else None,
+         "exactitud_estricta": sum(_acierto_fila(r) for r in cont) / n, "sin_probs": sum(1 for r in rs if not r["error"] and not r["probs"]) / n, "f1_macro": _f1_macro(rs),
          "ece": ece(dec), "cobertura": cobertura(dec, total, objetivo), "escalado": sum(1 for r in rs if not r["error"] and r["escalate"]) / n,
          "p50_ms": _pct(cli, 0.5), "p99_ms": _pct(cli, 0.99)}
     d = [abs(int(_mejor(r)[0]) - int(r["etiqueta"])) for r in rs if r["tipo"] == "score" and (_mejor(r)[0] or "").isdigit()]
@@ -586,6 +602,9 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
             for met in METRICAS:
                 vb, va = mb.get(met), ma.get(met)
                 u = _umbral(umbrales, nombre if sec == "conjuntos" else None, met)
+                if vb is None and u is not None and met in METRICAS_NUEVAS and va is not None:
+                    avisos.append(f"{sec}/{nombre}: la línea base no trae {met} (anterior a las métricas de escalado): no se compara; regénerala. "
+                                  "Su `exactitud` cuenta lo escalado sin respuesta como fallo; la actual es el argmax de probs")
                 if vb is None or u is None:
                     continue
                 if va is None:
@@ -732,7 +751,7 @@ def json_reporte(rep: dict) -> dict:
 
 # ---------------------------------------------------------------- informe
 def _fila_md(nombre: str, m: dict, rob: bool) -> str:
-    c = [nombre, str(m["n"]), _f(m["exactitud"]), _f(m["f1_macro"]), _f(m["ece"]), _p(m["cobertura"]), _p(m["escalado"]), _p(m["errores"]),
+    c = [nombre, str(m["n"]), _f(m["exactitud"]), _f(m.get("exactitud_contestada")), _f(m.get("exactitud_estricta")), _p(m.get("sin_probs")), _f(m["f1_macro"]), _f(m["ece"]), _p(m["cobertura"]), _p(m["escalado"]), _p(m["errores"]),
          _f(m["p50_ms"], 1), _f(m["p99_ms"], 1)]
     if rob:
         c += [_p(m.get("estabilidad")), _f(m.get("delta_conf")), _f(m.get("delta_conf_p95"))]
@@ -741,7 +760,7 @@ def _fila_md(nombre: str, m: dict, rob: bool) -> str:
 
 def informe_md(rep: dict) -> str:
     rob = "estabilidad" in rep["global"]
-    cab = ["n", "exactitud", "F1 macro", "ECE", f"cobertura a {_f(rep['objetivo'], 2)}", "escalado", "errores", "p50 ms", "p99 ms"] + (["estabilidad", "Δ confianza", "Δ conf. p95"] if rob else [])
+    cab = ["n", "exactitud (argmax)", "exact. contestada", "exact. estricta", "sin probs", "F1 macro", "ECE", f"cobertura a {_f(rep['objetivo'], 2)}", "escalado", "errores", "p50 ms", "p99 ms"] + (["estabilidad", "Δ confianza", "Δ conf. p95"] if rob else [])
     L = [f"# Batería de regresión: {rep['manifiesto']}", "",
          f"Fuente: `{rep['fuente']}` · objetivo de precisión: {_f(rep['objetivo'], 2)} · {rep['fecha']}", ""]
     for titulo, sec in (("Global", None), ("Por tipo", "tipos"), ("Por grupo", "grupos"), ("Por conjunto", "conjuntos")):
