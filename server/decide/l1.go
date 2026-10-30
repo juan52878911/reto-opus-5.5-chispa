@@ -20,15 +20,16 @@ const tDefecto = 0.05
 // sobre los niveles (en el orden de la pregunta) y la respuesta es la mediana de
 // esa distribución, con confianza P(mediana).
 type L1 struct {
-	m      *l1.Modelo
-	calib  chispa3.Calib
-	cache  *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
-	sopl   *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
-	lambda *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
-	largo  TextoLargo                 // estrategia para textos que pasan de max_tokens; cero = cabeza
-	met    *Metricas
-	Hits   atomic.Uint64
-	Misses atomic.Uint64
+	m               *l1.Modelo
+	calib           chispa3.Calib
+	sinCalibFichero bool                       // el .chispa no trae CALIB (τ y tipos por defecto)
+	cache           *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
+	sopl            *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
+	lambda          *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
+	largo           TextoLargo                 // estrategia para textos que pasan de max_tokens; cero = cabeza
+	met             *Metricas
+	Hits            atomic.Uint64
+	Misses          atomic.Uint64
 }
 
 // NuevoL1Modelo monta L1 sobre un modelo ya abierto. calib puede estar vacía (T por defecto).
@@ -58,6 +59,7 @@ func (l *L1) ConCacheBytes(mb int) *L1 {
 func (l *L1) UsaMetricas(m *Metricas) {
 	l.met = m
 	if m != nil {
+		m.FijaCalib(VistaCalibCapa("L1", l.calib, OrigenFichero, !l.sinCalibFichero))
 		m.FijaCacheBytes("l1", func() int64 { return l.cache.Bytes() })
 	}
 }
@@ -121,7 +123,7 @@ func (l *L1) ventanasMsg(estado string) [][]float32 {
 
 func (l *L1) Nombre() string { return "L1" }
 
-func (l *L1) params(tipo string) chispa3.ParamsTipo { return paramsDe(l.calib, tipo) }
+func (l *L1) params(tipo string) chispa3.ParamsTipo { return paramsDeCapa(l.met, "L1", l.calib, tipo) }
 
 // paramsDe devuelve los parámetros calibrados de un tipo, o unos por defecto.
 func paramsDe(c chispa3.Calib, tipo string) chispa3.ParamsTipo {
@@ -222,6 +224,10 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 func (l *L1) paramsScore() chispa3.ParamsTipo {
 	if p, ok := l.calib.Tipos["score"]; ok && p.T > 0 {
 		return p
+	}
+	if _, ok := l.calib.Tipos["choice"]; !ok {
+		l.met.CalibDefecto("L1", "score")
+		return paramsDe(l.calib, "score")
 	}
 	return l.params("choice")
 }

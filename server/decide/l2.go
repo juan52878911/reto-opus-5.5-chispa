@@ -27,11 +27,13 @@ type SesionS interface {
 // L2 es la capa neuronal: ranuras del mensaje (ONNX) contra las torres de opción
 // de ESQUEMAS, con MaxSim = max_k softplus(h · s_k) y las cabezas de CALIB.
 type L2 struct {
-	ses   SesionS
-	tok   Tokenizador
-	esq   *chispa3.Esquemas
-	calib chispa3.Calib
-	multi indiceCalib // índice de CALIB de multi, calculado una vez
+	ses             SesionS
+	tok             Tokenizador
+	esq             *chispa3.Esquemas
+	calib           chispa3.Calib
+	origenCalib     string      // de dónde salen los tipos de calib: OrigenFichero u OrigenTiposL2
+	sinCalibFichero bool        // el .chispa no trae CALIB
+	multi           indiceCalib // índice de CALIB de multi, calculado una vez
 
 	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
 	torres CodificadorTorre
@@ -98,6 +100,11 @@ func (l *L2) tomaFichaTorre() bool {
 func (l *L2) UsaMetricas(m *Metricas) {
 	l.met = m
 	if m != nil {
+		or := l.origenCalib
+		if or == "" {
+			or = OrigenFichero
+		}
+		m.FijaCalib(VistaCalibCapa("L2", l.calib, or, !l.sinCalibFichero))
 		m.FijaCacheBytes("torres", func() int64 {
 			if l.cache == nil {
 				return 0
@@ -512,9 +519,9 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	for i, v := range vs {
 		switch p.Kind {
 		case KindChoice:
-			rs[i] = respuestaSoftmax(p, v.sims, paramsDe(l.calib, "choice").T)
+			rs[i] = respuestaSoftmax(p, v.sims, paramsDeCapa(l.met, "L2", l.calib, "choice").T)
 		case KindNoul:
-			prm := paramsDe(l.calib, "noul")
+			prm := paramsDeCapa(l.met, "L2", l.calib, "noul")
 			theta = prm.Theta
 			rs[i] = respuestaNoul(prm.A*v.sims[0]+prm.B, prm.Theta)
 		default:

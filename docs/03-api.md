@@ -244,6 +244,21 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_l3_latencia_segundos` | histograma de la latencia de cada llamada al LLM |
 | `chispa_texto_largo_total{capa}` | peticiones cuyo texto superó el truncado de la capa (`max_tokens` de L1, `chispa.consulta.max_len` de L2), con la estrategia que sea; `capa` = `L1` o `L2` |
 | `chispa_texto_largo_trozos_total{capa}` | ventanas decididas en esos textos largos: 1 por petición con `cabeza` y `cabeza_cola`, hasta `max_trozos` con `trozos` |
+| `chispa_calib{capa,tipo,origen,param}` | gauge: la CALIB efectiva de cada capa (`L1`, `L2`; L2c comparte la de L2). `param` es `T`, `a`, `b` o `theta`; `tipo` es cada clave de la CALIB de la capa (`choice`, `noul`, `score4`, `score4#1`, `multi@…`, `multi_l2@…`…). `origen`: `fichero` (clave de `tipos`), `tipos_l2` (clave de `tipos_l2`, solo L2) o `default` (la capa no la trae y usa T=0,05, a=4, b=−2, θ=0,5; solo se listan así `choice` y `noul`) |
+| `chispa_calib_tau{capa,clave,origen}` | gauge: τ de la CALIB en servicio (`tau_escalate`, y en L2 también `tau_l2c` y `tau_l2_esquema_nuevo` si el `.chispa` los trae); `tau_escalate` de L2 es `tau_escalate_l2` si existe |
+| `chispa_calib_sin_tipo{capa,tipo}` | gauge 1 por cada tipo base (`choice`, `noul`, `score`, `multi`) sin ninguna clave en la CALIB de la capa |
+| `chispa_calib_defecto_total{capa,tipo}` | decisiones que usaron los parámetros por defecto de `choice`/`noul` (o `score` en L1 sin `score` ni `choice`) por falta de CALIB. En `score` y `multi` L2 no usa defecto: no opina (`chispa_multi_l2_sin_calib_total`, `chispa_multi_calib_ausente_total`) |
+
+### CALIB visible
+
+La CALIB (cómo se convierten las puntuaciones en probabilidades) se lee solo de `/metrics`; no hay un endpoint aparte: así hereda
+`-metricas-protegidas` sin repetir la autenticación. Los gauges se rehacen en cada recarga del `.chispa`. Al arrancar y en cada recarga el log trae,
+por capa montada, `AVISO: CALIB de L1 sin los tipos [score multi]: la capa usa parámetros por defecto …` si falta algún tipo base (también
+en `decide.Montaje.AvisosCalib`). Un tipo que falta no es un error: `choice` y `noul` usan los parámetros por defecto y sube
+`chispa_calib_defecto_total`; `score` y `multi` en L2 no opinan.
+`chispa evaluar --url …` lee esa CALIB y la añade al informe (sección «CALIB del servidor») y al JSON (`calib_servidor`); con
+`/metrics` protegidas pasa el token con el parámetro `token` de `chispa.evaluar.evaluar` o la variable `CHISPA_TOKEN_METRICAS`; sin
+poder leerlas, la medición sigue y la sección dice por qué. `chispa evaluar --bateria` no la incluye.
 
 Tras una petición válida y una rota, el test de métricas
 ([`decide_test.go`](../server/decide/decide_test.go)) espera líneas como `chispa_peticiones_total{codigo="200"} 1`,
