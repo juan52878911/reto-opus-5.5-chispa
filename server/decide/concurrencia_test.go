@@ -7,11 +7,24 @@ import (
 
 // resultadoDorado serializa lo que decide una petición (capa suelta o cascada) para comparar sin tolerancia.
 func resultadoDorado(t testing.TB, a *armadoDorado, p PeticionDorada) string {
-	e, c := a.decidir(t, p)
-	if p.Capa == "cascada" {
-		return mustJSON(c)
+	t.Helper()
+	s, err := resultadoDoradoErr(a, p)
+	if err != nil {
+		t.Fatalf("%s: %v", p.ID, err)
 	}
-	return mustJSON(e)
+	return s
+}
+
+// resultadoDoradoErr devuelve el error en vez de abortar: apto para goroutines (sin t.Fatal fuera de la del test).
+func resultadoDoradoErr(a *armadoDorado, p PeticionDorada) (string, error) {
+	e, c, err := a.decidirErr(p)
+	if err != nil {
+		return "", err
+	}
+	if p.Capa == "cascada" {
+		return mustJSON(c), nil
+	}
+	return mustJSON(e), nil
 }
 
 // 64 goroutines con las mismas peticiones dan exactamente (bit a bit) las respuestas de 1, con las cachés frías (todas
@@ -46,7 +59,10 @@ func TestDoradosConcurrencia(t *testing.T) {
 					for r := 0; r < c.rondas; r++ {
 						for k := range ps { // cada goroutine las recorre desde un punto distinto: choca con otras en las mismas claves de caché
 							i := (k + g*7) % len(ps)
-							if got := resultadoDorado(t, a, ps[i]); got != ref[i] {
+							got, err := resultadoDoradoErr(a, ps[i])
+							if err != nil {
+								errs <- ps[i].ID + ": error: " + err.Error()
+							} else if got != ref[i] {
 								errs <- ps[i].ID + ": " + got + " ≠ " + ref[i]
 							}
 						}
