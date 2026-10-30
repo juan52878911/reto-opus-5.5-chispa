@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"chispa/format/chispa3"
@@ -36,6 +37,14 @@ func ajustarMaxLen(tok Tokenizador, consulta, pasaje int, avisos *[]string) Toke
 	return tok
 }
 
+// avisarCalib apunta y registra en el log los tipos que faltan en la CALIB de una capa.
+func (m *Montaje) avisarCalib(v VistaCalib) {
+	if a := v.AvisoSinCalib(); a != "" {
+		m.AvisosCalib = append(m.AvisosCalib, a)
+		log.Print(a)
+	}
+}
+
 // OpcionArmado ajusta ArmarDesde; sirve para sustituir ORT por piezas falsas en las pruebas.
 type OpcionArmado func(*opcionesArmado)
 
@@ -56,6 +65,9 @@ func ConCodificadorTorre(c CodificadorTorre) OpcionArmado {
 type Montaje struct {
 	L1, L2 Decisor
 	Avisos []string // capas que se quedan como stub y por qué
+	// AvisosCalib: tipos sin CALIB por capa (una línea por capa). ArmarDesde también los escribe en el log, así que salen al arrancar y en cada
+	// recarga; van aparte de Avisos porque no son un fallo de montaje.
+	AvisosCalib []string
 	// Cerrar libera las sesiones (L2 y torre) que abrió ArmarDesde; nil si no hay nada que cerrar. Idempotente.
 	Cerrar func() error
 }
@@ -141,6 +153,8 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			return mt, fmt.Errorf("sección L1: %w", err)
 		}
 		l1c := NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, lambdaL1)
+		l1c.sinCalibFichero = !f.Tiene(chispa3.CALIB)
+		mt.avisarCalib(VistaCalibCapa("L1", calib, OrigenFichero, !l1c.sinCalibFichero))
 		if cfg.TextoLargo != nil {
 			l1c.ConTextoLargo(*cfg.TextoLargo)
 		}
@@ -192,6 +206,13 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			mt.Avisos = append(mt.Avisos, "L2 queda como stub: "+err.Error())
 		} else {
+			base.sinCalibFichero = !f.Tiene(chispa3.CALIB)
+			or := OrigenFichero
+			if calib.TiposL2 != nil {
+				or = OrigenTiposL2
+			}
+			base.origenCalib = or
+			mt.avisarCalib(VistaCalibCapa("L2", calib.ParaL2(), or, !base.sinCalibFichero))
 			cerrables := []any{base.ses}
 			if f.Tiene(chispa3.TORR) {
 				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas); err != nil {

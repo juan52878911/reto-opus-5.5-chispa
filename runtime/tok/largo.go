@@ -215,7 +215,7 @@ func AgregarProbs(kind string, ids []string, ps []map[string]float64, agg string
 	}
 	if kind == "score" {
 		var acc float64
-		for _, id := range ids {
+		for _, id := range OrdenNivel(ids) {
 			acc += probs[id]
 			if acc >= 0.5 {
 				return probs, id, probs[id], true

@@ -36,32 +36,51 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 
 | Métrica | Qué es |
 |---|---|
-| `exactitud` | acierto de la mejor respuesta (si escaló sin respuesta, el argmax de `probs`); en `multi`, subconjunto exacto. Un error de petición cuenta como fallo |
+| `exactitud` | **(1)** acierto del argmax de `probs` sobre todas las filas con probs, escaladas o no (lo mismo que mide `servidor.py`); en `multi`, subconjunto exacto de las opciones con p ≥ 0,5. Las filas sin probs (error, o escaló sin ellas) no entran: se cuentan aparte en `sin_probs`. Puerta de regresión |
+| `exactitud_contestada` | **(2)** acierto de la respuesta sobre lo que la cascada contestó (sin escalar); vacía si todo escaló. Puerta de regresión |
+| `exactitud_estricta` | **(4)** sobre todas las filas, con lo escalado y los errores como fallo. Informativa: no es puerta (un `tau_escalate_l2` alto la hunde sin que el modelo empeore) |
+| `sin_probs` | fracción de filas sin error y sin `probs` (no se puede medir el argmax); si es alta, `exactitud` no representa al conjunto |
 | `f1_macro` | F1 macro sobre las clases `(esquema, opción)` con soporte; en `multi`, cada opción es una clase |
 | `ece` | error de calibración esperado, 10 cubos de igual ancho `(k/10, (k+1)/10]` sobre la confianza de la mejor respuesta (en `multi`, una decisión por opción: p si activa, 1−p si no) |
-| `cobertura` | fracción de decisiones que un umbral único sobre la confianza acepta con precisión ≥ `objetivo` (0,95); 0 si ninguno lo logra |
+| `cobertura` | **(3)** fracción de decisiones que un umbral único sobre la confianza acepta con precisión ≥ `objetivo` (0,95); 0 si ninguno lo logra |
 | `escalado` | fracción de filas con `escalate` |
 | `errores` | fracción de peticiones fallidas (transporte, 4xx/5xx) |
 | `p50_ms`, `p99_ms` | latencia de cliente, extremo a extremo |
 | `mae` | solo conjuntos con `score`: error medio en niveles |
-| `estabilidad`, `delta_conf` | con `--robustez`: % de decisiones que no cambian con la variante y media de \|Δ confianza\| |
+| `estabilidad`, `delta_conf`, `delta_conf_p95` | con `--robustez`: fracción de decisiones que no cambian con la variante, y media y p95 de \|Δ confianza\| (también por transformación, en `transformaciones`) |
 
 ## Línea base y umbrales
-La línea base es el JSON del reporte sin filas (`--guardar-linea-base`); el `.json` de `--salida` sirve igual. Se compara cada métrica que la línea base trae, en `global`, `tipos`, `grupos` y `conjuntos`. El **umbral es el empeoramiento máximo tolerado**: absoluto (0,01 = un punto) salvo `p50_ms` y `p99_ms`, que son relativos (0,5 = +50 %) y además deben empeorar más de 1 ms (el ruido de un milisegundo no es una regresión). Mejora la exactitud, el F1 y la cobertura al subir; el resto, al bajar.
+La línea base es el JSON del reporte sin filas (`--guardar-linea-base`); el `.json` de `--salida` sirve igual. Se compara cada métrica que la línea base trae, en `global`, `tipos`, `grupos` y `conjuntos`. El **umbral es el empeoramiento máximo tolerado**: absoluto (0,01 = un punto) salvo `p50_ms` y `p99_ms`, que son relativos (0,5 = +50 %) y además deben empeorar más de 5 ms, y solo se comparan con al menos 30 muestras (`n`) en la corrida y en la línea base (si no, avisa): el ruido de unos milisegundos en un servidor local no es una regresión. Mejora la exactitud, el F1 y la cobertura al subir; el resto, al bajar.
 
 | Métrica | Umbral por defecto |
 |---|---|
-| exactitud, f1_macro | 0,01 |
+| exactitud, exactitud_contestada, f1_macro | 0,01 |
 | cobertura, ece, estabilidad | 0,02 |
 | escalado | 0,03 |
 | errores | 0 |
 | mae, delta_conf | 0,05 |
-| p50_ms, p99_ms | 0,5 y 1,0 (relativos) |
+| p50_ms, p99_ms | 0,5 y 1,0 (relativos; además > 5 ms y n ≥ 30) |
 
 Se pisan en el manifiesto (`umbrales`) y con `--umbrales FICHERO.json` (misma forma; `por_conjunto` fija umbrales de un conjunto; `null` desactiva una métrica). Una clave desconocida es un error: una errata no apaga la puerta. Falla también un conjunto de la línea base que no se mide; con `--solo NOMBRE` (repetible) o conjuntos opcionales omitidos la comparación es parcial (solo conjuntos medidos) y lo avisa. Si `n` difiere de la línea base, avisa: no es la misma muestra.
 
+**Línea base completa.** `--guardar-linea-base` se niega (código 2) con `--solo` o con conjuntos opcionales omitidos: una base parcial dejaría pasar regresiones en lo que no midió. El reporte de una corrida parcial lleva `"parcial": true` y la comparación lo rechaza como línea base de la puerta completa. Al guardar con `--linea-base` (o sobre una ruta que ya existe) se conserva el `estabilidad_min` de la base anterior.
+
 ## Robustez
-`--robustez` pide variantes de cada texto a `chispa.variantes` (`generar(texto)` o `variantes(texto)`, que devuelve textos o `(nombre, texto)`), hasta `--robustez-max` filas por conjunto (200, a paso fijo), las manda y compara con la decisión original. Si el módulo no existe, avisa por stderr y sigue sin esas métricas.
+`--robustez` convierte cada fila en un caso completo (`{texto, pregunta, kind, opciones[{id, description}], etiqueta}`) y pide a `chispa.variantes.generar(caso, tipos, semilla=0)` una variante por transformación: `permutar` (orden de opciones), `renombrar` (ids opacos), `parafrasear` (la pregunta), `erratas`, `mayusculas`, `mezcla` (español/inglés) y `largo`. Manda cada variante con sus opciones y compara su decisión con la original usando `variantes.estabilidad`, que traduce los ids con el `mapa` de la variante (en `multi`, el conjunto de opciones activas, traducido igual). `permutar` y `renombrar` solo se aplican a `choice` y `multi`: los ids de `noul` (`false`/`true`) y de `score` (niveles) significan algo. Una variante que no cambia nada (p. ej. un texto ya en mayúsculas) no cuenta; una con error cuenta siempre como decisión cambiada.
+
+El informe da, por conjunto, tipo, grupo y global, `estabilidad` (% de decisiones que no cambian), `delta_conf` (media de \|confianza variante − original\|) y `delta_conf_p95`; y una tabla «Robustez por transformación» (global y por conjunto). Se perturban hasta `--robustez-max` filas por conjunto (200, a paso fijo). Si el módulo no existe, avisa por stderr y sigue sin esas métricas.
+
+**Mínimo de estabilidad (opcional).** Una línea base puede traer `estabilidad_min` (fracción, p. ej. `0.9`): arriba del todo vale para `global` y cada conjunto, y dentro de una entrada (`global`, un conjunto, tipo o grupo) vale solo para ella. Si la estabilidad medida baja de ese mínimo, o falta, la puerta falla, aunque la línea base no haya empeorado. Se añade a mano al JSON de la línea base y `--guardar-linea-base` lo conserva al regenerarla.
 
 ## Informe
-`--salida informe` escribe `informe.md` (tablas por global, tipo, grupo y conjunto, y el veredicto frente a la línea base) e `informe.json`; con `--filas`, también la predicción de cada fila. Sin `--salida` imprime el markdown. Los errores y avisos van por stderr. Probada con un servidor falso en `sdk/python/tests/test_bateria.py`.
+El informe incluye la sección «CALIB del servidor» (leída de `/metrics`, con `--tok` o `CHISPA_TOKEN_METRICAS` si está protegido; `calib_servidor` en el JSON) y un AVISO, también por stderr, si alguna capa decidió con la CALIB por defecto.
+
+`--salida informe` escribe `informe.md` (tablas por global, tipo, grupo y conjunto, y el veredicto frente a la línea base) e `informe.json`; con `--filas`, también la predicción de cada fila. Sin `--salida` imprime el markdown. Los errores y avisos van por stderr. Probada con servidores falsos en `sdk/python/tests/test_bateria.py` (en robustez, uno estable y otro que cambia con la permutación).
+
+## Latencia por muestras, CALIB por corrida, textos largos y línea base corrupta
+- **Latencia**: p50/p99 salen solo de las filas con respuesta; el reporte guarda `n_latencia` y la puerta no los juzga con menos de 30 muestras de latencia (en la base o en la corrida), no con menos de 30 filas. Las bases antiguas sin `n_latencia` usan `n`.
+- **Línea base anterior a las métricas de escalado** (sin `exactitud_contestada`): no falla; avisa y pide regenerarla. Su `exactitud` contaba lo escalado sin respuesta como fallo; la actual es el argmax de `probs`.
+- **CALIB**: se lee `/metrics` antes de la pasada y después de todo (robustez incluida); `calib_servidor.defecto` y el aviso son la diferencia, no los contadores acumulados del servidor. Si no se pudo leer la lectura previa, el contador es el acumulado y el informe lo dice (`defecto_acumulado`).
+- **`--agrupar`**: las filas con el mismo texto viajan en una sola petición (una pregunta por fila, ids `q0…`), como un cliente que agrupa preguntas; sin él, una pregunta por petición. La latencia de cada fila es la de la petición, y un fallo de la petición lo es de todas sus filas. Sirve para poner a prueba el presupuesto por petición del servidor (`max_trozos`).
+- **Textos largos (sintético)**: `python sdk/python/ejemplos/bateria_textos_largos.py DIR --textos 6 --preguntas 4 --kb 24` crea `DIR/manifiesto.json` y `largos.jsonl` (textos de ~24 KB, 4 preguntas cada uno); córrelo con `chispa evaluar --bateria DIR/manifiesto.json --url … --agrupar`. Sin `--agrupar` no ve los fallos de presupuesto por petición. Falta el dorado de servidor (`server/`, fuera de esta zona).
+- **`--guardar-linea-base RUTA`**: valida la ruta antes de medir (directorio, carpeta inexistente o sin permiso → código 2 sin correr). Si `RUTA` existe y no es una línea base válida, avisa, la ignora y la sobrescribe.

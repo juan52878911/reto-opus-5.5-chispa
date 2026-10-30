@@ -76,6 +76,61 @@ class TestVariantes(unittest.TestCase):
         for v in V.generar(c, V.TIPOS, 0):
             self.assertEqual(v["etiqueta"], 0.9)
 
+    def test_renombrar_multi_traduce_lista(self):
+        c = dict(CASO, kind="multi", etiqueta=["pago", "saldo"])
+        v = V.renombrar(c, random.Random(0))
+        self.assertEqual(v["etiqueta"], [v["mapa"]["pago"], v["mapa"]["saldo"]])
+        self.assertTrue(all(e.startswith("x") for e in v["etiqueta"]))
+
+    def test_renombrar_identidad_en_noul_y_score(self):
+        noul = {"texto": "t", "pregunta": "¿Es spam?", "kind": "noul", "etiqueta": "true",
+                "opciones": [{"id": "true", "description": "sí"}, {"id": "false", "description": "no"}]}
+        score = {"texto": "t", "pregunta": "¿Cuánto?", "kind": "score", "etiqueta": "2",
+                 "opciones": [{"id": "1", "description": "poco"}, {"id": "2", "description": "mucho"}]}
+        for c in (noul, score):
+            for v in V.generar(c, V.TIPOS, 0):
+                if v["variante"] == "renombrar":
+                    self.assertEqual([o["id"] for o in v["opciones"]], [o["id"] for o in c["opciones"]])
+                    self.assertEqual(v["etiqueta"], c["etiqueta"])
+
+    def test_permutar_en_noul_conserva_etiqueta_por_id(self):
+        noul = {"texto": "t", "pregunta": "¿Es spam?", "kind": "noul", "etiqueta": "true",
+                "opciones": [{"id": "true", "description": "sí"}, {"id": "false", "description": "no"}]}
+        ordenes = {tuple(o["id"] for o in V.permutar(noul, random.Random(s))["opciones"]) for s in range(20)}
+        self.assertEqual(ordenes, {("true", "false"), ("false", "true")})
+        self.assertTrue(all(V.permutar(noul, random.Random(s))["etiqueta"] == "true" for s in range(5)))
+
+    def test_permutar_en_score_es_segura_y_documenta_el_invariante(self):
+        score = {"texto": "t", "pregunta": "¿Qué tan urgente?", "kind": "score", "etiqueta": "2",
+                 "opciones": [{"id": str(i), "description": f"nivel {i}"} for i in (1, 2, 3)]}
+        self.assertIn("permutar", V.SEGURAS)
+        ordenes = set()
+        for s_ in range(20):
+            v = V.permutar(score, random.Random(s_))
+            ordenes.add(tuple(o["id"] for o in v["opciones"]))
+            self.assertEqual(sorted(o["id"] for o in v["opciones"]), ["1", "2", "3"])
+            self.assertEqual(v["etiqueta"], "2")
+            self.assertEqual(v["mapa"], {"1": "1", "2": "2", "3": "3"})
+        self.assertGreater(len(ordenes), 1)
+        self.assertIn("ordena las opciones por id", V.permutar.__doc__)
+        self.assertIn("ordena las opciones por id", V.__doc__)
+
+    def test_largo_sin_negaciones_y_glosario_sin_ambiguas(self):
+        for r in V.RELLENO:
+            self.assertNotRegex(r.lower(), r"\b(no|sin|ni|nada)\b")
+        self.assertFalse({"su", "tiempo", "cuenta", "pago"} & set(V.GLOSARIO))
+
+    def test_riesgo_marcado(self):
+        for v in V.generar(CASO, V.TIPOS, 0):
+            self.assertEqual(v["riesgo"] is None, v["variante"] in V.SEGURAS, v["variante"])
+
+    def test_parafrasear_en_ingles(self):
+        c = dict(CASO, pregunta="What is the intent of the customer?")
+        for s in range(10):
+            p = V.generar(c, ["parafrasear"], s)[0]["pregunta"]
+            self.assertIn("intent of the customer?", p)
+            self.assertNotRegex(p, r"Dime|Necesito|Por favor|Sobre el|Con base")
+
     def test_tipo_desconocido(self):
         with self.assertRaises(ValueError):
             V.generar(CASO, ["nada"], 0)

@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -273,12 +274,16 @@ func run(args []string) error {
 			json.NewEncoder(w).Encode(map[string]bool{"enabled": ln.Toggle()})
 		})
 	}
-	srv := &http.Server{Addr: *addr, Handler: web.Handler(hub, metrics, fl.kill, fl.revive, extra)}
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal(err)
-		}
-	}()
+	srv := &http.Server{Handler: web.Handler(hub, metrics, fl.kill, fl.revive, extra)}
+	// El panel escucha aquí mismo: con -addr host:0 el sistema elige el puerto
+	// y *addr pasa a ser el real; si está ocupado, falla ya (y las defer paran
+	// las réplicas) en vez de con log.Fatal, que se saltaría la limpieza.
+	pln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		return fmt.Errorf("panel: no pude escuchar en %s: %w", *addr, err)
+	}
+	*addr = pln.Addr().String()
+	go srv.Serve(pln)
 	defer srv.Close()
 	go func() {
 		t := time.NewTicker(time.Second)

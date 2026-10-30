@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from .cliente import Chispa, ChispaError
@@ -41,14 +42,34 @@ Qué hace falta instalado:
 Esquemas .yaml: pip install chispa[yaml]; los .json no lo piden."""
 
 
+def _validar_destino(ruta: str) -> None:
+    """Falla antes de medir si `--guardar-linea-base` no podrá escribir en `ruta`."""
+    from .bateria import ErrorBateria
+    if os.path.isdir(ruta):
+        raise ErrorBateria(f"--guardar-linea-base {ruta}: es un directorio")
+    carpeta = os.path.dirname(os.path.abspath(ruta))
+    if not os.path.isdir(carpeta) or not os.access(carpeta, os.W_OK) or (os.path.exists(ruta) and not os.access(ruta, os.W_OK)):
+        raise ErrorBateria(f"--guardar-linea-base {ruta}: no se puede escribir ahí")
+
+
 def _bateria(a) -> int:
     """0 bien · 1 una métrica empeora más que su umbral · 2 manifiesto, datos o servidor mal puestos."""
-    from .bateria import ErrorBateria, bateria, json_reporte, linea_base
+    from .bateria import ErrorBateria, _heredar_estabilidad_min, bateria, cargar_json, json_reporte, linea_base
     aviso = lambda m: print(f"chispa: aviso: {m}", file=sys.stderr)
     try:
+        if a.guardar_linea_base and a.solo:
+            raise ErrorBateria("--guardar-linea-base con --solo guardaría una línea base parcial: quita --solo")
+        previa_dict = None
+        if a.guardar_linea_base:
+            _validar_destino(a.guardar_linea_base)
+            if not a.linea_base and os.path.exists(a.guardar_linea_base):
+                try:
+                    previa_dict = cargar_json(a.guardar_linea_base, "línea base")
+                except ErrorBateria as e:
+                    aviso(f"{e}: se ignora y se sobrescribe")
         r = bateria(a.bateria, url=a.url, modelo=a.modelo, servidor=a.servidor, tok=a.tok, config=a.config, extra=a.servidor_arg, linea_base=a.linea_base,
                     umbrales=a.umbrales, robustez=a.robustez, robustez_max=a.robustez_max, solo=a.solo or None, objetivo=a.precision_objetivo,
-                    concurrencia=a.concurrencia, timeout=a.timeout, reintentos=a.reintentos, filas=a.filas, aviso=aviso)
+                    concurrencia=a.concurrencia, timeout=a.timeout, reintentos=a.reintentos, filas=a.filas, agrupar=a.agrupar, aviso=aviso)
         if a.salida:
             with open(a.salida + ".md", "w", encoding="utf-8") as f:
                 f.write(r["informe"])
@@ -59,8 +80,11 @@ def _bateria(a) -> int:
             print(r["informe"], end="")
         if a.guardar_linea_base:
             if r["ok"]:
+                if previa_dict is not None:  # regenerar sobre la misma ruta: conserva su estabilidad_min
+                    _heredar_estabilidad_min(r, previa_dict)
+                lb = linea_base(r)  # falla (2) si la corrida es parcial
                 with open(a.guardar_linea_base, "w", encoding="utf-8") as f:
-                    json.dump(linea_base(r), f, ensure_ascii=False, indent=2)
+                    json.dump(lb, f, ensure_ascii=False, indent=2)
                 print(f"chispa: línea base guardada en {a.guardar_linea_base}", file=sys.stderr)
             else:
                 print("chispa: no guardo la línea base: la comparación falla", file=sys.stderr)
@@ -159,6 +183,7 @@ def main(argv=None) -> int:
     e.add_argument("--umbrales", help="con --bateria: JSON de umbrales {métrica: empeoramiento máximo, por_conjunto: {nombre: {…}}}; pisa a los del manifiesto")
     e.add_argument("--robustez", action="store_true", help="con --bateria: mide la estabilidad frente a variantes de chispa.variantes (si no existe, avisa)")
     e.add_argument("--robustez-max", type=int, default=200, help="con --robustez: filas por conjunto (a paso fijo) que se perturban (200)")
+    e.add_argument("--agrupar", action="store_true", help="con --bateria: las filas con el mismo texto viajan en una sola petición (varias preguntas por texto)")
     e.add_argument("--solo", action="append", default=[], metavar="NOMBRE", help="con --bateria: solo estos conjuntos (repetible); la comparación pasa a ser parcial")
     e.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
     e.add_argument("--precision-objetivo", type=float, default=None, help="precisión a la que se da la cobertura (0,95; con --bateria, la del manifiesto si la trae)")

@@ -20,15 +20,16 @@ const tDefecto = 0.05
 // sobre los niveles (en el orden de la pregunta) y la respuesta es la mediana de
 // esa distribución, con confianza P(mediana).
 type L1 struct {
-	m      *l1.Modelo
-	calib  chispa3.Calib
-	cache  *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
-	sopl   *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
-	lambda *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
-	largo  TextoLargo                 // estrategia para textos que pasan de max_tokens; cero = cabeza
-	met    *Metricas
-	Hits   atomic.Uint64
-	Misses atomic.Uint64
+	m               *l1.Modelo
+	calib           chispa3.Calib
+	sinCalibFichero bool                       // el .chispa no trae CALIB (τ y tipos por defecto)
+	cache           *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
+	sopl            *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
+	lambda          *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
+	largo           TextoLargo                 // estrategia para textos que pasan de max_tokens; cero = cabeza
+	met             *Metricas
+	Hits            atomic.Uint64
+	Misses          atomic.Uint64
 }
 
 // NuevoL1Modelo monta L1 sobre un modelo ya abierto. calib puede estar vacía (T por defecto).
@@ -58,6 +59,7 @@ func (l *L1) ConCacheBytes(mb int) *L1 {
 func (l *L1) UsaMetricas(m *Metricas) {
 	l.met = m
 	if m != nil {
+		m.FijaCalib(VistaCalibCapa("L1", l.calib, OrigenFichero, !l.sinCalibFichero))
 		m.FijaCacheBytes("l1", func() int64 { return l.cache.Bytes() })
 	}
 }
@@ -82,7 +84,7 @@ func (l *L1) ConTextoLargo(tl TextoLargo) *L1 {
 
 // ventanasMsg devuelve el embedding de cada ventana del mensaje (las que no tienen tokens se omiten) y cuenta en /metrics los
 // textos que pasan del tope. Sin estrategia, o con un texto que cabe, es la única ventana de siempre (Embed del texto entero).
-func (l *L1) ventanasMsg(estado string) [][]float32 {
+func (l *L1) ventanasMsg(ctx context.Context, estado string) [][]float32 {
 	dim := l.m.Dim()
 	un := func(ids []int32) [][]float32 {
 		e := make([]float32, dim)
@@ -98,7 +100,7 @@ func (l *L1) ventanasMsg(estado string) [][]float32 {
 	if !l.largo.Activa() {
 		ids, trunc := l.m.TokenizarTruncado(estado)
 		if trunc {
-			l.met.ObservaTextoLargo("L1", 1)
+			l.textoLargo(ctx, estado, 1)
 		}
 		return un(ids)
 	}
@@ -106,22 +108,55 @@ func (l *L1) ventanasMsg(estado string) [][]float32 {
 	if len(todo) <= n {
 		ids, trunc := l.m.TokenizarTruncado(estado) // cabe en la ventana: lo de siempre
 		if trunc {
-			l.met.ObservaTextoLargo("L1", 1)
+			l.textoLargo(ctx, estado, 1)
 		}
 		return un(ids)
 	}
-	var out [][]float32
-	ws := tok.Trocear(todo, n, l.largo)
-	for _, w := range ws {
-		out = append(out, un(w)...)
+	// Memoria por texto: las ventanas se eligen, se embeben y se cobran una vez por petición; todas las preguntas sobre el mismo
+	// texto usan las mismas ventanas, sea cual sea su orden o cuántas haya en la petición.
+	pr := presupuestoDe(ctx)
+	pr.mu.Lock()
+	if pr.l1v == nil {
+		pr.l1v = map[string]*ventanasL1Memo{}
 	}
-	l.met.ObservaTextoLargo("L1", len(ws))
-	return out
+	m := pr.l1v[estado]
+	if m == nil {
+		m = &ventanasL1Memo{}
+		pr.l1v[estado] = m
+	}
+	pr.mu.Unlock()
+	m.once.Do(func() {
+		ws := tok.Trocear(todo, n, l.largo)
+		if cupo := pr.cupoTrozos(capaL1, l.largo.Trozos()); len(ws) > cupo {
+			ws = ws[:cupo]
+		}
+		pr.cobraTrozos(capaL1, len(ws))
+		for _, w := range ws {
+			m.v = append(m.v, un(w)...)
+		}
+		l.textoLargo(ctx, estado, len(ws))
+	})
+	return m.v
+}
+
+// textoLargo cuenta en /metrics un texto largo y sus ventanas una sola vez por petición, aunque tenga muchas preguntas.
+func (l *L1) textoLargo(ctx context.Context, estado string, ventanas int) {
+	pr := presupuestoDe(ctx)
+	pr.mu.Lock()
+	visto := pr.l1[estado]
+	if pr.l1 == nil {
+		pr.l1 = map[string]bool{}
+	}
+	pr.l1[estado] = true
+	pr.mu.Unlock()
+	if !visto {
+		l.met.ObservaTextoLargo("L1", ventanas)
+	}
 }
 
 func (l *L1) Nombre() string { return "L1" }
 
-func (l *L1) params(tipo string) chispa3.ParamsTipo { return paramsDe(l.calib, tipo) }
+func (l *L1) params(tipo string) chispa3.ParamsTipo { return paramsDeCapa(l.met, "L1", l.calib, tipo) }
 
 // paramsDe devuelve los parámetros calibrados de un tipo, o unos por defecto.
 func paramsDe(c chispa3.Calib, tipo string) chispa3.ParamsTipo {
@@ -179,7 +214,7 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
-	msgs := l.ventanasMsg(p.Estado)
+	msgs := l.ventanasMsg(ctx, p.Estado)
 	if len(msgs) == 0 {
 		return Respuesta{}, nil
 	}
@@ -223,6 +258,10 @@ func (l *L1) paramsScore() chispa3.ParamsTipo {
 	if p, ok := l.calib.Tipos["score"]; ok && p.T > 0 {
 		return p
 	}
+	if _, ok := l.calib.Tipos["choice"]; !ok {
+		l.met.CalibDefecto("L1", "score")
+		return paramsDe(l.calib, "score")
+	}
 	return l.params("choice")
 }
 
@@ -232,7 +271,7 @@ func (l *L1) paramsScore() chispa3.ParamsTipo {
 func respuestaScore(p Pregunta, sims []float64, T float64) Respuesta {
 	r := respuestaSoftmax(p, sims, T)
 	var acc float64
-	for _, o := range p.Opciones {
+	for _, o := range opcionesPorNivel(p.Opciones) {
 		acc += r.Probs[o.ID]
 		if acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]

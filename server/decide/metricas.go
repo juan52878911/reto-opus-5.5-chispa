@@ -85,6 +85,9 @@ type Metricas struct {
 
 	cachesBytes map[string]func() int64 // chispa_cache_bytes{cache}, bajo mu
 
+	calibs       map[string]VistaCalib        // CALIB efectiva por capa (calibvis.go), bajo mu
+	calibDefecto map[[2]string]*atomic.Uint64 // chispa_calib_defecto_total{capa,tipo}, bajo mu
+
 	l3Llamadas map[string]*atomic.Uint64 // chispa_l3_llamadas_total{resultado}, bajo mu
 	l3Lat      histo                     // latencia de cada llamada al LLM de L3
 
@@ -147,7 +150,7 @@ func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resul
 
 func NuevasMetricas() *Metricas {
 	return &Metricas{clavesN: map[[2]string]*atomic.Uint64{}, recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
-		decididas: map[string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}}
+		decididas: map[string]*atomic.Uint64{}, calibDefecto: map[[2]string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}}
 }
 
 // l3Cuenta cuenta una llamada de L3 por resultado: ok, invalida (respuesta que no sirve), error, timeout o presupuesto (tope por
@@ -221,6 +224,7 @@ func claves[V any](mu *sync.Mutex, m map[string]V) []string {
 // Escribe vuelca el formato de texto de Prometheus.
 func (m *Metricas) Escribe(w io.Writer) {
 	defer m.escribeCachesBytes(w)
+	defer m.escribeCalib(w)
 	fmt.Fprintln(w, "# HELP chispa_peticiones_total Peticiones a /v1/decide por código HTTP.")
 	fmt.Fprintln(w, "# TYPE chispa_peticiones_total counter")
 	m.mu.Lock()
@@ -306,10 +310,10 @@ func (m *Metricas) Escribe(w io.Writer) {
 	fmt.Fprintln(w, "# HELP chispa_torre_latencia_segundos Latencia de cada cálculo de torre al vuelo.")
 	fmt.Fprintln(w, "# TYPE chispa_torre_latencia_segundos histogram")
 	m.torreLatencia.escribe(w, "chispa_torre_latencia_segundos")
-	fmt.Fprintln(w, "# HELP chispa_texto_largo_total Peticiones cuyo texto superó el truncado de la capa (max_len de L2, max_tokens de L1).")
+	fmt.Fprintln(w, "# HELP chispa_texto_largo_total Textos largos distintos por petición que superaron el truncado de la capa (max_len de L2, max_tokens de L1); un texto con varias preguntas cuenta 1.")
 	fmt.Fprintln(w, "# TYPE chispa_texto_largo_total counter")
 	fmt.Fprintf(w, "chispa_texto_largo_total{capa=\"L1\"} %d\nchispa_texto_largo_total{capa=\"L2\"} %d\n", m.TextoLargoL1.Load(), m.TextoLargoL2.Load())
-	fmt.Fprintln(w, "# HELP chispa_texto_largo_trozos_total Ventanas decididas en textos largos (cabeza y cabeza_cola, 1 por petición; trozos, hasta max_trozos).")
+	fmt.Fprintln(w, "# HELP chispa_texto_largo_trozos_total Ventanas decididas en textos largos, 1 por texto y petición con cabeza y cabeza_cola; con trozos, las que quepan en max_trozos de la petición.")
 	fmt.Fprintln(w, "# TYPE chispa_texto_largo_trozos_total counter")
 	fmt.Fprintf(w, "chispa_texto_largo_trozos_total{capa=\"L1\"} %d\nchispa_texto_largo_trozos_total{capa=\"L2\"} %d\n", m.TrozosL1.Load(), m.TrozosL2.Load())
 	fmt.Fprintln(w, "# HELP chispa_esquema_nuevo_preguntas_total Preguntas que L2 puntuó con torres al vuelo (esquema ausente de ESQUEMAS).")

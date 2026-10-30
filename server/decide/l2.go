@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"chispa/format/chispa3"
+	"chispa/runtime/tok"
 )
 
 // Tokenizador convierte un texto en ids del tokenizador original de e5 (con «query: »
@@ -27,11 +28,13 @@ type SesionS interface {
 // L2 es la capa neuronal: ranuras del mensaje (ONNX) contra las torres de opción
 // de ESQUEMAS, con MaxSim = max_k softplus(h · s_k) y las cabezas de CALIB.
 type L2 struct {
-	ses   SesionS
-	tok   Tokenizador
-	esq   *chispa3.Esquemas
-	calib chispa3.Calib
-	multi indiceCalib // índice de CALIB de multi, calculado una vez
+	ses             SesionS
+	tok             Tokenizador
+	esq             *chispa3.Esquemas
+	calib           chispa3.Calib
+	origenCalib     string      // de dónde salen los tipos de calib: OrigenFichero u OrigenTiposL2
+	sinCalibFichero bool        // el .chispa no trae CALIB
+	multi           indiceCalib // índice de CALIB de multi, calculado una vez
 
 	// Torres al vuelo para esquemas que ESQUEMAS no trae (nil = sin opinión, como antes).
 	torres CodificadorTorre
@@ -98,6 +101,11 @@ func (l *L2) tomaFichaTorre() bool {
 func (l *L2) UsaMetricas(m *Metricas) {
 	l.met = m
 	if m != nil {
+		or := l.origenCalib
+		if or == "" {
+			or = OrigenFichero
+		}
+		m.FijaCalib(VistaCalibCapa("L2", l.calib, or, !l.sinCalibFichero))
 		m.FijaCacheBytes("torres", func() int64 {
 			if l.cache == nil {
 				return 0
@@ -209,7 +217,47 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, err e
 type claveCtxPresupuesto struct{}
 
 // presupuestoTorres cuenta las torres nuevas que ha calculado una petición.
-type presupuestoTorres struct{ usadas atomic.Int64 }
+type presupuestoTorres struct {
+	usadas atomic.Int64
+
+	mu     sync.Mutex
+	trozos [2]int                     // ventanas de texto largo ya decididas por la petición, por capa (capaL1, capaL2): L1 no gasta el cupo de L2
+	l1v    map[string]*ventanasL1Memo // ventanas de L1 por texto: se embeben y se cobran una vez por petición, no por pregunta
+	l1     map[string]bool            // textos largos ya contados en L1 (por texto, no por pregunta)
+	l2     map[string]*ranurasMemo    // ranuras de ONNX por texto: una pasada por ventana y petición, no por pregunta
+}
+
+// ranurasMemo guarda las ranuras de cada ventana de un texto, calculadas una sola vez en la petición.
+type ranurasMemo struct {
+	once sync.Once
+	rs   [][][]float32
+	err  error
+}
+
+const (
+	capaL1 = 0
+	capaL2 = 1
+)
+
+// ventanasL1Memo guarda los embeddings de las ventanas de un texto largo en L1, calculados una sola vez en la petición.
+type ventanasL1Memo struct {
+	once sync.Once
+	v    [][]float32
+}
+
+// cupoTrozos son las ventanas que aún puede decidir un texto largo de la petición en esa capa: lo que queda de max_trozos, y siempre al
+// menos la primera (la cabeza), sin la cual el texto no se podría decidir.
+func (p *presupuestoTorres) cupoTrozos(capa, tope int) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return max(1, tope-p.trozos[capa])
+}
+
+func (p *presupuestoTorres) cobraTrozos(capa, n int) {
+	p.mu.Lock()
+	p.trozos[capa] += n
+	p.mu.Unlock()
+}
 
 // conPresupuesto devuelve un ctx con un presupuesto de torres nuevas propio de la petición, si no lo tenía ya.
 func conPresupuesto(ctx context.Context) context.Context {
@@ -377,16 +425,57 @@ func (l *L2) simsDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([][]floa
 
 // idsConsulta son los ids de cada ventana del mensaje. Un tokenizador que sabe trocear da las de la estrategia (y cuenta en
 // /metrics los textos que pasan de max_len); si no, la única de siempre.
-func (l *L2) idsConsulta(estado string) [][]int64 {
+func (l *L2) idsConsulta(pr *presupuestoTorres, estado string) [][]int64 {
 	tt, ok := l.tok.(TokenizadorTrozos)
 	if !ok {
 		return [][]int64{l.tok.IDs(estado)}
 	}
 	ws, largo := tt.Trozos(estado, l.largo)
 	if largo {
+		if cupo := pr.cupoTrozos(capaL2, l.largo.Trozos()); len(ws) > cupo {
+			ws = ws[:cupo]
+		}
+		pr.cobraTrozos(capaL2, len(ws))
 		l.met.ObservaTextoLargo("L2", len(ws))
 	}
 	return ws
+}
+
+// ranurasConsulta son las ranuras de cada ventana del mensaje, memoizadas por texto en la petición: el ONNX corre una vez por
+// ventana aunque la petición haga muchas preguntas sobre el mismo texto.
+func (l *L2) ranurasConsulta(ctx context.Context, estado string) ([][][]float32, error) {
+	pr := presupuestoDe(ctx)
+	pr.mu.Lock()
+	if pr.l2 == nil {
+		pr.l2 = map[string]*ranurasMemo{}
+	}
+	m := pr.l2[estado]
+	if m == nil {
+		m = &ranurasMemo{}
+		pr.l2[estado] = m
+	}
+	pr.mu.Unlock()
+	m.once.Do(func() {
+		for _, ids := range l.idsConsulta(pr, estado) {
+			var S [][]float32
+			var err error
+			if sc, ok := l.ses.(SesionSCtx); ok {
+				S, err = sc.RanurasCtx(ctx, ids)
+			} else {
+				S, err = l.ses.Ranuras(ids)
+			}
+			if err != nil {
+				m.err = err
+				return
+			}
+			if len(S) == 0 {
+				m.err = fmt.Errorf("L2: el codificador no devolvió ranuras")
+				return
+			}
+			m.rs = append(m.rs, S)
+		}
+	})
+	return m.rs, m.err
 }
 
 // ventanasDeCtx corre el ONNX en cada ventana del mensaje (como mucho max_trozos) y puntúa cada una contra las torres.
@@ -394,21 +483,12 @@ func (l *L2) ventanasDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([]ve
 	if l.tok == nil {
 		return nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}
+	rs, err := l.ranurasConsulta(ctx, NormalizarMayusculas(p.Estado))
+	if err != nil {
+		return nil, false, err
+	}
 	var vs []ventana
-	for _, ids := range l.idsConsulta(p.Estado) {
-		var S [][]float32
-		var err error
-		if sc, ok := l.ses.(SesionSCtx); ok {
-			S, err = sc.RanurasCtx(ctx, ids)
-		} else {
-			S, err = l.ses.Ranuras(ids)
-		}
-		if err != nil {
-			return nil, false, err
-		}
-		if len(S) == 0 {
-			return nil, false, fmt.Errorf("L2: el codificador no devolvió ranuras")
-		}
+	for _, S := range rs {
 		for _, t := range ts {
 			if len(S[0]) != len(t.v) {
 				return nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(t.v))
@@ -445,9 +525,36 @@ func clavesDe(ops []Opcion) []chispa3.OpcionClave {
 	return out
 }
 
+// ordenNivel ordena las opciones de un score por nivel con tok.OrdenNivel: por id numérico ("2" < "10") si todos son enteros; si
+// alguno no lo es, el orden declarado sin tocarlo (nunca lexicográfico). El bool dice si todos eran numéricos. No modifica ops.
+func ordenNivel(ops []Opcion) ([]Opcion, bool) {
+	ids := make([]string, len(ops))
+	pos := make(map[string]int, len(ops))
+	for i, o := range ops {
+		ids[i] = o.ID
+		if _, ok := pos[o.ID]; !ok {
+			pos[o.ID] = i
+		}
+	}
+	out := make([]Opcion, len(ops))
+	for i, id := range tok.OrdenNivel(ids) {
+		out[i] = ops[pos[id]]
+	}
+	return out, tok.IdsEnteros(ids)
+}
+
+// opcionesPorNivel es ordenNivel sin el bool.
+func opcionesPorNivel(ops []Opcion) []Opcion {
+	out, _ := ordenNivel(ops)
+	return out
+}
+
 // opcionesUnica son las opciones de la única torre de noul (false y true, con la descripción de la petición si la trae) y
 // score (todas).
 func opcionesUnica(p Pregunta) []Opcion {
+	if p.Kind == KindScore {
+		return opcionesPorNivel(p.Opciones)
+	}
 	if p.Kind != KindNoul {
 		return p.Opciones
 	}
@@ -512,9 +619,9 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	for i, v := range vs {
 		switch p.Kind {
 		case KindChoice:
-			rs[i] = respuestaSoftmax(p, v.sims, paramsDe(l.calib, "choice").T)
+			rs[i] = respuestaSoftmax(p, v.sims, paramsDeCapa(l.met, "L2", l.calib, "choice").T)
 		case KindNoul:
-			prm := paramsDe(l.calib, "noul")
+			prm := paramsDeCapa(l.met, "L2", l.calib, "noul")
 			theta = prm.Theta
 			rs[i] = respuestaNoul(prm.A*v.sims[0]+prm.B, prm.Theta)
 		default:
@@ -525,15 +632,29 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 			rs[i] = r
 		}
 	}
+	if p.Kind == KindScore {
+		p.Opciones = opcionesPorNivel(p.Opciones) // la mediana de la agregación recorre los niveles, no el orden de la petición
+	}
 	return agregarRespuestas(p, rs, agg, theta), nil
 }
 
 // score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j» (j = 1..K−2, como a_calib_chispa).
 func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 	K := len(p.Opciones)
-	for i, o := range p.Opciones {
-		if o.ID != strconv.Itoa(i+1) {
-			return Respuesta{}, nil // las cabezas de score van sobre 1..K en orden
+	// El orden de los niveles es el del id numérico (como model/l2/modelo.py): el orden de la petición no cambia la respuesta.
+	// Si ningún id es entero se conserva el orden declarado (Python rechaza esos casos); una mezcla no opina.
+	ops, numerico := ordenNivel(p.Opciones)
+	if !numerico {
+		for _, o := range ops {
+			if _, err := strconv.Atoi(o.ID); err == nil {
+				return Respuesta{}, nil // mezcla de ids enteros y no enteros: el nivel sería ambiguo
+			}
+		}
+	} else {
+		for i, o := range ops {
+			if o.ID != strconv.Itoa(i+1) {
+				return Respuesta{}, nil // las cabezas de score numéricas van sobre 1..K
+			}
 		}
 	}
 	clave := "score" + strconv.Itoa(K)
@@ -564,7 +685,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 			lo = sup[i]
 		}
 		d := math.Max(hi-lo, 0)
-		r.Probs[p.Opciones[i].ID] = d
+		r.Probs[ops[i].ID] = d
 		suma += d
 	}
 	for id, d := range r.Probs { // con acumuladas no monótonas las diferencias recortadas suman > 1: se normaliza
@@ -578,7 +699,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 			k++
 		}
 	}
-	r.Answer = p.Opciones[k].ID
+	r.Answer = ops[k].ID
 	r.Conf = r.Probs[r.Answer]
 	return r, nil
 }

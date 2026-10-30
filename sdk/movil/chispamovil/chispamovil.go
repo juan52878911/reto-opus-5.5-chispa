@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
@@ -125,6 +126,8 @@ type Chispa struct {
 	calibInfo  [2]infoMulti // [0] tipos (L1), [1] tipos que lee L2
 	multiAus   atomic.Int64 // peticiones multi cuya CALIB tiene claves con esquema de la capa y ninguna casa
 	avisoMulti sync.Once
+
+	defecto contadorDefecto // decisiones con parámetros de CALIB por defecto (CalibDefectoJSON)
 
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
@@ -303,6 +306,7 @@ func (c *Chispa) montar() error {
 			}
 		}
 	}
+	c.avisarCalib()
 	return nil
 }
 
@@ -545,11 +549,13 @@ func errSeparador(campo string) error {
 }
 
 // params son los parámetros de un tipo en los tipos de L1.
-func (c *Chispa) params(tipo string) chispa3.ParamsTipo { return paramsTipo(c.calib.Tipos, tipo) }
+func (c *Chispa) params(tipo string) chispa3.ParamsTipo {
+	return c.paramsCapa("L1", c.calib.Tipos, tipo)
+}
 
 // paramsL2 son los parámetros de un tipo en los tipos que lee L2 (tipos_l2 si existen, si no tipos).
 func (c *Chispa) paramsL2(tipo string) chispa3.ParamsTipo {
-	return paramsTipo(c.calib.ParaL2().Tipos, tipo)
+	return c.paramsCapa("L2", c.calib.ParaL2().Tipos, tipo)
 }
 
 func paramsTipo(tipos map[string]chispa3.ParamsTipo, tipo string) chispa3.ParamsTipo {
@@ -576,6 +582,15 @@ func idsDe(p pregunta) []string {
 		ids[i] = o.ID
 	}
 	return ids
+}
+
+// idsOrdenados son los ids en el orden que usa la agregación: por nivel en score, el declarado en el resto.
+func idsOrdenados(p pregunta) []string {
+	if p.Kind != "score" {
+		return idsDe(p)
+	}
+	ops, _ := ordenNivel(p.Opciones)
+	return idsDe(pregunta{Opciones: ops})
 }
 
 func (c *Chispa) torres(p pregunta) [][]float32 {
@@ -674,7 +689,7 @@ func agregarVentanas(p pregunta, rs []respuesta, agg string, theta float64) resp
 	for i, r := range rs {
 		ps[i] = r.Probs
 	}
-	probs, ans, conf, ok := tok.AgregarProbs(p.Kind, idsDe(p), ps, agg, theta)
+	probs, ans, conf, ok := tok.AgregarProbs(p.Kind, idsOrdenados(p), ps, agg, theta)
 	if !ok {
 		return rs[0]
 	}
@@ -729,6 +744,10 @@ func (c *Chispa) tScore() float64 {
 	if p, ok := c.calib.Tipos["score"]; ok && p.T > 0 {
 		return p.T
 	}
+	if _, ok := c.calib.Tipos["choice"]; !ok {
+		c.defecto.sube("L1", "score")
+		return tDefecto
+	}
 	return c.params("choice").T
 }
 
@@ -737,7 +756,8 @@ func (c *Chispa) tScore() float64 {
 func puntuarNiveles(p pregunta, sims []float64, T float64) respuesta {
 	r := softmax(p, sims, T)
 	var acc float64
-	for _, o := range p.Opciones {
+	ops, _ := ordenNivel(p.Opciones)
+	for _, o := range ops {
 		acc += r.Probs[o.ID]
 		if acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
@@ -982,7 +1002,8 @@ func ordinal(p pregunta, r respuesta) respuesta {
 		return r
 	}
 	var acc float64
-	for _, o := range p.Opciones {
+	ops, _ := ordenNivel(p.Opciones)
+	for _, o := range ops {
 		if acc += r.Probs[o.ID]; acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
 			break
@@ -1069,11 +1090,30 @@ func (c *Chispa) ventanasE5(texto string) [][]int32 {
 	if c.tok == nil {
 		return nil
 	}
-	v, largo := c.tok.Ventanas(tok.Prefijo, texto, c.MaxLenConsulta(), c.largo)
+	v, largo := c.tok.Ventanas(tok.Prefijo, NormalizarMayusculas(texto), c.MaxLenConsulta(), c.largo)
 	if largo {
 		c.largoN.Add(1)
 	}
 	return v
+}
+
+// NormalizarMayusculas aplica el contrato de normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras
+// y más del 70 % en mayúscula devuelve el texto en minúsculas; si no, el mismo. TokenizarE5 y TrozosE5 la aplican al mensaje
+// entero antes de anteponer «query: », tokenizar y ventanear; L0 y L1 no. Función propia: no depende del servidor.
+func NormalizarMayusculas(texto string) string {
+	letras, mayus := 0, 0
+	for _, r := range texto {
+		if unicode.IsLetter(r) {
+			letras++
+			if unicode.IsUpper(r) {
+				mayus++
+			}
+		}
+	}
+	if letras >= 8 && mayus*10 > 7*letras {
+		return strings.ToLower(texto)
+	}
+	return texto
 }
 
 func idsABytes(ids []int32) []byte {
@@ -1176,8 +1216,29 @@ func (c *Chispa) EsquemaEnEsquemas(preguntaJSON string) bool {
 	return err == nil && c.tieneL2 && !c.esquemaNuevo(p)
 }
 
+// ordenNivel ordena las opciones de un score por nivel: por id numérico ("2" < "10") si todos son enteros; si alguno no lo es,
+// conserva el orden declarado (nunca lexicográfico). El bool dice si todos eran numéricos.
+func ordenNivel(ops []opcion) ([]opcion, bool) {
+	out := append([]opcion(nil), ops...)
+	for _, o := range out {
+		if _, err := strconv.Atoi(o.ID); err != nil {
+			return out, false
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, _ := strconv.Atoi(out[i].ID)
+		b, _ := strconv.Atoi(out[j].ID)
+		return a < b
+	})
+	return out, true
+}
+
 // opcionesUnica son las opciones de la única torre de noul (false y true con la descripción de la pregunta) y de score (todas).
 func opcionesUnica(p pregunta) []opcion {
+	if p.Kind == "score" {
+		ops, _ := ordenNivel(p.Opciones)
+		return ops
+	}
 	if p.Kind != "noul" {
 		return p.Opciones
 	}
@@ -1326,9 +1387,20 @@ func ventanasRanuras(b []byte, ks []int, d int) ([][][]float32, error) {
 func (c *Chispa) score(p pregunta, s float64) respuesta {
 	vacia := respuesta{Ok: true, Probs: map[string]float64{}}
 	K := len(p.Opciones)
-	for i, o := range p.Opciones {
-		if o.ID != strconv.Itoa(i+1) {
-			return vacia // las cabezas de score van sobre 1..K en orden
+	// El orden de los niveles es el del id numérico (como el servidor y model/l2/modelo.py): el orden de la petición no cambia la
+	// respuesta. Si ningún id es entero se conserva el orden declarado (Python rechaza esos casos); una mezcla no opina.
+	ops, numerico := ordenNivel(p.Opciones)
+	if !numerico {
+		for _, o := range ops {
+			if _, err := strconv.Atoi(o.ID); err == nil {
+				return vacia // mezcla de ids enteros y no enteros: el nivel sería ambiguo
+			}
+		}
+	} else {
+		for i, o := range ops {
+			if o.ID != strconv.Itoa(i+1) {
+				return vacia // las cabezas de score numéricas van sobre 1..K
+			}
 		}
 	}
 	clave := "score" + strconv.Itoa(K)
@@ -1359,7 +1431,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 			lo = sup[i]
 		}
 		d := math.Max(hi-lo, 0)
-		r.Probs[p.Opciones[i].ID] = d
+		r.Probs[ops[i].ID] = d
 		suma += d
 	}
 	for id, d := range r.Probs { // acumuladas no monótonas: las diferencias recortadas suman > 1; se normaliza (como el servidor)
@@ -1372,7 +1444,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 			k++
 		}
 	}
-	r.Answer = p.Opciones[k].ID
+	r.Answer = ops[k].ID
 	r.Conf = r.Probs[r.Answer]
 	r.Opina = r.Conf > 0
 	return r

@@ -66,8 +66,17 @@ En `score`, `answer` depende de la capa que respondió:
 - **L2:** cabeza CORAL (`server/decide/l2.go`, `score`). `answer` es la **mediana**: el nivel 1 + el número de umbrales
   con P(y > j) > 0,5, igual que en L1. `probs` sale de las diferencias entre las probabilidades acumuladas de sus
   umbrales, P(y = k) = P(y > k−1) − P(y > k), recortadas a ≥ 0; la confianza es `probs[answer]`.
+- **Normalización de mayúsculas (L2):** el mensaje que entra a L2 (también L2c y la torre de consulta) pasa antes de `query: `, de tokenizar y de ventanear por `NormalizarMayusculas`: con ≥ 8 letras y más del 70 % en mayúscula se pasa a minúsculas; la pregunta, los ids y las descripciones no se tocan, ni L0 ni L1. Contrato y diferencias con Python: [contrato-normalizacion.md](contrato-normalizacion.md).
 - **L0:** el clasificador entrenado con los ejemplos; `probs` es su distribución sobre los niveles y `answer` la **mediana**, como en L1 y L2.
 - **L3:** `answer` es la mediana de las `probs` normalizadas.
+
+**Orden de los niveles.** En todas las capas (L0, L1, L2, L3) y al agregar las ventanas de un texto largo, la mediana recorre los
+niveles por id numérico ("2" < "10"), no en el orden en que se declaran las opciones: permutar `options` no cambia `answer`
+(`tok.OrdenNivel`, `runtime/tok/orden.go`). Si algún id no es entero, el orden ordinal es el **declarado** (nunca lexicográfico):
+con ids como `["bajo","medio","alto"]` L2 sigue opinando, con los niveles en ese orden y la torre de consulta de la última
+opción. Es una diferencia con el entrenamiento en Python (`model/l2/modelo.py`, `exportar.py`), que solo admite niveles enteros
+y rechaza esos ids. En ese caso el orden de `options` **es** el orden ordinal y permutarlo cambia el significado de la pregunta
+(y la respuesta); con ids enteros no.
 
 En todos los casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
 
@@ -242,8 +251,25 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_clave_peticiones_total{clave,resultado}` | peticiones por **id** de clave (nunca la clave): `ok` o `limitada` (429) |
 | `chispa_l3_llamadas_total{resultado}` | llamadas de L3 al LLM: `ok`, `invalida` (respuesta que no sirve; L3 no opina), `error`, `timeout`, `presupuesto` (tope por petición agotado; no se llamó). Sin L3, todo 0 |
 | `chispa_l3_latencia_segundos` | histograma de la latencia de cada llamada al LLM |
-| `chispa_texto_largo_total{capa}` | peticiones cuyo texto superó el truncado de la capa (`max_tokens` de L1, `chispa.consulta.max_len` de L2), con la estrategia que sea; `capa` = `L1` o `L2` |
-| `chispa_texto_largo_trozos_total{capa}` | ventanas decididas en esos textos largos: 1 por petición con `cabeza` y `cabeza_cola`, hasta `max_trozos` con `trozos` |
+| `chispa_texto_largo_total{capa}` | textos largos (distintos dentro de una petición) que superaron el truncado de la capa (`max_tokens` de L1, `chispa.consulta.max_len` de L2), con la estrategia que sea; `capa` = `L1` o `L2`. Cuenta por texto y petición, no por pregunta |
+| `chispa_texto_largo_trozos_total{capa}` | ventanas decididas en esos textos largos: 1 por texto y petición con `cabeza` y `cabeza_cola`; con `trozos`, las que quepan en el `max_trozos` de la petición |
+| `chispa_calib{capa,tipo,origen,param}` | gauge: la CALIB efectiva de cada capa (`L1`, `L2`; L2c comparte la de L2). `param` es `T`, `a`, `b` o `theta`; `tipo` es cada clave de la CALIB de la capa (`choice`, `noul`, `score4`, `score4#1`, `multi@…`, `multi_l2@…`…). `origen`: `fichero` (clave de `tipos`), `tipos_l2` (clave de `tipos_l2`, solo L2) o `default` (la capa no la trae y usa T=0,05, a=4, b=−2, θ=0,5; solo se listan así `choice` y `noul`) |
+| `chispa_calib_tau{capa,clave,origen}` | gauge: τ de la CALIB en servicio (`tau_escalate`, y en L2 también `tau_l2c` y `tau_l2_esquema_nuevo` si el `.chispa` los trae); `tau_escalate` de L2 es `tau_escalate_l2` si existe |
+
+Contrato de τ publicados (igual en el servidor y en `chispamovil`, `CalibJSON`): son los **efectivos** (config > CALIB > default), cada uno con su `origen` (`config`, `calib` o `default`). Claves por capa: `tau_escalate` (L1 y L2; en L2 con CONJ y `tau_l2c` es el τ de respaldo de las respuestas de L2 base, el de `tau_escalate_l2`), `tau_l2c` (solo L2 y solo con CONJ y `tau_l2c` en CALIB; es el τ de la cabeza conjunta) y `tau_l2_esquema_nuevo` (solo L2). Sin CONJ no hay `tau_l2c`. En el servidor, las series de CALIB y τ de un modelo se publican cuando ya está en servicio: una recarga rechazada o fallida no las cambia.
+| `chispa_calib_sin_tipo{capa,tipo}` | gauge 1 por cada tipo base (`choice`, `noul`, `score`, `multi`) sin ninguna clave en la CALIB de la capa |
+| `chispa_calib_defecto_total{capa,tipo}` | decisiones que usaron los parámetros por defecto de `choice`/`noul` (o `score` en L1 sin `score` ni `choice`) por falta de CALIB. En `score` y `multi` L2 no usa defecto: no opina (`chispa_multi_l2_sin_calib_total`, `chispa_multi_calib_ausente_total`) |
+
+### CALIB visible
+
+La CALIB (cómo se convierten las puntuaciones en probabilidades) se lee solo de `/metrics`; no hay un endpoint aparte: así hereda
+`-metricas-protegidas` sin repetir la autenticación. Los gauges se rehacen en cada recarga del `.chispa`. Al arrancar y en cada recarga el log trae,
+por capa montada, `AVISO: CALIB de L1 sin los tipos [score multi]: la capa usa parámetros por defecto …` si falta algún tipo base (también
+en `decide.Montaje.AvisosCalib`). Un tipo que falta no es un error: `choice` y `noul` usan los parámetros por defecto y sube
+`chispa_calib_defecto_total`; `score` y `multi` en L2 no opinan.
+`chispa evaluar --url …` lee esa CALIB y la añade al informe (sección «CALIB del servidor») y al JSON (`calib_servidor`); con
+`/metrics` protegidas pasa el token con el parámetro `token` de `chispa.evaluar.evaluar` o la variable `CHISPA_TOKEN_METRICAS`; sin
+poder leerlas, la medición sigue y la sección dice por qué. `chispa evaluar --bateria` no la incluye.
 
 Tras una petición válida y una rota, el test de métricas
 ([`decide_test.go`](../server/decide/decide_test.go)) espera líneas como `chispa_peticiones_total{codigo="200"} 1`,
@@ -278,7 +304,7 @@ así que se rotan sin reiniciar; los cubos empiezan llenos tras una recarga.
 ```
 - `estrategia`: `cabeza` (defecto), `cabeza_cola` (los N/2 primeros y los N/2 últimos tokens, en una sola ventana; N = ventana) o `trozos` (ventanas de N tokens con paso N − `solape`; la primera es la cabeza; en L2 cada ventana vuelve a llevar el prefijo `query: `).
 - `agregacion` (solo con `trozos`): `max` o `media` (defecto `media`) de las probabilidades **por opción** de cada ventana; en `choice` y `score` se renormaliza a 1 (en `score`, la respuesta es la mediana de esa distribución), en `noul` `true` es el agregado, `false` = 1 − `true` y θ decide. En `multi` se agregan las similitudes de cada opción, antes de su sigmoide (con `max` da lo mismo que agregar probabilidades; con `media` es la media de similitudes).
-- `solape` (tokens compartidos entre ventanas contiguas, defecto 0, se acota a N − 1), `max_trozos` (**tope de trozos por petición**: cada trozo cuesta un paso de ONNX en L2; defecto 8, máximo 64; lo que queda más allá se ignora).
+- `solape` (tokens compartidos entre ventanas contiguas, defecto 0, se acota a N − 1), `max_trozos` (**presupuesto de trozos por petición**, compartido entre todas sus preguntas y entre L1 y L2, como el de torres nuevas: cada trozo cuesta un paso de ONNX en L2, que se ejecuta una sola vez por texto y ventana aunque haya muchas preguntas sobre él; defecto 8, máximo 64. Lo que queda más allá se ignora; con el presupuesto gastado, un texto largo más se decide solo con su primera ventana, la cabeza).
 - `ventana_l1` (0 = `max_tokens` del modelo): ventana de L1 con `cabeza_cola` y `trozos`; con `cabeza` no tiene efecto. L2 usa siempre `max_len`.
 - Un texto que cabe en la ventana se decide igual con cualquier estrategia (una sola ventana, idéntica a la cabeza). Se aplica en L1, L2 y L2c (la cabeza conjunta decide cada ventana con las mismas probabilidades de L0 y se agregan). L0 y L3 no cambian. Valores desconocidos o fuera de rango son error de arranque (y de recarga).
 - Coste: `trozos` multiplica por hasta `max_trozos` la inferencia de L2 en los textos largos; `chispa_texto_largo_total` y `chispa_texto_largo_trozos_total` dicen cuántos son y cuánto cuestan. En el móvil es el mismo objeto: `AbrirConTextoLargo` (Go), `Chispa.abrir(textoLargo = TextoLargo(...))` (Kotlin) y `Chispa.abrir(textoLargo: TextoLargo(...))` (Swift); la app pide las ventanas de L2 con `TrozosE5` y las puntúa con `PuntuarL2Trozos` (y `ks` en `CabezaConjunta`).
