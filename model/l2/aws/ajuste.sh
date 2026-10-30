@@ -5,9 +5,10 @@ CHISPA_S3=__CHISPA_S3__
 # (`bash model/l2/aws/empaquetar_ajuste.sh <sha> > codigo.tgz`). Patrón de general.sh. Pasos, cada uno deja OK/FALLO en estado.tsv:
 #   1 entorno · 2 código, G.8 (general-20261029b), HF y JevBench · 3 model.datos (con sib200 y pawsx de train) y meta de tsjev solo (sin synzs ni
 #   los pawsx/sib200 del meta, que repetirían filas) · 3b recuento del orden de score (R16) · 4 `entrenar --desde G.8 --aumento --episodios` (reparto de G.8, sin massive, hatecheck ni
-#   inyecciones; lr 3e-5/1e-5; 50 min) · 5 mide el nuevo Y G.8 en la misma máquina: JevBench k=0, M3 (robustez), M4 (español) · 6 comparacion.md.
-# Sube ckpt/mejor.pt, resultados.tgz, estado.tsv, comparacion.md y log.txt. Coste ≈ 1,5 USD: g5.xlarge 1,01 USD/h × ≈ 90 min (entorno 15, ajuste 50,
-# medidas 20, subida 3); el techo es `shutdown -h +120` = 2,0 USD. Opcionales: CHISPA_{G8,META,BLANDAS}_S3, CHISPA_MINUTOS, CHISPA_MAX_FILAS_M3/M4.
+#   inyecciones; lr 3e-5/1e-5; 3 épocas, ≤ 40 min) · 5 mide el nuevo Y G.8 en la misma máquina: JevBench k=0, M3 (robustez), M4 (español) · 6 comparacion.md.
+# Sube ckpt/mejor.pt, resultados.tgz, estado.tsv, comparacion.md y log.txt. W4: segundo ajuste, 3 épocas (--epocas 3; una época ≈ 14 min en la g5, y
+# --minutos 40 recorta las épocas si la máquina va más lenta) e instala Go (go${GO_VERSION}, como model/bench/torre/e2e.sh) para que M3 (L1) corra aquí.
+# Coste ≈ 1 USD: g5.xlarge 1,01 USD/h × ≈ 60 min; el techo es `shutdown -h +75` = 1,3 USD. Opcionales: CHISPA_{G8,META,BLANDAS}_S3, CHISPA_MINUTOS, CHISPA_MAX_FILAS_M3/M4.
 # CHISPA_LOCAL=1: prueba en seco (G.8 aleatorio, fixtures, CHISPA_PASOS=6, max_tok 48; sin pip, descargas ni shutdown; «s3» = /tmp/chispa/s3/).
 EXCLUIR=${CHISPA_EXCLUIR:-massive,hatecheck,inyecciones}
 G8_S3=${CHISPA_G8_S3:-s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt}
@@ -15,12 +16,13 @@ META_S3=${CHISPA_META_S3:-s3://chispa-pruebas-879381269751/meta-20261027/meta}
 BLANDAS_S3=${CHISPA_BLANDAS_S3:-s3://chispa-pruebas-879381269751/maestro-20261027/ronda1}
 EPIS="--episodios --k-min 4 --k-max 32 --frac-meta 0.5 --frac-zeroshot 0.25"
 G8="--tope-tarea 2000 --alfa 0.3 --max-tok 256 --excluir-fuera"
+GO_VERSION=1.27.1
 LOCAL=${CHISPA_LOCAL:-0}
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
-if [ "$LOCAL" = 1 ]; then [ "${CHISPA_S3#__}" != "$CHISPA_S3" ] && CHISPA_S3=s3://local/ajuste; else shutdown -h +120; fi
+if [ "$LOCAL" = 1 ]; then [ "${CHISPA_S3#__}" != "$CHISPA_S3" ] && CHISPA_S3=s3://local/ajuste; else shutdown -h +75; fi
 set -uo pipefail
 export HOME="${HOME:-/root}"
-T0=$(date +%s); TOPE=120
+T0=$(date +%s); TOPE=75
 if [ "$LOCAL" = 1 ]; then BASE=${CHISPA_BASE:-/tmp/chispa-ajuste}; else BASE=/opt/chispa; fi
 mkdir -p "$BASE"
 exec > >(tee -a "$BASE/log.txt") 2>&1
@@ -78,9 +80,11 @@ else
   "$PY" -c "import torch; assert torch.cuda.is_available()" || { fallo "torch no ve la GPU"; estado entorno "FALLO sin GPU"; cierre; }
   "$PY" -m pip install -q --no-cache-dir -U transformers accelerate huggingface_hub pyyaml pyarrow numpy scipy scikit-learn tokenizers datasets \
     || { fallo "pip install"; estado entorno "FALLO pip"; cierre; }
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -xzC /usr/local || { fallo "descarga de Go"; estado entorno "FALLO Go"; cierre; }
+  export PATH=/usr/local/go/bin:$PATH
   DEV=cuda
 fi
-estado entorno "OK $("$PY" -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())") dispositivo $DEV"
+estado entorno "OK $("$PY" -c "import torch; print('torch', torch.__version__, 'cuda', torch.cuda.is_available())") dispositivo $DEV, $(go version 2>&1 | head -1)"
 
 # --- 2. código, G.8, modelos, datasets y JevBench
 echo "== 2. código y datos $(date -u +%T)"
@@ -195,7 +199,7 @@ read -ra L2A <<< "$EPIS $G8"
 ARGS+=("${L2A[@]}")
 if [ "$LOCAL" = 1 ]; then
   ARGS+=(--pasos "${CHISPA_PASOS:-6}" --device cpu --max-filas 2000 --ckpt-cada 60 --eval-cada 3 --dev-max 100 --lote 16 --max-tok 48)
-else ARGS+=(--minutos "$(( ${CHISPA_MINUTOS:-50} < $(tope 50) ? ${CHISPA_MINUTOS:-50} : $(tope 50) ))" --epocas 1 --device cuda); fi
+else ARGS+=(--minutos "$(( ${CHISPA_MINUTOS:-40} < $(tope 40) ? ${CHISPA_MINUTOS:-40} : $(tope 40) ))" --epocas 3 --device cuda); fi
 OK=0
 for intento in 1 2; do
   reint "$PY" -u -m model.l2.entrenar "${ARGS[@]}" > "$OUT/entrenar-$intento.log" 2>&1 && { OK=1; break; }

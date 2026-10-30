@@ -132,6 +132,57 @@ class Aumento(unittest.TestCase):
             self.assertEqual((ck["args"]["lr"], ck["args"]["lr_torre"]), (3e-5, 1e-5))
             self.assertTrue(ck["args"]["aumento"])
 
+    def test_ids_opacos_en_torres_y_etiqueta_del_episodio(self):
+        """Con --aumento e ids=1 el modelo no ve el id original: ni en las torres de las opciones, ni en el texto, ni en la etiqueta."""
+        import json
+        import tempfile
+        from pathlib import Path
+        from model.l2 import entrenar
+        from model.l2.modelo import ModeloL2
+        from model.l2.tests.falso import CodificadorFalso
+        ids = ["zorro%d" % j for j in range(4)]
+        filas = []
+        for i in range(24):
+            filas.append({"id": "c:train:%d" % i, "tarea": "c", "tipo": "choice", "pregunta": "¿Qué tema?", "texto": "mensaje %d" % i,
+                          "opciones": ids, "descripciones": {o: "descripción número %d" % j for j, o in enumerate(ids)},
+                          "etiqueta": ids[i % 4], "idioma": "es", "split": "train", "fuente": "x", "licencia": "MIT",
+                          "uso_comercial": True, "blanda": {o: (0.7 if o == ids[i % 4] else 0.1) for o in ids}})
+        enc = CodificadorFalso()
+        vistos = {"textos": [], "filas": []}
+        tokens, pasaje, forward = enc.tokens, enc.pasaje, ModeloL2.forward
+
+        def espia_t(textos):
+            vistos["textos"] += list(textos)
+            return tokens(textos)
+
+        def espia_p(textos):
+            vistos["textos"] += list(textos)
+            return pasaje(textos)
+
+        def espia_f(self, fs, *a, **k):
+            vistos["filas"] += [dict(r) for r in fs]
+            return forward(self, fs, *a, **k)
+        enc.tokens, enc.pasaje = espia_t, espia_p
+        with tempfile.TemporaryDirectory() as t:
+            d = Path(t)
+            (d / "d.jsonl").write_text("".join(json.dumps(r) + "\n" for r in filas), encoding="utf-8")
+            with mock.patch.object(entrenar, "Codificador", lambda **kw: enc), mock.patch.object(ModeloL2, "forward", espia_f):
+                self.assertEqual(entrenar.main(["--datos", str(d / "d.jsonl"), "--salida", str(d / "a"), "--pasos", "4", "--lote", "8",
+                                                "--device", "cpu", "--ckpt-cada", "0", "--aumento", "--aumento-fracs",
+                                                "ids=1,mayusculas=0,erratas=0,parafrasis=0,ingles=0,relleno=0"]), 0)
+        entrenando = [r for r in vistos["filas"] if r["id"].startswith("c:train")]
+        self.assertTrue(entrenando)
+        for r in entrenando:
+            self.assertTrue(all(re.fullmatch(r"op_[0-9a-f]{4}", o) for o in r["opciones"]), r["opciones"])
+            self.assertIn(r["etiqueta"], r["opciones"])
+            self.assertEqual(set(r["descripciones"]), set(r["opciones"]))
+            self.assertEqual(set(r["blanda"]), set(r["opciones"]))
+            self.assertEqual(r["origen"], ids)                      # solo para buscar prototipos; no llega a ningún texto
+            orig = r["origen"][r["opciones"].index(r["etiqueta"])]
+            self.assertEqual(r["descripciones"][r["etiqueta"]], "descripción número %d" % ids.index(orig))
+        self.assertFalse([x for x in vistos["textos"] if "zorro" in x], "el id original llegó al codificador")
+        self.assertTrue(any("op_" in x for x in vistos["textos"]))
+
 
 class EmpaquetadoM5(unittest.TestCase):
     def test_el_paquete_incluye_el_json_de_conversion_y_ningun_otro_resultado(self):
