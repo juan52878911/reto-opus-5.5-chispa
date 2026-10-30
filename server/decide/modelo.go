@@ -140,7 +140,11 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		if err != nil {
 			return mt, fmt.Errorf("sección L1: %w", err)
 		}
-		mt.L1 = NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, lambdaL1)
+		l1c := NuevoL1Modelo(m, calib, cfg.CacheEsquemas).ConSoporte(sopl, lambdaL1)
+		if cfg.TextoLargo != nil {
+			l1c.ConTextoLargo(*cfg.TextoLargo)
+		}
+		mt.L1 = l1c
 		if sopl != nil && lambdaL1 != nil {
 			switch {
 			case calib.L1LambdaCalib == nil:
@@ -195,6 +199,9 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 				}
 			}
 			cerrables = append(cerrables, base.torres)
+			if cfg.TextoLargo != nil {
+				base.ConTextoLargo(*cfg.TextoLargo)
+			}
 			mt.Cerrar = cierraTodo(cerrables...)
 			mt.L2 = Decisor(base)
 			if conj != nil {

@@ -1,0 +1,195 @@
+"""Variantes deterministas de un caso para medir si Chispa decide de forma estable.
+
+Un caso es un dict ``{texto, pregunta, kind, opciones: [{id, description}], etiqueta}``.
+Cada transformación recibe el caso y un ``random.Random`` y devuelve una variante: copia
+del caso con la etiqueta ya traducida, más ``variante`` (nombre de la transformación) y
+``mapa`` (id original -> id de la variante, identidad si los ids no cambian). Para
+comparar una respuesta de la variante con la del original, tradúcela con ``mapa``.
+
+Transformaciones (``TIPOS``): permutar, renombrar, parafrasear, erratas, mayusculas,
+mezcla, largo. ``generar(caso, tipos, semilla)`` devuelve una variante por tipo, siempre
+igual para la misma semilla. ``estabilidad`` resume % de decisiones que no cambian y
+Δ de confianza (media y p95). Sin dependencias fuera de la biblioteca estándar.
+"""
+import copy
+import math
+import random
+import re
+import zlib
+
+TIPOS = ("permutar", "renombrar", "parafrasear", "erratas", "mayusculas", "mezcla", "largo")
+
+PLANTILLAS_PREGUNTA = (
+    "{p}",
+    "Dime esto: {p}",
+    "Necesito saber lo siguiente. {p}",
+    "Por favor responde: {p}",
+    "Sobre el texto anterior, {p_min}",
+    "Con base en lo que se dice, {p_min}",
+)
+
+GLOSARIO = {  # español -> inglés; palabras enteras, en minúscula
+    "el": "the", "la": "the", "los": "the", "las": "the", "un": "a", "una": "a",
+    "y": "and", "o": "or", "pero": "but", "con": "with", "sin": "without",
+    "para": "for", "de": "of", "en": "in", "es": "is", "no": "not",
+    "mi": "my", "su": "your", "cuenta": "account", "pago": "payment",
+    "tarjeta": "card", "banco": "bank", "dinero": "money", "saldo": "balance",
+    "quiero": "want", "necesito": "need", "ayuda": "help", "problema": "problem",
+    "cliente": "customer", "mensaje": "message", "gracias": "thanks",
+    "hola": "hello", "urgente": "urgent", "tiempo": "time", "casa": "home",
+    "musica": "music", "música": "music", "alarma": "alarm", "correo": "email",
+}
+
+RELLENO = (
+    "Este es un mensaje de contexto general.",
+    "A continuación se incluye el contenido principal.",
+    "Nota: el siguiente párrafo no añade información adicional.",
+    "Gracias por su atención y por su tiempo.",
+    "Los datos de este registro se conservan según el procedimiento habitual.",
+    "Fin de la sección de contexto.",
+)
+
+
+def _copia(caso, nombre, mapa=None):
+    v = copy.deepcopy(caso)
+    v["variante"] = nombre
+    v["mapa"] = mapa if mapa is not None else {o["id"]: o["id"] for o in caso.get("opciones", [])}
+    return v
+
+
+def _traducir_etiqueta(caso, mapa):
+    """La etiqueta es un id solo en kind=choice; en score/noul no hay ids que traducir."""
+    et = caso.get("etiqueta")
+    return mapa.get(et, et) if isinstance(et, str) else et
+
+
+def permutar(caso, rng):
+    """Reordena las opciones. Los ids no cambian, así que la etiqueta tampoco."""
+    v = _copia(caso, "permutar")
+    rng.shuffle(v["opciones"])
+    return v
+
+
+def renombrar(caso, rng):
+    """Cambia los ids por otros opacos (distintos entre sí y de los originales)."""
+    ids = [o["id"] for o in caso.get("opciones", [])]
+    nuevos = [f"x{n}" for n in rng.sample(range(100, 1000), len(ids))]
+    mapa = dict(zip(ids, nuevos))
+    v = _copia(caso, "renombrar", mapa)
+    for o in v["opciones"]:
+        o["id"] = mapa[o["id"]]
+    v["etiqueta"] = _traducir_etiqueta(caso, mapa)
+    return v
+
+
+def parafrasear(caso, rng):
+    """Reescribe la pregunta con una plantilla en español (la pregunta original va intacta dentro)."""
+    p = (caso.get("pregunta") or "").strip()
+    v = _copia(caso, "parafrasear")
+    if p:
+        p_min = p[0].lower() + p[1:]
+        v["pregunta"] = rng.choice(PLANTILLAS_PREGUNTA[1:]).format(p=p, p_min=p_min)
+    return v
+
+
+def _errata(palabra, rng):
+    if len(palabra) < 4:
+        return palabra
+    i = rng.randrange(1, len(palabra) - 1)
+    if rng.random() < 0.5 and palabra[i] != palabra[i + 1]:  # intercambia dos letras contiguas
+        return palabra[:i] + palabra[i + 1] + palabra[i] + palabra[i + 2:]
+    return palabra[:i] + palabra[i + 1:]  # omite una letra
+
+
+def erratas(caso, rng, prob=0.15):
+    """Erratas (letra omitida o dos letras intercambiadas) en ~15% de las palabras del texto."""
+    v = _copia(caso, "erratas")
+    partes = re.split(r"(\W+)", caso.get("texto") or "")
+    v["texto"] = "".join(_errata(t, rng) if t.isalpha() and rng.random() < prob else t for t in partes)
+    return v
+
+
+def mayusculas(caso, rng):
+    """Cambia las mayúsculas del texto: TODO MAYÚSCULAS, todo minúsculas o alternado."""
+    v = _copia(caso, "mayusculas")
+    t = caso.get("texto") or ""
+    modo = rng.choice(("alto", "bajo", "alterno"))
+    if modo == "alto":
+        v["texto"] = t.upper()
+    elif modo == "bajo":
+        v["texto"] = t.lower()
+    else:
+        v["texto"] = "".join(c.upper() if i % 2 else c.lower() for i, c in enumerate(t))
+    return v
+
+
+def mezcla(caso, rng, prob=0.5):
+    """Mezcla español/inglés: traduce al inglés las palabras del texto que están en el glosario."""
+    v = _copia(caso, "mezcla")
+    partes = re.split(r"(\W+)", caso.get("texto") or "")
+    out = []
+    for t in partes:
+        en = GLOSARIO.get(t.lower()) if t.isalpha() else None
+        if en and rng.random() < prob:
+            en = en.capitalize() if t[0].isupper() else en
+            t = en
+        out.append(t)
+    v["texto"] = "".join(out)
+    return v
+
+
+def largo(caso, rng, antes=3, despues=3):
+    """Texto largo: relleno neutro antes y después del texto original."""
+    v = _copia(caso, "largo")
+    pre = " ".join(rng.choice(RELLENO) for _ in range(antes))
+    pos = " ".join(rng.choice(RELLENO) for _ in range(despues))
+    v["texto"] = f"{pre}\n\n{caso.get('texto') or ''}\n\n{pos}"
+    return v
+
+
+_FUNCIONES = {f.__name__: f for f in (permutar, renombrar, parafrasear, erratas, mayusculas, mezcla, largo)}
+
+
+def generar(caso, tipos=TIPOS, semilla=0):
+    """Una variante por tipo, determinista: misma ``semilla`` y caso, mismas variantes.
+
+    Cada tipo usa su propia secuencia aleatoria (semilla + nombre), así que añadir o quitar
+    tipos de la lista no cambia las demás variantes. No modifica ``caso``.
+    """
+    out = []
+    for t in tipos:
+        if t not in _FUNCIONES:
+            raise ValueError(f"tipo desconocido: {t!r} (válidos: {', '.join(TIPOS)})")
+        rng = random.Random(f"{semilla}:{t}:{zlib.crc32(repr(caso).encode())}")
+        out.append(_FUNCIONES[t](caso, rng))
+    return out
+
+
+def _p95(xs):
+    xs = sorted(xs)
+    return xs[max(0, math.ceil(0.95 * len(xs)) - 1)]
+
+
+def estabilidad(original, variantes, respuestas):
+    """Estabilidad de la decisión frente a las variantes.
+
+    ``original``: respuesta al caso original, ``{"id": decisión, "confianza": float}``.
+    ``variantes``: lista de variantes (de ``generar``), de las que se usa ``mapa``.
+    ``respuestas``: respuestas a cada variante, en el mismo orden y con la misma forma.
+
+    La decisión de una variante se compara con ``mapa[original["id"]]`` (si el id no está
+    en el mapa, tal cual: sirve para score/noul). Devuelve ``{n, estables, pct_estable,
+    delta_media, delta_p95}``; Δ es |confianza_variante − confianza_original|.
+    """
+    if len(variantes) != len(respuestas):
+        raise ValueError("variantes y respuestas deben tener la misma longitud")
+    if not variantes:
+        return {"n": 0, "estables": 0, "pct_estable": 0.0, "delta_media": 0.0, "delta_p95": 0.0}
+    estables, deltas = 0, []
+    for var, r in zip(variantes, respuestas):
+        esperado = var["mapa"].get(original["id"], original["id"])
+        estables += r["id"] == esperado
+        deltas.append(abs(r["confianza"] - original["confianza"]))
+    n = len(variantes)
+    return {"n": n, "estables": estables, "pct_estable": 100.0 * estables / n,
+            "delta_media": sum(deltas) / n, "delta_p95": _p95(deltas)}

@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -203,5 +204,32 @@ func TestConcurrente(t *testing.T) {
 		if !<-done {
 			t.Error("resultado distinto entre goroutines")
 		}
+	}
+}
+
+func TestEmbedIDsYSinTope(t *testing.T) {
+	m := abrirModelo(t)
+	corto := "quiero cambiar mi plan de datos"
+	largo := strings.Repeat(corto+" ", 400)
+	for _, tx := range []string{corto, largo} {
+		a, b := make([]float32, m.Dim()), make([]float32, m.Dim())
+		m.Embed(tx, a)
+		m.EmbedIDs(m.Tokenizar(tx), b)
+		if !slices.Equal(a, b) {
+			t.Fatal("Embed y EmbedIDs(Tokenizar) difieren")
+		}
+	}
+	if ids, trunc := m.TokenizarTruncado(corto); trunc || !slices.Equal(ids, m.TokenizarSinTope(corto, 0)) || !slices.Equal(ids, m.Tokenizar(corto)) {
+		t.Fatal("texto corto: Tokenizar, TokenizarTruncado y TokenizarSinTope deben coincidir y no avisar")
+	}
+	todo := m.TokenizarSinTope(largo, 0)
+	if ids, trunc := m.TokenizarTruncado(largo); len(ids) > m.MaxTokens() || trunc != (len(todo) > m.MaxTokens() || len([]rune(largo)) > m.p.RecorteTexto) {
+		t.Fatalf("aviso de truncado inconsistente (%d ids, %d sin tope)", len(ids), len(todo))
+	}
+	if len(todo) < len(m.Tokenizar(largo)) {
+		t.Fatal("sin tope no puede dar menos tokens que con tope")
+	}
+	if n := len(m.TokenizarSinTope(largo, 40)); n > 40 {
+		t.Fatalf("maxRunas no acota: %d tokens", n)
 	}
 }

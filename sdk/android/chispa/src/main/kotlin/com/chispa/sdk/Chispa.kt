@@ -52,6 +52,8 @@ class Chispa private constructor(
          * Si se pasa [lambdaSoporteL2] con L1 por defecto, el puente solo ofrece λ explícitos: L1 queda en [LAMBDA_SOPORTE_L1_POR_DEFECTO] (4,0) aunque el fichero sea viejo.
          * 0 = solo ejemplos, `Double.POSITIVE_INFINITY` = solo descripción (ya no apaga); negativo o NaN lanza [ErrorChispa].
          * Sin sección SOPL1 en el fichero el default no tiene efecto.
+         * [textoLargo]: qué hacer con un texto que pasa del truncado de L1 y L2 ([TextoLargo]: `cabeza_cola` o `trozos` con agregación `max`/`media`);
+         * null (por defecto) = los primeros tokens, lo de siempre. Con `trozos`, L2 corre ONNX en cada ventana (como mucho `maxTrozos`).
          */
         fun abrir(
             contexto: Context,
@@ -63,9 +65,10 @@ class Chispa private constructor(
             proveedorOrt: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO,
             lambdaSoporteL1: Double? = SOPORTE_POR_DEFECTO,
             lambdaSoporteL2: Double? = null,
+            textoLargo: TextoLargo? = null,
         ): Chispa {
             val fichero = resolver(contexto, rutaModelo)
-            val motor = MotorNativo.abrir(fichero.absolutePath, soporteDe(lambdaSoporteL1, lambdaSoporteL2))
+            val motor = MotorNativo.abrir(fichero.absolutePath, soporteDe(lambdaSoporteL1, lambdaSoporteL2), textoLargo)
             return try {
                 var tok = tokenizador
                 if (tok == null && rutaTokenizador != null) {

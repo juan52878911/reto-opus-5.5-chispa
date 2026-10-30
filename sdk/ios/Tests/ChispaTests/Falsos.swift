@@ -80,6 +80,13 @@ final class MotorFalso: Motor {
     func idsPasaje(_ texto: String) -> Data? { idsDePasaje(texto) }
     func tieneTokenizadorE5() -> Bool { idsE5 != nil }
     func tokenizarE5(_ texto: String) -> Data? { idsE5 }
+    /// Texto largo con `trozos`: lo que devuelve `trozosE5` (`[n][len][ids…]…`); nil = el motor no trocea.
+    var trozos: Data?
+    var ultimosKs: String?
+    func trozosE5(_ texto: String) -> Data? { trozos }
+    func puntuarL2Trozos(_ preguntaJson: String, ranuras: Data, ksJson: String) -> String {
+        llamadas.append("L2T"); ultimasRanuras = ranuras; ultimosKs = ksJson; return marcar(l2())
+    }
     func textosTorreL2(_ preguntaJson: String) -> [String] { torres ? [] : textosTorre }
     func instalarTorresL2(_ preguntaJson: String, torres bytes: Data, n: Int) -> Bool {
         llamadas.append("TORRES")

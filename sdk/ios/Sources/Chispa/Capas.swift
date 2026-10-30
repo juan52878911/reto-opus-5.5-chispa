@@ -32,6 +32,13 @@ public protocol Motor: AnyObject {
     func cargarTokenizadorE5(ruta: String) throws
     /// Ids de e5 como int32 little endian (4 bytes por id), o nil si no se cargó el tokenizador.
     func tokenizarE5(_ texto: String) -> Data?
+    /// Las ventanas de la consulta de e5 según `texto_largo` (`TextoLargo`): int32 little endian `[n][len₁][ids₁…][len₂][ids₂…]…`, cada
+    /// ventana con sus `<s>` y `</s>`. Con `cabeza` (o un texto que cabe) es una sola, igual que `tokenizarE5`. nil si no hay
+    /// tokenizador o el motor no sabe trocear (entonces vale `tokenizarE5`).
+    func trozosE5(_ texto: String) -> Data?
+    /// Como `puntuarL2` para varias ventanas de `trozosE5`: `ranuras` son las de cada ventana una tras otra (float32 little endian) y
+    /// `ksJson` el número de filas de cada una (`[k1,k2,…]`). El motor agrega las probabilidades como dice `texto_largo`.
+    func puntuarL2Trozos(_ preguntaJson: String, ranuras: Data, ksJson: String) -> String
 
     /// Zero-shot de L2 (esquema que el `.chispa` no trae en ESQUEMAS): textos de pasaje («passage: pregunta · opción ·
     /// descripción») cuyas torres hay que calcular, en el orden en que las espera `instalarTorresL2`; vacío si el
@@ -65,6 +72,10 @@ public extension Motor {
     func cargarTokenizadorE5(ruta: String) throws { throw ErrorChispa("el motor no tiene tokenizador de e5") }
     func tieneTokenizadorE5() -> Bool { false }
     func tokenizarE5(_ texto: String) -> Data? { nil }
+    func trozosE5(_ texto: String) -> Data? { nil }
+    func puntuarL2Trozos(_ preguntaJson: String, ranuras: Data, ksJson: String) -> String {
+        #"{"ok":false,"error":"el motor no puntúa trozos","probs":{}}"#
+    }
     func textosTorreL2(_ preguntaJson: String) -> [String] { [] }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool { false }
     func tieneTorre() -> Bool { false }
@@ -150,9 +161,38 @@ final class CodificadorTorreMotor: CodificadorTorre {
     }
 }
 
+/// Un `Tokenizador` que sabe dar varias ventanas de un texto largo (`texto_largo`); `CapaL2` lo usa si el tokenizador lo implementa.
+public protocol TokenizadorTrozos: Tokenizador {
+    /// Los ids de cada ventana; una sola (igual que `ids`) con `cabeza` o un texto que cabe.
+    func trozos(_ texto: String) throws -> [[Int64]]
+}
+
 /// El tokenizador de e5 del propio motor (runtime/tok en Go): no hace falta que la app aporte uno.
-struct TokenizadorMotor: Tokenizador {
+struct TokenizadorMotor: TokenizadorTrozos {
     let motor: Motor
+
+    func trozos(_ texto: String) throws -> [[Int64]] {
+        guard let d = motor.trozosE5(texto) else { return [try ids(texto)] }
+        let b = [UInt8](d)
+        func entero(_ i: Int) -> Int? {
+            guard i >= 0, i + 4 <= b.count else { return nil }
+            let lo = UInt32(b[i]) | UInt32(b[i + 1]) << 8
+            let hi = UInt32(b[i + 2]) << 16 | UInt32(b[i + 3]) << 24
+            return Int(Int32(bitPattern: lo | hi))
+        }
+        guard let n = entero(0), n >= 0 else { throw ErrorChispa("trozosE5: respuesta truncada") }
+        var pos = 4
+        var out: [[Int64]] = []
+        for _ in 0..<n {
+            guard let len = entero(pos), len >= 0, pos + 4 + 4 * len <= b.count else { throw ErrorChispa("trozosE5: respuesta truncada") }
+            pos += 4
+            let base = pos
+            out.append((0..<len).map { Int64(entero(base + 4 * $0)!) })
+            pos += 4 * len
+        }
+        return out
+    }
+
     func ids(_ texto: String) throws -> [Int64] {
         guard let d = motor.tokenizarE5(texto) else { throw ErrorChispa("el motor no tiene el tokenizador de e5") }
         return stride(from: 0, to: d.count - 3, by: 4).map { i in
@@ -212,9 +252,11 @@ struct CapaL2: Capa {
         if !motor.torresL2(pj) {
             guard try torresAlVuelo(pj) else { return .sinOpinion }
         }
-        let ids = try tokenizador.ids(texto)
-        guard !ids.isEmpty else { return .sinOpinion }
-        let s = try sesion.ranuras(ids)
+        let ventanas: [[Int64]]
+        if let tt = tokenizador as? TokenizadorTrozos { ventanas = try tt.trozos(texto) } else { ventanas = [try tokenizador.ids(texto)] }
+        guard let primera = ventanas.first, !primera.isEmpty else { return .sinOpinion }
+        if ventanas.count > 1 { return try decidirTrozos(pj, ventanas, previas) } // texto largo con `trozos`
+        let s = try sesion.ranuras(primera)
         if let l0 = previas["L0"]?.probs, !l0.isEmpty, motor.tieneConj() {
             let c = try SalidaCapa.desdeJson(motor.cabezaConjunta(try entradaConj(pj, l0, s)))
             if c.opina { return c }
@@ -223,6 +265,32 @@ struct CapaL2: Capa {
         // con CONJ, esta es L2 base: respaldo de la cabeza
         return motor.tieneConj() ? SalidaCapa(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs, esquemaNuevo: r.esquemaNuevo,
                                               respuestas: r.respuestas, respaldo: true) : r
+    }
+
+    /// Texto largo con `trozos`: ONNX en cada ventana y el motor agrega; con CONJ y L0, la cabeza conjunta decide cada una (como el servidor).
+    private func decidirTrozos(_ pj: String, _ ventanas: [[Int64]], _ previas: [String: SalidaCapa]) throws -> SalidaCapa {
+        let ss = try ventanas.map { try sesion.ranuras($0) }
+        if let l0 = previas["L0"]?.probs, !l0.isEmpty, motor.tieneConj() {
+            let c = try SalidaCapa.desdeJson(motor.cabezaConjunta(try entradaConjTrozos(pj, l0, ss)))
+            if c.opina { return c }
+        }
+        var bytes = Data()
+        for s in ss { bytes.append(s.aBytes()) }
+        let ks = "[" + ss.map { String($0.k) }.joined(separator: ",") + "]"
+        let r = try SalidaCapa.desdeJson(motor.puntuarL2Trozos(pj, ranuras: bytes, ksJson: ks))
+        return motor.tieneConj() ? SalidaCapa(respuesta: r.respuesta, confianza: r.confianza, probs: r.probs, esquemaNuevo: r.esquemaNuevo,
+                                              respuestas: r.respuestas, respaldo: true) : r
+    }
+
+    private func entradaConjTrozos(_ preguntaJson: String, _ l0: [String: Double], _ ss: [Ranuras]) throws -> String {
+        guard var o = (try JSONSerialization.jsonObject(with: Data(preguntaJson.utf8))) as? [String: Any] else {
+            throw ErrorChispa("la pregunta no es un objeto JSON")
+        }
+        o["l0"] = l0
+        o["ranuras"] = ss.flatMap { $0.datos.map { Double($0) } }
+        o["k"] = ss[0].k
+        o["ks"] = ss.map { $0.k }
+        return String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self)
     }
 
     private func torresAlVuelo(_ preguntaJson: String) throws -> Bool {
