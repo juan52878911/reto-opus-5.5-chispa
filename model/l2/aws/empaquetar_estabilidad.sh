@@ -9,7 +9,7 @@ ref=HEAD; fix=0
 for a in "$@"; do if [ "$a" = --fixtures ]; then fix=1; else ref=$a; fi; done
 git rev-parse --verify --quiet "$ref^{commit}" >/dev/null || { echo "no existe la revisión '$ref'" >&2; exit 1; }
 excl=(':(exclude,glob)**/resultados/**' ':(exclude,glob)**/__pycache__/**' ':(exclude,glob)model/*/tests/test_*' ':(exclude,glob)model/*/tests/gen_*'
-      ':(exclude,glob)model/*/tests/falso.py' ':(exclude,glob)**/*_test.go')
+      ':(exclude,glob)model/*/tests/falso.py' ':(exclude,glob)**/*_test.go' ':(exclude,glob)model/lineas_base/pred/**')
 [ $fix = 1 ] || excl+=(':(exclude,glob)**/fixtures*/**')
 git archive --format=tar.gz "$ref" -- model/__init__.py model/l1 model/l2 model/datos model/evaluacion model/lineas_base model/meta \
   model/herramientas/train.jsonl model/herramientas/test.jsonl runtime/l1 "${excl[@]}"
