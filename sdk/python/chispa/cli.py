@@ -13,7 +13,8 @@ DESCRIPCION = """Chispa: clasificador tipado (choice, score, noul, multi) de baj
 
   chispa train    arma un fichero .chispa en CPU (zero-shot, few-shot o con datos del cliente)
   chispa decide   hace una pregunta a un servidor chispa-server (/v1/decide)
-  chispa evaluar  mide un servidor con una muestra etiquetada del cliente (exactitud, F1, escalado, cobertura, latencia)
+  chispa evaluar  mide un servidor con una muestra etiquetada del cliente (exactitud, F1, escalado, cobertura, latencia);
+                  con --bateria, la batería de regresión (varios conjuntos, línea base y umbrales: sale ≠ 0 si algo empeora)
 
 Ayuda de cada orden: chispa train --help, chispa decide --help, chispa evaluar --help."""
 
@@ -38,6 +39,39 @@ Qué hace falta instalado:
     caché de módulos de Go o accesible por red (GOPROXY). Sin Go, el fichero sale sin L0 y lo avisa.
   - --ckpt y --conjunta (chispa[l2]): además el repositorio de Chispa (model/l2), que el wheel no incluye.
 Esquemas .yaml: pip install chispa[yaml]; los .json no lo piden."""
+
+
+def _bateria(a) -> int:
+    """0 bien · 1 una métrica empeora más que su umbral · 2 manifiesto, datos o servidor mal puestos."""
+    from .bateria import ErrorBateria, bateria, json_reporte, linea_base
+    aviso = lambda m: print(f"chispa: aviso: {m}", file=sys.stderr)
+    try:
+        r = bateria(a.bateria, url=a.url, modelo=a.modelo, servidor=a.servidor, tok=a.tok, config=a.config, extra=a.servidor_arg, linea_base=a.linea_base,
+                    umbrales=a.umbrales, robustez=a.robustez, robustez_max=a.robustez_max, solo=a.solo or None, objetivo=a.precision_objetivo,
+                    concurrencia=a.concurrencia, timeout=a.timeout, reintentos=a.reintentos, filas=a.filas, aviso=aviso)
+        if a.salida:
+            with open(a.salida + ".md", "w", encoding="utf-8") as f:
+                f.write(r["informe"])
+            with open(a.salida + ".json", "w", encoding="utf-8") as f:
+                json.dump(json_reporte(r), f, ensure_ascii=False, indent=2)
+            print(f"chispa: {a.salida}.md y {a.salida}.json", file=sys.stderr)
+        else:
+            print(r["informe"], end="")
+        if a.guardar_linea_base:
+            if r["ok"]:
+                with open(a.guardar_linea_base, "w", encoding="utf-8") as f:
+                    json.dump(linea_base(r), f, ensure_ascii=False, indent=2)
+                print(f"chispa: línea base guardada en {a.guardar_linea_base}", file=sys.stderr)
+            else:
+                print("chispa: no guardo la línea base: la comparación falla", file=sys.stderr)
+    except (ErrorBateria, ChispaError, ValueError, OSError) as e:
+        print(f"chispa: {e}", file=sys.stderr)
+        return 2
+    if not r["ok"]:
+        for x in r["comparacion"]["fallos"]:
+            print(f"chispa: REGRESIÓN {x['seccion']}/{x['nombre']}: {x['detalle']}", file=sys.stderr)
+        return 1
+    return 0
 
 
 def main(argv=None) -> int:
@@ -107,13 +141,27 @@ def main(argv=None) -> int:
                        description="Manda cada fila (texto, etiqueta) a /v1/decide y calcula las métricas de pilotos/metrica.md: exactitud, F1 macro, "
                                    "matriz de confusión, escalado, cobertura y precisión de lo aceptado, capas, p50/p99 y, con score, MAE.",
                        epilog="Ejemplo:\n  chispa evaluar --url http://127.0.0.1:8090 --esquema pqrs.json --datos muestra.csv --precision-objetivo 0.95 --salida informe\n"
-                              "Escribe informe.md e informe.json; sin --salida imprime el markdown. Cada fila es una petición (un state por petición).",
+                              "Escribe informe.md e informe.json; sin --salida imprime el markdown. Cada fila es una petición (un state por petición).\n"
+                              "Batería de regresión:\n  chispa evaluar --bateria ejemplos/bateria.json --modelo m.chispa --linea-base base.json --robustez --salida informe\n"
+                              "Código de salida: 0 bien, 1 una métrica empeora más que su umbral, 2 manifiesto, datos o servidor mal puestos.",
                        formatter_class=argparse.RawDescriptionHelpFormatter)
-    e.add_argument("--url", required=True, help="base del servidor, p. ej. http://127.0.0.1:8090")
-    e.add_argument("--esquema", required=True, help="el mismo YAML/JSON de chispa train (choice, noul, score o multi)")
-    e.add_argument("--datos", required=True, help="CSV/JSONL con columnas texto|text y etiqueta|label (noul: true/false; score: 1..K)")
+    e.add_argument("--url", help="base del servidor, p. ej. http://127.0.0.1:8090")
+    e.add_argument("--esquema", help="el mismo YAML/JSON de chispa train (choice, noul, score o multi)")
+    e.add_argument("--datos", help="CSV/JSONL con columnas texto|text y etiqueta|label (noul: true/false; score: 1..K)")
+    e.add_argument("--bateria", metavar="MANIFIESTO", help="batería de regresión: manifiesto JSON de conjuntos (ver docs/10-bateria.md); con --url o --modelo, en vez de --esquema y --datos")
+    e.add_argument("--modelo", help="con --bateria: el .chispa; arranca un chispa-server local (puerto libre) y lo apaga al acabar")
+    e.add_argument("--servidor", help="con --modelo: ruta de chispa-server (por defecto CHISPA_SERVER o el PATH)")
+    e.add_argument("--tok", help="con --modelo: .chispa-tok de e5 para chispa-server")
+    e.add_argument("--config", help="con --modelo: JSON de configuración de chispa-server")
+    e.add_argument("--servidor-arg", action="append", default=[], metavar="ARG", help="con --modelo: argumento extra para chispa-server (repetible, p. ej. --servidor-arg=-ort-lib=/x/libonnxruntime.so)")
+    e.add_argument("--linea-base", help="con --bateria: JSON de la línea base; sale con 1 si una métrica empeora más que su umbral")
+    e.add_argument("--guardar-linea-base", metavar="RUTA", help="con --bateria: escribe la línea base de esta corrida (con --linea-base, solo si pasa)")
+    e.add_argument("--umbrales", help="con --bateria: JSON de umbrales {métrica: empeoramiento máximo, por_conjunto: {nombre: {…}}}; pisa a los del manifiesto")
+    e.add_argument("--robustez", action="store_true", help="con --bateria: mide la estabilidad frente a variantes de chispa.variantes (si no existe, avisa)")
+    e.add_argument("--robustez-max", type=int, default=200, help="con --robustez: filas por conjunto (a paso fijo) que se perturban (200)")
+    e.add_argument("--solo", action="append", default=[], metavar="NOMBRE", help="con --bateria: solo estos conjuntos (repetible); la comparación pasa a ser parcial")
     e.add_argument("--pregunta", help="id de la pregunta si el esquema trae varias")
-    e.add_argument("--precision-objetivo", type=float, default=0.95, help="precisión a la que se da la cobertura (0,95)")
+    e.add_argument("--precision-objetivo", type=float, default=None, help="precisión a la que se da la cobertura (0,95; con --bateria, la del manifiesto si la trae)")
     e.add_argument("--concurrencia", type=int, default=4, help="peticiones en vuelo (4)")
     e.add_argument("--timeout", type=float, default=10.0)
     e.add_argument("--reintentos", type=int, default=3)
@@ -129,9 +177,13 @@ def main(argv=None) -> int:
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
                      torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo, perfil=a.perfil,
                      log=lambda m: print(m, file=sys.stderr))
+        elif a.cmd == "evaluar" and a.bateria:
+            return _bateria(a)
         elif a.cmd == "evaluar":
+            if not (a.url and a.esquema and a.datos):
+                raise ValueError("evaluar necesita --url, --esquema y --datos (o --bateria MANIFIESTO)")
             from .evaluar import evaluar
-            r = evaluar(a.url, a.esquema, a.datos, pregunta=a.pregunta, objetivo=a.precision_objetivo, concurrencia=a.concurrencia,
+            r = evaluar(a.url, a.esquema, a.datos, pregunta=a.pregunta, objetivo=0.95 if a.precision_objetivo is None else a.precision_objetivo, concurrencia=a.concurrencia,
                         timeout=a.timeout, reintentos=a.reintentos)
             if a.salida:
                 out = dict(r["metricas"], **({"filas": r["filas"]} if a.filas else {}))

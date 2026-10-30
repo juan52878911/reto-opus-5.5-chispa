@@ -17,6 +17,7 @@ Esta documentación es para quien integra Chispa. El detalle de desarrollo está
 | [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md) | Benchmarks por modo, límites del zero-shot, carga y excepciones de G2 |
 | [08-esquemas-nuevos.md](08-esquemas-nuevos.md) | Esquema sin `.chispa`: zero-shot con torre al vuelo (`TORR`), few-shot con soporte opcional (`SOPL1`), τ y qué falta medir |
 | [09-despliegue-piloto.md](09-despliegue-piloto.md) | Guía de piloto de cero a producción: imagen, claves (`-hash-clave`), config completa, L3, arranque con Docker y kindling, humo, métricas, recarga, apagado y privacidad |
+| [10-bateria.md](10-bateria.md) | Batería de regresión `chispa evaluar --bateria`: manifiesto, métricas (exactitud, F1, ECE, cobertura, escalado, latencia), línea base y umbrales; la puerta de cada cambio de modelo |
 
 ## Piezas del repo y su README
 | Pieza | Qué es | README |
