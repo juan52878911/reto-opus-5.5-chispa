@@ -54,6 +54,8 @@ type capa struct {
 type Cascada struct {
 	capas []capa
 	met   *Metricas
+	// vistas son las vistas de CALIB (con los τ efectivos) preparadas al armar; PublicaCalib las pone en /metrics.
+	vistas map[string]VistaCalib
 	// tauNuevo es el τ de esquema nuevo de la config; el gauge lo fija Recargar al hacer el cambio (nuevoVivo), no el armado.
 	tauNuevo *float64
 }
@@ -70,7 +72,14 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 		return nil, fmt.Errorf("cascada: %d capas en la config y %d decisores", len(cfg), len(ds))
 	}
 	c := &Cascada{met: met, tauNuevo: tauNuevo}
-	met.vaciaCalib()
+	// Las vistas de CALIB se preparan aparte: /metrics sigue mostrando las del modelo en servicio hasta PublicaCalib.
+	met.iniciaPrepCalib()
+	cerrada := false
+	defer func() {
+		if !cerrada {
+			met.cierraPrepCalib()
+		}
+	}()
 	for i, d := range ds {
 		if u, ok := d.(UsaMetricas); ok && met != nil {
 			u.UsaMetricas(met)
@@ -85,7 +94,18 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 		c.capas = append(c.capas, cp)
 	}
 	c.publicaTaus(cfg)
+	c.vistas = met.cierraPrepCalib()
+	cerrada = true
 	return c, nil
+}
+
+// PublicaCalib pone en /metrics la CALIB y los τ de esta cascada, y quita las series de las capas que ya no están. Se llama
+// cuando la cascada ya está en servicio (arranque y Recargar tras sustituir el modelo), nunca al armarla.
+func (c *Cascada) PublicaCalib() {
+	if c == nil || c.met == nil {
+		return
+	}
+	c.met.publicaCalib(c.vistas)
 }
 
 // publicaTaus pone en chispa_calib_tau los τ efectivos de L1 y L2 (config > CALIB > default) con su origen, y el τ de esquema nuevo.
@@ -97,7 +117,7 @@ func (c *Cascada) publicaTaus(cfg []Capa) {
 	for _, d := range ConfigPorDefecto().Capas {
 		defecto[d.Nombre] = d.Tau
 	}
-	vistas := c.met.Calib()
+	vistas := c.met.calibPrep()
 	for _, k := range cfg {
 		v, ok := vistas[k.Nombre]
 		if !ok || (k.Nombre != "L1" && k.Nombre != "L2") {
@@ -111,6 +131,19 @@ func (c *Cascada) publicaTaus(cfg []Capa) {
 			}
 		}
 		taus := []TauCalib{{Capa: k.Nombre, Clave: "tau_escalate", Valor: k.Tau, Origen: origenTau(k.Tau, defecto[k.Nombre], calib)}}
+		// L2c con tau_l2c en servicio: k.Tau es el de la cabeza conjunta y tau_escalate es el de respaldo (L2 base).
+		if k.Nombre == "L2" {
+			for _, cp := range c.capas {
+				if cr, ok := cp.d.(DecisorConRespaldo); ok && cp.d.Nombre() == "L2" {
+					if tr, tc, ok := cr.TauRespaldo(); ok && cp.tau == tc {
+						taus = []TauCalib{
+							{Capa: k.Nombre, Clave: "tau_escalate", Valor: tr, Origen: origenTau(tr, defecto[k.Nombre], calib)},
+							{Capa: k.Nombre, Clave: "tau_l2c", Valor: tc, Origen: OrigenCalib},
+						}
+					}
+				}
+			}
+		}
 		if k.Nombre == "L2" && c.tauNuevo != nil {
 			var cn []float64
 			for _, t := range v.Taus {

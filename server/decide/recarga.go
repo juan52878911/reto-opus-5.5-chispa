@@ -317,6 +317,7 @@ func (s *Servidor) Recargar() error {
 	}
 	nv := s.nuevoVivo(a, old.gen+1, old.auth)
 	s.cur.Store(nv)
+	a.Cascada.PublicaCalib()
 	old.retirar()
 	s.Met.Recarga("ok")
 	if nv.auth == nil {
@@ -336,6 +337,9 @@ func (s *Servidor) nuevoVivo(a *Armado, gen uint64, prev *autenticador) *vivo {
 		s.Met.FijaEsquemas(a.L0.Hits.Load, a.L0.Misses.Load)
 	}
 	s.Met.FijaTauNuevo(a.Cascada.tauNuevo)
+	if gen == 1 { // arranque: no hay modelo anterior al que mentir; las recargas publican tras sustituirlo (Recargar)
+		a.Cascada.PublicaCalib()
+	}
 	return &vivo{casc: a.Cascada, nonces: nuevosNonces(n, a.BytesNonces), lim: normalizaLimites(a.Limites), auth: nuevoAutenticadorDe(a.APIKeys, nil, prev), gen: gen, cerrar: a.Cerrar}
 }
 

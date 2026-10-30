@@ -22,9 +22,11 @@ func TestCalibTauEfectivoConfigCalibDefault(t *testing.T) {
 	cfgNuevo := 0.77
 	m := NuevasMetricas()
 	// config manda: L1 0.91 (≠ CALIB), L2 igual a CALIB de L2c, esquema nuevo de config
-	if _, err := NuevaCascadaConTauNuevo([]Capa{{"L1", 0.91}, {"L2", 0.2}}, []Decisor{l1, l2}, m, &cfgNuevo); err != nil {
+	c1, err := NuevaCascadaConTauNuevo([]Capa{{"L1", 0.91}, {"L2", 0.2}}, []Decisor{l1, l2}, m, &cfgNuevo)
+	if err != nil {
 		t.Fatal(err)
 	}
+	c1.PublicaCalib()
 	out := metricasTexto(m)
 	for _, q := range []string{
 		`chispa_calib_tau{capa="L1",clave="tau_escalate",origen="config"} 0.91`,
@@ -42,9 +44,11 @@ func TestCalibTauEfectivoConfigCalibDefault(t *testing.T) {
 	l1, l2 = capasCalib(chispa3.Calib{})
 	m = NuevasMetricas()
 	dn := TauL2EsquemaNuevoPorDefecto
-	if _, err := NuevaCascadaConTauNuevo([]Capa{{"L1", 0.8}, {"L2", 0.7}}, []Decisor{l1, l2}, m, &dn); err != nil {
+	c2, err := NuevaCascadaConTauNuevo([]Capa{{"L1", 0.8}, {"L2", 0.7}}, []Decisor{l1, l2}, m, &dn)
+	if err != nil {
 		t.Fatal(err)
 	}
+	c2.PublicaCalib()
 	out = metricasTexto(m)
 	for _, q := range []string{
 		`chispa_calib_tau{capa="L1",clave="tau_escalate",origen="default"} 0.8`,
@@ -61,16 +65,20 @@ func TestCalibRecargaSinL2VaciaSeries(t *testing.T) {
 	cal := chispa3.Calib{Tipos: map[string]chispa3.ParamsTipo{"choice": {T: 1}}, TauEscalate: 0.5}
 	l1, l2 := capasCalib(cal)
 	m := NuevasMetricas()
-	if _, err := NuevaCascada([]Capa{{"L1", 0.8}, {"L2", 0.7}}, []Decisor{l1, l2}, m); err != nil {
+	c1, err := NuevaCascada([]Capa{{"L1", 0.8}, {"L2", 0.7}}, []Decisor{l1, l2}, m)
+	if err != nil {
 		t.Fatal(err)
 	}
+	c1.PublicaCalib()
 	if !strings.Contains(metricasTexto(m), `capa="L2"`) {
 		t.Fatal("L2 debería estar publicada")
 	}
 	l1b, _ := capasCalib(cal)
-	if _, err := NuevaCascada([]Capa{{"L1", 0.8}}, []Decisor{l1b}, m); err != nil {
+	c2, err := NuevaCascada([]Capa{{"L1", 0.8}}, []Decisor{l1b}, m)
+	if err != nil {
 		t.Fatal(err)
 	}
+	c2.PublicaCalib()
 	out := metricasTexto(m)
 	for _, l := range strings.Split(out, "\n") {
 		if strings.HasPrefix(l, "chispa_calib") && strings.Contains(l, `capa="L2"`) && !strings.Contains(l, "defecto_total") {

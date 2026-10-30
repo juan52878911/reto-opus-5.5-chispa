@@ -141,8 +141,8 @@ func (c *Chispa) vistasCalib() []vistaCalib {
 				}
 			}
 		}
-		// con CONJ, la cabeza conjunta decide con tau_l2c si CALIB lo trae
-		if t := c.TauL2c(); t >= 0 {
+		// con CONJ, la cabeza conjunta decide con tau_l2c si CALIB lo trae; sin CONJ no hay L2c y no se publica (igual que el servidor)
+		if t := c.TauL2c(); t >= 0 && c.conj != nil {
 			for i := range out {
 				if out[i].Capa == "L2" {
 					out[i].Taus = append(out[i].Taus, tauCalib{"L2", "tau_l2c", t, origenCalib})

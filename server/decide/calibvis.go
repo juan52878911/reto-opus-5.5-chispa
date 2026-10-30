@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"sync"
 
 	"chispa/format/chispa3"
 )
@@ -124,6 +125,18 @@ func (v VistaCalib) AvisoSinCalib() string {
 
 // fijaTaus sustituye los τ de la capa por los efectivos (los que usa la cascada). Sin vista registrada de la capa no hace nada.
 func (m *Metricas) fijaTaus(capa string, taus []TauCalib) {
+	prepMu.Lock()
+	p, preparando := prepCalib[m]
+	if preparando {
+		if v, ok := p[capa]; ok {
+			v.Taus = taus
+			p[capa] = v
+		}
+	}
+	prepMu.Unlock()
+	if preparando {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if v, ok := m.calibs[capa]; ok {
@@ -132,13 +145,43 @@ func (m *Metricas) fijaTaus(capa string, taus []TauCalib) {
 	}
 }
 
-// vaciaCalib borra las vistas de CALIB: una cascada nueva las registra de nuevo y las capas que ya no están no deben seguir publicadas.
-func (m *Metricas) vaciaCalib() {
+// iniciaPrepCalib abre un espacio aparte para las vistas de CALIB de la cascada que se está armando: FijaCalib escribe ahí y lo
+// publicado en /metrics no cambia hasta publicaCalib (que llama Recargar tras sustituir el modelo en servicio).
+func (m *Metricas) iniciaPrepCalib() {
+	if m == nil {
+		return
+	}
+	prepMu.Lock()
+	prepCalib[m] = map[string]VistaCalib{}
+	prepMu.Unlock()
+}
+
+// Espacio aparte de las vistas en preparación por Metricas (no cabe un campo en Metricas desde este fichero).
+var (
+	prepMu    sync.Mutex
+	prepCalib = map[*Metricas]map[string]VistaCalib{}
+)
+
+// cierraPrepCalib cierra el espacio aparte y devuelve las vistas preparadas (nil si no había).
+func (m *Metricas) cierraPrepCalib() map[string]VistaCalib {
+	if m == nil {
+		return nil
+	}
+	prepMu.Lock()
+	defer prepMu.Unlock()
+	p := prepCalib[m]
+	delete(prepCalib, m)
+	return p
+}
+
+// publicaCalib sustituye las vistas publicadas por las de una cascada que ya está en servicio: las capas que ya no están
+// desaparecen.
+func (m *Metricas) publicaCalib(vistas map[string]VistaCalib) {
 	if m == nil {
 		return
 	}
 	m.mu.Lock()
-	m.calibs = nil
+	m.calibs = vistas
 	m.mu.Unlock()
 }
 
@@ -161,6 +204,15 @@ func (m *Metricas) FijaCalib(v VistaCalib) {
 	if m == nil {
 		return
 	}
+	prepMu.Lock()
+	p, preparando := prepCalib[m]
+	if preparando {
+		p[v.Capa] = v
+	}
+	prepMu.Unlock()
+	if preparando {
+		return
+	}
 	m.mu.Lock()
 	if m.calibs == nil {
 		m.calibs = map[string]VistaCalib{}
@@ -173,8 +225,24 @@ func (m *Metricas) FijaCalib(v VistaCalib) {
 func (m *Metricas) Calib() map[string]VistaCalib {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	out := make(map[string]VistaCalib, len(m.calibs))
-	for k, v := range m.calibs {
+	return copiaVistas(m.calibs)
+}
+
+// calibPrep es Calib sobre el espacio aparte si está abierto.
+func (m *Metricas) calibPrep() map[string]VistaCalib {
+	prepMu.Lock()
+	p, preparando := prepCalib[m]
+	c := copiaVistas(p)
+	prepMu.Unlock()
+	if preparando {
+		return c
+	}
+	return m.Calib()
+}
+
+func copiaVistas(src map[string]VistaCalib) map[string]VistaCalib {
+	out := make(map[string]VistaCalib, len(src))
+	for k, v := range src {
 		out[k] = v
 	}
 	return out
