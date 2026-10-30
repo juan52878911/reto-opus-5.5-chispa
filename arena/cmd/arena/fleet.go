@@ -99,7 +99,7 @@ func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	cmd := exec.Command(p.exe, "detector", "-id", r.id, "-dim", r.dim, "-kind", r.kind, "-models", p.models, "-addr", "127.0.0.1:0")
 	cmd.Env = append(os.Environ(), "GOMAXPROCS=1")
 	// Grupo propio y muerte con el padre: nada queda vivo si arena cae.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
+	cmd.SysProcAttr = sysProcAttr()
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", err
@@ -117,18 +117,16 @@ func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	var rd sync.WaitGroup
 	scan := func(rc io.Reader, announce bool) {
 		defer rd.Done()
-		sc := bufio.NewScanner(rc)
-		for sc.Scan() {
-			t := sc.Text()
+		drainLines(rc, func(t string) {
 			if announce && strings.HasPrefix(t, "LISTEN ") {
 				select {
 				case addrCh <- strings.TrimPrefix(t, "LISTEN "):
 				default:
 				}
-				continue
+				return
 			}
 			h.log.add(t)
-		}
+		})
 	}
 	rd.Add(2)
 	go scan(out, true)
@@ -153,6 +151,12 @@ func (p *procLauncher) Stop(r *replica) error {
 	if !ok || h.cmd.Process == nil {
 		return nil
 	}
+	// Si el hijo ya fue recogido, su pid puede ser de otro grupo: no matar.
+	select {
+	case <-h.done:
+		return nil
+	default:
+	}
 	// Mata el grupo entero; ESRCH (ya muerto) no es un error.
 	if err := syscall.Kill(-h.cmd.Process.Pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
 		return h.cmd.Process.Kill()
@@ -162,6 +166,17 @@ func (p *procLauncher) Stop(r *replica) error {
 	case <-time.After(2 * time.Second):
 	}
 	return nil
+}
+
+// drainLines entrega cada línea de rc a fn. Tolera líneas de hasta 1 MiB y,
+// si aparece una mayor, sigue vaciando la tubería para no bloquear al hijo.
+func drainLines(rc io.Reader, fn func(string)) {
+	sc := bufio.NewScanner(rc)
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	for sc.Scan() {
+		fn(sc.Text())
+	}
+	io.Copy(io.Discard, rc)
 }
 
 // fleet es el conjunto de réplicas, agrupadas por dimensión y tipo.
