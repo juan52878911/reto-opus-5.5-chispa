@@ -8,7 +8,9 @@ comparar una respuesta de la variante con la del original, tradúcela con ``mapa
 
 Transformaciones (``TIPOS``): permutar, renombrar, parafrasear, erratas, mayusculas,
 mezcla, largo. Seguras (``SEGURAS``, no cambian la respuesta correcta): permutar (también
-en noul y score: solo cambia el orden, los ids se conservan), renombrar (solo en choice y
+en noul y score: solo cambia el orden, los ids se conservan; en score mide justo el
+invariante de que el runtime ordena las opciones por id antes de decidir, así que una
+inestabilidad bajo ``permutar`` en score es un fallo del runtime, no de la transformación), renombrar (solo en choice y
 multi; en noul/score es la identidad porque sus ids no son opacos), parafrasear (plantilla
 en el idioma de la pregunta) y mayusculas. Con riesgo (``RIESGOS``; la variante lleva la
 nota en ``riesgo``): erratas (rompe preguntas por palabras clave), mezcla (traducir
@@ -93,7 +95,11 @@ def _traducir_etiqueta(caso, mapa):
 
 
 def permutar(caso, rng):
-    """Reordena las opciones (en todos los kinds, también noul y score). Los ids no cambian, así que la etiqueta tampoco."""
+    """Reordena las opciones (en todos los kinds, también noul y score). Los ids no cambian, así que la etiqueta tampoco.
+
+    En score mide el invariante «el runtime ordena las opciones por id»: si la decisión
+    depende del orden de entrada, el runtime está mal.
+    """
     v = _copia(caso, "permutar")
     rng.shuffle(v["opciones"])
     return v
