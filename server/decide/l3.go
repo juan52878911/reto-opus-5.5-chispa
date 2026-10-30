@@ -367,7 +367,7 @@ func interpretarL3(contenido string, p Pregunta) (Respuesta, bool) {
 	ans := p.Opciones[0].ID
 	if p.Kind == KindScore {
 		var acc float64
-		for _, o := range p.Opciones {
+		for _, o := range opcionesPorNivel(p.Opciones) {
 			if acc += probs[o.ID]; acc >= 0.5 {
 				ans = o.ID
 				break

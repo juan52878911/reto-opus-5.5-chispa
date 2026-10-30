@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"chispa/format/chispa3"
+	"chispa/runtime/tok"
 )
 
 // Tokenizador convierte un texto en ids del tokenizador original de e5 (con «query: »
@@ -525,29 +525,35 @@ func clavesDe(ops []Opcion) []chispa3.OpcionClave {
 	return out
 }
 
-// ordenNivel ordena las opciones de un score por nivel: por id numérico ("2" < "10") si todos los ids son enteros; si alguno no lo
-// es, devuelve el orden declarado sin tocarlo (nunca lexicográfico). El bool dice si todos eran numéricos.
+// ordenNivel ordena las opciones de un score por nivel con tok.OrdenNivel: por id numérico ("2" < "10") si todos son enteros; si
+// alguno no lo es, el orden declarado sin tocarlo (nunca lexicográfico). El bool dice si todos eran numéricos. No modifica ops.
 func ordenNivel(ops []Opcion) ([]Opcion, bool) {
-	out := append([]Opcion(nil), ops...)
-	for _, o := range out {
-		if _, err := strconv.Atoi(o.ID); err != nil {
-			return out, false
+	ids := make([]string, len(ops))
+	pos := make(map[string]int, len(ops))
+	for i, o := range ops {
+		ids[i] = o.ID
+		if _, ok := pos[o.ID]; !ok {
+			pos[o.ID] = i
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, _ := strconv.Atoi(out[i].ID)
-		b, _ := strconv.Atoi(out[j].ID)
-		return a < b
-	})
-	return out, true
+	out := make([]Opcion, len(ops))
+	for i, id := range tok.OrdenNivel(ids) {
+		out[i] = ops[pos[id]]
+	}
+	return out, tok.IdsEnteros(ids)
+}
+
+// opcionesPorNivel es ordenNivel sin el bool.
+func opcionesPorNivel(ops []Opcion) []Opcion {
+	out, _ := ordenNivel(ops)
+	return out
 }
 
 // opcionesUnica son las opciones de la única torre de noul (false y true, con la descripción de la petición si la trae) y
 // score (todas).
 func opcionesUnica(p Pregunta) []Opcion {
 	if p.Kind == KindScore {
-		ops, _ := ordenNivel(p.Opciones)
-		return ops
+		return opcionesPorNivel(p.Opciones)
 	}
 	if p.Kind != KindNoul {
 		return p.Opciones
@@ -625,6 +631,9 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 			}
 			rs[i] = r
 		}
+	}
+	if p.Kind == KindScore {
+		p.Opciones = opcionesPorNivel(p.Opciones) // la mediana de la agregación recorre los niveles, no el orden de la petición
 	}
 	return agregarRespuestas(p, rs, agg, theta), nil
 }
