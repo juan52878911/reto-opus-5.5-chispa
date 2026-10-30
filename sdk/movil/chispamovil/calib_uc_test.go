@@ -32,7 +32,7 @@ func TestCalibTauEfectivoYOrigen(t *testing.T) {
 		t.Fatalf("esquema nuevo por defecto: %+v", ts)
 	}
 	l2c, nuevo := 0.2, 0.9
-	c = &Chispa{tieneL2: true, calib: chispa3.Calib{TauEscalate: 0.5, TauL2c: &l2c, TauL2EsquemaNuevo: &nuevo}}
+	c = &Chispa{tieneL2: true, conj: &chispa3.Conj{}, calib: chispa3.Calib{TauEscalate: 0.5, TauL2c: &l2c, TauL2EsquemaNuevo: &nuevo}}
 	ts = tausDe(t, c, "L2")
 	if ts["tau_l2_esquema_nuevo"].Valor != 0.9 || ts["tau_l2_esquema_nuevo"].Origen != origenCalib || ts["tau_l2c"].Valor != 0.2 {
 		t.Fatalf("CALIB: %+v", ts)

@@ -233,6 +233,7 @@ func TestCalibAvisoAlArmarYMetricas(t *testing.T) {
 			t.Fatalf("aviso: %q", a)
 		}
 	}
+	casc.PublicaCalib() // lo hace el servidor al poner la cascada en servicio
 	var sb strings.Builder
 	casc.met.Escribe(&sb)
 	if !strings.Contains(sb.String(), `chispa_calib{capa="L1",tipo="choice",origen="fichero",param="T"}`) ||
