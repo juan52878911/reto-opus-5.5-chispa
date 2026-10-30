@@ -2,7 +2,8 @@
 
     python -m model.l2.entrenar --salida DIR --datos DIR_CONVERTIDOS [--herramientas] [--meta DIR] [--blandas DIR ...]
         [--max-filas 600000] [--epocas 1] [--minutos M] [--s3 s3://bucket/prefijo] [--dev-max 4000]
-        [--descongelar N] [--renombrar P] [--maestro-extra DIR --peso-extra W] [--inicial CKPT]
+        [--descongelar N] [--renombrar P] [--maestro-extra DIR --peso-extra W] [--inicial|--desde CKPT]
+        [--aumento [--aumento-fracs ids=0.3,mayusculas=0.15,erratas=0.2,parafrasis=0.3,ingles=0.2,relleno=0.15]]
         [--episodios [--k-min 4 --k-max 32 --vias 16 --frac-meta 0.5 --frac-zeroshot 0.25]]
 
 AdamW (3e-4 ranuras y cabezas, 1e-4 torre), warmup 5 % y coseno, lotes de 64 mensajes con muestreo por tarea (n^0,5).
@@ -15,6 +16,9 @@ torres comparten el codificador, así que los vectores de opción se recalculan 
 tras cada `opt.step()` (ver `Codificador`). `--renombrar P`: con probabilidad P por fila `choice`, los ids de las opciones pasan a
 A, B, C… (se decide por (semilla, paso, id)). `--maestro-extra`: blandas `{id, blanda}` de un segundo maestro, promediadas con
 las existentes con peso `--peso-extra`. `--inicial`: pesos de un checkpoint de T2.1 (sin optimizador) si no hay `ultimo.pt`.
+
+W3: `--aumento` transforma las consultas de cada lote (model.l2.aumento: ids opacos, mayúsculas, erratas, paráfrasis, inglés, relleno), con
+semilla (semilla, paso, id). `--desde CKPT` = `--inicial` + lr bajos (3e-5 y 1e-5) para el ajuste fino con pocos pasos (`--pasos`).
 
 T2.1b: `--episodios` entrena con prototipos de soporte (ver `datos.Episodios`): una tarea local por paso, k ejemplos por clase
 (k al azar en [`--k-min`, `--k-max`]) como soporte y un lote de consultas disjunto; `--frac-zeroshot` de los pasos va sin soporte, con
@@ -34,6 +38,7 @@ from pathlib import Path
 
 import torch
 
+from . import aumento as A
 from . import datos as D
 from .evaluar import macro_f1_medio, predecir
 from .modelo import MAX_TOK, Codificador, ModeloL2, SoporteEval, prototipos
@@ -180,14 +185,20 @@ def main(argv=None):
     ap.add_argument("--dev-max", type=int, default=4000)
     ap.add_argument("--s3", help="prefijo s3:// (o directorio local) donde subir/bajar los checkpoints")
     ap.add_argument("--ckpt-cada", type=int, default=CKPT_CADA_S, help="segundos entre checkpoints")
-    ap.add_argument("--lr", type=float, default=3e-4)
-    ap.add_argument("--lr-torre", type=float, default=1e-4)
+    ap.add_argument("--lr", type=float, default=None, help="lr de ranuras y cabezas (3e-4; con --desde, 3e-5)")
+    ap.add_argument("--lr-torre", type=float, default=None, help="lr de la torre (1e-4; con --desde, 1e-5)")
     ap.add_argument("--descongelar", type=int, default=0, help="entrena las últimas N capas de e5 (0 = congelado)")
     ap.add_argument("--lr-enc", type=float, default=2e-5, help="lr de las capas descongeladas")
     ap.add_argument("--renombrar", type=float, default=0.0, help="prob. por fila choice de renombrar las opciones a A/B/C…")
     ap.add_argument("--maestro-extra", nargs="*", default=[], help="blandas {id, blanda} de un segundo maestro (JSONL)")
     ap.add_argument("--peso-extra", type=float, default=0.5, help="peso del segundo maestro en el promedio de blandas")
-    ap.add_argument("--inicial", help="checkpoint (T2.1) de donde tomar los pesos si no hay ultimo.pt")
+    ap.add_argument("--inicial", "--desde", dest="inicial", metavar="CKPT",
+                    help="checkpoint (T2.1, p. ej. un mejor.pt) de donde tomar los pesos si no hay ultimo.pt. `--desde` es el ajuste fino: "
+                         "si no se dan --lr ni --lr-torre, bajan a 3e-5 y 1e-5; pocos pasos con --pasos")
+    ap.add_argument("--aumento", action="store_true",
+                    help="aumento de datos de las consultas (model.l2.aumento): ids opacos, mayúsculas, erratas, paráfrasis, inglés y relleno")
+    ap.add_argument("--aumento-fracs", default="", metavar="ids=0.3,...",
+                    help="cambia fracciones del aumento (ids, mayusculas, erratas, parafrasis, ingles, relleno); por defecto %s" % A.FRACCIONES)
     ap.add_argument("--episodios", action="store_true", help="entrena por episodios con prototipos de soporte (T2.1b)")
     ap.add_argument("--k-min", type=int, default=4, help="mínimo de ejemplos de soporte por clase en un episodio")
     ap.add_argument("--k-max", type=int, default=32, help="máximo (y k del dev con soporte)")
@@ -209,6 +220,14 @@ def main(argv=None):
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args(argv)
+    if a.lr is None:
+        a.lr = 3e-5 if a.inicial else 3e-4
+    if a.lr_torre is None:
+        a.lr_torre = 1e-5 if a.inicial else 1e-4
+    try:
+        fracs = A.parsear_fracs(a.aumento_fracs)
+    except ValueError as e:
+        ap.error(str(e))
     sal = Path(a.salida)
     sal.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(a.semilla)
@@ -271,6 +290,9 @@ def main(argv=None):
         paso, total, mejor, calibrado = ck["paso"], ck["total"], ck["mejor"], ck["calibrado"]
         print("reanudado en el paso %d de %d" % (paso, total), flush=True)
 
+    def lote_aug(lote, paso):
+        return A.aumentar_lote(lote, a.semilla, paso, fracs, a.max_tok) if a.aumento else lote
+
     def estado():
         return {"modelo": modelo.state_dict(), "opt": opt.state_dict(), "paso": paso, "total": total, "mejor": mejor,
                 "calibrado": calibrado, "cabezas": sorted(modelo.coral.keys()), "args": vars(a),
@@ -315,7 +337,7 @@ def main(argv=None):
             lote_p, protos = ep["filas"], (None if ep["soporte"] is None else {ep["tarea"]: prototipos(modelo, enc, ep["soporte"])})
         else:
             lote_p, protos = mues.lote_paso(paso), None
-        _, ps = modelo(D.renombrar_lote(lote_p, a.renombrar, a.semilla, paso), enc, protos=protos)
+        _, ps = modelo(lote_aug(D.renombrar_lote(lote_p, a.renombrar, a.semilla, paso), paso), enc, protos=protos)
         opt.zero_grad(set_to_none=True)
         ps["total"].backward()
         torch.nn.utils.clip_grad_norm_([*modelo.parameters(), *enc.parametros_entrenables()], 1.0)

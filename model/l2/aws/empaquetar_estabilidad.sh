@@ -11,7 +11,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 ref=HEAD; fix=0
 for a in "$@"; do if [ "$a" = --fixtures ]; then fix=1; else ref=$a; fi; done
 git rev-parse --verify --quiet "$ref^{commit}" >/dev/null || { echo "no existe la revisión '$ref'" >&2; exit 1; }
-excl=(':(exclude,glob)**/resultados/**' ':(exclude,glob)**/__pycache__/**' ':(exclude,glob)model/*/tests/test_*' ':(exclude,glob)model/*/tests/gen_*'
+# resultados fuera, salvo model/meta/resultados/conversion-20261027.json (lo lee diag_score.py, M5; una exclusión no se puede deshacer, de ahí la lista)
+excl=(':(exclude,glob)model/l1/resultados/**' ':(exclude,glob)model/l2/resultados/**' ':(exclude,glob)model/evaluacion/resultados/**'
+      ':(exclude,glob)model/lineas_base/resultados*' ':(exclude,glob)model/datos/**/resultados/**' ':(exclude,glob)server/**/resultados/**'
+      ':(exclude,glob)runtime/**/resultados/**' ':(exclude,glob)sdk/**/resultados/**' ':(exclude,glob)format/**/resultados/**' ':(exclude,glob)**/__pycache__/**' ':(exclude,glob)model/*/tests/test_*' ':(exclude,glob)model/*/tests/gen_*'
       ':(exclude,glob)model/*/tests/falso.py' ':(exclude,glob)**/*_test.go' ':(exclude,glob)model/lineas_base/pred/**')
 [ $fix = 1 ] || excl+=(':(exclude,glob)**/fixtures*/**')
 rutas=(model/__init__.py model/l1 model/l2 model/datos model/evaluacion model/lineas_base model/meta model/herramientas/train.jsonl model/herramientas/test.jsonl
