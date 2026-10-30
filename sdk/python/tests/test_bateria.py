@@ -222,8 +222,9 @@ class TestBateria(Base):
             r0 = json.loads(json.dumps(r0))
             r0["conjuntos"]["choice"]["p99_ms"] = 500.0
             r0["conjuntos"]["choice"]["n"] = 100
+            r0["conjuntos"]["choice"]["n_latencia"] = 100
             c = b["conjuntos"]["choice"]
-            c["n"] = 100
+            c["n"] = c["n_latencia"] = 100
             c[met] = c[met] * 0.1 if cambio is None else c[met] + cambio  # base mejor que lo actual
             if met == "errores":
                 c[met] = -0.1

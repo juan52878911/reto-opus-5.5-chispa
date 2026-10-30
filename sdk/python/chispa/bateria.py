@@ -22,7 +22,7 @@ import subprocess
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, List, Optional
 
 from .cliente import Chispa, ChispaError, ErrorSolicitud
@@ -34,7 +34,7 @@ OBJETIVO = 0.95
 CUBOS_ECE = 10
 MODULO_VARIANTES = "chispa.variantes"
 HOLGURA_MS = 5.0  # la latencia solo falla si empeora más que el umbral relativo Y más de 5 ms
-MIN_MUESTRAS_LATENCIA = 30  # con menos filas (en la base o en la corrida) p50/p99 no se juzgan
+MIN_MUESTRAS_LATENCIA = 30  # con menos muestras de latencia (filas con respuesta, en la base o en la corrida) p50/p99 no se juzgan
 
 # Umbral = empeoramiento máximo tolerado. Absoluto (en fracción, 0,01 = un punto) salvo p50_ms/p99_ms, que son relativos (0,5 = +50 %).
 UMBRALES = {"exactitud": 0.01, "f1_macro": 0.01, "cobertura": 0.02, "ece": 0.02, "escalado": 0.03, "errores": 0.0, "mae": 0.05,
@@ -293,6 +293,48 @@ def _decidir(cliente: Chispa, f: Fila, texto: Optional[str] = None, reloj=time.p
     return r
 
 
+def _decidir_grupo(cliente: Chispa, filas: List[Fila], texto: str, reloj=time.perf_counter) -> List[dict]:
+    """Varias filas con el mismo texto en UNA petición (una pregunta por fila, en orden). Si falla, falla toda la petición; `cliente_ms` es el de la petición."""
+    rs = []
+    for f in filas:
+        rs.append({"id": f.id, "tipo": f.tipo, "esquema": f.esquema, "etiqueta": list(f.etiqueta) if f.tipo == "multi" else f.etiqueta,
+                   "opciones": [o.id for o in f.q.options] or ["false", "true"], "answer": "", "answers": None, "probs": {}, "layer": "",
+                   "escalate": False, "ms": None, "cliente_ms": None, "error": "", "error_codigo": ""})
+    if len(texto.encode("utf-8")) > MAX_ESTADO_BYTES:
+        for r in rs:
+            r.update(error="texto mayor que 262144 bytes (max_estado)", error_codigo="state_too_long")
+        return rs
+    t0 = reloj()
+    try:
+        xs = cliente.decidir(texto, [replace(f.q, id=f"q{i}") for i, f in enumerate(filas)])  # el id de pregunta es único por petición
+    except ErrorSolicitud as e:
+        for r in rs:
+            r.update(error=str(e), error_codigo=e.codigo or f"http_{e.status}")
+    except ChispaError as e:
+        for r in rs:
+            r.update(error=str(e), error_codigo="transporte")
+    else:
+        ms = (reloj() - t0) * 1000
+        for r, x in zip(rs, xs):
+            r.update(answer=x.answer, answers=x.answers, probs=x.probs, layer=x.layer, escalate=x.escalate, ms=x.ms, cliente_ms=ms)
+    return rs
+
+
+def _correr_agrupado(cliente: Chispa, tareas: List[tuple], concurrencia: int) -> List[dict]:
+    """Como `_correr`, pero las tareas con el mismo texto viajan en una sola petición (con varias preguntas), como un cliente que las agrupa.
+    Un resultado por tarea, en orden."""
+    grupos: dict = {}
+    for i, (f, texto) in enumerate(tareas):
+        grupos.setdefault(f.texto if texto is None else texto, []).append((i, f))
+    trabajos = list(grupos.items())
+    out: List[Optional[dict]] = [None] * len(tareas)
+    with ThreadPoolExecutor(max_workers=max(1, concurrencia)) as ex:
+        for (_, lote), rs in zip(trabajos, ex.map(lambda tl: _decidir_grupo(cliente, [f for _, f in tl[1]], tl[0]), trabajos)):
+            for (i, _), r in zip(lote, rs):
+                out[i] = r
+    return out
+
+
 def _correr(cliente: Chispa, tareas: List[tuple], concurrencia: int) -> List[dict]:
     """tareas = [(Fila, texto|None)] → un resultado por tarea, en orden."""
     with ThreadPoolExecutor(max_workers=max(1, concurrencia)) as ex:
@@ -380,7 +422,7 @@ def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
     dec = [d for r in rs for d in decisiones(r)]
     total = sum(len(r["opciones"]) if r["tipo"] == "multi" else 1 for r in rs)
     cli = [r["cliente_ms"] for r in rs if r["cliente_ms"] is not None]
-    m = {"n": n, "errores": sum(1 for r in rs if r["error"]) / n, "exactitud": sum(_acierto_fila(r) for r in rs) / n, "f1_macro": _f1_macro(rs),
+    m = {"n": n, "n_latencia": len(cli), "errores": sum(1 for r in rs if r["error"]) / n, "exactitud": sum(_acierto_fila(r) for r in rs) / n, "f1_macro": _f1_macro(rs),
          "ece": ece(dec), "cobertura": cobertura(dec, total, objetivo), "escalado": sum(1 for r in rs if not r["error"] and r["escalate"]) / n,
          "p50_ms": _pct(cli, 0.5), "p99_ms": _pct(cli, 0.99)}
     d = [abs(int(_mejor(r)[0]) - int(r["etiqueta"])) for r in rs if r["tipo"] == "score" and (_mejor(r)[0] or "").isdigit()]
@@ -500,6 +542,11 @@ def agregar_robustez(pares: List[dict], por_transformacion: bool = True) -> dict
 
 
 # ---------------------------------------------------------------- comparación con la línea base
+def _n_latencia(m: dict) -> int:
+    """Muestras de latencia de una entrada; las bases antiguas (sin `n_latencia`) caen a `n`."""
+    return m["n_latencia"] if m.get("n_latencia") is not None else (m.get("n") or 0)
+
+
 def _umbral(u: dict, conjunto: Optional[str], metrica: str):
     pc = (u.get("por_conjunto") or {}).get(conjunto, {}) if conjunto else {}
     return pc[metrica] if metrica in pc else u.get(metrica, UMBRALES[metrica])
@@ -545,7 +592,7 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
                     fallos.append({"seccion": sec, "nombre": nombre, "metrica": met, "base": vb, "actual": None, "umbral": u, "detalle": f"{met} sin medir (base {vb:.4g})"})
                     continue
                 rel = met in ("p50_ms", "p99_ms")
-                if rel and min(ma.get("n") or 0, mb.get("n") or 0) < MIN_MUESTRAS_LATENCIA:
+                if rel and min(_n_latencia(ma), _n_latencia(mb)) < MIN_MUESTRAS_LATENCIA:
                     avisos.append(f"{sec}/{nombre}: {met} no se compara: menos de {MIN_MUESTRAS_LATENCIA} muestras")
                     continue
                 peor = (vb - va) if met in MEJOR_ALTO else (va - vb)
@@ -557,10 +604,20 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
 
 
 # ---------------------------------------------------------------- orquestación
+def _calib_corrida(antes: dict, despues: dict) -> dict:
+    """CALIB de `despues` con los contadores `defecto` como diferencia con `antes`: solo lo decidido durante la corrida (no el tráfico previo del servidor).
+    Si `antes` no se pudo leer, el contador es el acumulado y se marca con `defecto_acumulado`."""
+    if "error" in despues or "error" in antes:
+        return dict(despues, defecto_acumulado=True) if "error" not in despues else despues
+    previo = antes.get("defecto") or {}
+    d = {k: v - previo.get(k, 0) for k, v in (despues.get("defecto") or {}).items()}
+    return dict(despues, defecto={k: v for k, v in d.items() if v > 0})
+
+
 def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str] = None, servidor: Optional[str] = None, tok: Optional[str] = None,
             config: Optional[str] = None, extra=(), linea_base: Optional[str] = None, umbrales: Optional[str] = None, robustez: bool = False,
             robustez_max: int = 200, solo: Optional[List[str]] = None, objetivo: Optional[float] = None, concurrencia: int = 4, timeout: float = 10.0,
-            reintentos: int = 3, filas: bool = False, aviso=lambda m: None) -> dict:
+            reintentos: int = 3, filas: bool = False, agrupar: bool = False, aviso=lambda m: None) -> dict:
     """Corre la batería y devuelve el reporte (JSON-able, con `informe` markdown y `ok`). Contra `url`, o arrancando `chispa-server` con `modelo`."""
     if bool(url) == bool(modelo):
         raise ErrorBateria("indica exactamente uno: --url (servidor ya en marcha) o --modelo (arranca chispa-server con ese .chispa)")
@@ -603,8 +660,8 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
         u = url or pila.enter_context(servidor_local(modelo, servidor, tok, config, extra))
         cliente = Chispa(u, timeout=timeout, reintentos=reintentos)
         tareas = [(f, None) for _, fs in cargados for f in fs]
-        res = _correr(cliente, tareas, concurrencia)
-        calib = calib_servidor(u, tok, timeout)
+        calib_antes = calib_servidor(u, tok, timeout)
+        res = (_correr_agrupado if agrupar else _correr)(cliente, tareas, concurrencia)
         por_conjunto, i = [], 0
         for c, fs in cargados:
             rs = res[i:i + len(fs)]
@@ -613,13 +670,14 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
                 raise ErrorBateria(f"conjunto {c['nombre']!r}: todas las peticiones fallaron: {rs[0]['error']}")
             por_conjunto.append((c["nombre"], c.get("grupo", ""), fs, rs, c))
         pares = medir_robustez(cliente, [(n, g, fs, rs) for n, g, fs, rs, _ in por_conjunto], mod_var, concurrencia, robustez_max) if mod_var else []
+        calib = _calib_corrida(calib_antes, calib_servidor(u, tok, timeout))  # tras la robustez: cuenta también sus peticiones
 
     def con_robustez(m, ps):
         return dict(m, **agregar_robustez(ps))
 
     rep = {"version": VERSION, "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "manifiesto": man.get("nombre", os.path.basename(manifiesto)),
            "fuente": modelo or url, "objetivo": objetivo, "conjuntos": {}, "tipos": {}, "grupos": {}, "omitidos": omitidos,
-           "calib_servidor": calib}
+           "calib_servidor": calib, "agrupado": bool(agrupar)}
     if solo or omitidos:
         rep["parcial"] = True
     todas = [r for _, _, _, rs, _ in por_conjunto for r in rs]
@@ -665,7 +723,7 @@ def linea_base(rep: dict) -> dict:
     parcial (--solo u opcionales omitidos) no se guarda: dejaría pasar regresiones en lo que no midió."""
     if rep.get("parcial"):
         raise ErrorBateria("no guardo la línea base: la corrida es parcial (--solo u opcionales omitidos); hazla completa")
-    return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok", "calib_servidor")}
+    return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok", "calib_servidor", "agrupado")}
 
 
 def json_reporte(rep: dict) -> dict:
@@ -717,6 +775,6 @@ def informe_md(rep: dict) -> str:
         L.append(calib_md(calib).rstrip())
         defecto = {k: v for k, v in (calib.get("defecto") or {}).items() if v}
         if defecto:
-            L += ["", "AVISO: alguna capa decidió con la CALIB por defecto (" + ", ".join(f"{k}: {int(v)}" for k, v in sorted(defecto.items()))
+            L += ["", "AVISO: alguna capa decidió con la CALIB por defecto" + (" (contadores acumulados del servidor: no se pudo leer /metrics antes de la corrida)" if calib.get("defecto_acumulado") else " durante la corrida") + " (" + ", ".join(f"{k}: {int(v)}" for k, v in sorted(defecto.items()))
                   + "): las confianzas, ECE y cobertura de esos tipos no son comparables con una CALIB real."]
     return "\n".join(L).rstrip() + "\n"
