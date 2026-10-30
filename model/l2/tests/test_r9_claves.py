@@ -42,7 +42,9 @@ class R9(unittest.TestCase):
             E.opcion_consulta({"tipo": "noul", "pregunta": "q", "opciones": ["a", "b"]})
 
     def test_score_es_el_nivel_maximo(self):
-        self.assertEqual(E.opcion_consulta({"tipo": "score", "opciones": ["1", "2", "10"]}), "10")
+        self.assertEqual(E.opcion_consulta({"tipo": "score", "opciones": ["5", "4", "3", "2", "1", "6", "7", "8", "9", "10"]}), "10")
+        with self.assertRaises(ValueError):
+            E.opcion_consulta({"tipo": "score", "opciones": ["1", "2", "10"]})
         self.assertEqual(E.opcion_consulta({"tipo": "score", "opciones": ["3", "1", "2"]}), "3")
 
     def test_multi_una_entrada_por_opcion(self):

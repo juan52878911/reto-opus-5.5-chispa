@@ -5,9 +5,12 @@ import hashlib
 import json
 import os
 import random
+import sys
 from collections import defaultdict
 
 import numpy as np
+
+from model.datos.comun import CLAVE_SCORE_DESCARTADA, score_valido
 
 ALFA = 0.5  # p(tarea) ∝ n^ALFA
 
@@ -42,6 +45,9 @@ def sin_conjuntos(filas, excluir):
     return [r for r in filas if conjunto(r) not in excluir] if excluir else filas
 
 
+DESCARTADAS = defaultdict(int)  # filas descartadas al cargar, por motivo (hoy: score con ids fuera de 1..K), acumulado en el proceso
+
+
 def iterar(rutas):
     """Filas de una o varias rutas. Comparte `opciones`, `descripciones` y `pregunta` entre filas iguales (ahorra RAM:
     clinc150 trae 151 descripciones por fila)."""
@@ -55,6 +61,12 @@ def iterar(rutas):
                     if not l.strip():
                         continue
                     fila = json.loads(l)
+                    if fila.get("tipo") == "score" and not score_valido(fila["opciones"]):
+                        DESCARTADAS[CLAVE_SCORE_DESCARTADA] += 1
+                        if DESCARTADAS[CLAVE_SCORE_DESCARTADA] == 1:
+                            print("aviso: fila score con ids fuera de 1..K descartada (%r, %s); se cuentan en datos.DESCARTADAS"
+                                  % (fila["opciones"], f), file=sys.stderr)
+                        continue
                     k = (fila.get("pregunta"), tuple(fila["opciones"]), hashlib.md5(
                         json.dumps(fila["descripciones"], sort_keys=True).encode()).digest())
                     if k not in internos:

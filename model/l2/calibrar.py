@@ -24,7 +24,7 @@ import torch.nn.functional as F
 from model.evaluacion import metricas as M
 
 from . import datos as D
-from .modelo import clave_cabeza, maxsim, texto_consulta, texto_opcion
+from .modelo import clave_cabeza, indice_etiqueta, maxsim, texto_consulta, texto_opcion
 
 PRECISION = 0.95
 MIN_FILAS = 20  # por debajo, o con una sola clase, no se ajusta: se conserva la cabeza del modelo (sin_ajuste)
@@ -208,7 +208,7 @@ def _calibrar(modelo, enc, filas, lote=64):
     for r in filas:
         modelo.asegurar_cabeza(clave_cabeza(r))
     ss = simil(modelo, enc, filas, lote)
-    ys = [r["opciones"].index(r["etiqueta"]) for r in filas]
+    ys = [indice_etiqueta(r) for r in filas]
     claves = [clave_cabeza(r) for r in filas]
     por_clave, por_tarea = defaultdict(list), defaultdict(list)
     for i, r in enumerate(filas):

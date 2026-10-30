@@ -183,3 +183,46 @@ def numerar(corto, items):
         cont[split] = n + 1
         out.append(fila(corto, split, n, **kw))
     return out, descartadas
+
+
+def niveles_score(opciones):
+    """Ids de los niveles de una pregunta score ordenados por `int`. Exige exactamente «1»..«K» contiguos (como el runtime):
+    «01», «0», huecos o no enteros lanzan ValueError. El orden declarado no importa: CORAL indexa por este orden."""
+    ops = [str(o) for o in opciones]
+    try:
+        niv = sorted(ops, key=int)
+    except ValueError:
+        raise ValueError("pregunta score con niveles no numéricos: %r" % (list(opciones),))
+    if niv != [str(i) for i in range(1, len(niv) + 1)]:
+        raise ValueError("pregunta score con niveles distintos de 1..K contiguos: %r" % (list(opciones),))
+    return niv
+
+
+def score_valido(opciones):
+    """True si los niveles de una fila score son exactamente «1»..«K» (en cualquier orden)."""
+    try:
+        niveles_score(opciones)
+        return True
+    except ValueError:
+        return False
+
+
+def filtrar_score(filas, fuente="", cuenta=None):
+    """Quita las filas score con ids fuera de `1..K` (nunca las corrige), con un aviso por fuente a stderr y un contador:
+    devuelve el generador y `cuenta` (dict {«descartadas_score_ids_fuera_de_1k»: n}) se rellena al consumirlo. El orden no ascendente se acepta."""
+    import sys
+    cuenta = cuenta if cuenta is not None else {}
+    n = 0
+    for f in filas:
+        if f.get("tipo") == "score" and not score_valido(f.get("opciones", [])):
+            n += 1
+            cuenta[CLAVE_SCORE_DESCARTADA] = n
+            if n == 1:
+                print("aviso: %s: fila score con ids fuera de 1..K descartada (%r)" % (fuente or "?", f.get("opciones")), file=sys.stderr)
+            continue
+        yield f
+    if n:
+        print("aviso: %s: %d filas score descartadas (ids fuera de 1..K)" % (fuente or "?", n), file=sys.stderr)
+
+
+CLAVE_SCORE_DESCARTADA = "descartadas_score_ids_fuera_de_1k"

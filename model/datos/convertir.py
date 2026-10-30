@@ -15,7 +15,7 @@ import traceback
 from pathlib import Path
 
 from . import validar
-from .comun import FuenteAusente
+from .comun import FuenteAusente, filtrar_score
 
 FUENTES_LIBRES = ("odio_alia", "toxicidad_protestas", "toxicidad_constitucion", "goemociones", "spam_tanaos", "soporte_ti",
                   "ciberacoso", "clima", "riesgo_suicida", "pqrs_gb9w", "pqrs_e86p", "pqrs_xtj2", "pqrs_enrutamiento")
@@ -28,6 +28,9 @@ def _convertir_una(nombre, usar_fixtures):
     mod = importlib.import_module("%s.%s" % (__package__, nombre))
     raiz = FIXTURES / nombre if usar_fixtures else None
     filas, info = mod.convertir(raiz)
+    cuenta = {}
+    filas = list(filtrar_score(filas, nombre, cuenta))
+    info = {**info, **cuenta}
     errs = validar.errores_conjunto(filas)
     if errs:
         raise ValueError("%d filas inválidas; primera: %s" % (len(errs), errs[0]))

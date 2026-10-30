@@ -15,6 +15,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from model.datos.comun import niveles_score  # noqa: F401  (helper canónico; se reexporta para el resto de model.l2)
+
 E5 = "intfloat/multilingual-e5-small"
 DIM_E5 = 384
 MAX_TOK = 128
@@ -37,6 +39,13 @@ def texto_opcion(fila, opcion):
     return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, opcion, SEP, fila["descripciones"].get(opcion, ""))
 
 
+def indice_etiqueta(fila):
+    """Índice de la etiqueta de la fila en el orden de su cabeza: el nivel (orden por int) en score, la posición declarada en el resto."""
+    if fila["tipo"] == "score":
+        return niveles_score(fila["opciones"]).index(fila["etiqueta"])
+    return fila["opciones"].index(fila["etiqueta"])
+
+
 def texto_consulta(fila):
     """Torre de las cabezas noul y score: la pregunta con la opción «true» (noul) o el nivel máximo (score), sea cual sea el orden.
 
@@ -47,10 +56,7 @@ def texto_consulta(fila):
             raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
         return texto_opcion(fila, "true")
     if fila["tipo"] == "score":
-        try:
-            return texto_opcion(fila, max(ops, key=int))
-        except ValueError:
-            raise ValueError("pregunta score con niveles no numéricos: %r" % (ops,))
+        return texto_opcion(fila, niveles_score(ops)[-1])
     return texto_opcion(fila, ops[-1])
 
 
@@ -395,6 +401,8 @@ class ModeloL2(nn.Module):
             tipo, ops = r["tipo"], r["opciones"]
             y = ops.index(r["etiqueta"])
             sp = sp_filas[i]
+            if tipo == "score":
+                niv = niveles_score(ops)
             if tipo == "choice":
                 lg = (s if sp is None else s + self.beta["choice"] * sp) / T
                 p = F.softmax(lg, -1)
@@ -408,8 +416,10 @@ class ModeloL2(nn.Module):
                 p = torch.stack([1 - pt, pt])
                 ce = -torch.log(p[y].clamp(min=1e-7))
             else:
-                p = self.coral["score%d" % len(ops)](s[:1] + self._ajuste(sp, "score"))[0]
-                ce = -torch.log(p[y].clamp(min=1e-7))
+                # CORAL se indexa por el nivel (orden por int), no por la posición declarada; se devuelve en el orden de `opciones`
+                pn = self.coral["score%d" % len(ops)](s[:1] + self._ajuste(sp, "score"))[0]
+                ce = -torch.log(pn[niv.index(r["etiqueta"])].clamp(min=1e-7))
+                p = pn[torch.tensor([niv.index(o) for o in ops], device=pn.device)]
             probs.append(p)
             if not entrenar:
                 continue

@@ -35,7 +35,7 @@ import torch.nn.functional as F
 
 from . import calibrar as C
 from . import datos as D
-from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, normalizar_mayusculas, texto_opcion
+from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, niveles_score, normalizar_mayusculas, texto_opcion
 
 RAIZ = Path(__file__).resolve().parents[2]
 VOCAB_PODADO = RAIZ / "model" / "bench" / "vocab-podado-e5-small.json"
@@ -237,10 +237,7 @@ def opcion_consulta(fila):
         if "true" not in fila["opciones"]:
             raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
         return "true"
-    try:
-        return max(fila["opciones"], key=int)
-    except ValueError:
-        raise ValueError("pregunta score con niveles no numéricos: %r" % (fila["opciones"],))
+    return niveles_score(fila["opciones"])[-1]
 
 
 def texto_torre_consulta(fila):

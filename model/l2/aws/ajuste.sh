@@ -4,7 +4,7 @@ CHISPA_S3=__CHISPA_S3__
 # ListBucket). W3: ajuste fino de G.8 con aumento de datos y más español. El orquestador sustituye __CHISPA_S3__ y sube $CHISPA_S3/codigo.tgz
 # (`bash model/l2/aws/empaquetar_ajuste.sh <sha> > codigo.tgz`). Patrón de general.sh. Pasos, cada uno deja OK/FALLO en estado.tsv:
 #   1 entorno · 2 código, G.8 (general-20261029b), HF y JevBench · 3 model.datos (con sib200 y pawsx de train) y meta de tsjev solo (sin synzs ni
-#   los pawsx/sib200 del meta, que repetirían filas) · 4 `entrenar --desde G.8 --aumento --episodios` (reparto de G.8, sin massive, hatecheck ni
+#   los pawsx/sib200 del meta, que repetirían filas) · 3b recuento del orden de score (R16) · 4 `entrenar --desde G.8 --aumento --episodios` (reparto de G.8, sin massive, hatecheck ni
 #   inyecciones; lr 3e-5/1e-5; 50 min) · 5 mide el nuevo Y G.8 en la misma máquina: JevBench k=0, M3 (robustez), M4 (español) · 6 comparacion.md.
 # Sube ckpt/mejor.pt, resultados.tgz, estado.tsv, comparacion.md y log.txt. Coste ≈ 1,5 USD: g5.xlarge 1,01 USD/h × ≈ 90 min (entorno 15, ajuste 50,
 # medidas 20, subida 3); el techo es `shutdown -h +120` = 2,0 USD. Opcionales: CHISPA_{G8,META,BLANDAS}_S3, CHISPA_MINUTOS, CHISPA_MAX_FILAS_M3/M4.
@@ -178,6 +178,13 @@ else   # solo tsjev
   if [ "$NF" = 0 ] && [ "$NM" -gt 0 ]; then HAY_META=1; estado meta "OK $NM ficheros de tsjev"; else estado meta "FALLO $NF de $((NM+NF)) ficheros (se ajusta sin meta)"; fallo "meta de tsjev"; fi
 fi
 [ $HAY_META = 1 ] && "$PY" -m model.meta.muestreo "$META" > "$OUT/fuera.json"
+
+# --- 3b. recuento de filas score con orden no ascendente o ids fuera de 1..K (R16), antes de entrenar: los cargadores descartan las segundas
+echo "== 3b. orden de score $(date -u +%T)"
+CONT=(--salida "$OUT/orden-score" --datos "$DATOS"); [ $HAY_META = 1 ] && CONT+=(--meta "$META")
+if "$PY" -m model.l2.contar_orden_score "${CONT[@]}" > "$OUT/orden-score.log" 2>&1 && [ -f "$OUT/orden-score/orden-score.json" ]; then
+  estado orden_score "OK $("$PY" -I -c 'import json,sys; t=json.load(open(sys.argv[1]))["total"]; print("score %d, no ascendente %d, fuera de 1..K %d (descartadas al cargar)" % (t["score"], t["no_ascendente"], t["fuera_de_1k"]))' "$OUT/orden-score/orden-score.json")"
+else tail -5 "$OUT/orden-score.log"; estado orden_score "FALLO ver orden-score.log"; fallo "recuento de orden de score"; fi
 
 # --- 4. ajuste fino
 echo "== 4. ajuste fino $(date -u +%T)"
