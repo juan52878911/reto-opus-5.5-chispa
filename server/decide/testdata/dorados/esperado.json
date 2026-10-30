@@ -1,0 +1,1698 @@
+{
+ "capas": {
+  "l0-inj-a": {
+   "opina": true,
+   "answer": "injection",
+   "conf": 1,
+   "probs": {
+    "injection": 1,
+    "safe": 3.6194772023648305e-21
+   }
+  },
+  "l0-inj-b": {
+   "opina": true,
+   "answer": "safe",
+   "conf": 0.9999999999951865,
+   "probs": {
+    "injection": 4.813432694268805e-12,
+    "safe": 0.9999999999951865
+   }
+  },
+  "l0-inj-c": {
+   "opina": true,
+   "answer": "safe",
+   "conf": 0.9116311138045148,
+   "probs": {
+    "injection": 0.08836888619548515,
+    "safe": 0.9116311138045148
+   }
+  },
+  "l0-inj-d": {
+   "opina": true,
+   "answer": "injection",
+   "conf": 1,
+   "probs": {
+    "injection": 1,
+    "safe": 1.1427730114863092e-38
+   }
+  },
+  "l0-inj-e": {
+   "opina": true,
+   "answer": "safe",
+   "conf": 0.9999999945726188,
+   "probs": {
+    "injection": 5.427381081217091e-9,
+    "safe": 0.9999999945726188
+   }
+  },
+  "l0-inj-f": {
+   "opina": true,
+   "answer": "injection",
+   "conf": 1,
+   "probs": {
+    "injection": 1,
+    "safe": 3.624729449604677e-97
+   }
+  },
+  "l0-otro-esquema": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l0tf-a0": {
+   "opina": true,
+   "answer": "otros",
+   "conf": 0.9169589167199116,
+   "probs": {
+    "cuenta": 0.013202074752433091,
+    "devolución": 0.01756813264186279,
+    "envíos": 0.016440023554602595,
+    "facturas": 0.015367827729120973,
+    "garantía": 0.0204630246020689,
+    "otros": 0.9169589167199116
+   }
+  },
+  "l0tf-b0": {
+   "opina": true,
+   "answer": "facturas",
+   "conf": 0.9875117789625563,
+   "probs": {
+    "cuenta": 0.00233527154496487,
+    "devolución": 0.002462583401836548,
+    "envíos": 0.0034118460593483987,
+    "facturas": 0.9875117789625563,
+    "garantía": 0.0021105952496292333,
+    "otros": 0.0021679247816646496
+   }
+  },
+  "l0tf-c0": {
+   "opina": true,
+   "answer": "otros",
+   "conf": 0.8380421512770445,
+   "probs": {
+    "cuenta": 0.03870503287378649,
+    "devolución": 0.014063233376247155,
+    "envíos": 0.015494564920468606,
+    "facturas": 0.05986288093987043,
+    "garantía": 0.03383213661258281,
+    "otros": 0.8380421512770445
+   }
+  },
+  "l0tf-d0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.87099912773814,
+   "probs": {
+    "cuenta": 0.023454880043305,
+    "devolución": 0.02202174422518603,
+    "envíos": 0.0153607619714528,
+    "facturas": 0.05190692831029271,
+    "garantía": 0.87099912773814,
+    "otros": 0.016256557711623522
+   }
+  },
+  "l0tf-e0": {
+   "opina": true,
+   "answer": "otros",
+   "conf": 0.9800985404480451,
+   "probs": {
+    "cuenta": 0.0031570357024063743,
+    "devolución": 0.004950732150355403,
+    "envíos": 0.0033285078452254344,
+    "facturas": 0.003424664771610174,
+    "garantía": 0.005040519082357465,
+    "otros": 0.9800985404480451
+   }
+  },
+  "l0tf-f0": {
+   "opina": true,
+   "answer": "facturas",
+   "conf": 0.9303537026900224,
+   "probs": {
+    "cuenta": 0.014616283666251539,
+    "devolución": 0.013370356620168736,
+    "envíos": 0.01207260813655141,
+    "facturas": 0.9303537026900224,
+    "garantía": 0.019731700854436433,
+    "otros": 0.00985534803256936
+   }
+  },
+  "l0tf-g0": {
+   "opina": true,
+   "answer": "cuenta",
+   "conf": 0.9678662526843841,
+   "probs": {
+    "cuenta": 0.9678662526843841,
+    "devolución": 0.006384481815496892,
+    "envíos": 0.006222515661272674,
+    "facturas": 0.00708898339119195,
+    "garantía": 0.00780270929611962,
+    "otros": 0.004635057151534778
+   }
+  },
+  "l0tf-h0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.8886995987234045,
+   "probs": {
+    "cuenta": 0.018444685215442302,
+    "devolución": 0.025077741203100305,
+    "envíos": 0.024994647104624283,
+    "facturas": 0.02649261500198176,
+    "garantía": 0.8886995987234045,
+    "otros": 0.01629071275144683
+   }
+  },
+  "l0tf-i0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.577604816880732,
+   "probs": {
+    "cuenta": 0.08010497879326939,
+    "devolución": 0.045459349922604364,
+    "envíos": 0.09891987104857905,
+    "facturas": 0.1069241792485353,
+    "garantía": 0.577604816880732,
+    "otros": 0.09098680410627999
+   }
+  },
+  "l0tf-j0": {
+   "opina": true,
+   "answer": "cuenta",
+   "conf": 0.8970226494738454,
+   "probs": {
+    "cuenta": 0.8970226494738454,
+    "devolución": 0.014230236710170468,
+    "envíos": 0.02678172396858839,
+    "facturas": 0.02985604282014026,
+    "garantía": 0.012566642360848194,
+    "otros": 0.019542704666407444
+   }
+  },
+  "l0tf-k0": {
+   "opina": true,
+   "answer": "cuenta",
+   "conf": 0.8322924709356855,
+   "probs": {
+    "cuenta": 0.8322924709356855,
+    "devolución": 0.020264496696271908,
+    "envíos": 0.03254655640470312,
+    "facturas": 0.05222963735859144,
+    "garantía": 0.026265586343133567,
+    "otros": 0.036401252261614704
+   }
+  },
+  "l0tf-l0": {
+   "opina": true,
+   "answer": "otros",
+   "conf": 0.8937317254265342,
+   "probs": {
+    "cuenta": 0.03745060941849357,
+    "devolución": 0.010954615371086942,
+    "envíos": 0.014881404117472626,
+    "facturas": 0.015597314265676777,
+    "garantía": 0.027384331400735887,
+    "otros": 0.8937317254265342
+   }
+  },
+  "l0tf-m0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.9741234538040249,
+   "probs": {
+    "cuenta": 0.006449775380082581,
+    "devolución": 0.004210986073698452,
+    "envíos": 0.007356728166064871,
+    "facturas": 0.00342024935692282,
+    "garantía": 0.9741234538040249,
+    "otros": 0.004438807219206466
+   }
+  },
+  "l0tf-n0": {
+   "opina": true,
+   "answer": "facturas",
+   "conf": 0.9524423311247615,
+   "probs": {
+    "cuenta": 0.01225493103935976,
+    "devolución": 0.0053795028612571,
+    "envíos": 0.00795487488473136,
+    "facturas": 0.9524423311247615,
+    "garantía": 0.011480849884103798,
+    "otros": 0.010487510205786577
+   }
+  },
+  "l0tf-o0": {
+   "opina": true,
+   "answer": "devolución",
+   "conf": 0.9775720871784775,
+   "probs": {
+    "cuenta": 0.00473723457743848,
+    "devolución": 0.9775720871784775,
+    "envíos": 0.0052410789950767265,
+    "facturas": 0.004087168203694936,
+    "garantía": 0.005274115134890692,
+    "otros": 0.003088315910421748
+   }
+  },
+  "l0tf-p0": {
+   "opina": true,
+   "answer": "envíos",
+   "conf": 0.9326870345655908,
+   "probs": {
+    "cuenta": 0.015920074390451826,
+    "devolución": 0.013365585923951937,
+    "envíos": 0.9326870345655908,
+    "facturas": 0.009656448637364852,
+    "garantía": 0.014755346973904116,
+    "otros": 0.013615509508736617
+   }
+  },
+  "l0tf-q0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.9267946666925412,
+   "probs": {
+    "cuenta": 0.01972415455362539,
+    "devolución": 0.01298354104840003,
+    "envíos": 0.010199659750231026,
+    "facturas": 0.011785490934692354,
+    "garantía": 0.9267946666925412,
+    "otros": 0.018512487020510098
+   }
+  },
+  "l0tf-r0": {
+   "opina": true,
+   "answer": "otros",
+   "conf": 0.8127022568850796,
+   "probs": {
+    "cuenta": 0.049260888738705676,
+    "devolución": 0.013960615623603173,
+    "envíos": 0.020089098703645756,
+    "facturas": 0.04662543742600425,
+    "garantía": 0.057361702622961586,
+    "otros": 0.8127022568850796
+   }
+  },
+  "l0tf-s0": {
+   "opina": true,
+   "answer": "devolución",
+   "conf": 0.9844572390053292,
+   "probs": {
+    "cuenta": 0.003147566425490801,
+    "devolución": 0.9844572390053292,
+    "envíos": 0.0025579610080544877,
+    "facturas": 0.0023781504221481596,
+    "garantía": 0.005541412934314763,
+    "otros": 0.0019176702046625172
+   }
+  },
+  "l0tf-t0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.9668530220976651,
+   "probs": {
+    "cuenta": 0.007724102909661761,
+    "devolución": 0.003475500188932915,
+    "envíos": 0.005675344338528826,
+    "facturas": 0.004551757726693257,
+    "garantía": 0.9668530220976651,
+    "otros": 0.011720272738517959
+   }
+  },
+  "l0tf-u0": {
+   "opina": true,
+   "answer": "devolución",
+   "conf": 0.9743588911312822,
+   "probs": {
+    "cuenta": 0.004920885875896276,
+    "devolución": 0.9743588911312822,
+    "envíos": 0.0044436140602713585,
+    "facturas": 0.004361161578408749,
+    "garantía": 0.007793365644708675,
+    "otros": 0.004122081709432991
+   }
+  },
+  "l0tf-v0": {
+   "opina": true,
+   "answer": "devolución",
+   "conf": 0.9701274020307122,
+   "probs": {
+    "cuenta": 0.005468438411261268,
+    "devolución": 0.9701274020307122,
+    "envíos": 0.00792838541095899,
+    "facturas": 0.006534658898032423,
+    "garantía": 0.006195394906842129,
+    "otros": 0.003745720342193178
+   }
+  },
+  "l0tf-w0": {
+   "opina": true,
+   "answer": "devolución",
+   "conf": 0.896123153350843,
+   "probs": {
+    "cuenta": 0.023708478982060764,
+    "devolución": 0.896123153350843,
+    "envíos": 0.013052647196685578,
+    "facturas": 0.009105902745430619,
+    "garantía": 0.03761937778217243,
+    "otros": 0.020390439942807686
+   }
+  },
+  "l0tf-x0": {
+   "opina": true,
+   "answer": "garantía",
+   "conf": 0.9556660326952714,
+   "probs": {
+    "cuenta": 0.009743729225522881,
+    "devolución": 0.009650027865125435,
+    "envíos": 0.009649903485615847,
+    "facturas": 0.00987006424935955,
+    "garantía": 0.9556660326952714,
+    "otros": 0.005420242479104797
+   }
+  },
+  "l1-choice-a": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9999999994714122,
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   }
+  },
+  "l1-choice-b": {
+   "opina": true,
+   "answer": "logistica",
+   "conf": 0.9999999998123654,
+   "probs": {
+    "facturacion": 1.876345824582175e-10,
+    "logistica": 0.9999999998123654
+   }
+  },
+  "l1-choice-c": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-choice-d": {
+   "opina": true,
+   "answer": "logistica",
+   "conf": 0.9839740713037388,
+   "probs": {
+    "facturacion": 0.016025928696261293,
+    "logistica": 0.9839740713037388
+   }
+  },
+  "l1-choice-e": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9978794346082649,
+   "probs": {
+    "facturacion": 0.9978794346082649,
+    "logistica": 0.002120565391734979
+   }
+  },
+  "l1-choice-f": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9988266135996984,
+   "probs": {
+    "facturacion": 0.9988266135996984,
+    "logistica": 0.001173386400301714
+   }
+  },
+  "l1-choice-g": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9999999994714122,
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   }
+  },
+  "l1-choice-h": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-choice-inv-a": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9999999994714122,
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   }
+  },
+  "l1-choice-inv-b": {
+   "opina": true,
+   "answer": "logistica",
+   "conf": 0.9999999998123654,
+   "probs": {
+    "facturacion": 1.876345824582175e-10,
+    "logistica": 0.9999999998123654
+   }
+  },
+  "l1-choice-inv-c": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-choice-inv-d": {
+   "opina": true,
+   "answer": "logistica",
+   "conf": 0.9839740713037388,
+   "probs": {
+    "facturacion": 0.016025928696261293,
+    "logistica": 0.9839740713037388
+   }
+  },
+  "l1-choice-inv-e": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9978794346082649,
+   "probs": {
+    "facturacion": 0.9978794346082649,
+    "logistica": 0.002120565391734979
+   }
+  },
+  "l1-choice-inv-f": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9988266135996984,
+   "probs": {
+    "facturacion": 0.9988266135996984,
+    "logistica": 0.001173386400301714
+   }
+  },
+  "l1-choice-inv-g": {
+   "opina": true,
+   "answer": "facturacion",
+   "conf": 0.9999999994714122,
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   }
+  },
+  "l1-choice-inv-h": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-multi-a": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion"
+   ],
+   "conf": 0.9298203536093239,
+   "probs": {
+    "cortesia": 0.07017964639067605,
+    "facturacion": 0.9991610872323451,
+    "logistica": 0.00322393749808734
+   }
+  },
+  "l1-multi-b": {
+   "opina": true,
+   "answer": "logistica",
+   "answers": [
+    "logistica"
+   ],
+   "conf": 0.9787103191930908,
+   "probs": {
+    "cortesia": 0.021289680806909173,
+    "facturacion": 0.001314097010751745,
+    "logistica": 0.9988925910852987
+   }
+  },
+  "l1-multi-c": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-multi-d": {
+   "opina": true,
+   "answer": "cortesia",
+   "answers": [
+    "logistica",
+    "cortesia"
+   ],
+   "conf": 0.6475567305641046,
+   "probs": {
+    "cortesia": 0.9971569655163934,
+    "facturacion": 0.1344563468760481,
+    "logistica": 0.6475567305641046
+   }
+  },
+  "l1-multi-e": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion"
+   ],
+   "conf": 0.7403414961850344,
+   "probs": {
+    "cortesia": 0.2596585038149656,
+    "facturacion": 0.7605672788765934,
+    "logistica": 0.07333339737858068
+   }
+  },
+  "l1-multi-f": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion"
+   ],
+   "conf": 0.7967573531786767,
+   "probs": {
+    "cortesia": 0.0058493307526026085,
+    "facturacion": 0.7967573531786767,
+    "logistica": 0.0640521146628756
+   }
+  },
+  "l1-multi-g": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion"
+   ],
+   "conf": 0.9298203536093239,
+   "probs": {
+    "cortesia": 0.07017964639067605,
+    "facturacion": 0.9991610872323451,
+    "logistica": 0.00322393749808734
+   }
+  },
+  "l1-multi-h": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-noul-a": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.9991610872323451,
+   "probs": {
+    "false": 0.0008389127676549091,
+    "true": 0.9991610872323451
+   }
+  },
+  "l1-noul-b": {
+   "opina": true,
+   "answer": "false",
+   "conf": 0.9986859029892483,
+   "probs": {
+    "false": 0.9986859029892483,
+    "true": 0.001314097010751745
+   }
+  },
+  "l1-noul-c": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-noul-d": {
+   "opina": true,
+   "answer": "false",
+   "conf": 0.8655436531239519,
+   "probs": {
+    "false": 0.8655436531239519,
+    "true": 0.1344563468760481
+   }
+  },
+  "l1-noul-e": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.7605672788765934,
+   "probs": {
+    "false": 0.23943272112340663,
+    "true": 0.7605672788765934
+   }
+  },
+  "l1-noul-f": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.7967573531786767,
+   "probs": {
+    "false": 0.20324264682132331,
+    "true": 0.7967573531786767
+   }
+  },
+  "l1-noul-g": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.9991610872323451,
+   "probs": {
+    "false": 0.0008389127676549091,
+    "true": 0.9991610872323451
+   }
+  },
+  "l1-noul-h": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-score-a": {
+   "opina": true,
+   "answer": "3",
+   "conf": 0.9992698143094565,
+   "probs": {
+    "1": 0.0006808636657052431,
+    "2": 0.000049322024838238535,
+    "3": 0.9992698143094565
+   }
+  },
+  "l1-score-b": {
+   "opina": true,
+   "answer": "2",
+   "conf": 0.9998514917845251,
+   "probs": {
+    "1": 0.0001418586003928439,
+    "2": 0.9998514917845251,
+    "3": 0.000006649615082097188
+   }
+  },
+  "l1-score-c": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l1-score-d": {
+   "opina": true,
+   "answer": "1",
+   "conf": 0.9864954050011093,
+   "probs": {
+    "1": 0.9864954050011093,
+    "2": 0.012400363050729637,
+    "3": 0.0011042319481610896
+   }
+  },
+  "l1-score-e": {
+   "opina": true,
+   "answer": "3",
+   "conf": 0.9399256009442406,
+   "probs": {
+    "1": 0.04659880363328982,
+    "2": 0.01347559542246954,
+    "3": 0.9399256009442406
+   }
+  },
+  "l1-score-f": {
+   "opina": true,
+   "answer": "3",
+   "conf": 0.9864024683473506,
+   "probs": {
+    "1": 0.0015580601737723164,
+    "2": 0.01203947147887717,
+    "3": 0.9864024683473506
+   }
+  },
+  "l1-score-g": {
+   "opina": true,
+   "answer": "3",
+   "conf": 0.9992698143094565,
+   "probs": {
+    "1": 0.0006808636657052431,
+    "2": 0.000049322024838238535,
+    "3": 0.9992698143094565
+   }
+  },
+  "l1-score-h": {
+   "opina": false,
+   "answer": "",
+   "conf": 0,
+   "probs": {}
+  },
+  "l2-choice-a": {
+   "opina": true,
+   "answer": "queja",
+   "conf": 0.9999997524610014,
+   "probs": {
+    "baja": 1.42354090610681e-9,
+    "duda": 2.461154578053996e-7,
+    "queja": 0.9999997524610014
+   }
+  },
+  "l2-choice-b": {
+   "opina": true,
+   "answer": "duda",
+   "conf": 1,
+   "probs": {
+    "baja": 3.553819236850075e-32,
+    "duda": 1,
+    "queja": 6.225947374417489e-32
+   }
+  },
+  "l2-choice-c": {
+   "opina": true,
+   "answer": "baja",
+   "conf": 1,
+   "probs": {
+    "baja": 1,
+    "duda": 2.1458145307676777e-50,
+    "queja": 3.5450397046967384e-18
+   }
+  },
+  "l2-choice-d": {
+   "opina": true,
+   "answer": "queja",
+   "conf": 1,
+   "probs": {
+    "baja": 1.8963252461094903e-30,
+    "duda": 2.3894863166431994e-30,
+    "queja": 1
+   }
+  },
+  "l2-choice-e": {
+   "opina": true,
+   "answer": "duda",
+   "conf": 1,
+   "probs": {
+    "baja": 3.436315201128811e-23,
+    "duda": 1,
+    "queja": 8.646888328554148e-27
+   }
+  },
+  "l2-choice-f": {
+   "opina": true,
+   "answer": "queja",
+   "conf": 0.9999999999999998,
+   "probs": {
+    "baja": 1.9051499377071988e-16,
+    "duda": 1.6806228302561525e-25,
+    "queja": 0.9999999999999998
+   }
+  },
+  "l2-multi-a": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "conf": 0.9002524234243707,
+   "probs": {
+    "cortesia": 0.9002524234243707,
+    "facturacion": 0.9725124324042184,
+    "logistica": 0.9641418262903513
+   }
+  },
+  "l2-multi-b": {
+   "opina": true,
+   "answer": "cortesia",
+   "answers": [
+    "cortesia"
+   ],
+   "conf": 0.6135917775726518,
+   "probs": {
+    "cortesia": 0.7629719432655327,
+    "facturacion": 0.38337899037583195,
+    "logistica": 0.3864082224273482
+   }
+  },
+  "l2-multi-c": {
+   "opina": true,
+   "answer": "logistica",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "conf": 0.8291194848925275,
+   "probs": {
+    "cortesia": 0.8291194848925275,
+    "facturacion": 0.9933394856314469,
+    "logistica": 0.9999315971560637
+   }
+  },
+  "l2-multi-d": {
+   "opina": true,
+   "answer": "cortesia",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "conf": 0.8295855026426758,
+   "probs": {
+    "cortesia": 0.9972220149794085,
+    "facturacion": 0.9310039030290862,
+    "logistica": 0.8295855026426758
+   }
+  },
+  "l2-multi-e": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "conf": 0.9095169649889584,
+   "probs": {
+    "cortesia": 0.9145708095301918,
+    "facturacion": 0.9988592314838041,
+    "logistica": 0.9095169649889584
+   }
+  },
+  "l2-multi-f": {
+   "opina": true,
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "conf": 0.8097412733773405,
+   "probs": {
+    "cortesia": 0.8999919436135131,
+    "facturacion": 0.9871166275580858,
+    "logistica": 0.8097412733773405
+   }
+  },
+  "l2-noul-a": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.999992398037202,
+   "probs": {
+    "false": 0.000007601962798031714,
+    "true": 0.999992398037202
+   }
+  },
+  "l2-noul-b": {
+   "opina": true,
+   "answer": "true",
+   "conf": 1,
+   "probs": {
+    "false": 0,
+    "true": 1
+   }
+  },
+  "l2-noul-c": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.9979286570447471,
+   "probs": {
+    "false": 0.0020713429552529083,
+    "true": 0.9979286570447471
+   }
+  },
+  "l2-noul-d": {
+   "opina": true,
+   "answer": "false",
+   "conf": 0.8517411129218568,
+   "probs": {
+    "false": 0.8517411129218568,
+    "true": 0.1482588870781432
+   }
+  },
+  "l2-noul-e": {
+   "opina": true,
+   "answer": "true",
+   "conf": 0.9851637683622425,
+   "probs": {
+    "false": 0.014836231637757491,
+    "true": 0.9851637683622425
+   }
+  },
+  "l2-noul-f": {
+   "opina": true,
+   "answer": "false",
+   "conf": 0.9447334047354697,
+   "probs": {
+    "false": 0.9447334047354697,
+    "true": 0.055266595264530226
+   }
+  },
+  "l2-score-a": {
+   "opina": true,
+   "answer": "2",
+   "conf": 0.24457218912334833,
+   "probs": {
+    "1": 0.35947994965127406,
+    "2": 0.24457218912334833,
+    "3": 0.3959478612253776
+   }
+  },
+  "l2-score-b": {
+   "opina": true,
+   "answer": "3",
+   "conf": 0.95851098071216,
+   "probs": {
+    "1": 0.015674025187622953,
+    "2": 0.025814994100217037,
+    "3": 0.95851098071216
+   }
+  },
+  "l2-score-c": {
+   "opina": true,
+   "answer": "2",
+   "conf": 0.23240433934612836,
+   "probs": {
+    "1": 0.4935560304254353,
+    "2": 0.23240433934612836,
+    "3": 0.27403963022843636
+   }
+  },
+  "l2-score-d": {
+   "opina": true,
+   "answer": "3",
+   "conf": 0.5112508771844715,
+   "probs": {
+    "1": 0.26018425543812096,
+    "2": 0.22856486737740755,
+    "3": 0.5112508771844715
+   }
+  },
+  "l2-score-e": {
+   "opina": true,
+   "answer": "2",
+   "conf": 0.2428684241296078,
+   "probs": {
+    "1": 0.4229312037171302,
+    "2": 0.2428684241296078,
+    "3": 0.334200372153262
+   }
+  },
+  "l2-score-f": {
+   "opina": true,
+   "answer": "2",
+   "conf": 0.24119270753205402,
+   "probs": {
+    "1": 0.43922495619315327,
+    "2": 0.24119270753205402,
+    "3": 0.3195823362747927
+   }
+  }
+ },
+ "cascada": {
+  "cas-l0-inj-a": {
+   "answer": "injection",
+   "probs": {
+    "injection": 1,
+    "safe": 3.6194772023648305e-21
+   },
+   "layer": "L0",
+   "escalate": false
+  },
+  "cas-l0-inj-b": {
+   "answer": "safe",
+   "probs": {
+    "injection": 4.813432694268805e-12,
+    "safe": 0.9999999999951865
+   },
+   "layer": "L0",
+   "escalate": false
+  },
+  "cas-l0-inj-c": {
+   "answer": "safe",
+   "probs": {
+    "injection": 0.08836888619548515,
+    "safe": 0.9116311138045148
+   },
+   "layer": "L0",
+   "escalate": false
+  },
+  "cas-l0-inj-d": {
+   "answer": "injection",
+   "probs": {
+    "injection": 1,
+    "safe": 1.1427730114863092e-38
+   },
+   "layer": "L0",
+   "escalate": false
+  },
+  "cas-l0-inj-e": {
+   "answer": "safe",
+   "probs": {
+    "injection": 5.427381081217091e-9,
+    "safe": 0.9999999945726188
+   },
+   "layer": "L0",
+   "escalate": false
+  },
+  "cas-l0-inj-f": {
+   "answer": "injection",
+   "probs": {
+    "injection": 1,
+    "safe": 3.624729449604677e-97
+   },
+   "layer": "L0",
+   "escalate": false
+  },
+  "cas-l1-choice-a": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-b": {
+   "answer": "logistica",
+   "probs": {
+    "facturacion": 1.876345824582175e-10,
+    "logistica": 0.9999999998123654
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-c": {
+   "answer": "logistica",
+   "probs": {
+    "facturacion": 0.0000047627194530771184,
+    "logistica": 0.999995237280547
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-choice-d": {
+   "answer": "logistica",
+   "probs": {
+    "facturacion": 0.016025928696261293,
+    "logistica": 0.9839740713037388
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-e": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9978794346082649,
+    "logistica": 0.002120565391734979
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-f": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9988266135996984,
+    "logistica": 0.001173386400301714
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-g": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-h": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.999996513941296,
+    "logistica": 0.000003486058704072341
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-a": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-b": {
+   "answer": "logistica",
+   "probs": {
+    "facturacion": 1.876345824582175e-10,
+    "logistica": 0.9999999998123654
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-c": {
+   "answer": "logistica",
+   "probs": {
+    "facturacion": 0.0000047627194530771184,
+    "logistica": 0.999995237280547
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-d": {
+   "answer": "logistica",
+   "probs": {
+    "facturacion": 0.016025928696261293,
+    "logistica": 0.9839740713037388
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-e": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9978794346082649,
+    "logistica": 0.002120565391734979
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-f": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9988266135996984,
+    "logistica": 0.001173386400301714
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-g": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9999999994714122,
+    "logistica": 5.285878499934481e-10
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-choice-inv-h": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.999996513941296,
+    "logistica": 0.000003486058704072341
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-multi-a": {
+   "answer": "facturacion",
+   "answers": [
+    "facturacion"
+   ],
+   "probs": {
+    "cortesia": 0.07017964639067605,
+    "facturacion": 0.9991610872323451,
+    "logistica": 0.00322393749808734
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-multi-b": {
+   "answer": "logistica",
+   "answers": [
+    "logistica"
+   ],
+   "probs": {
+    "cortesia": 0.021289680806909173,
+    "facturacion": 0.001314097010751745,
+    "logistica": 0.9988925910852987
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-multi-c": {
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.9325734310400127,
+    "facturacion": 0.9999786479156386,
+    "logistica": 0.8757563003312594
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-multi-d": {
+   "answer": "cortesia",
+   "answers": [
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.9971569655163934,
+    "facturacion": 0.1344563468760481,
+    "logistica": 0.6475567305641046
+   },
+   "layer": "escalar",
+   "escalate": true
+  },
+  "cas-l1-multi-e": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  },
+  "cas-l1-multi-f": {
+   "answer": "facturacion",
+   "probs": {
+    "facturacion": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  },
+  "cas-l1-multi-g": {
+   "answer": "facturacion",
+   "answers": [
+    "facturacion"
+   ],
+   "probs": {
+    "cortesia": 0.07017964639067605,
+    "facturacion": 0.9991610872323451,
+    "logistica": 0.00322393749808734
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-multi-h": {
+   "answer": "logistica",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.8291194848925275,
+    "facturacion": 0.9933394856314469,
+    "logistica": 0.9999315971560637
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-noul-a": {
+   "answer": "true",
+   "probs": {
+    "false": 0.0008389127676549091,
+    "true": 0.9991610872323451
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-noul-b": {
+   "answer": "false",
+   "probs": {
+    "false": 0.9986859029892483,
+    "true": 0.001314097010751745
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-noul-c": {
+   "answer": "true",
+   "probs": {
+    "false": 0.00006170498822988257,
+    "true": 0.9999382950117701
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-noul-d": {
+   "answer": "false",
+   "probs": {
+    "false": 0.8655436531239519,
+    "true": 0.1344563468760481
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-noul-e": {
+   "answer": "false",
+   "probs": {
+    "false": 0.7216023553960922,
+    "true": 0.27839764460390776
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-noul-f": {
+   "answer": "true",
+   "probs": {
+    "false": 0,
+    "true": 1
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-noul-g": {
+   "answer": "true",
+   "probs": {
+    "false": 0.0008389127676549091,
+    "true": 0.9991610872323451
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-noul-h": {
+   "answer": "true",
+   "probs": {
+    "false": 4.618527782440651e-14,
+    "true": 0.9999999999999538
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l1-score-a": {
+   "answer": "3",
+   "probs": {
+    "1": 0.0006808636657052431,
+    "2": 0.000049322024838238535,
+    "3": 0.9992698143094565
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-score-b": {
+   "answer": "2",
+   "probs": {
+    "1": 0.0001418586003928439,
+    "2": 0.9998514917845251,
+    "3": 0.000006649615082097188
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-score-c": {
+   "answer": "3",
+   "probs": {
+    "3": 0.3
+   },
+   "layer": "escalar",
+   "escalate": true
+  },
+  "cas-l1-score-d": {
+   "answer": "1",
+   "probs": {
+    "1": 0.9864954050011093,
+    "2": 0.012400363050729637,
+    "3": 0.0011042319481610896
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-score-e": {
+   "answer": "3",
+   "probs": {
+    "1": 0.04659880363328982,
+    "2": 0.01347559542246954,
+    "3": 0.9399256009442406
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-score-f": {
+   "answer": "3",
+   "probs": {
+    "1": 0.0015580601737723164,
+    "2": 0.01203947147887717,
+    "3": 0.9864024683473506
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-score-g": {
+   "answer": "3",
+   "probs": {
+    "1": 0.0006808636657052431,
+    "2": 0.000049322024838238535,
+    "3": 0.9992698143094565
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l1-score-h": {
+   "answer": "1",
+   "probs": {
+    "1": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  },
+  "cas-l2-choice-a": {
+   "answer": "queja",
+   "probs": {
+    "baja": 1.42354090610681e-9,
+    "duda": 2.461154578053996e-7,
+    "queja": 0.9999997524610014
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-choice-b": {
+   "answer": "duda",
+   "probs": {
+    "baja": 3.553819236850075e-32,
+    "duda": 1,
+    "queja": 6.225947374417489e-32
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-choice-c": {
+   "answer": "baja",
+   "probs": {
+    "baja": 1,
+    "duda": 2.1458145307676777e-50,
+    "queja": 3.5450397046967384e-18
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-choice-d": {
+   "answer": "queja",
+   "probs": {
+    "baja": 2.0611536179841783e-9,
+    "duda": 2.0611536179841783e-9,
+    "queja": 0.9999999958776926
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l2-choice-e": {
+   "answer": "duda",
+   "probs": {
+    "baja": 3.436315201128811e-23,
+    "duda": 1,
+    "queja": 8.646888328554148e-27
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-choice-f": {
+   "answer": "queja",
+   "probs": {
+    "baja": 1.9051499377071988e-16,
+    "duda": 1.6806228302561525e-25,
+    "queja": 0.9999999999999998
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-multi-a": {
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.9002524234243707,
+    "facturacion": 0.9725124324042184,
+    "logistica": 0.9641418262903513
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-multi-b": {
+   "answer": "logistica",
+   "answers": [
+    "logistica"
+   ],
+   "probs": {
+    "cortesia": 0.0007737184081668632,
+    "facturacion": 0.007404401736441061,
+    "logistica": 0.9943160417564242
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l2-multi-c": {
+   "answer": "logistica",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.8291194848925275,
+    "facturacion": 0.9933394856314469,
+    "logistica": 0.9999315971560637
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-multi-d": {
+   "answer": "cortesia",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.9972220149794085,
+    "facturacion": 0.9310039030290862,
+    "logistica": 0.8295855026426758
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-multi-e": {
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.9145708095301918,
+    "facturacion": 0.9988592314838041,
+    "logistica": 0.9095169649889584
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-multi-f": {
+   "answer": "facturacion",
+   "answers": [
+    "facturacion",
+    "logistica",
+    "cortesia"
+   ],
+   "probs": {
+    "cortesia": 0.8999919436135131,
+    "facturacion": 0.9871166275580858,
+    "logistica": 0.8097412733773405
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-noul-a": {
+   "answer": "true",
+   "probs": {
+    "false": 0.000007601962798031714,
+    "true": 0.999992398037202
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-noul-b": {
+   "answer": "false",
+   "probs": {
+    "false": 0.9525741268224333,
+    "true": 0.04742587317756678
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l2-noul-c": {
+   "answer": "true",
+   "probs": {
+    "false": 0.0020713429552529083,
+    "true": 0.9979286570447471
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-noul-d": {
+   "answer": "false",
+   "probs": {
+    "false": 0.9525741268224333,
+    "true": 0.04742587317756678
+   },
+   "layer": "L1",
+   "escalate": false
+  },
+  "cas-l2-noul-e": {
+   "answer": "true",
+   "probs": {
+    "false": 0.014836231637757491,
+    "true": 0.9851637683622425
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-noul-f": {
+   "answer": "false",
+   "probs": {
+    "false": 0.9447334047354697,
+    "true": 0.055266595264530226
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-score-a": {
+   "answer": "1",
+   "probs": {
+    "1": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  },
+  "cas-l2-score-b": {
+   "answer": "3",
+   "probs": {
+    "1": 0.015674025187622953,
+    "2": 0.025814994100217037,
+    "3": 0.95851098071216
+   },
+   "layer": "L2",
+   "escalate": false
+  },
+  "cas-l2-score-c": {
+   "answer": "1",
+   "probs": {
+    "1": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  },
+  "cas-l2-score-d": {
+   "answer": "1",
+   "probs": {
+    "1": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  },
+  "cas-l2-score-e": {
+   "answer": "3",
+   "probs": {
+    "3": 0.3
+   },
+   "layer": "escalar",
+   "escalate": true
+  },
+  "cas-l2-score-f": {
+   "answer": "1",
+   "probs": {
+    "1": 0.9
+   },
+   "layer": "L3",
+   "escalate": false
+  }
+ }
+}

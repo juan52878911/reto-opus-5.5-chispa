@@ -1,0 +1,662 @@
+{
+ "cas-l0-inj-a": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "cas-l0-inj-b": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "cas-l0-inj-c": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "cas-l0-inj-d": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "cas-l0-inj-e": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "cas-l0-inj-f": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "cas-l1-choice-a": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-b": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-c": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-d": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-e": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-f": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-g": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-h": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-a": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-b": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-c": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-d": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-e": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-f": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-g": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-choice-inv-h": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "cas-l1-multi-a": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-b": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-c": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-d": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-e": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-f": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-g": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-multi-h": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l1-noul-a": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-b": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-c": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-d": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-e": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-f": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-g": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-noul-h": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "cas-l1-score-a": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-b": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-c": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-d": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-e": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-f": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-g": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l1-score-h": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l2-choice-a": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "cas-l2-choice-b": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "cas-l2-choice-c": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "cas-l2-choice-d": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "cas-l2-choice-e": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "cas-l2-choice-f": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "cas-l2-multi-a": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l2-multi-b": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l2-multi-c": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l2-multi-d": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l2-multi-e": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l2-multi-f": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "cas-l2-noul-a": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "cas-l2-noul-b": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "cas-l2-noul-c": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "cas-l2-noul-d": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "cas-l2-noul-e": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "cas-l2-noul-f": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "cas-l2-score-a": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l2-score-b": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l2-score-c": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l2-score-d": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l2-score-e": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "cas-l2-score-f": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l0-inj-a": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "l0-inj-b": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "l0-inj-c": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "l0-inj-d": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "l0-inj-e": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "l0-inj-f": {
+  "esquema2": "cf39ef2c00592cd1091b20337849a71a",
+  "conj": "4e87b949b044d7738e8c08d6022b2c062a649217061415d06ff314c7768a9590"
+ },
+ "l0-otro-esquema": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l0tf-a0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-b0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-c0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-d0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-e0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-f0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-g0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-h0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-i0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-j0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-k0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-l0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-m0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-n0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-o0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-p0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-q0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-r0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-s0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-t0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-u0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-v0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-w0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l0tf-x0": {
+  "esquema2": "5b7b2f11b7c54fcd02be06e5dd9bf029",
+  "conj": "1e1460322313cc638c165a00126fbf7d79b3227034c32b6c94a448260ff06219"
+ },
+ "l1-choice-a": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-b": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-c": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-d": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-e": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-f": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-g": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-h": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-a": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-b": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-c": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-d": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-e": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-f": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-g": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-choice-inv-h": {
+  "esquema2": "f5efbf40f4029e108cb36bed995a6947",
+  "conj": "2930bd2303459e1e8e2101ad1880d5d30b8b1c85cfa75e59cf3664f1c38539aa"
+ },
+ "l1-multi-a": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-b": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-c": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-d": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-e": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-f": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-g": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-multi-h": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l1-noul-a": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-b": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-c": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-d": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-e": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-f": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-g": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-noul-h": {
+  "esquema2": "4200f4eefcb57726abfa875d3ceb5690",
+  "conj": "0978e5a405c978ebe5c116a3d65009a535ce910371458ad883c67a0945abb993"
+ },
+ "l1-score-a": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-b": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-c": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-d": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-e": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-f": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-g": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l1-score-h": {
+  "esquema2": "c91e38b2e437ce380e5190374d95668c",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l2-choice-a": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "l2-choice-b": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "l2-choice-c": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "l2-choice-d": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "l2-choice-e": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "l2-choice-f": {
+  "esquema2": "cc4f13bdfd624f65baeb02ace12f2fc2",
+  "conj": "1b5670ce2bb5a0f080aa1c21ba36c3571fbaf7e972a5ff12139218b6064e3708"
+ },
+ "l2-multi-a": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l2-multi-b": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l2-multi-c": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l2-multi-d": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l2-multi-e": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l2-multi-f": {
+  "esquema2": "898bc85a1a372f698c4c6bca83ac0881",
+  "conj": "ee83cca0ca9d32a4a04414a234a43358103803941da5809d05e1ca2fab51cb0d"
+ },
+ "l2-noul-a": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "l2-noul-b": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "l2-noul-c": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "l2-noul-d": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "l2-noul-e": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "l2-noul-f": {
+  "esquema2": "bde823f17c00981a55bf4a3be907b567",
+  "conj": "cd313f7f5288e989fc54cd94f5d28f95c7933c2a5f3259a6163b531e267e112e"
+ },
+ "l2-score-a": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l2-score-b": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l2-score-c": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l2-score-d": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l2-score-e": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ },
+ "l2-score-f": {
+  "esquema2": "6b7f19fc37cdf9d70357b932171e3c7b",
+  "conj": "78d73723a180db2f63cc3d6cfc2f5573f93ce67b91ddd12b72c0c7361120f9bd"
+ }
+}
