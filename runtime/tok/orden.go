@@ -5,10 +5,16 @@ import (
 	"strconv"
 )
 
-// IdsEnteros dice si todos los ids son enteros (y hay al menos uno).
+// EnteroCanonico devuelve el entero de id si está en forma canónica (strconv.Itoa(n) == id: sin «01» ni «+1»).
+func EnteroCanonico(id string) (int, bool) {
+	n, err := strconv.Atoi(id)
+	return n, err == nil && strconv.Itoa(n) == id
+}
+
+// IdsEnteros dice si todos los ids son enteros canónicos (y hay al menos uno).
 func IdsEnteros(ids []string) bool {
 	for _, id := range ids {
-		if _, err := strconv.Atoi(id); err != nil {
+		if _, ok := EnteroCanonico(id); !ok {
 			return false
 		}
 	}
