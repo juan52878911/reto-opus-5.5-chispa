@@ -3,7 +3,7 @@ import collections
 import unittest
 from pathlib import Path
 
-from model.datos import banking77, clinc150, hatecheck, inyecciones, massive, validar, xnli
+from model.datos import banking77, clinc150, hatecheck, inyecciones, massive, pawsx, sib200, validar, xnli
 
 FIX = Path(__file__).resolve().parent.parent / "fixtures"
 
@@ -118,3 +118,32 @@ class TestReales(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSib200Pawsx(Base):
+    def test_sib200_fixture_y_mismo_esquema_que_m4(self):
+        from model.l2 import espanol
+        filas, info = sib200.convertir(FIX / "sib200")
+        self.assertValidas(filas)
+        self.assertEqual(por_split(filas), {"train": 3, "dev": 1, "test": 2})
+        self.assertTrue(all(f["uso_comercial"] and f["licencia"] == "CC-BY-SA-4.0" for f in filas))
+        self.assertEqual((sib200.PREGUNTA, sib200.DESCRIPCIONES), (espanol.PREGUNTA_SIB, espanol.DESC_SIB))
+
+    def test_pawsx_fixture_y_mismo_esquema_que_m4(self):
+        from model.l2 import espanol
+        filas, info = pawsx.convertir(FIX / "pawsx")
+        self.assertValidas(filas)
+        self.assertEqual(por_split(filas), {"train": 3, "dev": 2, "test": 4})
+        self.assertTrue(all(f["uso_comercial"] for f in filas))
+        self.assertEqual([f["etiqueta"] for f in filas if f["split"] == "train"], ["true", "false", "true"])
+        self.assertEqual((pawsx.PREGUNTA, pawsx.DESCRIPCIONES), (espanol.PREGUNTA_PAWS, espanol.DESC_PAWS))
+
+    def test_pawsx_sin_la_frase_de_la_tarjeta_solo_test(self):
+        import shutil
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            shutil.copytree(FIX / "pawsx", d, dirs_exist_ok=True)
+            (Path(d) / "README.md").write_text("---\nlicense:\n- other\n---\nsin frase\n", encoding="utf-8")
+            filas, _ = pawsx.convertir(d)
+        self.assertEqual(por_split(filas), {"test": 4})
+        self.assertFalse(any(f["uso_comercial"] for f in filas))
