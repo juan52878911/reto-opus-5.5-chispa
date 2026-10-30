@@ -42,3 +42,14 @@ func (e TokenizadorE5) IDs(texto string) []int64 {
 func (e TokenizadorE5) IDsPasaje(texto string) []int64 {
 	return aInt64(e.t.TokenizarMax(tok.PrefijoPasaje, texto, maxOPorDefecto(e.pasaje)))
 }
+
+// Trozos implementa TokenizadorTrozos: las ventanas de la consulta según la estrategia (max_len de la consulta) y si el texto
+// la superaba. Con «cabeza» es una ventana igual que IDs.
+func (e TokenizadorE5) Trozos(texto string, tl TextoLargo) ([][]int64, bool) {
+	v, largo := e.t.Ventanas(tok.Prefijo, texto, maxOPorDefecto(e.consulta), tl)
+	out := make([][]int64, len(v))
+	for i, w := range v {
+		out[i] = aInt64(w)
+	}
+	return out, largo
+}

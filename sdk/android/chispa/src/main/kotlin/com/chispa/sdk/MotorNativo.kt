@@ -44,12 +44,25 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
     override fun tieneTokenizadorE5(): Boolean = go.tieneTokenizadorE5()
     override fun cargarTokenizadorE5(ruta: String) = go.cargarTokenizadorE5(ruta)
     override fun tokenizarE5(texto: String): ByteArray? = go.tokenizarE5(texto)
+    override fun trozosE5(texto: String): ByteArray? = go.trozosE5(texto)
+    override fun puntuarL2Trozos(preguntaJson: String, ranuras: ByteArray, ksJson: String): String =
+        go.puntuarL2Trozos(preguntaJson, ranuras, ksJson)
+
+    /** Textos que pasaron del truncado de L1 o de la consulta de L2 desde que se abrió (`TextoLargoSuperados`). */
+    fun textoLargoSuperados(): Long = go.textoLargoSuperados()
     override fun close() = go.cerrar()
 
     companion object {
-        /** [soporte]: (λ de L1, λ de L2c) del encogimiento few-shot (`AbrirConSoporte`); null = `Abrir` del puente (λ de L1 según el fichero, L2 apagado). */
-        fun abrir(ruta: String, soporte: Pair<Double, Double>? = null): MotorNativo = try {
-            MotorNativo(if (soporte == null) Chispamovil.abrir(ruta) else Chispamovil.abrirConSoporte(ruta, soporte.first, soporte.second))
+        /** [soporte]: (λ de L1, λ de L2c) del encogimiento few-shot (`AbrirConSoporte`); null = `Abrir` del puente (λ de L1 según el fichero, L2 apagado). [textoLargo]: estrategia para textos que pasan del truncado (`AbrirConTextoLargo`); null = cabeza, sin llamar a ese constructor. */
+        fun abrir(ruta: String, soporte: Pair<Double, Double>? = null, textoLargo: TextoLargo? = null): MotorNativo = try {
+            MotorNativo(
+                when {
+                    // `AbrirConTextoLargo` con explicito=false es `Abrir` (los λ se ignoran)
+                    textoLargo != null -> Chispamovil.abrirConTextoLargo(ruta, soporte?.first ?: 0.0, soporte?.second ?: 0.0, soporte != null, textoLargo.toJson())
+                    soporte == null -> Chispamovil.abrir(ruta)
+                    else -> Chispamovil.abrirConSoporte(ruta, soporte.first, soporte.second)
+                },
+            )
         } catch (e: Exception) {
             throw ErrorChispa("no se pudo abrir $ruta: ${e.message}", e)
         }

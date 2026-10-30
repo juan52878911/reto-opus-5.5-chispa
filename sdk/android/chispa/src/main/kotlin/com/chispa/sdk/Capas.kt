@@ -66,6 +66,20 @@ interface Motor : AutoCloseable {
 
     /** Ids de e5 como int32 little endian (4 bytes por id), o null si no se cargó el tokenizador. */
     fun tokenizarE5(texto: String): ByteArray? = null
+
+    /**
+     * Las ventanas de la consulta de e5 según `texto_largo` ([TextoLargo]): int32 little endian `[n][len₁][ids₁…][len₂][ids₂…]…`, cada
+     * ventana con sus `<s>` y `</s>`. Con `cabeza` (o un texto que cabe) es una sola, igual que [tokenizarE5]. null si no hay
+     * tokenizador o el motor no sabe trocear (entonces vale [tokenizarE5]).
+     */
+    fun trozosE5(texto: String): ByteArray? = null
+
+    /**
+     * Como [puntuarL2] para varias ventanas de [trozosE5]: [ranuras] son las de cada ventana una tras otra (float32 little endian) y
+     * [ksJson] el número de filas de cada una (`[k1,k2,…]`). El motor agrega las probabilidades como dice `texto_largo`.
+     */
+    fun puntuarL2Trozos(preguntaJson: String, ranuras: ByteArray, ksJson: String): String =
+        throw UnsupportedOperationException("el motor no puntúa trozos")
 }
 
 /** Tipos de sección de `format/chispa3` que se piden a [Motor.hashSeccion]. */
@@ -99,8 +113,33 @@ fun interface Tokenizador {
     fun ids(texto: String): LongArray
 }
 
+/** Un [Tokenizador] que sabe dar varias ventanas de un texto largo (`texto_largo`); [CapaL2] lo usa si el tokenizador lo implementa. */
+interface TokenizadorTrozos : Tokenizador {
+    /** Los ids de cada ventana; una sola (igual que [ids]) con `cabeza` o un texto que cabe. */
+    fun trozos(texto: String): List<LongArray>
+}
+
 /** El tokenizador de e5 del propio motor (runtime/tok en Go): no hace falta que la app aporte uno. */
-class TokenizadorMotor(private val motor: Motor) : Tokenizador {
+class TokenizadorMotor(private val motor: Motor) : TokenizadorTrozos {
+    override fun trozos(texto: String): List<LongArray> {
+        val b = motor.trozosE5(texto) ?: return listOf(ids(texto))
+        val buf = java.nio.ByteBuffer.wrap(b).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        if (b.size < 4) throw ErrorChispa("trozosE5: respuesta de ${b.size} bytes")
+        val n = buf.getInt(0)
+        var pos = 4
+        val out = ArrayList<LongArray>()
+        repeat(n) {
+            if (pos + 4 > b.size) throw ErrorChispa("trozosE5: respuesta truncada")
+            val len = buf.getInt(pos)
+            pos += 4
+            if (len < 0 || pos + 4 * len > b.size) throw ErrorChispa("trozosE5: respuesta truncada")
+            val base = pos
+            out.add(LongArray(len) { buf.getInt(base + 4 * it).toLong() })
+            pos += 4 * len
+        }
+        return out
+    }
+
     override fun ids(texto: String): LongArray {
         val b = motor.tokenizarE5(texto) ?: throw ErrorChispa("el motor no tiene el tokenizador de e5")
         val buf = java.nio.ByteBuffer.wrap(b).order(java.nio.ByteOrder.LITTLE_ENDIAN)
@@ -199,9 +238,10 @@ class CapaL2(
         val pj = pregunta.toJson()
         // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
         if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
-        val ids = tokenizador.ids(texto)
-        if (ids.isEmpty()) return SalidaCapa.SIN_OPINION
-        val s = sesion.ranuras(ids)
+        val ventanas = if (tokenizador is TokenizadorTrozos) tokenizador.trozos(texto) else listOf(tokenizador.ids(texto))
+        if (ventanas.isEmpty() || ventanas[0].isEmpty()) return SalidaCapa.SIN_OPINION
+        if (ventanas.size > 1) return decidirTrozos(pj, ventanas, previas) // texto largo con `trozos`
+        val s = sesion.ranuras(ventanas[0])
         val l0 = previas["L0"]?.probs
         if (!l0.isNullOrEmpty() && motor.tieneConj()) {
             val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConj(pj, l0, s)))
@@ -209,6 +249,30 @@ class CapaL2(
         }
         val r = SalidaCapa.desdeJson(motor.puntuarL2(pj, s.aBytes(), s.k))
         return if (motor.tieneConj()) r.copy(respaldo = true) else r // con CONJ, esta es L2 base: respaldo de la cabeza
+    }
+
+    /** Texto largo con `trozos`: ONNX en cada ventana y el motor agrega; con CONJ y L0, la cabeza conjunta decide cada una (como el servidor). */
+    private fun decidirTrozos(pj: String, ventanas: List<LongArray>, previas: Map<String, SalidaCapa>): SalidaCapa {
+        val ss = ventanas.map { sesion.ranuras(it) }
+        val l0 = previas["L0"]?.probs
+        if (!l0.isNullOrEmpty() && motor.tieneConj()) {
+            val c = SalidaCapa.desdeJson(motor.cabezaConjunta(entradaConjTrozos(pj, l0, ss)))
+            if (c.opina) return c
+        }
+        val bytes = ss.fold(ByteArray(0)) { acc, s -> acc + s.aBytes() }
+        val ks = ss.joinToString(prefix = "[", postfix = "]") { it.k.toString() }
+        val r = SalidaCapa.desdeJson(motor.puntuarL2Trozos(pj, bytes, ks))
+        return if (motor.tieneConj()) r.copy(respaldo = true) else r
+    }
+
+    private fun entradaConjTrozos(preguntaJson: String, l0: Map<String, Double>, ss: List<Ranuras>): String {
+        val ranuras = org.json.JSONArray()
+        for (s in ss) for (x in s.datos) ranuras.put(x.toDouble())
+        val p = org.json.JSONObject()
+        for ((k, v) in l0) p.put(k, v)
+        val ks = org.json.JSONArray()
+        for (s in ss) ks.put(s.k)
+        return org.json.JSONObject(preguntaJson).put("l0", p).put("ranuras", ranuras).put("k", ss[0].k).put("ks", ks).toString()
     }
 
     private fun torresAlVuelo(preguntaJson: String): Boolean {

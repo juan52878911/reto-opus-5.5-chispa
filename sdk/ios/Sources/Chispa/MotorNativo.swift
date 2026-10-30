@@ -12,10 +12,14 @@ final class MotorNativo: Motor {
     private init(_ go: ChispamovilChispa) { self.go = go }
 
     /// `soporte`: (λ de L1, λ de L2c) del encogimiento few-shot (`ChispamovilAbrirConSoporte`); nil = `Abrir` del puente (λ de L1 según el fichero, L2 apagado).
-    static func abrir(ruta: String, soporte: (Double, Double)? = nil) throws -> MotorNativo {
+    /// `textoLargo`: estrategia para textos que pasan del truncado (`ChispamovilAbrirConTextoLargo`; con `soporte` nil es `Abrir`: los λ se
+    /// ignoran); nil = cabeza, sin llamar a ese constructor.
+    static func abrir(ruta: String, soporte: (Double, Double)? = nil, textoLargo: TextoLargo? = nil) throws -> MotorNativo {
         var error: NSError?
         let abierto: ChispamovilChispa?
-        if let (l1, l2) = soporte {
+        if let tl = textoLargo {
+            abierto = ChispamovilAbrirConTextoLargo(ruta, soporte?.0 ?? 0, soporte?.1 ?? 0, soporte != nil, tl.json(), &error)
+        } else if let (l1, l2) = soporte {
             abierto = ChispamovilAbrirConSoporte(ruta, l1, l2, &error)
         } else {
             abierto = ChispamovilAbrir(ruta, &error)
@@ -63,5 +67,11 @@ final class MotorNativo: Motor {
     func tieneTokenizadorE5() -> Bool { go.tieneTokenizadorE5() }
     func cargarTokenizadorE5(ruta: String) throws { try go.cargarTokenizadorE5(ruta) }
     func tokenizarE5(_ texto: String) -> Data? { go.tokenizarE5(texto) }
+    func trozosE5(_ texto: String) -> Data? { go.trozosE5(texto) }
+    func puntuarL2Trozos(_ preguntaJson: String, ranuras: Data, ksJson: String) -> String {
+        go.puntuarL2Trozos(preguntaJson, ranuras: ranuras, ksJSON: ksJson)
+    }
+    /// Textos que pasaron del truncado de L1 o de la consulta de L2 desde que se abrió (`TextoLargoSuperados`).
+    func textoLargoSuperados() -> Int { Int(go.textoLargoSuperados()) }
     func cerrar() { try? go.cerrar() }
 }

@@ -35,9 +35,31 @@ func (m *Modelo) buscar(h uint64, clave string) int32 {
 // Tokenizar devuelve los ids del texto tal como los daría tokenizers (add_special_tokens=False,
 // truncado a 512 tokens y con el recorte de texto de model2vec), sin quitar [UNK].
 func (m *Modelo) Tokenizar(texto string) []int32 {
+	ids, _ := m.TokenizarTruncado(texto)
+	return ids
+}
+
+// TokenizarTruncado es Tokenizar y dice si el texto se recortó (por RecorteTexto o por MaxTokens): el mismo resultado, más el aviso.
+func (m *Modelo) TokenizarTruncado(texto string) ([]int32, bool) {
+	return m.tokenizar(texto, m.p.RecorteTexto, m.p.MaxTokens)
+}
+
+// TokenizarSinTope tokeniza sin el tope de tokens ni el recorte de texto del modelo (para trocear textos largos): solo
+// acota a maxRunas caracteres para que el coste quede limitado. maxRunas ≤ 0 = sin acotar. Con un texto que cabe, da lo mismo que Tokenizar.
+func (m *Modelo) TokenizarSinTope(texto string, maxRunas int) []int32 {
+	if maxRunas <= 0 {
+		maxRunas = maxRecorte
+	}
+	ids, _ := m.tokenizar(texto, maxRunas, maxMaxTokens)
+	return ids
+}
+
+func (m *Modelo) tokenizar(texto string, recorte, maxTok int) ([]int32, bool) {
+	truncado := false
 	texto = strings.ToValidUTF8(texto, "�")
-	if r := []rune(texto); len(r) > m.p.RecorteTexto {
-		texto = string(r[:m.p.RecorteTexto])
+	if r := []rune(texto); len(r) > recorte {
+		texto = string(r[:recorte])
+		truncado = true
 	}
 	var ids []int32
 	resto := texto
@@ -57,10 +79,11 @@ func (m *Modelo) Tokenizar(texto string) []int32 {
 		ids = append(ids, mejor.id)
 		resto = resto[pos+len(mejor.texto):]
 	}
-	if len(ids) > m.p.MaxTokens {
-		ids = ids[:m.p.MaxTokens]
+	if len(ids) > maxTok {
+		ids = ids[:maxTok]
+		truncado = true
 	}
-	return ids
+	return ids, truncado
 }
 
 // tokenizarTrozo normaliza, aplica Metaspace y corre Viterbi sobre el unigram.

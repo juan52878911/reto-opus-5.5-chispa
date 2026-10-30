@@ -108,10 +108,18 @@ func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 		return r, true, err
 	}
 	var ts []torreDin // las torres con las que puntuó la fuente de similitudes, si las expone
+	var vs []ventana
 	var S [][]float32
 	var sims []float64
 	var err error
-	if st, conTorres := l.sim.(interface {
+	if sv, conVentanas := l.sim.(interface {
+		similitudesVentanas(context.Context, Pregunta) ([]ventana, []torreDin, bool, error)
+	}); conVentanas {
+		vs, ts, ok, err = sv.similitudesVentanas(ctx, p)
+		if len(vs) > 0 {
+			S, sims = vs[0].S, vs[0].sims
+		}
+	} else if st, conTorres := l.sim.(interface {
 		similitudesTorres(context.Context, Pregunta) ([][]float32, []float64, []torreDin, bool, error)
 	}); conTorres {
 		S, sims, ts, ok, err = st.similitudesTorres(ctx, p)
@@ -128,7 +136,15 @@ func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 		r, err := l.L2.Decidir(ctx, p)
 		return r, true, err
 	}
-	return cabezaConj(p, e, S, sims, l.mezclarSimproto(p, S, ts), l0.Probs), false, nil
+	if len(vs) <= 1 {
+		return cabezaConj(p, e, S, sims, l.mezclarSimproto(p, S, ts), l0.Probs), false, nil
+	}
+	// texto largo con trozos: la cabeza conjunta decide cada ventana (con las mismas probabilidades de L0) y se agregan
+	rs := make([]Respuesta, len(vs))
+	for i, v := range vs {
+		rs[i] = cabezaConj(p, e, v.S, v.sims, l.mezclarSimproto(p, v.S, ts), l0.Probs)
+	}
+	return agregarRespuestas(p, rs, l.L2.largo.Agg(), 0.5), false, nil
 }
 
 // torreDe devuelve la torre de la descripción de la opción: la de ESQUEMAS o, si el esquema es nuevo, la que L2 acaba de

@@ -8,6 +8,7 @@ import (
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
+	"chispa/runtime/tok"
 )
 
 // Temperatura por defecto cuando CALIB no trae el tipo.
@@ -24,6 +25,8 @@ type L1 struct {
 	cache  *LRU[map[string][]float32] // clave de esquema → embedding por id de opción (la clave ignora el orden)
 	sopl   *chispa3.Sopl1             // soporte few-shot del .chispa (k y media de ejemplos por pregunta y opción), o nil
 	lambda *float64                   // λ del encogimiento; nil = apagado (el comportamiento de antes); 0 = solo ejemplos; +Inf = solo descripción
+	largo  TextoLargo                 // estrategia para textos que pasan de max_tokens; cero = cabeza
+	met    *Metricas
 	Hits   atomic.Uint64
 	Misses atomic.Uint64
 }
@@ -53,6 +56,7 @@ func (l *L1) ConCacheBytes(mb int) *L1 {
 
 // UsaMetricas conecta L1 con /metrics (chispa_cache_bytes{cache="l1"}); lo hace NuevaCascada.
 func (l *L1) UsaMetricas(m *Metricas) {
+	l.met = m
 	if m != nil {
 		m.FijaCacheBytes("l1", func() int64 { return l.cache.Bytes() })
 	}
@@ -67,6 +71,52 @@ func (l *L1) ConSoporte(sopl *chispa3.Sopl1, lambda *float64) *L1 {
 	}
 	l.sopl, l.lambda = sopl, lambda
 	return l
+}
+
+// ConTextoLargo fija la estrategia para textos que pasan de max_tokens del modelo (ventana_l1 si no es 0). Con cabeza (el
+// valor cero) L1 queda como estaba. Debe llamarse antes de usar L1.
+func (l *L1) ConTextoLargo(tl TextoLargo) *L1 {
+	l.largo = tl
+	return l
+}
+
+// ventanasMsg devuelve el embedding de cada ventana del mensaje (las que no tienen tokens se omiten) y cuenta en /metrics los
+// textos que pasan del tope. Sin estrategia, o con un texto que cabe, es la única ventana de siempre (Embed del texto entero).
+func (l *L1) ventanasMsg(estado string) [][]float32 {
+	dim := l.m.Dim()
+	un := func(ids []int32) [][]float32 {
+		e := make([]float32, dim)
+		if !l.m.EmbedIDs(ids, e) {
+			return nil
+		}
+		return [][]float32{e}
+	}
+	n := l.m.MaxTokens()
+	if l.largo.VentanaL1 > 0 {
+		n = min(n, l.largo.VentanaL1)
+	}
+	if !l.largo.Activa() {
+		ids, trunc := l.m.TokenizarTruncado(estado)
+		if trunc {
+			l.met.ObservaTextoLargo("L1", 1)
+		}
+		return un(ids)
+	}
+	todo := l.m.TokenizarSinTope(estado, l.largo.NecesitaTokens(n)*16)
+	if len(todo) <= n {
+		ids, trunc := l.m.TokenizarTruncado(estado) // cabe en la ventana: lo de siempre
+		if trunc {
+			l.met.ObservaTextoLargo("L1", 1)
+		}
+		return un(ids)
+	}
+	var out [][]float32
+	ws := tok.Trocear(todo, n, l.largo)
+	for _, w := range ws {
+		out = append(out, un(w)...)
+	}
+	l.met.ObservaTextoLargo("L1", len(ws))
+	return out
 }
 
 func (l *L1) Nombre() string { return "L1" }
@@ -129,32 +179,43 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
-	msg := make([]float32, l.m.Dim())
-	if !l.m.Embed(p.Estado, msg) {
+	msgs := l.ventanasMsg(p.Estado)
+	if len(msgs) == 0 {
 		return Respuesta{}, nil
 	}
 	ops := l.opciones(p)
-	sims := make([]float64, len(ops))
-	for i, o := range p.Opciones {
-		sims[i] = coseno(msg, ops[o.ID])
-	}
-	if p.Kind == KindNoul { // la consulta es la opción «true»
-		prm := l.params("noul")
-		var s float64
+	sims := make([][]float64, len(msgs))
+	for w, msg := range msgs {
+		sims[w] = make([]float64, len(p.Opciones))
 		for i, o := range p.Opciones {
-			if o.ID == "true" {
-				s = sims[i]
-			}
+			sims[w][i] = coseno(msg, ops[o.ID])
 		}
-		return respuestaNoul(prm.A*s+prm.B, prm.Theta), nil
 	}
-	if p.Kind == KindScore {
-		return respuestaScore(p, sims, l.paramsScore().T), nil
+	agg := l.largo.Agg()
+	if p.Kind == KindMulti { // cada opción, un sí/no sobre su propia similitud: se agregan las similitudes
+		return respuestaMulti(p, agregarSims(sims, agg), l.calib), nil
 	}
-	if p.Kind == KindMulti { // cada opción, un sí/no sobre su propia similitud
-		return respuestaMulti(p, sims, l.calib), nil
+	rs := make([]Respuesta, len(sims))
+	theta := 0.5
+	for w, s := range sims {
+		switch p.Kind {
+		case KindNoul: // la consulta es la opción «true»
+			prm := l.params("noul")
+			theta = prm.Theta
+			var st float64
+			for i, o := range p.Opciones {
+				if o.ID == "true" {
+					st = s[i]
+				}
+			}
+			rs[w] = respuestaNoul(prm.A*st+prm.B, prm.Theta)
+		case KindScore:
+			rs[w] = respuestaScore(p, s, l.paramsScore().T)
+		default:
+			rs[w] = respuestaSoftmax(p, s, l.params("choice").T)
+		}
 	}
-	return respuestaSoftmax(p, sims, l.params("choice").T), nil
+	return agregarRespuestas(p, rs, agg, theta), nil
 }
 
 // paramsScore: la T de «score» si CALIB la trae; si no, la de choice (o la de por defecto).
