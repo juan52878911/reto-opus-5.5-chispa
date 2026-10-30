@@ -210,7 +210,7 @@ func TestCalibVistaOrigenYDefecto(t *testing.T) {
 		`chispa_calib_defecto_total{capa="L2",tipo="noul"} 2`,
 		`chispa_calib{capa="L2",tipo="choice",origen="tipos_l2",param="T"} 0.9`,
 		`chispa_calib{capa="L2",tipo="noul",origen="default",param="a"} 4`,
-		`chispa_calib_tau{capa="L2",clave="tau_escalate",origen="fichero"} 0.8`,
+		`chispa_calib_tau{capa="L2",clave="tau_escalate",origen="calib"} 0.8`,
 		`chispa_calib_sin_tipo{capa="L2",tipo="multi"} 1`,
 	} {
 		if !strings.Contains(sb.String(), quiero) {

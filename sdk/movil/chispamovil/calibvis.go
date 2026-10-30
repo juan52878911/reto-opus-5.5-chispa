@@ -17,6 +17,7 @@ const (
 	origenFichero = "fichero"
 	origenTiposL2 = "tipos_l2"
 	origenDefecto = "default"
+	origenCalib   = "calib" // origen de un τ: sale de la CALIB del .chispa
 )
 
 var tiposBase = []string{"choice", "noul", "score", "multi"}
@@ -76,8 +77,13 @@ func vistaCalibCapa(capa string, c chispa3.Calib, origen string, conCalib bool) 
 				ent(t, origenDefecto, paramsDefecto())
 			}
 		case "score":
-			for k := range c.Tipos {
-				hay = hay || strings.HasPrefix(k, "score")
+			// L1 solo lee «score» exacto; L2 solo opina con «score<K>» (y sus «#j»).
+			if capa == "L2" {
+				for k := range c.Tipos {
+					hay = hay || strings.HasPrefix(k, "score") && !strings.Contains(k, "#") && len(k) > len("score")
+				}
+			} else {
+				_, hay = c.Tipos["score"]
 			}
 		case "multi":
 			for k := range c.Tipos {
@@ -88,19 +94,11 @@ func vistaCalibCapa(capa string, c chispa3.Calib, origen string, conCalib bool) 
 			v.SinCalib = append(v.SinCalib, t)
 		}
 	}
-	or := origenFichero
+	or := origenCalib
 	if !conCalib {
 		or = origenDefecto
 	}
 	v.Taus = append(v.Taus, tauCalib{capa, "tau_escalate", c.TauEscalate, or})
-	if capa == "L2" {
-		if c.TauL2c != nil {
-			v.Taus = append(v.Taus, tauCalib{capa, "tau_l2c", *c.TauL2c, or})
-		}
-		if c.TauL2EsquemaNuevo != nil {
-			v.Taus = append(v.Taus, tauCalib{capa, "tau_l2_esquema_nuevo", *c.TauL2EsquemaNuevo, or})
-		}
-	}
 	return v
 }
 
@@ -129,6 +127,28 @@ func (c *Chispa) vistasCalib() []vistaCalib {
 	}
 	if c.tieneL2 {
 		out = append(out, vistaCalibCapa("L2", c.calib.ParaL2(), c.origenTipos(), conCalib))
+	}
+	if c.tieneL2 {
+		// τ de esquema nuevo en servicio (el que lee la cascada de Kotlin/Swift); −1 tras SinTauEsquemaNuevo(true): no hay τ propio.
+		if t := c.TauL2EsquemaNuevo(); t >= 0 {
+			or := origenDefecto
+			if c.calib.TauL2EsquemaNuevo != nil {
+				or = origenCalib
+			}
+			for i := range out {
+				if out[i].Capa == "L2" {
+					out[i].Taus = append(out[i].Taus, tauCalib{"L2", "tau_l2_esquema_nuevo", t, or})
+				}
+			}
+		}
+		// con CONJ, la cabeza conjunta decide con tau_l2c si CALIB lo trae
+		if t := c.TauL2c(); t >= 0 {
+			for i := range out {
+				if out[i].Capa == "L2" {
+					out[i].Taus = append(out[i].Taus, tauCalib{"L2", "tau_l2c", t, origenCalib})
+				}
+			}
+		}
 	}
 	return out
 }

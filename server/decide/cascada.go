@@ -70,6 +70,7 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 		return nil, fmt.Errorf("cascada: %d capas en la config y %d decisores", len(cfg), len(ds))
 	}
 	c := &Cascada{met: met, tauNuevo: tauNuevo}
+	met.vaciaCalib()
 	for i, d := range ds {
 		if u, ok := d.(UsaMetricas); ok && met != nil {
 			u.UsaMetricas(met)
@@ -83,7 +84,44 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 		}
 		c.capas = append(c.capas, cp)
 	}
+	c.publicaTaus(cfg)
 	return c, nil
+}
+
+// publicaTaus pone en chispa_calib_tau los τ efectivos de L1 y L2 (config > CALIB > default) con su origen, y el τ de esquema nuevo.
+func (c *Cascada) publicaTaus(cfg []Capa) {
+	if c.met == nil {
+		return
+	}
+	defecto := map[string]float64{}
+	for _, d := range ConfigPorDefecto().Capas {
+		defecto[d.Nombre] = d.Tau
+	}
+	vistas := c.met.Calib()
+	for _, k := range cfg {
+		v, ok := vistas[k.Nombre]
+		if !ok || (k.Nombre != "L1" && k.Nombre != "L2") {
+			continue
+		}
+		// candidatos de CALIB: los que la vista trae con origen calib
+		var calib []float64
+		for _, t := range v.Taus {
+			if t.Origen == OrigenCalib {
+				calib = append(calib, t.Valor)
+			}
+		}
+		taus := []TauCalib{{Capa: k.Nombre, Clave: "tau_escalate", Valor: k.Tau, Origen: origenTau(k.Tau, defecto[k.Nombre], calib)}}
+		if k.Nombre == "L2" && c.tauNuevo != nil {
+			var cn []float64
+			for _, t := range v.Taus {
+				if t.Clave == "tau_l2_esquema_nuevo" && t.Origen == OrigenCalib {
+					cn = append(cn, t.Valor)
+				}
+			}
+			taus = append(taus, TauCalib{Capa: k.Nombre, Clave: "tau_l2_esquema_nuevo", Valor: *c.tauNuevo, Origen: origenTau(*c.tauNuevo, TauL2EsquemaNuevoPorDefecto, cn)})
+		}
+		c.met.fijaTaus(k.Nombre, taus)
+	}
 }
 
 // Decidir recorre las capas. Si una falla o no opina, se pasa a la siguiente.
