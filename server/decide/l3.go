@@ -233,8 +233,12 @@ func (l *L3LLM) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 		l.met.l3Cuenta("presupuesto")
 		return Respuesta{Incompleto: true}, nil // no opina por falta de presupuesto, no por criterio: no se cachea bajo el nonce
 	}
-	ops := make([]opL3, len(p.Opciones))
-	for i, o := range p.Opciones {
+	ordenadas := p.Opciones
+	if p.Kind == KindScore {
+		ordenadas = opcionesPorNivel(p.Opciones) // la escala en orden de nivel, igual que la mediana y L2
+	}
+	ops := make([]opL3, len(ordenadas))
+	for i, o := range ordenadas {
 		ops[i] = opL3{o.ID, o.Description}
 	}
 	entrada, _ := json.Marshal(entradaL3{Pregunta: p.Texto, Tipo: p.Kind, Opciones: ops, Texto: delimitaTextoL3(p.Estado)})

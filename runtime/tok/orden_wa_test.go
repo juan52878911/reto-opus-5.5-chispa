@@ -12,7 +12,7 @@ func TestWAOrdenNivel(t *testing.T) {
 		{[]string{"3", "1", "2"}, []string{"1", "2", "3"}},
 		{[]string{"alto", "bajo", "medio"}, []string{"alto", "bajo", "medio"}},
 		{[]string{"3", "x", "1"}, []string{"3", "x", "1"}},
-		{[]string{"2", "02", "1"}, []string{"1", "2", "02"}}, // estable en empate numérico
+		{[]string{"2", "02", "1"}, []string{"2", "02", "1"}}, // «02» no es canónico: orden declarado (H3)
 		{[]string{}, []string{}},
 	}
 	for _, c := range casos {
