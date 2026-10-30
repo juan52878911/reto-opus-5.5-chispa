@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
-	"net"
+	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/juan52878911/chispa/contracts"
@@ -51,29 +55,111 @@ func (p *procLauncher) Name() string { return "process" }
 func (p *procLauncher) MemMiB() int  { return p.mem }
 func (p *procLauncher) VCPUs() int   { return 1 }
 
+// procLog guarda las últimas líneas de salida de un proceso hijo para
+// incluirlas en el error si no arranca.
+type procLog struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (l *procLog) add(s string) {
+	l.mu.Lock()
+	l.lines = append(l.lines, s)
+	if len(l.lines) > 20 {
+		l.lines = l.lines[len(l.lines)-20:]
+	}
+	l.mu.Unlock()
+}
+
+func (l *procLog) tail() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.lines) == 0 {
+		return "(sin salida)"
+	}
+	return strings.Join(l.lines, " | ")
+}
+
+// procHandle: el proceso hijo, su grupo y su salida reciente.
+type procHandle struct {
+	cmd  *exec.Cmd
+	log  *procLog
+	done chan struct{}
+}
+
+// healthTimeout: plazo total de espera a /health tras el arranque.
+const healthTimeout = 30 * time.Second
+
+const startTimeout = 20 * time.Second
+
 func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
-	// Un puerto libre que da el sistema: con puertos fijos, un proceso de una
-	// ejecución anterior que aún muere bastaba para tumbar el arranque.
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	// El hijo escucha en 127.0.0.1:0 y anuncia el puerto real ("LISTEN addr"):
+	// reservar un puerto y cerrarlo antes de lanzar dejaba una carrera con
+	// otros trabajos del nodo.
+	cmd := exec.Command(p.exe, "detector", "-id", r.id, "-dim", r.dim, "-kind", r.kind, "-models", p.models, "-addr", "127.0.0.1:0")
+	cmd.Env = append(os.Environ(), "GOMAXPROCS=1")
+	// Grupo propio y muerte con el padre: nada queda vivo si arena cae.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
+	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", err
 	}
-	addr := l.Addr().String()
-	l.Close()
-	cmd := exec.Command(p.exe, "detector", "-id", r.id, "-dim", r.dim, "-kind", r.kind, "-models", p.models, "-addr", addr)
-	cmd.Env = append(os.Environ(), "GOMAXPROCS=1")
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
+	errp, err := cmd.StderrPipe()
+	if err != nil {
 		return "", err
 	}
-	go cmd.Wait()
-	r.handle = cmd
-	return "http://" + addr, nil
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("%s: no arrancó el proceso: %w", r.id, err)
+	}
+	h := &procHandle{cmd: cmd, log: &procLog{}, done: make(chan struct{})}
+	r.handle = h
+	addrCh := make(chan string, 1)
+	var rd sync.WaitGroup
+	scan := func(rc io.Reader, announce bool) {
+		defer rd.Done()
+		sc := bufio.NewScanner(rc)
+		for sc.Scan() {
+			t := sc.Text()
+			if announce && strings.HasPrefix(t, "LISTEN ") {
+				select {
+				case addrCh <- strings.TrimPrefix(t, "LISTEN "):
+				default:
+				}
+				continue
+			}
+			h.log.add(t)
+		}
+	}
+	rd.Add(2)
+	go scan(out, true)
+	go scan(errp, false)
+	go func() { rd.Wait(); cmd.Wait(); close(h.done) }()
+	select {
+	case addr := <-addrCh:
+		return "http://" + addr, nil
+	case <-h.done:
+		return "", fmt.Errorf("%s: el detector salió antes de escuchar; último log: %s", r.id, h.log.tail())
+	case <-time.After(startTimeout):
+		p.Stop(r)
+		return "", fmt.Errorf("%s: sin puerto tras %s; último log: %s", r.id, startTimeout, h.log.tail())
+	case <-ctx.Done():
+		p.Stop(r)
+		return "", ctx.Err()
+	}
 }
 
 func (p *procLauncher) Stop(r *replica) error {
-	if cmd, ok := r.handle.(*exec.Cmd); ok && cmd.Process != nil {
-		return cmd.Process.Kill()
+	h, ok := r.handle.(*procHandle)
+	if !ok || h.cmd.Process == nil {
+		return nil
+	}
+	// Mata el grupo entero; ESRCH (ya muerto) no es un error.
+	if err := syscall.Kill(-h.cmd.Process.Pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
+		return h.cmd.Process.Kill()
+	}
+	select {
+	case <-h.done:
+	case <-time.After(2 * time.Second):
 	}
 	return nil
 }
@@ -120,10 +206,13 @@ func (f *fleet) boot(ctx context.Context, r *replica) error {
 	}
 	r.client = detsrv.NewClient(base)
 	// Espera a /health: el tiempo hasta aquí es el arranque (o restore).
-	for i := 0; i < 300; i++ {
+	var lastErr error
+	deadline := time.Now().Add(healthTimeout)
+	for time.Now().Before(deadline) && ctx.Err() == nil {
 		c, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
 		h, err := r.client.Health(c)
 		cancel()
+		lastErr = err
 		if err == nil {
 			r.bootMS = float64(time.Since(t0).Microseconds()) / 1000
 			r.mu.Lock()
@@ -135,7 +224,13 @@ func (f *fleet) boot(ctx context.Context, r *replica) error {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return fmt.Errorf("%s no contestó /health", r.id)
+	f.l.Stop(r)
+	f.status(r, "down")
+	msg := fmt.Sprintf("%s no contestó /health en %s (%s): %v", r.id, healthTimeout, base, lastErr)
+	if h, ok := r.handle.(*procHandle); ok {
+		msg += "; último log: " + h.log.tail()
+	}
+	return errors.New(msg)
 }
 
 // remove retira la última réplica de (dim, kind), dejando al menos una.

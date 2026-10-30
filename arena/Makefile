@@ -14,7 +14,7 @@ arena: train
 	./arena run
 
 smoke: train
-	./arena run -smoke -max-attacks 50 -addr 127.0.0.1:8089 -base-port 9300
+	./arena run -smoke -max-attacks 50 -addr 127.0.0.1:0
 
 test:
 	go vet ./... && go test ./...

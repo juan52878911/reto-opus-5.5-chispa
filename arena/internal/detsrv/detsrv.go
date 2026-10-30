@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -62,7 +63,14 @@ func serve(addr, id, dim string, load func() (detectors.Detector, error), bank *
 	if err != nil {
 		return err
 	}
-	return http.ListenAndServe(addr, mux)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	// Con -addr host:0 el sistema elige el puerto: se anuncia el real en
+	// stdout para que quien lanza el proceso no tenga que adivinarlo.
+	fmt.Printf("LISTEN %s\n", ln.Addr())
+	return http.Serve(ln, mux)
 }
 
 func buildMux(id, dim string, load func() (detectors.Detector, error), bank *detectors.Bank, generation int) (*http.ServeMux, error) {
