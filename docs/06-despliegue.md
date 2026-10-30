@@ -200,6 +200,10 @@ Referencia de claves y del contrato: [03-api.md](03-api.md#l3-escalado-opcional-
 Usa `/healthz` como sonda de vida y `/metrics` para Prometheus. Vigila `chispa_escalados_total` frente a `chispa_preguntas_total`
 ([03-api.md](03-api.md#get-metrics)) y `chispa_capa_errores_total`.
 
+CALIB visible: `chispa_calib{capa,tipo,origen,param}`, `chispa_calib_tau`, `chispa_calib_sin_tipo` y `chispa_calib_defecto_total{capa,tipo}`
+([03-api.md](03-api.md#calib-visible)). Un `chispa_calib_defecto_total` que crece indica un tipo de petición sin CALIB en el `.chispa` en servicio:
+la probabilidad y el τ de esa capa no valen para ese tipo. Al arrancar y recargar, el log avisa (`AVISO: CALIB de L1 sin los tipos […]`).
+
 Contadores de lo nuevo (torres al vuelo, esquemas nuevos, nonces y plazos):
 
 | Métrica | Tipo | Qué cuenta |

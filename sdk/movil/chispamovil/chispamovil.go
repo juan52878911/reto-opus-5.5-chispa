@@ -126,6 +126,8 @@ type Chispa struct {
 	multiAus   atomic.Int64 // peticiones multi cuya CALIB tiene claves con esquema de la capa y ninguna casa
 	avisoMulti sync.Once
 
+	defecto contadorDefecto // decisiones con parámetros de CALIB por defecto (CalibDefectoJSON)
+
 	mu    sync.Mutex
 	cache map[string][][]float32 // pregunta+opciones → torre de L1 de cada opción (en orden)
 }
@@ -303,6 +305,7 @@ func (c *Chispa) montar() error {
 			}
 		}
 	}
+	c.avisarCalib()
 	return nil
 }
 
@@ -545,11 +548,13 @@ func errSeparador(campo string) error {
 }
 
 // params son los parámetros de un tipo en los tipos de L1.
-func (c *Chispa) params(tipo string) chispa3.ParamsTipo { return paramsTipo(c.calib.Tipos, tipo) }
+func (c *Chispa) params(tipo string) chispa3.ParamsTipo {
+	return c.paramsCapa("L1", c.calib.Tipos, tipo)
+}
 
 // paramsL2 son los parámetros de un tipo en los tipos que lee L2 (tipos_l2 si existen, si no tipos).
 func (c *Chispa) paramsL2(tipo string) chispa3.ParamsTipo {
-	return paramsTipo(c.calib.ParaL2().Tipos, tipo)
+	return c.paramsCapa("L2", c.calib.ParaL2().Tipos, tipo)
 }
 
 func paramsTipo(tipos map[string]chispa3.ParamsTipo, tipo string) chispa3.ParamsTipo {
@@ -728,6 +733,10 @@ func (c *Chispa) ventanasMsg(texto string) [][]float32 {
 func (c *Chispa) tScore() float64 {
 	if p, ok := c.calib.Tipos["score"]; ok && p.T > 0 {
 		return p.T
+	}
+	if _, ok := c.calib.Tipos["choice"]; !ok {
+		c.defecto.sube("L1", "score")
+		return tDefecto
 	}
 	return c.params("choice").T
 }

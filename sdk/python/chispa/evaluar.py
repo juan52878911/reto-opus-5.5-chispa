@@ -5,7 +5,10 @@ petición; `concurrencia` las reparte en hilos. Las métricas son las de `piloto
 from __future__ import annotations
 
 import json
+import os
+import re
 import time
+import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
@@ -342,9 +345,78 @@ def informe_md(m: dict, fuente: str = "", url: str = "") -> str:
     return "\n".join(L) + "\n"
 
 
+_LINEA = re.compile(r'^(chispa_calib\w*)\{(.*)\}\s+(\S+)\s*$')
+_ETIQ = re.compile(r'(\w+)="((?:[^"\\]|\\.)*)"')
+
+
+def parsear_calib(texto: str) -> dict:
+    """Resume las series `chispa_calib*` del texto de /metrics: {"capas": {capa: {"tipos": {tipo: {origen, T, a, b, theta}},
+    "taus": {clave: {valor, origen}}, "sin_calib": [tipos]}}, "defecto": {"capa/tipo": decisiones}}. Un servidor anterior (sin
+    esas series) da {"capas": {}, "defecto": {}}."""
+    capas: Dict[str, dict] = {}
+    defecto: Dict[str, float] = {}
+    for linea in texto.splitlines():
+        m = _LINEA.match(linea)
+        if not m:
+            continue
+        nombre, et = m.group(1), {k: v.replace('\\"', '"').replace("\\\\", "\\") for k, v in _ETIQ.findall(m.group(2))}
+        try:
+            x = float(m.group(3))
+        except ValueError:
+            continue
+        capa = et.get("capa", "")
+        c = capas.setdefault(capa, {"tipos": {}, "taus": {}, "sin_calib": []}) if capa else None
+        if nombre == "chispa_calib" and c is not None:
+            t = c["tipos"].setdefault(et.get("tipo", ""), {"origen": et.get("origen", "")})
+            t[et.get("param", "")] = x
+        elif nombre == "chispa_calib_tau" and c is not None:
+            c["taus"][et.get("clave", "")] = {"valor": x, "origen": et.get("origen", "")}
+        elif nombre == "chispa_calib_sin_tipo" and c is not None and x:
+            c["sin_calib"].append(et.get("tipo", ""))
+        elif nombre == "chispa_calib_defecto_total" and capa:
+            defecto[f"{capa}/{et.get('tipo', '')}"] = x
+    return {"capas": capas, "defecto": defecto}
+
+
+def calib_servidor(url: str, token: Optional[str] = None, timeout: float = 10.0) -> dict:
+    """Lee la CALIB efectiva del servidor de `GET /metrics` (no hay endpoint propio: /metrics ya tiene la misma protección y trae también los
+    contadores de decisiones con CALIB por defecto). Con `/metrics` protegidas hace falta `token` (admin_token o clave de API) o la variable
+    de entorno `CHISPA_TOKEN_METRICAS`. Nunca lanza: si no se puede leer devuelve {"error": motivo}."""
+    token = token or os.environ.get("CHISPA_TOKEN_METRICAS")
+    cab = {"Authorization": "Bearer " + token.rstrip("\r\n")} if token else {}
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url.rstrip("/") + "/metrics", headers=cab), timeout=timeout) as r:
+            return parsear_calib(r.read().decode("utf-8", "replace"))
+    except Exception as e:  # noqa: BLE001 — la medición no depende de esto
+        return {"error": f"/metrics no legible: {getattr(e, 'code', None) or type(e).__name__}"}
+
+
+def calib_md(c: dict) -> str:
+    """Sección del informe con la CALIB del servidor (vacía si no hay nada que decir)."""
+    if "error" in c:
+        return f"\n## CALIB del servidor\n\nSin medir: {c['error']} (con /metrics protegidas, pase `token` o CHISPA_TOKEN_METRICAS).\n"
+    if not c["capas"]:
+        return "\n## CALIB del servidor\n\n/metrics no trae `chispa_calib`: el servidor es anterior a la CALIB visible.\n"
+    L = ["", "## CALIB del servidor", "| Capa | Tipo | Origen | T | a | b | θ |", "|---|---|---|---|---|---|---|"]
+    for capa, d in sorted(c["capas"].items()):
+        for tipo, p in sorted(d["tipos"].items()):
+            L.append(f"| {capa} | {tipo} | {p['origen']} | " + " | ".join(_f(p.get(k), 3) for k in ("T", "a", "b", "theta")) + " |")
+    for capa, d in sorted(c["capas"].items()):
+        if d["taus"]:
+            L.append("")
+            L.append(f"τ de {capa}: " + ", ".join(f"{k} = {_f(v['valor'], 3)}" for k, v in sorted(d["taus"].items())))
+        if d["sin_calib"]:
+            L.append(f"AVISO: la CALIB de {capa} no trae {', '.join(sorted(d['sin_calib']))}: esa capa usa parámetros por defecto o no opina en esos tipos.")
+    if c["defecto"]:
+        L += ["", "Decisiones con parámetros por defecto (desde que arrancó el servidor): "
+              + ", ".join(f"{k} = {int(v)}" for k, v in sorted(c["defecto"].items()))]
+    return "\n".join(L) + "\n"
+
+
 def evaluar(url: str, esquema: str, datos: str, pregunta: Optional[str] = None, objetivo: float = 0.95, concurrencia: int = 4,
-            timeout: float = 10.0, reintentos: int = 3) -> dict:
-    """Lee esquema y muestra, mide contra `url` y devuelve {"metricas", "filas", "informe"}."""
+            timeout: float = 10.0, reintentos: int = 3, token: Optional[str] = None, calib: bool = True) -> dict:
+    """Lee esquema y muestra, mide contra `url` y devuelve {"metricas", "filas", "informe", "calib"}. Con `calib` (por defecto) añade al informe
+    la CALIB efectiva del servidor leída de /metrics (`calib_servidor`); `metricas["calib_servidor"]` la lleva también al JSON."""
     q, _ = cargar_esquema(esquema, pregunta)
     if q.kind == "multi":  # etiqueta = opciones separadas por «|» (celda vacía = ninguna), como en chispa train
         ej = cargar_ejemplos(datos, q.id, multi=True)
@@ -354,4 +426,9 @@ def evaluar(url: str, esquema: str, datos: str, pregunta: Optional[str] = None, 
     if all(f["error"] for f in filas):
         raise ChispaError(f"todas las peticiones fallaron: {filas[0]['error']}")
     m = metricas(q, filas, objetivo)
-    return {"metricas": m, "filas": filas, "informe": informe_md(m, str(datos), url)}
+    informe = informe_md(m, str(datos), url)
+    c = None
+    if calib:
+        c = m["calib_servidor"] = calib_servidor(url, token, timeout)
+        informe += calib_md(c)
+    return {"metricas": m, "filas": filas, "informe": informe, "calib": c}

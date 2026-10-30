@@ -85,6 +85,9 @@ type Metricas struct {
 
 	cachesBytes map[string]func() int64 // chispa_cache_bytes{cache}, bajo mu
 
+	calibs       map[string]VistaCalib        // CALIB efectiva por capa (calibvis.go), bajo mu
+	calibDefecto map[[2]string]*atomic.Uint64 // chispa_calib_defecto_total{capa,tipo}, bajo mu
+
 	l3Llamadas map[string]*atomic.Uint64 // chispa_l3_llamadas_total{resultado}, bajo mu
 	l3Lat      histo                     // latencia de cada llamada al LLM de L3
 
@@ -147,7 +150,7 @@ func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resul
 
 func NuevasMetricas() *Metricas {
 	return &Metricas{clavesN: map[[2]string]*atomic.Uint64{}, recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
-		decididas: map[string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}}
+		decididas: map[string]*atomic.Uint64{}, calibDefecto: map[[2]string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}}
 }
 
 // l3Cuenta cuenta una llamada de L3 por resultado: ok, invalida (respuesta que no sirve), error, timeout o presupuesto (tope por
@@ -221,6 +224,7 @@ func claves[V any](mu *sync.Mutex, m map[string]V) []string {
 // Escribe vuelca el formato de texto de Prometheus.
 func (m *Metricas) Escribe(w io.Writer) {
 	defer m.escribeCachesBytes(w)
+	defer m.escribeCalib(w)
 	fmt.Fprintln(w, "# HELP chispa_peticiones_total Peticiones a /v1/decide por código HTTP.")
 	fmt.Fprintln(w, "# TYPE chispa_peticiones_total counter")
 	m.mu.Lock()
