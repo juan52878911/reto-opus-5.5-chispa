@@ -46,6 +46,13 @@ python -m chispa evaluar --url http://127.0.0.1:8090 --esquema esquema.json --da
 Da exactitud, F1 macro (escala = fallo y mejor respuesta), matriz de confusión, tasa de escalado, cobertura y precisión de lo aceptado, capas, p50/p99, MAE (score) y la cobertura al umbral de confianza que alcanza la precisión objetivo.
 Cada fila es una petición, porque `/v1/decide` lleva un solo `state` por petición. Probado con un servidor falso (`tests/test_evaluar.py`).
 
+### Batería de regresión (la puerta de un cambio de modelo)
+```
+python -m chispa evaluar --bateria ejemplos/bateria.json --modelo m.chispa --linea-base base.json [--robustez] [--salida informe]
+python -m chispa evaluar --bateria ejemplos/bateria.json --url http://127.0.0.1:8090 --guardar-linea-base base.json
+```
+Mide varios conjuntos (filas de `model/esquema.md` o JevBench crudo) y da exactitud, F1 macro, ECE (10 cubos), cobertura a precisión 0,95, % escalado y p50/p99 por conjunto, tipo, grupo y en global. Con `--linea-base` sale con **1** si una métrica empeora más que su umbral (`--umbrales` o `umbrales` del manifiesto), con **2** si el manifiesto, los datos o el servidor están mal. `--modelo` arranca `chispa-server` (`--servidor`, `CHISPA_SERVER` o el PATH) en un puerto libre. `--robustez` añade la estabilidad con `chispa.variantes` si existe. Manifiesto de ejemplo con rutas por variable de entorno en `ejemplos/bateria.json`; detalle en `docs/10-bateria.md`. Probado con un servidor falso (`tests/test_bateria.py`).
+
 ## `chispa train`
 ```
 python -m chispa train --ejemplos ej.csv --esquema esquema.yaml --salida m.chispa [--l1 potion.chispa-l1] [--ckpt DIR | --l2 l2.chispa] [--conjunta]
