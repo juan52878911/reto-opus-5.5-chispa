@@ -389,23 +389,21 @@ def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
 
 
 # ---------------------------------------------------------------- robustez
+TRANSFORMACIONES_CON_IDS = ("permutar", "renombrar")  # solo en choice y multi: los ids de noul (false/true) y de score (niveles) llevan significado
+
+
 def cargar_variantes():
-    """La función de `chispa.variantes` (`generar(texto)`; o `variantes(texto)`) → lista de textos (o de (nombre, texto)). None si el módulo no existe."""
+    """El módulo `chispa.variantes` (con `generar` y `estabilidad`). None si no existe."""
     try:
         mod = importlib.import_module(MODULO_VARIANTES)
     except ModuleNotFoundError as e:
         if e.name == MODULO_VARIANTES:
             return None
         raise
-    for nombre in ("generar", "variantes"):
-        fn = getattr(mod, nombre, None)
-        if callable(fn):
-            return fn
-    raise ErrorBateria(f"{MODULO_VARIANTES} no trae `generar(texto)` ni `variantes(texto)`")
-
-
-def _texto_variante(v) -> str:
-    return v if isinstance(v, str) else (v.get("texto") if isinstance(v, dict) else v[-1])
+    for nombre in ("generar", "estabilidad"):
+        if not callable(getattr(mod, nombre, None)):
+            raise ErrorBateria(f"{MODULO_VARIANTES} no trae `{nombre}`")
+    return mod
 
 
 def _prediccion(r: dict):
@@ -421,38 +419,79 @@ def _confianza(r: dict) -> Optional[float]:
     return sum(cs) / len(cs) if cs else None
 
 
-def medir_robustez(cliente: Chispa, conjuntos: List[tuple], fn, concurrencia: int, maximo: int) -> List[dict]:
-    """conjuntos = [(nombre, grupo, [Fila], [resultado])]. Para hasta `maximo` filas por conjunto (a paso fijo), manda cada variante y compara con la
-    decisión original: {conjunto, grupo, tipo, igual, dconf}. Una variante con error cuenta como decisión cambiada."""
+def _caso(f: Fila) -> dict:
+    """Fila → caso de `variantes.generar`: {texto, pregunta, kind, opciones[{id, description}], etiqueta}."""
+    return {"texto": f.texto, "pregunta": f.q.question, "kind": f.tipo, "opciones": [{"id": o.id, "description": o.description} for o in f.q.options],
+            "etiqueta": list(f.etiqueta) if f.tipo == "multi" else f.etiqueta}
+
+
+def _fila_variante(f: Fila, v: dict) -> Fila:
+    ops = tuple(Opcion(o["id"], o["description"]) for o in v["opciones"])
+    return Fila(f.id, f.tipo, f.esquema, Pregunta(f.q.id, v["pregunta"], f.tipo, ops), v["texto"], f.etiqueta)
+
+
+def _tipos_aplicables(tipo: str, tipos) -> tuple:
+    return tuple(t for t in tipos if tipo in ("choice", "multi") or t not in TRANSFORMACIONES_CON_IDS)
+
+
+def _prediccion_id(r: dict, inverso: Optional[dict] = None) -> str:
+    """La decisión como un id comparable (en multi, los ids activos ordenados y unidos por `|`); `inverso` devuelve los ids de la variante a los originales."""
+    p = _prediccion(r)
+    if p is None:
+        return ""
+    if r["tipo"] == "multi":
+        return "|".join(sorted((inverso or {}).get(o, o) for o in p))
+    return p
+
+
+def medir_robustez(cliente: Chispa, conjuntos: List[tuple], mod, concurrencia: int, maximo: int, tipos=None, semilla: int = 0) -> List[dict]:
+    """conjuntos = [(nombre, grupo, [Fila], [resultado])]. Para hasta `maximo` filas por conjunto (a paso fijo) genera con `mod.generar` una variante por
+    transformación aplicable, la manda y la compara con la decisión original vía `mod.estabilidad` (que traduce los ids con el mapa de la variante):
+    {conjunto, grupo, tipo, transformacion, igual, dconf}. Una variante con error cuenta como decisión cambiada; una que no cambia nada, no cuenta."""
+    tipos = tuple(tipos or mod.TIPOS)
     tareas, meta = [], []
     for nombre, grupo, filas, rs in conjuntos:
         paso = max(1, math.ceil(len(filas) / maximo)) if maximo else 1
         for f, r in list(zip(filas, rs))[::paso]:
             if r["error"]:
                 continue
-            vistos = {f.texto}
-            for v in fn(f.texto):
-                t = _texto_variante(v)
-                if t not in vistos:
-                    vistos.add(t)
-                    tareas.append((f, t))
-                    meta.append((nombre, grupo, r))
+            caso = _caso(f)
+            for v in mod.generar(caso, _tipos_aplicables(f.tipo, tipos), semilla):
+                if (v["texto"], v["pregunta"], v["opciones"]) == (caso["texto"], caso["pregunta"], caso["opciones"]):
+                    continue
+                tareas.append((_fila_variante(f, v), None))
+                meta.append((nombre, grupo, r, v))
     pares = []
-    for (nombre, grupo, r0), v in zip(meta, _correr(cliente, tareas, concurrencia)):
-        c0, c1 = _confianza(r0), _confianza(v)
-        pares.append({"conjunto": nombre, "grupo": grupo, "tipo": r0["tipo"], "igual": not v["error"] and _prediccion(v) == _prediccion(r0),
-                      "dconf": (c1 - c0) if c0 is not None and c1 is not None else None})
+    for (nombre, grupo, r0, v), rv in zip(meta, _correr(cliente, tareas, concurrencia)):
+        c0, c1 = _confianza(r0), _confianza(rv)
+        inverso = {nuevo: orig for orig, nuevo in v["mapa"].items()}
+        # en multi la decisión ya viaja traducida a los ids originales: `estabilidad` no la vuelve a mapear (el id compuesto no está en el mapa)
+        nuevo_id = "" if rv["error"] else (_prediccion_id(rv, inverso) if r0["tipo"] == "multi" else _prediccion_id(rv))
+        e = mod.estabilidad({"id": _prediccion_id(r0), "confianza": c0 if c0 is not None else 0.0}, [v],
+                            [{"id": nuevo_id, "confianza": c1 if c1 is not None else (c0 if c0 is not None else 0.0)}])
+        pares.append({"conjunto": nombre, "grupo": grupo, "tipo": r0["tipo"], "transformacion": v["variante"], "igual": bool(e["estables"]),
+                      "dconf": e["delta_media"] * (1 if c1 >= c0 else -1) if c0 is not None and c1 is not None else None})
     return pares
 
 
-def agregar_robustez(pares: List[dict]) -> dict:
-    """estabilidad = fracción de variantes cuya decisión no cambia; delta_conf = media de |confianza variante − confianza original|."""
+def _p95(xs):
+    xs = sorted(xs)
+    return xs[max(0, math.ceil(0.95 * len(xs)) - 1)]
+
+
+def agregar_robustez(pares: List[dict], por_transformacion: bool = True) -> dict:
+    """estabilidad = fracción de variantes cuya decisión no cambia; delta_conf (y su p95) = |confianza variante − confianza original|;
+    `transformaciones` repite las tres por tipo de transformación."""
     if not pares:
         return {}
     d = [abs(p["dconf"]) for p in pares if p["dconf"] is not None]
     s = [p["dconf"] for p in pares if p["dconf"] is not None]
-    return {"estabilidad": sum(p["igual"] for p in pares) / len(pares), "delta_conf": sum(d) / len(d) if d else None,
-            "delta_conf_firmado": sum(s) / len(s) if s else None, "n_variantes": len(pares)}
+    m = {"estabilidad": sum(p["igual"] for p in pares) / len(pares), "delta_conf": sum(d) / len(d) if d else None,
+         "delta_conf_p95": _p95(d) if d else None, "delta_conf_firmado": sum(s) / len(s) if s else None, "n_variantes": len(pares)}
+    if por_transformacion:
+        m["transformaciones"] = {t: agregar_robustez([p for p in pares if p["transformacion"] == t], False)
+                                 for t in sorted({p["transformacion"] for p in pares})}
+    return m
 
 
 # ---------------------------------------------------------------- comparación con la línea base
@@ -483,6 +522,12 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
                 continue
             if mb.get("n") != ma.get("n"):
                 avisos.append(f"{sec}/{nombre}: n = {ma.get('n')} frente a {mb.get('n')} en la línea base (no es la misma muestra)")
+            minimo = mb.get("estabilidad_min", base.get("estabilidad_min") if sec in ("global", "conjuntos") else None)
+            if minimo is not None:
+                ea = ma.get("estabilidad")
+                if ea is None or ea < minimo - 1e-9:
+                    fallos.append({"seccion": sec, "nombre": nombre, "metrica": "estabilidad_min", "base": minimo, "actual": ea, "umbral": minimo,
+                                   "detalle": f"estabilidad {'sin medir' if ea is None else format(ea, '.4g')} por debajo del mínimo {minimo:.4g}"})
             for met in METRICAS:
                 vb, va = mb.get(met), ma.get(met)
                 u = _umbral(umbrales, nombre if sec == "conjuntos" else None, met)
@@ -537,10 +582,10 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     if not cargados:
         raise ErrorBateria("ningún conjunto con datos")
 
-    fn_var = None
+    mod_var = None
     if robustez:
-        fn_var = cargar_variantes()
-        if fn_var is None:
+        mod_var = cargar_variantes()
+        if mod_var is None:
             aviso(f"--robustez: no existe {MODULO_VARIANTES}; se mide sin estabilidad")
 
     with contextlib.ExitStack() as pila:
@@ -555,7 +600,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
             if all(r["error"] for r in rs):
                 raise ErrorBateria(f"conjunto {c['nombre']!r}: todas las peticiones fallaron: {rs[0]['error']}")
             por_conjunto.append((c["nombre"], c.get("grupo", ""), fs, rs, c))
-        pares = medir_robustez(cliente, [(n, g, fs, rs) for n, g, fs, rs, _ in por_conjunto], fn_var, concurrencia, robustez_max) if fn_var else []
+        pares = medir_robustez(cliente, [(n, g, fs, rs) for n, g, fs, rs, _ in por_conjunto], mod_var, concurrencia, robustez_max) if mod_var else []
 
     def con_robustez(m, ps):
         return dict(m, **agregar_robustez(ps))
@@ -596,13 +641,13 @@ def _fila_md(nombre: str, m: dict, rob: bool) -> str:
     c = [nombre, str(m["n"]), _f(m["exactitud"]), _f(m["f1_macro"]), _f(m["ece"]), _p(m["cobertura"]), _p(m["escalado"]), _p(m["errores"]),
          _f(m["p50_ms"], 1), _f(m["p99_ms"], 1)]
     if rob:
-        c += [_p(m.get("estabilidad")), _f(m.get("delta_conf"))]
+        c += [_p(m.get("estabilidad")), _f(m.get("delta_conf")), _f(m.get("delta_conf_p95"))]
     return "| " + " | ".join(c) + " |"
 
 
 def informe_md(rep: dict) -> str:
     rob = "estabilidad" in rep["global"]
-    cab = ["n", "exactitud", "F1 macro", "ECE", f"cobertura a {_f(rep['objetivo'], 2)}", "escalado", "errores", "p50 ms", "p99 ms"] + (["estabilidad", "Δ confianza"] if rob else [])
+    cab = ["n", "exactitud", "F1 macro", "ECE", f"cobertura a {_f(rep['objetivo'], 2)}", "escalado", "errores", "p50 ms", "p99 ms"] + (["estabilidad", "Δ confianza", "Δ conf. p95"] if rob else [])
     L = [f"# Batería de regresión: {rep['manifiesto']}", "",
          f"Fuente: `{rep['fuente']}` · objetivo de precisión: {_f(rep['objetivo'], 2)} · {rep['fecha']}", ""]
     for titulo, sec in (("Global", None), ("Por tipo", "tipos"), ("Por grupo", "grupos"), ("Por conjunto", "conjuntos")):
@@ -611,6 +656,11 @@ def informe_md(rep: dict) -> str:
             continue
         L += [f"## {titulo}", "| " + ("" if sec is None else sec[:-1] if sec != "tipos" else "tipo") + " | " + " | ".join(cab) + " |", "|---|" + "---|" * len(cab)]
         L += [_fila_md(n, m, rob) for n, m in filas]
+        L.append("")
+    if rob:
+        L += ["## Robustez por transformación", "| conjunto | transformación | variantes | estabilidad | Δ confianza | Δ conf. p95 |", "|---|---|---|---|---|---|"]
+        for n, m in [("global", rep["global"])] + list(rep["conjuntos"].items()):
+            L += [f"| {n} | {t} | {x['n_variantes']} | {_p(x['estabilidad'])} | {_f(x['delta_conf'])} | {_f(x['delta_conf_p95'])} |" for t, x in (m.get("transformaciones") or {}).items()]
         L.append("")
     score = {n: m for n, m in rep["conjuntos"].items() if "mae" in m}
     if score:

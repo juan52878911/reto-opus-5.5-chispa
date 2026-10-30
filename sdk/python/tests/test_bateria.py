@@ -319,22 +319,88 @@ class TestCli(Base):
             self.assertEqual(main(["evaluar", "--url", self.srv.url]), 1)
 
 
+def _por_descripcion(state, q):
+    """Estable: decide por lo que dice la descripción de la opción, no por su id ni su posición (choice y multi; noul/score, por texto)."""
+    ops = q["options"]
+    if q["kind"] == "multi":
+        act = [o["id"] for o in ops if o.get("description") in ("def a", "def b")]
+        return {"answer": act[0], "answers": act, "probs": {o["id"]: (0.9 if o["id"] in act else 0.1) for o in ops}}
+    ans = next((o["id"] for o in ops if o.get("description") == "def a"), ops[0]["id"])
+    return {"answer": ans, "probs": probs(q, ans, 0.9)}
+
+
+def _por_posicion(state, q):
+    """Inestable: contesta la primera opción de la lista, así que una permutación le cambia la decisión."""
+    ops = q["options"]
+    if q["kind"] == "multi":
+        return _por_descripcion(state, q)
+    return {"answer": ops[0]["id"], "probs": probs(q, ops[0]["id"], 0.7)}
+
+
+OPS4 = ["a", "b", "c", "d"]
+CASOS_ROB = {"choice": [fila(f"r{i}", "choice", f"Hola cuenta número {i}, necesito ayuda con mi pago", "a", ops=OPS4) for i in range(8)],
+             "noul": [fila("rn", "noul", "mi tarjeta es urgente", "false")], "score": [fila("rs", "score", "quiero mi dinero", "1")],
+             "multi": [fila("rm", "multi", "hola banco", ["a", "b"], ops=OPS4)]}
+
+
 class TestRobustez(Base):
-    def test_con_variantes(self):
-        # «hola» y «adios» tienen variante que decide igual; la de «mal» cambia de respuesta (a → b) y la de «dudo» baja la confianza
-        TABLA["hola~"], TABLA["adios~"], TABLA["mal~"], TABLA["dudo~"] = ("a", 0.85, False), ("b", 0.9, False), ("b", 0.8, False), ("a", 0.5, True)
-        self.addCleanup(lambda: [TABLA.pop(k) for k in ("hola~", "adios~", "mal~", "dudo~")])
-        mod = types.ModuleType("chispa.variantes")
-        mod.generar = lambda t: [t + "~", t]  # el original se descarta
-        self.man = self.manifiesto([{"nombre": "choice", "ruta": "choice.jsonl", "tipo": "choice"}])
-        with mock.patch.dict(sys.modules, {"chispa.variantes": mod}):
-            r = self.correr(robustez=True)
-        c = r["conjuntos"]["choice"]
-        self.assertEqual(c["n_variantes"], 4)
-        self.assertAlmostEqual(c["estabilidad"], 3 / 4)
-        self.assertAlmostEqual(c["delta_conf"], (0.10 + 0.0 + 0.0 + 0.10) / 4)  # |0,85−0,95|, |0,9−0,9|, |0,8−0,8|, |0,5−0,6|
-        self.assertIn("estabilidad", r["global"])
-        self.assertIn("estabilidad", r["informe"])
+    def correr_con(self, regla_fn, **k):
+        srv = Servidor(regla_fn)
+        self.addCleanup(srv.cerrar)
+        for n, v in CASOS_ROB.items():
+            self.jsonl(f"{n}.jsonl", v)
+        self.man = self.manifiesto([{"nombre": n, "ruta": f"{n}.jsonl", "tipo": n, "grupo": "rob"} for n in CASOS_ROB])
+        self.srv = srv
+        return self.correr(robustez=True, **k)
+
+    def test_servidor_estable(self):
+        r = self.correr_con(_por_descripcion)
+        g = r["global"]
+        self.assertEqual(g["estabilidad"], 1.0)
+        self.assertEqual(g["delta_conf"], 0.0)
+        self.assertEqual(g["delta_conf_p95"], 0.0)
+        # se mandaron casos completos: opciones con descripción y pregunta parafraseada
+        self.assertTrue(any(x["questions"][0]["question"].startswith(("Dime", "Necesito", "Por favor", "Sobre", "Con base")) for x in self.srv.pedidos))
+        self.assertTrue(all("description" in o for x in self.srv.pedidos for o in x["questions"][0]["options"]))
+        for t in ("renombrar", "permutar", "parafrasear", "erratas", "largo", "mezcla"):
+            self.assertIn(t, r["conjuntos"]["choice"]["transformaciones"])
+        self.assertIn("Robustez por transformación", r["informe"])
+
+    def test_renombrar_y_permutar_solo_en_choice_y_multi(self):
+        r = self.correr_con(_por_descripcion)
+        for n in ("noul", "score"):
+            ts = r["conjuntos"][n]["transformaciones"]
+            self.assertNotIn("permutar", ts)
+            self.assertNotIn("renombrar", ts)
+        self.assertIn("renombrar", r["conjuntos"]["multi"]["transformaciones"])
+        self.assertEqual(r["conjuntos"]["multi"]["estabilidad"], 1.0)  # el conjunto activo se compara con los ids traducidos
+
+    def test_servidor_que_cambia_con_la_permutacion(self):
+        r = self.correr_con(_por_posicion)
+        ts = r["conjuntos"]["choice"]["transformaciones"]
+        self.assertLess(ts["permutar"]["estabilidad"], 1.0)
+        self.assertEqual(ts["renombrar"]["estabilidad"], 1.0)  # mismo orden, ids nuevos traducidos con el mapa
+        self.assertEqual(ts["parafrasear"]["estabilidad"], 1.0)
+        self.assertLess(r["global"]["estabilidad"], 1.0)
+        self.assertGreater(ts["permutar"]["delta_conf_p95"], -1)
+
+    def test_delta_de_confianza(self):
+        def regla_conf(state, q):
+            ops = q["options"]
+            ans = next((o["id"] for o in ops if o.get("description") == "def a"), ops[0]["id"])
+            return {"answer": ans, "probs": probs(q, ans, 0.6 if state.isupper() else 0.9)}
+        r = self.correr_con(regla_conf)
+        m = r["conjuntos"]["choice"]["transformaciones"]["mayusculas"]
+        self.assertEqual(m["estabilidad"], 1.0)
+        self.assertGreater(m["delta_conf"], 0.0)
+        self.assertGreaterEqual(m["delta_conf_p95"], m["delta_conf"])
+        self.assertAlmostEqual(m["delta_conf_p95"], 0.3)
+
+    def test_robustez_max_limita_casos(self):
+        r1 = self.correr_con(_por_descripcion, robustez_max=2)
+        r2 = self.correr_con(_por_descripcion)
+        self.assertLess(r1["conjuntos"]["choice"]["n_variantes"], r2["conjuntos"]["choice"]["n_variantes"])
+        self.assertLessEqual(r1["conjuntos"]["choice"]["n_variantes"], 2 * 7)
 
     def test_sin_modulo_avisa(self):
         avisos = []
@@ -346,6 +412,19 @@ class TestRobustez(Base):
     def test_estabilidad_entra_en_la_comparacion(self):
         r = {"global": {"n": 1, "estabilidad": 0.7}, "conjuntos": {}, "tipos": {}, "grupos": {}}
         b = {"global": {"n": 1, "estabilidad": 0.9}, "conjuntos": {}, "tipos": {}, "grupos": {}}
+        self.assertFalse(B.comparar(r, b, B.UMBRALES)["ok"])
+
+    def test_estabilidad_min(self):
+        r = {"global": {"n": 1, "estabilidad": 0.85}, "conjuntos": {"c": {"n": 1, "estabilidad": 0.85}}, "tipos": {}, "grupos": {}}
+        b = {"global": {"n": 1, "estabilidad": 0.85}, "conjuntos": {"c": {"n": 1, "estabilidad": 0.85}}, "tipos": {}, "grupos": {}}
+        self.assertTrue(B.comparar(r, b, B.UMBRALES)["ok"])
+        b["estabilidad_min"] = 0.9  # mínimo absoluto, aunque la base no haya empeorado
+        c = B.comparar(r, b, B.UMBRALES)
+        self.assertFalse(c["ok"])
+        self.assertTrue(all(f["metrica"] == "estabilidad_min" for f in c["fallos"]))
+        b["estabilidad_min"] = 0.8
+        self.assertTrue(B.comparar(r, b, B.UMBRALES)["ok"])
+        r["global"].pop("estabilidad")  # sin medir con mínimo: falla
         self.assertFalse(B.comparar(r, b, B.UMBRALES)["ok"])
 
 
