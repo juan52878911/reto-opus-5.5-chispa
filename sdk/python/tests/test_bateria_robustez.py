@@ -52,13 +52,16 @@ class TestLineaBase(Base):
         self.assertEqual(self.cli("--solo", "choice", "--guardar-linea-base", base)[0], 2)
         self.assertFalse(os.path.exists(base))
 
-    def test_omitidos_no_guardan_linea_base(self):  # hallazgo 2
+    def test_omitidos_si_guardan_linea_base_y_la_registran(self):
         self.man = self.manifiesto([{"nombre": k, "ruta": f"{k}.jsonl", "tipo": k, "grupo": "p"} for k in DATOS_OK]
                                    + [{"nombre": "x", "ruta": "no_esta.jsonl", "tipo": "choice", "opcional": True}])
         base = self.ruta("base.json")
         rc, err = self.cli("--guardar-linea-base", base)
-        self.assertEqual(rc, 2)
-        self.assertFalse(os.path.exists(base))
+        self.assertEqual(rc, 0, err)
+        with open(base) as f:
+            b = json.load(f)
+        self.assertEqual(b["opcionales_ausentes"], ["x"])
+        self.assertNotIn("parcial", b)
 
     def test_comparar_rechaza_base_parcial_para_la_puerta_completa(self):  # hallazgo 2
         r = self.correr()
