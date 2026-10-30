@@ -1,0 +1,90 @@
+{
+ "ort-choice-a": {
+  "opina": true,
+  "answer": "duda",
+  "conf": 0.7495764716569779,
+  "probs": {
+   "baja": 0.23259183357366692,
+   "duda": 0.7495764716569779,
+   "queja": 0.01783169476935524
+  }
+ },
+ "ort-choice-b": {
+  "opina": true,
+  "answer": "queja",
+  "conf": 0.5434494308479991,
+  "probs": {
+   "baja": 0.25735341101342807,
+   "duda": 0.19919715813857275,
+   "queja": 0.5434494308479991
+  }
+ },
+ "ort-multi-a": {
+  "opina": true,
+  "answer": "facturacion",
+  "answers": [
+   "facturacion",
+   "logistica",
+   "cortesia"
+  ],
+  "conf": 0.6772983051794844,
+  "probs": {
+   "cortesia": 0.7358834545393282,
+   "facturacion": 0.7368191351947793,
+   "logistica": 0.6772983051794844
+  }
+ },
+ "ort-multi-b": {
+  "opina": true,
+  "answer": "logistica",
+  "answers": [
+   "facturacion",
+   "logistica",
+   "cortesia"
+  ],
+  "conf": 0.6806271553856553,
+  "probs": {
+   "cortesia": 0.6806271553856553,
+   "facturacion": 0.690266853989447,
+   "logistica": 0.7469879232596139
+  }
+ },
+ "ort-noul-a": {
+  "opina": true,
+  "answer": "true",
+  "conf": 0.9996028716199132,
+  "probs": {
+   "false": 0.0003971283800867642,
+   "true": 0.9996028716199132
+  }
+ },
+ "ort-noul-b": {
+  "opina": true,
+  "answer": "true",
+  "conf": 0.999794324513083,
+  "probs": {
+   "false": 0.00020567548691696746,
+   "true": 0.999794324513083
+  }
+ },
+ "ort-score-a": {
+  "opina": true,
+  "answer": "2",
+  "conf": 0.23662448826701593,
+  "probs": {
+   "1": 0.29238152690052777,
+   "2": 0.23662448826701593,
+   "3": 0.4709939848324563
+  }
+ },
+ "ort-score-b": {
+  "opina": true,
+  "answer": "2",
+  "conf": 0.23557981872276545,
+  "probs": {
+   "1": 0.2874335836295897,
+   "2": 0.23557981872276545,
+   "3": 0.47698659764764484
+  }
+ }
+}
