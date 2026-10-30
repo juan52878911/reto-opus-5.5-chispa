@@ -24,5 +24,6 @@ No se intenta cubrirlas todas; cada runtime usa las clases de caracteres de su p
 
 - «İ» (U+0130): Python y Kotlin (`lowercase(Locale.ROOT)`) la pasan a «i» + punto combinante (dos code points); `strings.ToLower` de Go usa el mapeo simple y da «i». El texto resultante puede tokenizar distinto.
 - Letras titlecase («ǅ») y letras de categorías raras: cada plataforma decide si son mayúscula; las cuatro cuentan como letra, pero pueden diferir en `isUpper`.
-- Combinantes: Swift cuenta por `Character` (grafema) y Python, Go y Kotlin por code point; con texto en NFD (E + U+0301) el recuento de letras puede variar en casos límite.
+- «ª» y «º» (U+00AA, U+00BA) cuentan como letras pero no como mayúsculas en todos los runtimes («LA CITA Nº 2ª vez» no se normaliza, 13.º caso). Swift cuenta por escalares Unicode (`properties.isAlphabetic` / `properties.isUppercase`); `Character.isUppercase` las daría por mayúsculas y rompería la paridad.
+- Swift cuenta por escalar Unicode, igual que Python, Go y Kotlin por code point. `isAlphabetic` incluye números romanos («Ⅻ») y letras en círculo («Ⓐ»), que `isalpha`/`IsLetter` no cuentan; raro en español.
 - Versiones de Unicode distintas entre Python, Go, la JVM y Swift pueden clasificar distinto las letras añadidas recientemente.

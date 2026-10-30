@@ -16,6 +16,7 @@ final class NormalizarMayusculasTests: XCTestCase {
         ("ARBOL ñandú", "ARBOL ñandú"),
         ("CANCELAR MI TARJETA YA", "cancelar mi tarjeta ya"),
         ("¿QUÉ PASA CON MI PEDIDO? Gracias", "¿qué pasa con mi pedido? gracias"),
+        ("LA CITA Nº 2ª vez", "LA CITA Nº 2ª vez"), // «ª» y «º» son letras, no mayúsculas
     ]
 
     func testParidadConPython() {

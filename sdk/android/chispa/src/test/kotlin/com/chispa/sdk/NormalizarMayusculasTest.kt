@@ -18,6 +18,7 @@ class NormalizarMayusculasTest {
         "ARBOL ñandú" to "ARBOL ñandú",
         "CANCELAR MI TARJETA YA" to "cancelar mi tarjeta ya",
         "¿QUÉ PASA CON MI PEDIDO? Gracias" to "¿qué pasa con mi pedido? gracias",
+        "LA CITA Nº 2ª vez" to "LA CITA Nº 2ª vez", // «ª» y «º» son letras, no mayúsculas
     )
 
     @Test
