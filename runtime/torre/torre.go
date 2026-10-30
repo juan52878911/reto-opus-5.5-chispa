@@ -76,11 +76,17 @@ func OpcionesConsulta(p Pregunta) []Opcion {
 	}
 	ult, max := len(p.Opciones)-1, -1 // el nivel mayor si los ids son numéricos; si no, la última
 	for i, o := range p.Opciones {
-		if n, err := strconv.Atoi(o.ID); err == nil && n > max {
+		if n, ok := canonico(o.ID); ok && n > max {
 			ult, max = i, n
 		}
 	}
 	return p.Opciones[ult : ult+1]
+}
+
+// canonico devuelve el entero de id si está en forma canónica (strconv.Itoa(n) == id).
+func canonico(id string) (int, bool) {
+	n, err := strconv.Atoi(id)
+	return n, err == nil && strconv.Itoa(n) == id
 }
 
 // Cuantizar cuantiza h a int8 con escala max|h|/127 (1 si h es cero): devuelve los valores y la escala.

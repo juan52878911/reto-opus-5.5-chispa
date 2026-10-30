@@ -26,6 +26,8 @@ import random
 import re
 import zlib
 
+_ENTERO_CANONICO = re.compile(r"0|-?[1-9][0-9]*")  # como tok.EnteroCanonico del runtime
+
 TIPOS = ("permutar", "renombrar", "parafrasear", "erratas", "mayusculas", "mezcla", "largo")
 
 SEGURAS = ("permutar", "renombrar", "parafrasear", "mayusculas")
@@ -98,9 +100,12 @@ def permutar(caso, rng):
     """Reordena las opciones (en todos los kinds, también noul y score). Los ids no cambian, así que la etiqueta tampoco.
 
     En score mide el invariante «el runtime ordena las opciones por id»: si la decisión
-    depende del orden de entrada, el runtime está mal.
+    depende del orden de entrada, el runtime está mal. Si algún id de un score no es un entero canónico
+    («01», «+1», «alto»), el runtime toma el orden declarado como escala: ahí es la identidad.
     """
     v = _copia(caso, "permutar")
+    if caso.get("kind") == "score" and not all(_ENTERO_CANONICO.fullmatch(str(o["id"])) for o in v["opciones"]):
+        return v  # el runtime usa aquí el orden declarado como escala: reordenar cambiaría la pregunta
     rng.shuffle(v["opciones"])
     return v
 

@@ -1222,7 +1222,7 @@ func (c *Chispa) EsquemaEnEsquemas(preguntaJSON string) bool {
 func ordenNivel(ops []opcion) ([]opcion, bool) {
 	out := append([]opcion(nil), ops...)
 	for _, o := range out {
-		if _, err := strconv.Atoi(o.ID); err != nil {
+		if n, err := strconv.Atoi(o.ID); err != nil || strconv.Itoa(n) != o.ID {
 			return out, false
 		}
 	}

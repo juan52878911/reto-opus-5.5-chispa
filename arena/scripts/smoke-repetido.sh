@@ -4,7 +4,8 @@
 # puerto 8089 y el 9300 a propósito y comprueba que el smoke pasa igual.
 # Al salir mata lo que arrancó y comprueba que no quedan procesos `arena`.
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
+D=$(pwd -P)
 N=${1:-20}
 BUSY=${2:-}
 pids=()
@@ -22,12 +23,13 @@ s.bind(('127.0.0.1',$port)); s.listen(); time.sleep(3600)" &
 fi
 ok=0
 for i in $(seq 1 "$N"); do
-  if out=$("$PWD/arena" run -smoke -max-attacks 50 -addr 127.0.0.1:0 2>&1) && grep -q "smoke OK" <<<"$out"; then
+  if out=$("$D/arena" run -smoke -max-attacks 50 -addr 127.0.0.1:0 2>&1) && grep -q "smoke OK" <<<"$out"; then
     ok=$((ok+1)); echo "run $i: OK"
   else
     echo "run $i: FALLO"; echo "$out" | tail -15
   fi
 done
-left=$(pgrep -f "$PWD/arena (detector|run)" | wc -l)
+Desc=$(printf '%s' "$D" | sed 's/[][\.*^$+?(){}|/]/\\&/g')
+left=$(pgrep -f "$Desc/arena (detector|run)" | wc -l)
 echo "resultado: $ok/$N OK, procesos arena que quedan: $left"
 [ "$ok" = "$N" ] && [ "$left" = 0 ]

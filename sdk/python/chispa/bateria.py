@@ -33,6 +33,8 @@ VERSION = 1
 OBJETIVO = 0.95
 CUBOS_ECE = 10
 MODULO_VARIANTES = "chispa.variantes"
+MAX_PREGUNTAS = 256  # server/decide/http.go MaxPreguntas
+MAX_CUERPO = 1 << 20  # server/decide/http.go MaxCuerpo (el cuerpo debe quedar por debajo)
 HOLGURA_MS = 5.0  # la latencia solo falla si empeora más que el umbral relativo Y más de 5 ms
 MIN_MUESTRAS_LATENCIA = 30  # con menos muestras de latencia (filas con respuesta, en la base o en la corrida) p50/p99 no se juzgan
 
@@ -294,13 +296,13 @@ def _decidir(cliente: Chispa, f: Fila, texto: Optional[str] = None, reloj=time.p
     return r
 
 
-def _decidir_grupo(cliente: Chispa, filas: List[Fila], texto: str, reloj=time.perf_counter) -> List[dict]:
+def _decidir_grupo(cliente: Chispa, filas: List[Fila], texto: str, reloj=time.perf_counter, peticion: Optional[int] = None) -> List[dict]:
     """Varias filas con el mismo texto en UNA petición (una pregunta por fila, en orden). Si falla, falla toda la petición; `cliente_ms` es el de la petición."""
     rs = []
     for f in filas:
         rs.append({"id": f.id, "tipo": f.tipo, "esquema": f.esquema, "etiqueta": list(f.etiqueta) if f.tipo == "multi" else f.etiqueta,
                    "opciones": [o.id for o in f.q.options] or ["false", "true"], "answer": "", "answers": None, "probs": {}, "layer": "",
-                   "escalate": False, "ms": None, "cliente_ms": None, "error": "", "error_codigo": ""})
+                   "escalate": False, "ms": None, "cliente_ms": None, "error": "", "error_codigo": "", "peticion": peticion})
     if len(texto.encode("utf-8")) > MAX_ESTADO_BYTES:
         for r in rs:
             r.update(error="texto mayor que 262144 bytes (max_estado)", error_codigo="state_too_long")
@@ -321,16 +323,34 @@ def _decidir_grupo(cliente: Chispa, filas: List[Fila], texto: str, reloj=time.pe
     return rs
 
 
-def _correr_agrupado(cliente: Chispa, tareas: List[tuple], concurrencia: int) -> List[dict]:
-    """Como `_correr`, pero las tareas con el mismo texto viajan en una sola petición (con varias preguntas), como un cliente que las agrupa.
-    Un resultado por tarea, en orden."""
+def _lotes(filas: List[tuple], texto: str, max_preguntas: int = MAX_PREGUNTAS, max_cuerpo: int = MAX_CUERPO) -> List[List[tuple]]:
+    """Corta [(i, Fila)] de un mismo (conjunto, texto) en lotes de a lo sumo `max_preguntas` preguntas y por debajo de `max_cuerpo` bytes de cuerpo."""
+    base = len(json.dumps({"state": texto, "questions": []}).encode())
+    lotes, actual, bytes_ = [], [], base
+    for i, f in filas:
+        n = len(json.dumps(replace(f.q, id=f"q{len(actual)}").a_json()).encode()) + 64  # + coma y el nonce que añade el cliente
+        if actual and (len(actual) >= max_preguntas or bytes_ + n > max_cuerpo):
+            lotes.append(actual)
+            actual, bytes_ = [], base
+        actual.append((i, f))
+        bytes_ += n
+    if actual:
+        lotes.append(actual)
+    return lotes
+
+
+def _correr_agrupado(cliente: Chispa, tareas: List[tuple], concurrencia: int, max_preguntas: int = MAX_PREGUNTAS, max_cuerpo: int = MAX_CUERPO) -> List[dict]:
+    """Como `_correr`, pero las tareas del mismo (conjunto, texto) viajan en una sola petición (con varias preguntas), como un cliente que las agrupa,
+    en lotes de a lo sumo `max_preguntas` y bajo `max_cuerpo` bytes. Las tareas son (Fila, texto|None[, conjunto]); un resultado por tarea, en orden."""
     grupos: dict = {}
-    for i, (f, texto) in enumerate(tareas):
-        grupos.setdefault(f.texto if texto is None else texto, []).append((i, f))
-    trabajos = list(grupos.items())
+    for i, t in enumerate(tareas):
+        f, texto = t[0], t[1]
+        texto = f.texto if texto is None else texto
+        grupos.setdefault((t[2] if len(t) > 2 else None, texto), []).append((i, f))
+    trabajos = [(texto, lote) for (_, texto), fs in grupos.items() for lote in _lotes(fs, texto, max_preguntas, max_cuerpo)]
     out: List[Optional[dict]] = [None] * len(tareas)
     with ThreadPoolExecutor(max_workers=max(1, concurrencia)) as ex:
-        for (_, lote), rs in zip(trabajos, ex.map(lambda tl: _decidir_grupo(cliente, [f for _, f in tl[1]], tl[0]), trabajos)):
+        for (_, lote), rs in zip(trabajos, ex.map(lambda ek: _decidir_grupo(cliente, [f for _, f in ek[1][1]], ek[1][0], peticion=ek[0]), enumerate(trabajos))):
             for (i, _), r in zip(lote, rs):
                 out[i] = r
     return out
@@ -433,7 +453,8 @@ def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
         return {"n": 0}
     dec = [d for r in rs for d in decisiones(r)]
     total = sum(len(r["opciones"]) if r["tipo"] == "multi" else 1 for r in rs)
-    cli = [r["cliente_ms"] for r in rs if r["cliente_ms"] is not None]
+    # una muestra de latencia por petición: las filas de una petición agrupada comparten `peticion` y su `cliente_ms`
+    cli = list({(r["peticion"] if r.get("peticion") is not None else ("fila", k)): r["cliente_ms"] for k, r in enumerate(rs) if r["cliente_ms"] is not None}.values())
     am = [a for a in (_argmax_fila(r) for r in rs) if a is not None]
     cont = [r for r in rs if not r["error"] and not r["escalate"]]
     m = {"n": n, "n_latencia": len(cli), "errores": sum(1 for r in rs if r["error"]) / n, "exactitud": sum(am) / len(am) if am else None,
@@ -570,14 +591,39 @@ def _umbral(u: dict, conjunto: Optional[str], metrica: str):
 
 def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) -> dict:
     """{"ok", "fallos", "avisos"}. Falla si una métrica de la línea base empeora más que su umbral (o desaparece), o falta un conjunto.
-    Un umbral `null` desactiva esa métrica. `parcial` (--solo u opcionales omitidos): solo se comparan los conjuntos medidos."""
+    Un umbral `null` desactiva esa métrica. `parcial` (--solo): solo se comparan los conjuntos medidos."""
     fallos, avisos = [], []
-    if base.get("parcial") and not parcial:
+    base_omit = bool(base.get("parcial")) and bool(base.get("omitidos")) and not parcial
+    if base.get("parcial") and not parcial and not base_omit:
         fallos.append({"seccion": "global", "nombre": "global", "metrica": None,
-                       "detalle": "la línea base es parcial (se midió con --solo u opcionales omitidos): no vale para la puerta completa; regenérala con una corrida completa"})
-    secs = ("conjuntos",) if parcial else SECCIONES
+                       "detalle": "la línea base es parcial (se midió con --solo): no vale para la puerta completa; regenérala con una corrida completa"})
+    ausentes = set(actual.get("opcionales_ausentes") or actual.get("omitidos") or [])
+    medidos, en_base = set(actual.get("conjuntos") or {}), set(base.get("conjuntos") or {})
+    modo_distinto = bool(actual.get("agrupado")) != bool(base.get("agrupado"))
+    if modo_distinto:
+        avisos.append(f"modo de envío distinto (actual {'agrupado' if actual.get('agrupado') else 'sin agrupar'}, línea base "
+                      f"{'agrupado' if base.get('agrupado') else 'sin agrupar'}): no se comparan p50_ms ni p99_ms")
+    if base_omit:
+        if medidos != en_base:
+            fallos.append({"seccion": "global", "nombre": "global", "metrica": None,
+                           "detalle": "la línea base es parcial (opcionales omitidos) y sus conjuntos no coinciden con los medidos; regenérala"})
+        else:
+            avisos.append("línea base antigua marcada parcial por opcionales omitidos: se usa porque sus conjuntos coinciden con los medidos")
+    tolerados = set()
+    if not parcial:
+        tolerados = {n for n in en_base - medidos if n in ausentes}
+        for n in sorted(tolerados):
+            avisos.append(f"conjunto {n!r} está en la línea base y falta en esta corrida (opcional ausente): no se compara")
+        for n in sorted(medidos - en_base):
+            avisos.append(f"conjunto {n!r}: nuevo, sin base")
     if parcial:
+        secs = ("conjuntos",)
         avisos.append("comparación parcial: solo los conjuntos medidos (global, tipos y grupos no se comparan)")
+    elif medidos == en_base:
+        secs = SECCIONES
+    else:
+        secs = ("conjuntos",)
+        avisos.append("los conjuntos medidos no coinciden con los de la línea base: se compara solo por conjunto (global, tipos y grupos no se comparan)")
     for sec in secs:
         a, b = actual.get(sec), base.get(sec)
         if b is None:
@@ -586,7 +632,7 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
             a, b = {"global": a}, {"global": b}
         for nombre, mb in (b or {}).items():
             ma = (a or {}).get(nombre)
-            if parcial and ma is None:
+            if ma is None and (parcial or (sec == "conjuntos" and nombre in tolerados)):
                 continue
             if ma is None:
                 fallos.append({"seccion": sec, "nombre": nombre, "metrica": None, "detalle": f"{sec[:-1] if sec != 'global' else sec} {nombre!r} está en la línea base y no se midió"})
@@ -611,6 +657,8 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
                     fallos.append({"seccion": sec, "nombre": nombre, "metrica": met, "base": vb, "actual": None, "umbral": u, "detalle": f"{met} sin medir (base {vb:.4g})"})
                     continue
                 rel = met in ("p50_ms", "p99_ms")
+                if rel and modo_distinto:
+                    continue
                 if rel and min(_n_latencia(ma), _n_latencia(mb)) < MIN_MUESTRAS_LATENCIA:
                     avisos.append(f"{sec}/{nombre}: {met} no se compara: menos de {MIN_MUESTRAS_LATENCIA} muestras")
                     continue
@@ -678,7 +726,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     with contextlib.ExitStack() as pila:
         u = url or pila.enter_context(servidor_local(modelo, servidor, tok, config, extra))
         cliente = Chispa(u, timeout=timeout, reintentos=reintentos)
-        tareas = [(f, None) for _, fs in cargados for f in fs]
+        tareas = [(f, None, c["nombre"]) for c, fs in cargados for f in fs]
         calib_antes = calib_servidor(u, tok, timeout)
         res = (_correr_agrupado if agrupar else _correr)(cliente, tareas, concurrencia)
         por_conjunto, i = [], 0
@@ -697,7 +745,9 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     rep = {"version": VERSION, "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "manifiesto": man.get("nombre", os.path.basename(manifiesto)),
            "fuente": modelo or url, "objetivo": objetivo, "conjuntos": {}, "tipos": {}, "grupos": {}, "omitidos": omitidos,
            "calib_servidor": calib, "agrupado": bool(agrupar)}
-    if solo or omitidos:
+    if omitidos:
+        rep["opcionales_ausentes"] = sorted(omitidos)
+    if solo:
         rep["parcial"] = True
     todas = [r for _, _, _, rs, _ in por_conjunto for r in rs]
     for nombre, grupo, fs, rs, c in por_conjunto:
@@ -711,7 +761,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     rep["global"] = con_robustez(agregar(todas, objetivo), pares)
     if base is not None:
         _heredar_estabilidad_min(rep, base)
-        rep["comparacion"] = comparar(rep, base, um, parcial=bool(solo) or bool(omitidos))
+        rep["comparacion"] = comparar(rep, base, um, parcial=bool(solo))
         rep["comparacion"]["linea_base"] = linea_base
     rep["ok"] = rep.get("comparacion", {"ok": True})["ok"]
     if filas:
@@ -739,10 +789,10 @@ def _heredar_estabilidad_min(rep: dict, base: Optional[dict]) -> None:
 
 def linea_base(rep: dict) -> dict:
     """Lo que se guarda como línea base: el reporte sin filas, informe ni comparación (cualquier `.json` de --salida sirve igual). Un reporte
-    parcial (--solo u opcionales omitidos) no se guarda: dejaría pasar regresiones en lo que no midió."""
+    parcial (--solo) no se guarda: dejaría pasar regresiones en lo que no midió."""
     if rep.get("parcial"):
         raise ErrorBateria("no guardo la línea base: la corrida es parcial (--solo u opcionales omitidos); hazla completa")
-    return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok", "calib_servidor", "agrupado")}
+    return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok", "calib_servidor")}
 
 
 def json_reporte(rep: dict) -> dict:
