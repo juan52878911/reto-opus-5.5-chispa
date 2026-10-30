@@ -58,9 +58,9 @@ fallo() { echo "FALLO: $*"; FALLO="${FALLO:+$FALLO; }$*"; }
 cierre() { echo "== listo $(date -u +%FT%TZ) fallo=${FALLO:-no} ($(( $(date +%s) - T0 )) s)"; echo "== estado.tsv"; cat "$RES/estado.tsv" 2>/dev/null; exit 0; }
 quedan_min() { echo $(( TOPE - ($(date +%s) - T0) / 60 )); }
 tope() { local m=$(( $(quedan_min) - 6 )); [ "$m" -gt "$1" ] && m=$1; [ "$m" -lt 2 ] && m=2; echo $m; }   # minutos para un paso: el tope propio o lo que quede menos 6
-# microVM de kindling: torch CPU muere a veces con SIGILL (rc 132); solo en seco se limita a AVX2 y se repite una vez
+# microVM de kindling: torch CPU muere a veces con SIGILL (rc 132); solo en seco se limita a AVX2 y se repite hasta 3 veces
 [ "$LOCAL" = 1 ] && export ONEDNN_MAX_CPU_ISA=${ONEDNN_MAX_CPU_ISA:-AVX2}
-reint() { "$@"; local rc=$?; if [ "$rc" = 132 ] && [ "$LOCAL" = 1 ]; then echo "SIGILL: se repite $*" >&2; "$@"; rc=$?; fi; return $rc; }
+reint() { local n=0 rc; while :; do "$@"; rc=$?; n=$((n+1)); { [ "$rc" = 132 ] && [ "$LOCAL" = 1 ] && [ $n -lt 4 ]; } || return $rc; echo "SIGILL: se repite $*" >&2; done; }
 
 # --- 1. entorno -------------------------------------------------------------------------------------------------------------------
 export HF_HOME="$HOME/hf"; mkdir -p "$HF_HOME"
