@@ -115,6 +115,15 @@ class TestVariantes(unittest.TestCase):
         self.assertIn("ordena las opciones por id", V.permutar.__doc__)
         self.assertIn("ordena las opciones por id", V.__doc__)
 
+    def test_permutar_en_score_no_entero_canonico_es_la_identidad(self):
+        for ids in (("bajo", "medio", "alto"), ("01", "2", "3"), ("1", "+2", "3"), ("1", "2", "x")):
+            score = {"texto": "t", "pregunta": "¿Qué tan urgente?", "kind": "score", "etiqueta": ids[1],
+                     "opciones": [{"id": i, "description": f"nivel {i}"} for i in ids]}
+            for s_ in range(10):
+                v = V.permutar(score, random.Random(s_))
+                self.assertEqual([o["id"] for o in v["opciones"]], list(ids))
+                self.assertEqual(v["etiqueta"], ids[1])
+
     def test_largo_sin_negaciones_y_glosario_sin_ambiguas(self):
         for r in V.RELLENO:
             self.assertNotRegex(r.lower(), r"\b(no|sin|ni|nada)\b")
