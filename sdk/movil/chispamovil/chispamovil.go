@@ -583,6 +583,15 @@ func idsDe(p pregunta) []string {
 	return ids
 }
 
+// idsOrdenados son los ids en el orden que usa la agregación: por nivel en score, el declarado en el resto.
+func idsOrdenados(p pregunta) []string {
+	if p.Kind != "score" {
+		return idsDe(p)
+	}
+	ops, _ := ordenNivel(p.Opciones)
+	return idsDe(pregunta{Opciones: ops})
+}
+
 func (c *Chispa) torres(p pregunta) [][]float32 {
 	k := clave(p)
 	c.mu.Lock()
@@ -679,7 +688,7 @@ func agregarVentanas(p pregunta, rs []respuesta, agg string, theta float64) resp
 	for i, r := range rs {
 		ps[i] = r.Probs
 	}
-	probs, ans, conf, ok := tok.AgregarProbs(p.Kind, idsDe(p), ps, agg, theta)
+	probs, ans, conf, ok := tok.AgregarProbs(p.Kind, idsOrdenados(p), ps, agg, theta)
 	if !ok {
 		return rs[0]
 	}
@@ -746,7 +755,8 @@ func (c *Chispa) tScore() float64 {
 func puntuarNiveles(p pregunta, sims []float64, T float64) respuesta {
 	r := softmax(p, sims, T)
 	var acc float64
-	for _, o := range p.Opciones {
+	ops, _ := ordenNivel(p.Opciones)
+	for _, o := range ops {
 		acc += r.Probs[o.ID]
 		if acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
@@ -991,7 +1001,8 @@ func ordinal(p pregunta, r respuesta) respuesta {
 		return r
 	}
 	var acc float64
-	for _, o := range p.Opciones {
+	ops, _ := ordenNivel(p.Opciones)
+	for _, o := range ops {
 		if acc += r.Probs[o.ID]; acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
 			break
