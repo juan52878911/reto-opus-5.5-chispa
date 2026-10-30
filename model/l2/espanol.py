@@ -268,6 +268,7 @@ def main(argv=None):
     ap.add_argument("--device", default="cpu")
     a = ap.parse_args(argv)
     from model.datos.comun import HF_HUB
+    from model.l2.modelo import niveles_score
     from model.l2.robustez import ModeloL2
     hf = a.hf or str(HF_HUB)
     pares, no_medido = cargar_pares(hf, a.max_filas, set(filter(None, a.solo.split(","))) or None)
@@ -278,7 +279,7 @@ def main(argv=None):
     tareas = {}
     for nombre, p in pares.items():
         es, en = [x for x, _ in p], [y for _, y in p]
-        clases = sorted(es[0]["opciones"])
+        clases = niveles_score(es[0]["opciones"]) if es[0]["tipo"] == "score" else sorted(es[0]["opciones"])
         y = [f["etiqueta"] for f in es]
         assert y == [f["etiqueta"] for f in en] and len(es) == len(en)
         tareas[nombre] = (y, l2.decidir(es, None), l2.decidir(en, None), clases)

@@ -149,10 +149,14 @@ class ModeloL2:
         self.enc.cargar_enc(ck.get("enc"))
 
     def decidir(self, filas, clases):
+        from model.evaluacion.metricas import etiqueta_coral
         from model.l2.evaluar import predecir
+        from model.l2.modelo import niveles_score
         out = []
         for f, p in zip(filas, predecir(self.modelo, self.enc, filas)):
-            out.append(max(p["probs"], key=p["probs"].get))
+            # score: mediana CORAL sobre los niveles ordenados (probs va por id), no el argmax ni la posición declarada
+            out.append(max(p["probs"], key=p["probs"].get) if f["tipo"] != "score"
+                       else niveles_score(f["opciones"])[etiqueta_coral([p["probs"][o] for o in niveles_score(f["opciones"])])])
         return out
 
 

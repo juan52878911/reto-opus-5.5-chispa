@@ -35,15 +35,16 @@ class TextoConsulta(unittest.TestCase):
         f = fila(1, "score", k=4)
         f["opciones"] = ["3", "1", "4", "2"]
         self.assertEqual(texto_consulta(f), texto_opcion(f, "4"))
-        f["opciones"] = ["10", "9", "2"]   # numérico, no lexicográfico
-        self.assertEqual(texto_consulta(f), texto_opcion(f, "10"))
+        f["opciones"] = ["10", "9", "2"]   # no 1..K contiguos: error (R16)
+        with self.assertRaises(ValueError):
+            texto_consulta(f)
         f["opciones"] = ["a", "b"]
         with self.assertRaises(ValueError):
             texto_consulta(f)
 
     def test_igual_que_el_exportador(self):
         from model.l2.exportar import texto_torre_consulta
-        for ops, tipo in ((["true", "false"], "noul"), (["false", "true"], "noul"), (["2", "5", "1"], "score")):
+        for ops, tipo in ((["true", "false"], "noul"), (["false", "true"], "noul"), (["2", "5", "1", "4", "3"], "score")):
             f = dict(fila(1, tipo), opciones=ops)
             self.assertEqual(texto_consulta(f), texto_torre_consulta(f))
 

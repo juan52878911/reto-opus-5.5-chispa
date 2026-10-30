@@ -30,7 +30,7 @@ import torch
 
 from model.meta import muestreo
 
-from .modelo import MAX_TOK, Coral
+from .modelo import MAX_TOK, Coral, indice_etiqueta
 
 RAIZ = Path(__file__).resolve().parents[2]
 CONVERSION = RAIZ / "model" / "meta" / "resultados" / "conversion-20261027.json"
@@ -256,7 +256,7 @@ def casos_score(modelo, enc, filas, lote=64):
     for r in filas:
         modelo.asegurar_cabeza("score%d" % len(r["opciones"]), modelo.ranuras.q.device)
     ss = simil(modelo, enc, filas, lote)
-    return [{"id": r["id"], "esquema": r["esquema"], "k": len(r["opciones"]), "s": float(s[0]), "y": r["opciones"].index(r["etiqueta"])}
+    return [{"id": r["id"], "esquema": r["esquema"], "k": len(r["opciones"]), "s": float(s[0]), "y": indice_etiqueta(r)}
             for r, s in zip(filas, ss)]
 
 

@@ -12,6 +12,8 @@ import time
 from pathlib import Path
 
 from . import pawsx_es, sib200_es, synthetic_zeroshot, tasksource_instruct, tasksource_jev
+from model.datos.comun import filtrar_score
+
 from .comun import FuenteAusente, Salida, limite
 
 FUENTES = {
@@ -30,7 +32,7 @@ def correr(salida, solo=None, tope=None, chunk_bytes=None):
         print("== %s %s" % (corto, mod.REPO), flush=True)
         try:
             gen = mod.filas(info=info[corto], **({"tope": tope} if tope else {}))
-            for f in gen:
+            for f in filtrar_score(gen, corto, info[corto]):
                 out.anadir(corto, f)
         except FuenteAusente as e:
             ausentes[corto] = "no está en la caché de Hugging Face: %s" % e
