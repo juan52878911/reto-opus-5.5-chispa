@@ -29,7 +29,11 @@
    - escribe `model/l2/umbrales_bateria.py`, que, a partir de las dos corridas y del IC95 de cada métrica, propone
      umbrales para el manifiesto (sin cambiarlo) en `$RES/umbrales-propuestos.json`.
 1. **M3**, `model/l2/robustez.py` (nuevo).
-   - **Generador** de variantes deterministas con semilla, sobre JevBench y el dev de las tareas de `model.datos`:
+   - **Generador:** usa el de la otra sesión, `sdk/python/chispa/variantes.py` (E2). Ofrece `generar(caso, tipos, semilla)`,
+     `TIPOS` = permutar, renombrar, parafrasear, erratas, mayusculas, mezcla y largo, y `estabilidad(...)`. Un caso es
+     `{texto, pregunta, kind, opciones: [{id, description}], etiqueta}`, y el mapa de ids traduce las respuestas. Escribe
+     solo el adaptador de fila de Chispa a caso y el bucle de medida para L1 y L2 en Python. Lo que E2 no cubre (es/en) lo
+     generas tú. Las variantes de referencia, por si tienes que suplirlo:
      - permutar el orden de las opciones;
      - renombrar los ids de las opciones (manteniendo la descripción);
      - paráfrasis ligera de la pregunta (plantillas: reordenar, sinónimos de una lista fija, sin LLM);
