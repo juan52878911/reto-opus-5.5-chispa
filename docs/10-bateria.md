@@ -44,7 +44,7 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 | `errores` | fracción de peticiones fallidas (transporte, 4xx/5xx) |
 | `p50_ms`, `p99_ms` | latencia de cliente, extremo a extremo |
 | `mae` | solo conjuntos con `score`: error medio en niveles |
-| `estabilidad`, `delta_conf` | con `--robustez`: % de decisiones que no cambian con la variante y media de \|Δ confianza\| |
+| `estabilidad`, `delta_conf`, `delta_conf_p95` | con `--robustez`: fracción de decisiones que no cambian con la variante, y media y p95 de \|Δ confianza\| (también por transformación, en `transformaciones`) |
 
 ## Línea base y umbrales
 La línea base es el JSON del reporte sin filas (`--guardar-linea-base`); el `.json` de `--salida` sirve igual. Se compara cada métrica que la línea base trae, en `global`, `tipos`, `grupos` y `conjuntos`. El **umbral es el empeoramiento máximo tolerado**: absoluto (0,01 = un punto) salvo `p50_ms` y `p99_ms`, que son relativos (0,5 = +50 %) y además deben empeorar más de 1 ms (el ruido de un milisegundo no es una regresión). Mejora la exactitud, el F1 y la cobertura al subir; el resto, al bajar.
@@ -61,7 +61,11 @@ La línea base es el JSON del reporte sin filas (`--guardar-linea-base`); el `.j
 Se pisan en el manifiesto (`umbrales`) y con `--umbrales FICHERO.json` (misma forma; `por_conjunto` fija umbrales de un conjunto; `null` desactiva una métrica). Una clave desconocida es un error: una errata no apaga la puerta. Falla también un conjunto de la línea base que no se mide; con `--solo NOMBRE` (repetible) o conjuntos opcionales omitidos la comparación es parcial (solo conjuntos medidos) y lo avisa. Si `n` difiere de la línea base, avisa: no es la misma muestra.
 
 ## Robustez
-`--robustez` pide variantes de cada texto a `chispa.variantes` (`generar(texto)` o `variantes(texto)`, que devuelve textos o `(nombre, texto)`), hasta `--robustez-max` filas por conjunto (200, a paso fijo), las manda y compara con la decisión original. Si el módulo no existe, avisa por stderr y sigue sin esas métricas.
+`--robustez` convierte cada fila en un caso completo (`{texto, pregunta, kind, opciones[{id, description}], etiqueta}`) y pide a `chispa.variantes.generar(caso, tipos, semilla=0)` una variante por transformación: `permutar` (orden de opciones), `renombrar` (ids opacos), `parafrasear` (la pregunta), `erratas`, `mayusculas`, `mezcla` (español/inglés) y `largo`. Manda cada variante con sus opciones y compara su decisión con la original usando `variantes.estabilidad`, que traduce los ids con el `mapa` de la variante (en `multi`, el conjunto de opciones activas, traducido igual). `permutar` y `renombrar` solo se aplican a `choice` y `multi`: los ids de `noul` (`false`/`true`) y de `score` (niveles) significan algo. Una variante que no cambia nada (p. ej. un texto ya en mayúsculas) no cuenta; una con error cuenta como decisión cambiada.
+
+El informe da, por conjunto, tipo, grupo y global, `estabilidad` (% de decisiones que no cambian), `delta_conf` (media de \|confianza variante − original\|) y `delta_conf_p95`; y una tabla «Robustez por transformación» (global y por conjunto). Se perturban hasta `--robustez-max` filas por conjunto (200, a paso fijo). Si el módulo no existe, avisa por stderr y sigue sin esas métricas.
+
+**Mínimo de estabilidad (opcional).** Una línea base puede traer `estabilidad_min` (fracción, p. ej. `0.9`): arriba del todo vale para `global` y cada conjunto, y dentro de una entrada (`global`, un conjunto, tipo o grupo) vale solo para ella. Si la estabilidad medida baja de ese mínimo, o falta, la puerta falla, aunque la línea base no haya empeorado. Se añade a mano al JSON de la línea base.
 
 ## Informe
-`--salida informe` escribe `informe.md` (tablas por global, tipo, grupo y conjunto, y el veredicto frente a la línea base) e `informe.json`; con `--filas`, también la predicción de cada fila. Sin `--salida` imprime el markdown. Los errores y avisos van por stderr. Probada con un servidor falso en `sdk/python/tests/test_bateria.py`.
+`--salida informe` escribe `informe.md` (tablas por global, tipo, grupo y conjunto, y el veredicto frente a la línea base) e `informe.json`; con `--filas`, también la predicción de cada fila. Sin `--salida` imprime el markdown. Los errores y avisos van por stderr. Probada con servidores falsos en `sdk/python/tests/test_bateria.py` (en robustez, uno estable y otro que cambia con la permutación).
