@@ -100,7 +100,7 @@ func TestTextoLargoL1UnaVezPorPeticion(t *testing.T) {
 	if met.TextoLargoL1.Load() != 1 || met.TrozosL1.Load() != 3 {
 		t.Fatalf("L1: textos %d, ventanas %d (esperado 1 y 3)", met.TextoLargoL1.Load(), met.TrozosL1.Load())
 	}
-	if got := presupuestoDe(ctx).cupoTrozos(3); got != 1 {
+	if got := presupuestoDe(ctx).cupoTrozos(capaL1, 3); got != 1 {
 		t.Fatalf("el presupuesto no se compartió: cupo %d", got)
 	}
 }

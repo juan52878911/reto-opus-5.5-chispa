@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -220,9 +221,10 @@ type presupuestoTorres struct {
 	usadas atomic.Int64
 
 	mu     sync.Mutex
-	trozos int                     // ventanas de texto largo ya decididas por la petición (L1 y L2 juntas)
-	l1     map[string]bool         // textos largos ya contados en L1 (por texto, no por pregunta)
-	l2     map[string]*ranurasMemo // ranuras de ONNX por texto: una pasada por ventana y petición, no por pregunta
+	trozos [2]int                     // ventanas de texto largo ya decididas por la petición, por capa (capaL1, capaL2): L1 no gasta el cupo de L2
+	l1v    map[string]*ventanasL1Memo // ventanas de L1 por texto: se embeben y se cobran una vez por petición, no por pregunta
+	l1     map[string]bool            // textos largos ya contados en L1 (por texto, no por pregunta)
+	l2     map[string]*ranurasMemo    // ranuras de ONNX por texto: una pasada por ventana y petición, no por pregunta
 }
 
 // ranurasMemo guarda las ranuras de cada ventana de un texto, calculadas una sola vez en la petición.
@@ -232,17 +234,28 @@ type ranurasMemo struct {
 	err  error
 }
 
-// cupoTrozos son las ventanas que aún puede decidir un texto largo de la petición: lo que queda de max_trozos, y siempre al
-// menos la primera (la cabeza), sin la cual el texto no se podría decidir.
-func (p *presupuestoTorres) cupoTrozos(tope int) int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return max(1, tope-p.trozos)
+const (
+	capaL1 = 0
+	capaL2 = 1
+)
+
+// ventanasL1Memo guarda los embeddings de las ventanas de un texto largo en L1, calculados una sola vez en la petición.
+type ventanasL1Memo struct {
+	once sync.Once
+	v    [][]float32
 }
 
-func (p *presupuestoTorres) cobraTrozos(n int) {
+// cupoTrozos son las ventanas que aún puede decidir un texto largo de la petición en esa capa: lo que queda de max_trozos, y siempre al
+// menos la primera (la cabeza), sin la cual el texto no se podría decidir.
+func (p *presupuestoTorres) cupoTrozos(capa, tope int) int {
 	p.mu.Lock()
-	p.trozos += n
+	defer p.mu.Unlock()
+	return max(1, tope-p.trozos[capa])
+}
+
+func (p *presupuestoTorres) cobraTrozos(capa, n int) {
+	p.mu.Lock()
+	p.trozos[capa] += n
 	p.mu.Unlock()
 }
 
@@ -419,10 +432,10 @@ func (l *L2) idsConsulta(pr *presupuestoTorres, estado string) [][]int64 {
 	}
 	ws, largo := tt.Trozos(estado, l.largo)
 	if largo {
-		if cupo := pr.cupoTrozos(l.largo.Trozos()); len(ws) > cupo {
+		if cupo := pr.cupoTrozos(capaL2, l.largo.Trozos()); len(ws) > cupo {
 			ws = ws[:cupo]
 		}
-		pr.cobraTrozos(len(ws))
+		pr.cobraTrozos(capaL2, len(ws))
 		l.met.ObservaTextoLargo("L2", len(ws))
 	}
 	return ws
@@ -512,9 +525,30 @@ func clavesDe(ops []Opcion) []chispa3.OpcionClave {
 	return out
 }
 
+// ordenNivel ordena las opciones de un score por nivel: por id numérico ("2" < "10") si todos los ids son enteros; si alguno no lo
+// es, devuelve el orden declarado sin tocarlo (nunca lexicográfico). El bool dice si todos eran numéricos.
+func ordenNivel(ops []Opcion) ([]Opcion, bool) {
+	out := append([]Opcion(nil), ops...)
+	for _, o := range out {
+		if _, err := strconv.Atoi(o.ID); err != nil {
+			return out, false
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, _ := strconv.Atoi(out[i].ID)
+		b, _ := strconv.Atoi(out[j].ID)
+		return a < b
+	})
+	return out, true
+}
+
 // opcionesUnica son las opciones de la única torre de noul (false y true, con la descripción de la petición si la trae) y
 // score (todas).
 func opcionesUnica(p Pregunta) []Opcion {
+	if p.Kind == KindScore {
+		ops, _ := ordenNivel(p.Opciones)
+		return ops
+	}
 	if p.Kind != KindNoul {
 		return p.Opciones
 	}
@@ -598,9 +632,20 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 // score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j» (j = 1..K−2, como a_calib_chispa).
 func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 	K := len(p.Opciones)
-	for i, o := range p.Opciones {
-		if o.ID != strconv.Itoa(i+1) {
-			return Respuesta{}, nil // las cabezas de score van sobre 1..K en orden
+	// El orden de los niveles es el del id numérico (como model/l2/modelo.py): el orden de la petición no cambia la respuesta.
+	// Si ningún id es entero se conserva el orden declarado (Python rechaza esos casos); una mezcla no opina.
+	ops, numerico := ordenNivel(p.Opciones)
+	if !numerico {
+		for _, o := range ops {
+			if _, err := strconv.Atoi(o.ID); err == nil {
+				return Respuesta{}, nil // mezcla de ids enteros y no enteros: el nivel sería ambiguo
+			}
+		}
+	} else {
+		for i, o := range ops {
+			if o.ID != strconv.Itoa(i+1) {
+				return Respuesta{}, nil // las cabezas de score numéricas van sobre 1..K
+			}
 		}
 	}
 	clave := "score" + strconv.Itoa(K)
@@ -631,7 +676,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 			lo = sup[i]
 		}
 		d := math.Max(hi-lo, 0)
-		r.Probs[p.Opciones[i].ID] = d
+		r.Probs[ops[i].ID] = d
 		suma += d
 	}
 	for id, d := range r.Probs { // con acumuladas no monótonas las diferencias recortadas suman > 1: se normaliza
@@ -645,7 +690,7 @@ func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 			k++
 		}
 	}
-	r.Answer = p.Opciones[k].ID
+	r.Answer = ops[k].ID
 	r.Conf = r.Probs[r.Answer]
 	return r, nil
 }

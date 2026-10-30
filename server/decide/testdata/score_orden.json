@@ -1,0 +1,97 @@
+[
+ {
+  "caso": "1..3 en orden",
+  "opciones": [
+   "1",
+   "2",
+   "3"
+  ],
+  "consulta": "3",
+  "error": false
+ },
+ {
+  "caso": "1..3 permutado",
+  "opciones": [
+   "3",
+   "1",
+   "2"
+  ],
+  "consulta": "3",
+  "error": false
+ },
+ {
+  "caso": "1..12 en orden",
+  "opciones": [
+   "1",
+   "2",
+   "3",
+   "4",
+   "5",
+   "6",
+   "7",
+   "8",
+   "9",
+   "10",
+   "11",
+   "12"
+  ],
+  "consulta": "12",
+  "error": false
+ },
+ {
+  "caso": "1..12 permutado",
+  "opciones": [
+   "10",
+   "2",
+   "12",
+   "1",
+   "7",
+   "3",
+   "11",
+   "5",
+   "9",
+   "4",
+   "8",
+   "6"
+  ],
+  "consulta": "12",
+  "error": false
+ },
+ {
+  "caso": "1..10 invertido",
+  "opciones": [
+   "10",
+   "9",
+   "8",
+   "7",
+   "6",
+   "5",
+   "4",
+   "3",
+   "2",
+   "1"
+  ],
+  "consulta": "10",
+  "error": false
+ },
+ {
+  "caso": "no numéricos",
+  "opciones": [
+   "bajo",
+   "medio",
+   "alto"
+  ],
+  "consulta": "",
+  "error": true
+ },
+ {
+  "caso": "mezcla",
+  "opciones": [
+   "1",
+   "dos",
+   "3"
+  ],
+  "consulta": "",
+  "error": true
+ }
+]
