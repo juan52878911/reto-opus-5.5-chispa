@@ -100,6 +100,21 @@ class TestVariantes(unittest.TestCase):
         self.assertEqual(ordenes, {("true", "false"), ("false", "true")})
         self.assertTrue(all(V.permutar(noul, random.Random(s))["etiqueta"] == "true" for s in range(5)))
 
+    def test_permutar_en_score_es_segura_y_documenta_el_invariante(self):
+        score = {"texto": "t", "pregunta": "¿Qué tan urgente?", "kind": "score", "etiqueta": "2",
+                 "opciones": [{"id": str(i), "description": f"nivel {i}"} for i in (1, 2, 3)]}
+        self.assertIn("permutar", V.SEGURAS)
+        ordenes = set()
+        for s_ in range(20):
+            v = V.permutar(score, random.Random(s_))
+            ordenes.add(tuple(o["id"] for o in v["opciones"]))
+            self.assertEqual(sorted(o["id"] for o in v["opciones"]), ["1", "2", "3"])
+            self.assertEqual(v["etiqueta"], "2")
+            self.assertEqual(v["mapa"], {"1": "1", "2": "2", "3": "3"})
+        self.assertGreater(len(ordenes), 1)
+        self.assertIn("ordena las opciones por id", V.permutar.__doc__)
+        self.assertIn("ordena las opciones por id", V.__doc__)
+
     def test_largo_sin_negaciones_y_glosario_sin_ambiguas(self):
         for r in V.RELLENO:
             self.assertNotRegex(r.lower(), r"\b(no|sin|ni|nada)\b")
