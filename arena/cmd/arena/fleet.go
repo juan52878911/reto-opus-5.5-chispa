@@ -82,9 +82,29 @@ func (l *procLog) tail() string {
 
 // procHandle: el proceso hijo, su grupo y su salida reciente.
 type procHandle struct {
-	cmd  *exec.Cmd
-	log  *procLog
-	done chan struct{}
+	cmd    *exec.Cmd
+	log    *procLog
+	done   chan struct{}
+	mu     sync.Mutex // Kill y recogida (Wait4) van bajo el mismo cerrojo
+	reaped bool       // el líder ya se recogió: su pgid puede ser de otro
+}
+
+// reap recoge al hijo bajo h.mu, sin bloquear mientras siga vivo, para que
+// Stop no pueda matar un pgid reutilizado entre la recogida y su comprobación.
+func (h *procHandle) reap() {
+	pid := h.cmd.Process.Pid
+	for {
+		h.mu.Lock()
+		var ws syscall.WaitStatus
+		wp, err := syscall.Wait4(pid, &ws, syscall.WNOHANG, nil)
+		if wp == pid || (err != nil && err != syscall.EINTR) {
+			h.reaped = true
+			h.mu.Unlock()
+			return
+		}
+		h.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // healthTimeout: plazo total de espera a /health tras el arranque.
@@ -131,7 +151,7 @@ func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	rd.Add(2)
 	go scan(out, true)
 	go scan(errp, false)
-	go func() { rd.Wait(); cmd.Wait(); close(h.done) }()
+	go func() { rd.Wait(); h.reap(); close(h.done) }()
 	select {
 	case addr := <-addrCh:
 		return "http://" + addr, nil
@@ -152,15 +172,19 @@ func (p *procLauncher) Stop(r *replica) error {
 		return nil
 	}
 	// Si el hijo ya fue recogido, su pid puede ser de otro grupo: no matar.
-	select {
-	case <-h.done:
+	// La comprobación y el Kill van bajo el cerrojo con el que se recoge.
+	h.mu.Lock()
+	if h.reaped {
+		h.mu.Unlock()
 		return nil
-	default:
 	}
 	// Mata el grupo entero; ESRCH (ya muerto) no es un error.
 	if err := syscall.Kill(-h.cmd.Process.Pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
-		return h.cmd.Process.Kill()
+		err = h.cmd.Process.Kill()
+		h.mu.Unlock()
+		return err
 	}
+	h.mu.Unlock()
 	select {
 	case <-h.done:
 	case <-time.After(2 * time.Second):
@@ -168,15 +192,33 @@ func (p *procLauncher) Stop(r *replica) error {
 	return nil
 }
 
-// drainLines entrega cada línea de rc a fn. Tolera líneas de hasta 1 MiB y,
-// si aparece una mayor, sigue vaciando la tubería para no bloquear al hijo.
+// drainLines entrega cada línea de rc a fn. Una línea de más de 1 MiB se
+// trunca a 1 MiB (el resto se descarta) y se siguen entregando las siguientes.
 func drainLines(rc io.Reader, fn func(string)) {
-	sc := bufio.NewScanner(rc)
-	sc.Buffer(make([]byte, 64<<10), 1<<20)
-	for sc.Scan() {
-		fn(sc.Text())
+	const max = 1 << 20
+	br := bufio.NewReaderSize(rc, 64<<10)
+	var line []byte
+	for {
+		frag, isPrefix, err := br.ReadLine()
+		if len(line) < max {
+			room := max - len(line)
+			if len(frag) > room {
+				frag = frag[:room]
+			}
+			line = append(line, frag...)
+		}
+		if isPrefix && err == nil {
+			continue
+		}
+		if err != nil {
+			if len(line) > 0 {
+				fn(string(line))
+			}
+			return
+		}
+		fn(string(line))
+		line = line[:0]
 	}
-	io.Copy(io.Discard, rc)
 }
 
 // fleet es el conjunto de réplicas, agrupadas por dimensión y tipo.
