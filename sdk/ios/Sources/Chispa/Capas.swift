@@ -161,6 +161,19 @@ final class CodificadorTorreMotor: CodificadorTorre {
     }
 }
 
+/// Normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras y más del 70 % en mayúscula devuelve el
+/// texto en minúsculas; si no, el mismo. Solo para el mensaje que entra a L2. Cuenta `Character` (`isLetter` / `isUppercase`) y
+/// pasa a minúsculas con `lowercased()`.
+public func normalizarMayusculas(_ texto: String) -> String {
+    var letras = 0
+    var mayus = 0
+    for c in texto where c.isLetter {
+        letras += 1
+        if c.isUppercase { mayus += 1 }
+    }
+    return letras >= 8 && mayus * 10 > 7 * letras ? texto.lowercased() : texto
+}
+
 /// Un `Tokenizador` que sabe dar varias ventanas de un texto largo (`texto_largo`); `CapaL2` lo usa si el tokenizador lo implementa.
 public protocol TokenizadorTrozos: Tokenizador {
     /// Los ids de cada ventana; una sola (igual que `ids`) con `cabeza` o un texto que cabe.
@@ -253,7 +266,8 @@ struct CapaL2: Capa {
             guard try torresAlVuelo(pj) else { return .sinOpinion }
         }
         let ventanas: [[Int64]]
-        if let tt = tokenizador as? TokenizadorTrozos { ventanas = try tt.trozos(texto) } else { ventanas = [try tokenizador.ids(texto)] }
+        let mensaje = normalizarMayusculas(texto) // contrato de normalización: solo el mensaje de L2, antes de «query: » y de ventanear
+        if let tt = tokenizador as? TokenizadorTrozos { ventanas = try tt.trozos(mensaje) } else { ventanas = [try tokenizador.ids(mensaje)] }
         guard let primera = ventanas.first, !primera.isEmpty else { return .sinOpinion }
         if ventanas.count > 1 { return try decidirTrozos(pj, ventanas, previas) } // texto largo con `trozos`
         let s = try sesion.ranuras(primera)

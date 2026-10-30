@@ -66,6 +66,7 @@ En `score`, `answer` depende de la capa que respondió:
 - **L2:** cabeza CORAL (`server/decide/l2.go`, `score`). `answer` es la **mediana**: el nivel 1 + el número de umbrales
   con P(y > j) > 0,5, igual que en L1. `probs` sale de las diferencias entre las probabilidades acumuladas de sus
   umbrales, P(y = k) = P(y > k−1) − P(y > k), recortadas a ≥ 0; la confianza es `probs[answer]`.
+- **Normalización de mayúsculas (L2):** el mensaje que entra a L2 (también L2c y la torre de consulta) pasa antes de `query: `, de tokenizar y de ventanear por `NormalizarMayusculas`: con ≥ 8 letras y más del 70 % en mayúscula se pasa a minúsculas; la pregunta, los ids y las descripciones no se tocan, ni L0 ni L1. Contrato y diferencias con Python: [contrato-normalizacion.md](contrato-normalizacion.md).
 - **L0:** el clasificador entrenado con los ejemplos; `probs` es su distribución sobre los niveles y `answer` la **mediana**, como en L1 y L2.
 - **L3:** `answer` es la mediana de las `probs` normalizadas.
 

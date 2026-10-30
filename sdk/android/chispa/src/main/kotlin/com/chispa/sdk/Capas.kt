@@ -212,6 +212,26 @@ class Ranuras(val datos: FloatArray, val k: Int) {
 internal fun relojMonotonicoMs(): Long = System.nanoTime() / 1_000_000L
 
 /**
+ * Normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras y más del 70 % en mayúscula devuelve el
+ * texto en minúsculas; si no, el mismo. Solo para el mensaje que entra a L2. Cuenta por code point (`Character.isLetter` /
+ * `isUpperCase`) y pasa a minúsculas con `lowercase(Locale.ROOT)`.
+ */
+fun normalizarMayusculas(texto: String): String {
+    var letras = 0
+    var mayus = 0
+    var i = 0
+    while (i < texto.length) {
+        val cp = texto.codePointAt(i)
+        i += Character.charCount(cp)
+        if (Character.isLetter(cp)) {
+            letras++
+            if (Character.isUpperCase(cp)) mayus++
+        }
+    }
+    return if (letras >= 8 && mayus * 10 > 7 * letras) texto.lowercase(java.util.Locale.ROOT) else texto
+}
+
+/**
  * L2: ranuras del mensaje (ONNX Runtime) contra las torres de ESQUEMAS. Si el fichero no trae torres para la
  * pregunta no opina y no llega a tokenizar ni a llamar a ONNX. Si el fichero trae CONJ y L0 ya dio probabilidades,
  * es L2c: las similitudes salen de las mismas ranuras y la cabeza conjunta (en Go, la del servidor) decide; sin
@@ -238,7 +258,8 @@ class CapaL2(
         val pj = pregunta.toJson()
         // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
         if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
-        val ventanas = if (tokenizador is TokenizadorTrozos) tokenizador.trozos(texto) else listOf(tokenizador.ids(texto))
+        val mensaje = normalizarMayusculas(texto) // contrato de normalización: solo el mensaje de L2, antes de «query: » y de ventanear
+        val ventanas = if (tokenizador is TokenizadorTrozos) tokenizador.trozos(mensaje) else listOf(tokenizador.ids(mensaje))
         if (ventanas.isEmpty() || ventanas[0].isEmpty()) return SalidaCapa.SIN_OPINION
         if (ventanas.size > 1) return decidirTrozos(pj, ventanas, previas) // texto largo con `trozos`
         val s = sesion.ranuras(ventanas[0])

@@ -483,7 +483,7 @@ func (l *L2) ventanasDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([]ve
 	if l.tok == nil {
 		return nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}
-	rs, err := l.ranurasConsulta(ctx, p.Estado)
+	rs, err := l.ranurasConsulta(ctx, NormalizarMayusculas(p.Estado))
 	if err != nil {
 		return nil, false, err
 	}
