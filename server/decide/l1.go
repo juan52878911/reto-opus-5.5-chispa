@@ -84,7 +84,7 @@ func (l *L1) ConTextoLargo(tl TextoLargo) *L1 {
 
 // ventanasMsg devuelve el embedding de cada ventana del mensaje (las que no tienen tokens se omiten) y cuenta en /metrics los
 // textos que pasan del tope. Sin estrategia, o con un texto que cabe, es la única ventana de siempre (Embed del texto entero).
-func (l *L1) ventanasMsg(estado string) [][]float32 {
+func (l *L1) ventanasMsg(ctx context.Context, estado string) [][]float32 {
 	dim := l.m.Dim()
 	un := func(ids []int32) [][]float32 {
 		e := make([]float32, dim)
@@ -100,7 +100,7 @@ func (l *L1) ventanasMsg(estado string) [][]float32 {
 	if !l.largo.Activa() {
 		ids, trunc := l.m.TokenizarTruncado(estado)
 		if trunc {
-			l.met.ObservaTextoLargo("L1", 1)
+			l.textoLargo(ctx, estado, 1)
 		}
 		return un(ids)
 	}
@@ -108,17 +108,37 @@ func (l *L1) ventanasMsg(estado string) [][]float32 {
 	if len(todo) <= n {
 		ids, trunc := l.m.TokenizarTruncado(estado) // cabe en la ventana: lo de siempre
 		if trunc {
-			l.met.ObservaTextoLargo("L1", 1)
+			l.textoLargo(ctx, estado, 1)
 		}
 		return un(ids)
 	}
 	var out [][]float32
 	ws := tok.Trocear(todo, n, l.largo)
+	pr := presupuestoDe(ctx)
+	if cupo := pr.cupoTrozos(l.largo.Trozos()); len(ws) > cupo {
+		ws = ws[:cupo]
+	}
+	pr.cobraTrozos(len(ws))
 	for _, w := range ws {
 		out = append(out, un(w)...)
 	}
-	l.met.ObservaTextoLargo("L1", len(ws))
+	l.textoLargo(ctx, estado, len(ws))
 	return out
+}
+
+// textoLargo cuenta en /metrics un texto largo y sus ventanas una sola vez por petición, aunque tenga muchas preguntas.
+func (l *L1) textoLargo(ctx context.Context, estado string, ventanas int) {
+	pr := presupuestoDe(ctx)
+	pr.mu.Lock()
+	visto := pr.l1[estado]
+	if pr.l1 == nil {
+		pr.l1 = map[string]bool{}
+	}
+	pr.l1[estado] = true
+	pr.mu.Unlock()
+	if !visto {
+		l.met.ObservaTextoLargo("L1", ventanas)
+	}
 }
 
 func (l *L1) Nombre() string { return "L1" }
@@ -181,7 +201,7 @@ func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if len(p.Opciones) == 0 {
 		return Respuesta{}, nil
 	}
-	msgs := l.ventanasMsg(p.Estado)
+	msgs := l.ventanasMsg(ctx, p.Estado)
 	if len(msgs) == 0 {
 		return Respuesta{}, nil
 	}
