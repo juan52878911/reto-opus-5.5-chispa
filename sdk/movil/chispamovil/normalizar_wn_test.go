@@ -2,10 +2,14 @@ package chispamovil
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
+
+	"chispa/runtime/tok"
 )
 
 func TestNormalizarMayusculasParidad(t *testing.T) {
@@ -54,8 +58,9 @@ func TestNormalizarMayusculasLimites(t *testing.T) {
 	}
 }
 
-// L2: el mensaje gritado y su minúscula dan los mismos ids; con 7 letras en mayúsculas no se toca. Necesita el .chispa-tok.
-func TestTokenizarE5NormalizaMayusculas(t *testing.T) {
+// El tokenizador del móvil es puro: no normaliza, así que es idéntico a runtime/tok. La normalización la aplica quien llama a L2
+// (Kotlin y Swift, con NormalizarMayusculas): normalizado y minúsculas dan los mismos ids; sin normalizar, no. Necesita el .chispa-tok.
+func chispaConTok(t *testing.T) *Chispa {
 	ruta := os.Getenv("CHISPA_TOK")
 	if ruta == "" {
 		ruta = rutaTokPorDefecto()
@@ -67,13 +72,45 @@ func TestTokenizarE5NormalizaMayusculas(t *testing.T) {
 	if err := c.CargarTokenizadorE5(ruta); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(c.TokenizarE5("CANCELAR MI TARJETA YA"), c.TokenizarE5("cancelar mi tarjeta ya")) {
-		t.Fatal("gritado y minúsculas deben dar los mismos ids")
+	return c
+}
+
+func TestNormalizaAntesDeTokenizarE5(t *testing.T) {
+	c := chispaConTok(t)
+	g := NormalizarMayusculas("CANCELAR MI TARJETA YA")
+	if !bytes.Equal(c.TokenizarE5(g), c.TokenizarE5("cancelar mi tarjeta ya")) {
+		t.Fatal("normalizado y minúsculas deben dar los mismos ids")
 	}
-	if !bytes.Equal(c.TrozosE5("CANCELAR MI TARJETA YA"), c.TrozosE5("cancelar mi tarjeta ya")) {
-		t.Fatal("TrozosE5: gritado y minúsculas deben dar los mismos ids")
+	if !bytes.Equal(c.TrozosE5(g), c.TrozosE5("cancelar mi tarjeta ya")) {
+		t.Fatal("TrozosE5: normalizado y minúsculas deben dar los mismos ids")
 	}
-	if bytes.Equal(c.TokenizarE5("ABCDEFG"), c.TokenizarE5("abcdefg")) {
+	if NormalizarMayusculas("ABCDEFG") != "ABCDEFG" || !bytes.Equal(c.TokenizarE5(NormalizarMayusculas("ABCDEFG")), c.TokenizarE5("ABCDEFG")) {
 		t.Fatal("7 letras en mayúsculas no se tocan")
+	}
+}
+
+func TestTokenizarE5NoNormaliza(t *testing.T) {
+	c := chispaConTok(t)
+	ruta := os.Getenv("CHISPA_TOK")
+	if ruta == "" {
+		ruta = rutaTokPorDefecto()
+	}
+	ref, err := tok.Abrir(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := c.TokenizarE5("HOLA MUNDO GRITADO")
+	got := make([]int32, len(b)/4)
+	for i := range got {
+		got[i] = int32(binary.LittleEndian.Uint32(b[4*i:]))
+	}
+	if !slices.Equal(got, ref.Tokenizar("HOLA MUNDO GRITADO")) {
+		t.Fatal("TokenizarE5 debe ser igual a runtime/tok sin normalizar")
+	}
+	if bytes.Equal(c.TokenizarE5("HOLA MUNDO GRITADO"), c.TokenizarE5("hola mundo gritado")) {
+		t.Fatal("TokenizarE5 no debe normalizar: debe coincidir con runtime/tok sin normalizar")
+	}
+	if bytes.Equal(c.TrozosE5("HOLA MUNDO GRITADO"), c.TrozosE5("hola mundo gritado")) {
+		t.Fatal("TrozosE5 no debe normalizar")
 	}
 }

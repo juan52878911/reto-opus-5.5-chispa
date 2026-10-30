@@ -16,6 +16,7 @@ en casos especiales como «İ»; los 12 casos no los incluyen).
 - Entrenamiento y evaluación (`Codificador.tokens`, `largos.tokenizar`, `calibrar.py`, `exportar.py`): se aplica al codificar. El
   aumento genera la variante de mayúsculas antes, así que el modelo ve lo mismo que verá en producción.
 - No se aplica a L1.
+- En el móvil, `chispamovil.TokenizarE5`/`TrozosE5` son tokenizadores puros (idénticos a `runtime/tok`) y no normalizan: lo hace quien llama a L2, una sola vez, con `NormalizarMayusculas` (Go), `normalizarMayusculas` (Kotlin, `CapaL2.decidir`) o `normalizarMayusculas` (Swift, `CapaL2.decidir`).
 
 ## Diferencias conocidas con Python
 

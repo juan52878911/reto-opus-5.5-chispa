@@ -1090,7 +1090,7 @@ func (c *Chispa) ventanasE5(texto string) [][]int32 {
 	if c.tok == nil {
 		return nil
 	}
-	v, largo := c.tok.Ventanas(tok.Prefijo, NormalizarMayusculas(texto), c.MaxLenConsulta(), c.largo)
+	v, largo := c.tok.Ventanas(tok.Prefijo, texto, c.MaxLenConsulta(), c.largo)
 	if largo {
 		c.largoN.Add(1)
 	}
@@ -1098,8 +1098,9 @@ func (c *Chispa) ventanasE5(texto string) [][]int32 {
 }
 
 // NormalizarMayusculas aplica el contrato de normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras
-// y más del 70 % en mayúscula devuelve el texto en minúsculas; si no, el mismo. TokenizarE5 y TrozosE5 la aplican al mensaje
-// entero antes de anteponer «query: », tokenizar y ventanear; L0 y L1 no. Función propia: no depende del servidor.
+// y más del 70 % en mayúscula devuelve el texto en minúsculas; si no, el mismo. TokenizarE5 y TrozosE5 NO la aplican (el
+// tokenizador es idéntico a runtime/tok): el cliente de L2 (Kotlin, Swift o una app Go) debe aplicarla una sola vez al mensaje
+// entero antes de llamar a TokenizarE5/TrozosE5; L0 y L1 no. Función propia: no depende del servidor.
 func NormalizarMayusculas(texto string) string {
 	letras, mayus := 0, 0
 	for _, r := range texto {
