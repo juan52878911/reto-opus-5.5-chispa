@@ -112,18 +112,31 @@ func (l *L1) ventanasMsg(ctx context.Context, estado string) [][]float32 {
 		}
 		return un(ids)
 	}
-	var out [][]float32
-	ws := tok.Trocear(todo, n, l.largo)
+	// Memoria por texto: las ventanas se eligen, se embeben y se cobran una vez por petición; todas las preguntas sobre el mismo
+	// texto usan las mismas ventanas, sea cual sea su orden o cuántas haya en la petición.
 	pr := presupuestoDe(ctx)
-	if cupo := pr.cupoTrozos(l.largo.Trozos()); len(ws) > cupo {
-		ws = ws[:cupo]
+	pr.mu.Lock()
+	if pr.l1v == nil {
+		pr.l1v = map[string]*ventanasL1Memo{}
 	}
-	pr.cobraTrozos(len(ws))
-	for _, w := range ws {
-		out = append(out, un(w)...)
+	m := pr.l1v[estado]
+	if m == nil {
+		m = &ventanasL1Memo{}
+		pr.l1v[estado] = m
 	}
-	l.textoLargo(ctx, estado, len(ws))
-	return out
+	pr.mu.Unlock()
+	m.once.Do(func() {
+		ws := tok.Trocear(todo, n, l.largo)
+		if cupo := pr.cupoTrozos(capaL1, l.largo.Trozos()); len(ws) > cupo {
+			ws = ws[:cupo]
+		}
+		pr.cobraTrozos(capaL1, len(ws))
+		for _, w := range ws {
+			m.v = append(m.v, un(w)...)
+		}
+		l.textoLargo(ctx, estado, len(ws))
+	})
+	return m.v
 }
 
 // textoLargo cuenta en /metrics un texto largo y sus ventanas una sola vez por petición, aunque tenga muchas preguntas.

@@ -1185,8 +1185,29 @@ func (c *Chispa) EsquemaEnEsquemas(preguntaJSON string) bool {
 	return err == nil && c.tieneL2 && !c.esquemaNuevo(p)
 }
 
+// ordenNivel ordena las opciones de un score por nivel: por id numérico ("2" < "10") si todos son enteros; si alguno no lo es,
+// conserva el orden declarado (nunca lexicográfico). El bool dice si todos eran numéricos.
+func ordenNivel(ops []opcion) ([]opcion, bool) {
+	out := append([]opcion(nil), ops...)
+	for _, o := range out {
+		if _, err := strconv.Atoi(o.ID); err != nil {
+			return out, false
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, _ := strconv.Atoi(out[i].ID)
+		b, _ := strconv.Atoi(out[j].ID)
+		return a < b
+	})
+	return out, true
+}
+
 // opcionesUnica son las opciones de la única torre de noul (false y true con la descripción de la pregunta) y de score (todas).
 func opcionesUnica(p pregunta) []opcion {
+	if p.Kind == "score" {
+		ops, _ := ordenNivel(p.Opciones)
+		return ops
+	}
 	if p.Kind != "noul" {
 		return p.Opciones
 	}
@@ -1335,9 +1356,20 @@ func ventanasRanuras(b []byte, ks []int, d int) ([][][]float32, error) {
 func (c *Chispa) score(p pregunta, s float64) respuesta {
 	vacia := respuesta{Ok: true, Probs: map[string]float64{}}
 	K := len(p.Opciones)
-	for i, o := range p.Opciones {
-		if o.ID != strconv.Itoa(i+1) {
-			return vacia // las cabezas de score van sobre 1..K en orden
+	// El orden de los niveles es el del id numérico (como el servidor y model/l2/modelo.py): el orden de la petición no cambia la
+	// respuesta. Si ningún id es entero se conserva el orden declarado (Python rechaza esos casos); una mezcla no opina.
+	ops, numerico := ordenNivel(p.Opciones)
+	if !numerico {
+		for _, o := range ops {
+			if _, err := strconv.Atoi(o.ID); err == nil {
+				return vacia // mezcla de ids enteros y no enteros: el nivel sería ambiguo
+			}
+		}
+	} else {
+		for i, o := range ops {
+			if o.ID != strconv.Itoa(i+1) {
+				return vacia // las cabezas de score numéricas van sobre 1..K
+			}
 		}
 	}
 	clave := "score" + strconv.Itoa(K)
@@ -1368,7 +1400,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 			lo = sup[i]
 		}
 		d := math.Max(hi-lo, 0)
-		r.Probs[p.Opciones[i].ID] = d
+		r.Probs[ops[i].ID] = d
 		suma += d
 	}
 	for id, d := range r.Probs { // acumuladas no monótonas: las diferencias recortadas suman > 1; se normaliza (como el servidor)
@@ -1381,7 +1413,7 @@ func (c *Chispa) score(p pregunta, s float64) respuesta {
 			k++
 		}
 	}
-	r.Answer = p.Opciones[k].ID
+	r.Answer = ops[k].ID
 	r.Conf = r.Probs[r.Answer]
 	r.Opina = r.Conf > 0
 	return r
