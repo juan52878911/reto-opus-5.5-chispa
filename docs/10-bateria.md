@@ -47,7 +47,7 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 | `estabilidad`, `delta_conf` | con `--robustez`: % de decisiones que no cambian con la variante y media de \|Δ confianza\| |
 
 ## Línea base y umbrales
-La línea base es el JSON del reporte sin filas (`--guardar-linea-base`); el `.json` de `--salida` sirve igual. Se compara cada métrica que la línea base trae, en `global`, `tipos`, `grupos` y `conjuntos`. El **umbral es el empeoramiento máximo tolerado**: absoluto (0,01 = un punto) salvo `p50_ms` y `p99_ms`, que son relativos (0,5 = +50 %). Mejora la exactitud, el F1 y la cobertura al subir; el resto, al bajar.
+La línea base es el JSON del reporte sin filas (`--guardar-linea-base`); el `.json` de `--salida` sirve igual. Se compara cada métrica que la línea base trae, en `global`, `tipos`, `grupos` y `conjuntos`. El **umbral es el empeoramiento máximo tolerado**: absoluto (0,01 = un punto) salvo `p50_ms` y `p99_ms`, que son relativos (0,5 = +50 %) y además deben empeorar más de 1 ms (el ruido de un milisegundo no es una regresión). Mejora la exactitud, el F1 y la cobertura al subir; el resto, al bajar.
 
 | Métrica | Umbral por defecto |
 |---|---|

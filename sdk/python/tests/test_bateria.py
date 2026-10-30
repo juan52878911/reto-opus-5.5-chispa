@@ -113,6 +113,7 @@ class Base(unittest.TestCase):
         return self.ruta(n)
 
     def manifiesto(self, conjuntos, **k):
+        k.setdefault("umbrales", {"p50_ms": None, "p99_ms": None})  # la latencia de un servidor falso en hilos es ruido; se prueba aparte
         return self.jsn("man.json", dict(nombre="t", conjuntos=conjuntos, **k))
 
     def correr(self, **k):
@@ -211,12 +212,19 @@ class TestBateria(Base):
         r0 = self.correr()
         for met, cambio in (("ece", -0.1), ("escalado", -0.1), ("cobertura", 0.1), ("f1_macro", 0.1), ("p99_ms", None), ("errores", -0.1)):
             b = json.loads(json.dumps(B.linea_base(r0)))
+            r0 = json.loads(json.dumps(r0))
+            r0["conjuntos"]["choice"]["p99_ms"] = 50.0
             c = b["conjuntos"]["choice"]
             c[met] = c[met] * 0.1 if cambio is None else c[met] + cambio  # base mejor que lo actual
             if met == "errores":
                 c[met] = -0.1
             fs = [x["metrica"] for x in B.comparar(r0, b, B._fusionar(B.UMBRALES, {}))["fallos"] if x["nombre"] == "choice"]
             self.assertIn(met, fs, met)
+        # la latencia: relativa y con holgura de 1 ms
+        for base_ms, ahora_ms, ok in ((5.0, 12.0, False), (5.0, 7.0, True), (0.2, 0.9, True), (5.0, 1.0, True)):
+            a = {"conjuntos": {"x": {"n": 1, "p99_ms": ahora_ms}}}
+            b = {"conjuntos": {"x": {"n": 1, "p99_ms": base_ms}}}
+            self.assertEqual(B.comparar(a, b, B.UMBRALES)["ok"], ok, (base_ms, ahora_ms))
         # mejorar no falla
         b = json.loads(json.dumps(B.linea_base(r0)))
         b["conjuntos"]["choice"]["exactitud"] = 0.5

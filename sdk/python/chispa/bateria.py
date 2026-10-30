@@ -33,6 +33,7 @@ VERSION = 1
 OBJETIVO = 0.95
 CUBOS_ECE = 10
 MODULO_VARIANTES = "chispa.variantes"
+HOLGURA_MS = 1.0
 
 # Umbral = empeoramiento máximo tolerado. Absoluto (en fracción, 0,01 = un punto) salvo p50_ms/p99_ms, que son relativos (0,5 = +50 %).
 UMBRALES = {"exactitud": 0.01, "f1_macro": 0.01, "cobertura": 0.02, "ece": 0.02, "escalado": 0.03, "errores": 0.0, "mae": 0.05,
@@ -469,6 +470,8 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
         avisos.append("comparación parcial: solo los conjuntos medidos (global, tipos y grupos no se comparan)")
     for sec in secs:
         a, b = actual.get(sec), base.get(sec)
+        if b is None:
+            continue
         if sec == "global":
             a, b = {"global": a}, {"global": b}
         for nombre, mb in (b or {}).items():
@@ -491,7 +494,7 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
                 rel = met in ("p50_ms", "p99_ms")
                 peor = (vb - va) if met in MEJOR_ALTO else (va - vb)
                 tope = max(vb, 0.0) * u if rel else u
-                if peor > tope + 1e-9:
+                if peor > tope + 1e-9 and not (rel and peor <= HOLGURA_MS):  # ±1 ms de ruido no es una regresión
                     fallos.append({"seccion": sec, "nombre": nombre, "metrica": met, "base": vb, "actual": va, "umbral": u,
                                    "detalle": f"{met}: {vb:.4g} → {va:.4g} (empeora {peor:.4g}; tope {tope:.4g}{' = +' + format(100 * u, 'g') + ' %' if rel else ''})"})
     return {"ok": not fallos, "fallos": fallos, "avisos": avisos}
