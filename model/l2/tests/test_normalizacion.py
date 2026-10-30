@@ -38,7 +38,7 @@ class Normalizacion(unittest.TestCase):
 
     def test_fixture(self):
         d = json.load(open(FIX, encoding="utf-8"))["casos"]
-        self.assertEqual(len(d), 12)
+        self.assertEqual(len(d), 13)
         for c in d:
             self.assertEqual(N(c["entrada"]), c["salida"], c["entrada"])
 
