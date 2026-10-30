@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode"
 
 	"chispa/format/chispa3"
 	"chispa/runtime/l1"
@@ -1089,11 +1090,30 @@ func (c *Chispa) ventanasE5(texto string) [][]int32 {
 	if c.tok == nil {
 		return nil
 	}
-	v, largo := c.tok.Ventanas(tok.Prefijo, texto, c.MaxLenConsulta(), c.largo)
+	v, largo := c.tok.Ventanas(tok.Prefijo, NormalizarMayusculas(texto), c.MaxLenConsulta(), c.largo)
 	if largo {
 		c.largoN.Add(1)
 	}
 	return v
+}
+
+// NormalizarMayusculas aplica el contrato de normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras
+// y más del 70 % en mayúscula devuelve el texto en minúsculas; si no, el mismo. TokenizarE5 y TrozosE5 la aplican al mensaje
+// entero antes de anteponer «query: », tokenizar y ventanear; L0 y L1 no. Función propia: no depende del servidor.
+func NormalizarMayusculas(texto string) string {
+	letras, mayus := 0, 0
+	for _, r := range texto {
+		if unicode.IsLetter(r) {
+			letras++
+			if unicode.IsUpper(r) {
+				mayus++
+			}
+		}
+	}
+	if letras >= 8 && mayus*10 > 7*letras {
+		return strings.ToLower(texto)
+	}
+	return texto
 }
 
 func idsABytes(ids []int32) []byte {
