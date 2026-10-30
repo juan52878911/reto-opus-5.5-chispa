@@ -154,6 +154,31 @@ ASR (tasa de ataques que engañan al detector; ≤ 0,15 pedido). El detector cas
 El ASR es bajo en parte porque el detector se abstiene mucho. Esa carga pasa a L3 o a una persona.
 Las corridas quedaron incompletas por el tope de tiempo (22–27 k ataques de 37 k pedidos).
 
+## Determinismo
+Misma entrada, misma salida entre el servidor Go, `chispamovil` y Python, y con 1 o 64 peticiones a la vez.
+El conjunto dorado común vive en [`server/decide/testdata/dorados/`](../server/decide/testdata/dorados): tres `.chispa` pequeños
+(`l0l1`: L0 + L1 diminuto; `l0tf`: L0 TF-IDF; `l2`: L2 con ONNX falso), `peticiones.json` (165: choice, noul, score y multi),
+`esperado.json` (la respuesta de cada capa y de la cascada L0→L1→L2→L3 falso), `claves.json` (claves de esquema) y `ort.json` (L2 con ORT real).
+Lo genera el servidor amd64: `go test ./decide -run Dorados -regenerar` (desde `server/`; con `-tags ort` y `CHISPA_ORT_LIB`
+y `-run DoradosORT` regenera `ort.json`). Regenerar dos veces da los mismos bytes.
+
+| comprobación | qué compara | tolerancia | medido |
+|---|---|---|---|
+| servidor, amd64 | L0, L0TF, L1, L2 (sesión y torres falsas deterministas) y cascada, en los 4 tipos | **bit a bit** | 0 |
+| servidor, otra arquitectura (arm64) | lo mismo | 1e-9 (el compilador de Go fusiona `x*y+z` en FMA en arm64 y mueve el último bit de float64) | sin medir |
+| `chispamovil` (`go test -run Dorados`) | `DecidirL0`, `Decidir` (L1) y `PuntuarL2` con torres instaladas, frente al dorado | 1e-9 en probs y conf; mismas `answer`, `answers` y `opina` | 0 (bit a bit en amd64) |
+| Python (`tests/test_dorados.py`) | formato (CRC, sha256, reescritura idéntica), `hash_esquema2` y `clave_conj` frente al servidor, L0TF en numpy (n-gramas `char_wb` de sklearn) | claves: iguales; L0TF: 1e-9 | 4,4e-16 |
+| L2 con ORT real (`-tags ort`) | ONNX sintético de consulta y de torre | 1e-6 (float32 y ORT) | 0 en la misma máquina |
+| concurrencia (`TestDoradosConcurrencia`, con `-race`) | 64 goroutines con las mismas peticiones, cachés frías, calientes y de 2 entradas, frente a 1 | **bit a bit** | iguales |
+
+- Capas: L0 (modelo de kindling), L0TF, L1, L2 y L3 falso en el servidor; en `chispamovil` las que existen allí (L0, L0TF, L1, L2 sin ONNX).
+  L2c (cabeza conjunta) no está en el dorado.
+- Por qué 1e-9 y no 1e-6 en lo que es solo Go: el cálculo es float64 sobre pesos int8 o float32 ya leídos; solo el FMA de arm64 puede moverlo.
+  1e-6 queda para donde entra ORT o float32 de otra implementación.
+- Arm64: el nodo de pruebas no tiene `qemu-user`; `GOARCH=arm64 go test -c ./decide` compila, pero el binario **no se ha ejecutado**.
+  En un arm64 real hay que correr `go test ./decide -run Dorados` y `go test -run Dorados` en `sdk/movil/chispamovil`.
+- No se encontró no determinismo: ni por iteración de mapas (`-count=50` en cada test), ni en las cachés de esquemas y torres (64 goroutines con `-race`), ni en el orden de las opciones (la respuesta no cambia al invertirlas).
+
 ## Qué no se midió
 - Throughput con ORT, e5 y torre al vuelo, y con el potion real en el arnés de carga: sin medir.
 - Latencia de L1 por HTTP con el potion real: sin medir ([`server/README.md`](../server/README.md#medidas-de-l1-real-microvm-kindling-de-4-vcpu-xeon-33-ghz-cota-del-i3)).
