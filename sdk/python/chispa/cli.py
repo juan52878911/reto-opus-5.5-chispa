@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from .cliente import Chispa, ChispaError
@@ -43,9 +44,12 @@ Esquemas .yaml: pip install chispa[yaml]; los .json no lo piden."""
 
 def _bateria(a) -> int:
     """0 bien · 1 una métrica empeora más que su umbral · 2 manifiesto, datos o servidor mal puestos."""
-    from .bateria import ErrorBateria, bateria, json_reporte, linea_base
+    from .bateria import ErrorBateria, _heredar_estabilidad_min, bateria, cargar_json, json_reporte, linea_base
     aviso = lambda m: print(f"chispa: aviso: {m}", file=sys.stderr)
     try:
+        if a.guardar_linea_base and a.solo:
+            raise ErrorBateria("--guardar-linea-base con --solo guardaría una línea base parcial: quita --solo")
+        previa = a.linea_base or (a.guardar_linea_base if a.guardar_linea_base and os.path.exists(a.guardar_linea_base) else None)
         r = bateria(a.bateria, url=a.url, modelo=a.modelo, servidor=a.servidor, tok=a.tok, config=a.config, extra=a.servidor_arg, linea_base=a.linea_base,
                     umbrales=a.umbrales, robustez=a.robustez, robustez_max=a.robustez_max, solo=a.solo or None, objetivo=a.precision_objetivo,
                     concurrencia=a.concurrencia, timeout=a.timeout, reintentos=a.reintentos, filas=a.filas, aviso=aviso)
@@ -59,8 +63,11 @@ def _bateria(a) -> int:
             print(r["informe"], end="")
         if a.guardar_linea_base:
             if r["ok"]:
+                if previa and not a.linea_base:  # regenerar sobre la misma ruta: conserva su estabilidad_min
+                    _heredar_estabilidad_min(r, cargar_json(previa, "línea base"))
+                lb = linea_base(r)  # falla (2) si la corrida es parcial
                 with open(a.guardar_linea_base, "w", encoding="utf-8") as f:
-                    json.dump(linea_base(r), f, ensure_ascii=False, indent=2)
+                    json.dump(lb, f, ensure_ascii=False, indent=2)
                 print(f"chispa: línea base guardada en {a.guardar_linea_base}", file=sys.stderr)
             else:
                 print("chispa: no guardo la línea base: la comparación falla", file=sys.stderr)

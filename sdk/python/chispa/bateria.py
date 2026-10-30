@@ -26,14 +26,15 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from .cliente import Chispa, ChispaError, ErrorSolicitud
-from .evaluar import (MAX_ESTADO_BYTES, _ERRORES_DE_FILA, _FALSE, _TRUE, _activas, _f, _mejor, _p, _pct)
+from .evaluar import (MAX_ESTADO_BYTES, calib_md, calib_servidor, _ERRORES_DE_FILA, _FALSE, _TRUE, _activas, _f, _mejor, _p, _pct)
 from .tipos import KINDS, Opcion, Pregunta
 
 VERSION = 1
 OBJETIVO = 0.95
 CUBOS_ECE = 10
 MODULO_VARIANTES = "chispa.variantes"
-HOLGURA_MS = 1.0
+HOLGURA_MS = 5.0  # la latencia solo falla si empeora más que el umbral relativo Y más de 5 ms
+MIN_MUESTRAS_LATENCIA = 30  # con menos filas (en la base o en la corrida) p50/p99 no se juzgan
 
 # Umbral = empeoramiento máximo tolerado. Absoluto (en fracción, 0,01 = un punto) salvo p50_ms/p99_ms, que son relativos (0,5 = +50 %).
 UMBRALES = {"exactitud": 0.01, "f1_macro": 0.01, "cobertura": 0.02, "ece": 0.02, "escalado": 0.03, "errores": 0.0, "mae": 0.05,
@@ -464,11 +465,15 @@ def medir_robustez(cliente: Chispa, conjuntos: List[tuple], mod, concurrencia: i
     pares = []
     for (nombre, grupo, r0, v), rv in zip(meta, _correr(cliente, tareas, concurrencia)):
         c0, c1 = _confianza(r0), _confianza(rv)
+        if rv["error"]:  # una variante con error cuenta como decisión cambiada, también si el original no tenía predicción
+            pares.append({"conjunto": nombre, "grupo": grupo, "tipo": r0["tipo"], "transformacion": v["variante"], "igual": False, "dconf": None})
+            continue
+        # en multi la decisión ya viaja traducida a los ids originales: `estabilidad` no debe volver a mapearla (con una sola activa el id sí está en el mapa)
+        multi = r0["tipo"] == "multi"
         inverso = {nuevo: orig for orig, nuevo in v["mapa"].items()}
-        # en multi la decisión ya viaja traducida a los ids originales: `estabilidad` no la vuelve a mapear (el id compuesto no está en el mapa)
-        nuevo_id = "" if rv["error"] else (_prediccion_id(rv, inverso) if r0["tipo"] == "multi" else _prediccion_id(rv))
-        e = mod.estabilidad({"id": _prediccion_id(r0), "confianza": c0 if c0 is not None else 0.0}, [v],
-                            [{"id": nuevo_id, "confianza": c1 if c1 is not None else (c0 if c0 is not None else 0.0)}])
+        e = mod.estabilidad({"id": _prediccion_id(r0), "confianza": c0 if c0 is not None else 0.0}, [dict(v, mapa={}) if multi else v],
+                            [{"id": _prediccion_id(rv, inverso) if multi else _prediccion_id(rv),
+                              "confianza": c1 if c1 is not None else (c0 if c0 is not None else 0.0)}])
         pares.append({"conjunto": nombre, "grupo": grupo, "tipo": r0["tipo"], "transformacion": v["variante"], "igual": bool(e["estables"]),
                       "dconf": e["delta_media"] * (1 if c1 >= c0 else -1) if c0 is not None and c1 is not None else None})
     return pares
@@ -504,6 +509,9 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
     """{"ok", "fallos", "avisos"}. Falla si una métrica de la línea base empeora más que su umbral (o desaparece), o falta un conjunto.
     Un umbral `null` desactiva esa métrica. `parcial` (--solo u opcionales omitidos): solo se comparan los conjuntos medidos."""
     fallos, avisos = [], []
+    if base.get("parcial") and not parcial:
+        fallos.append({"seccion": "global", "nombre": "global", "metrica": None,
+                       "detalle": "la línea base es parcial (se midió con --solo u opcionales omitidos): no vale para la puerta completa; regenérala con una corrida completa"})
     secs = ("conjuntos",) if parcial else SECCIONES
     if parcial:
         avisos.append("comparación parcial: solo los conjuntos medidos (global, tipos y grupos no se comparan)")
@@ -537,9 +545,12 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
                     fallos.append({"seccion": sec, "nombre": nombre, "metrica": met, "base": vb, "actual": None, "umbral": u, "detalle": f"{met} sin medir (base {vb:.4g})"})
                     continue
                 rel = met in ("p50_ms", "p99_ms")
+                if rel and min(ma.get("n") or 0, mb.get("n") or 0) < MIN_MUESTRAS_LATENCIA:
+                    avisos.append(f"{sec}/{nombre}: {met} no se compara: menos de {MIN_MUESTRAS_LATENCIA} muestras")
+                    continue
                 peor = (vb - va) if met in MEJOR_ALTO else (va - vb)
                 tope = max(vb, 0.0) * u if rel else u
-                if peor > tope + 1e-9 and not (rel and peor <= HOLGURA_MS):  # ±1 ms de ruido no es una regresión
+                if peor > tope + 1e-9 and not (rel and peor <= HOLGURA_MS):  # unos ms de ruido no son una regresión
                     fallos.append({"seccion": sec, "nombre": nombre, "metrica": met, "base": vb, "actual": va, "umbral": u,
                                    "detalle": f"{met}: {vb:.4g} → {va:.4g} (empeora {peor:.4g}; tope {tope:.4g}{' = +' + format(100 * u, 'g') + ' %' if rel else ''})"})
     return {"ok": not fallos, "fallos": fallos, "avisos": avisos}
@@ -593,6 +604,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
         cliente = Chispa(u, timeout=timeout, reintentos=reintentos)
         tareas = [(f, None) for _, fs in cargados for f in fs]
         res = _correr(cliente, tareas, concurrencia)
+        calib = calib_servidor(u, tok, timeout)
         por_conjunto, i = [], 0
         for c, fs in cargados:
             rs = res[i:i + len(fs)]
@@ -606,7 +618,10 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
         return dict(m, **agregar_robustez(ps))
 
     rep = {"version": VERSION, "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "manifiesto": man.get("nombre", os.path.basename(manifiesto)),
-           "fuente": modelo or url, "objetivo": objetivo, "conjuntos": {}, "tipos": {}, "grupos": {}, "omitidos": omitidos}
+           "fuente": modelo or url, "objetivo": objetivo, "conjuntos": {}, "tipos": {}, "grupos": {}, "omitidos": omitidos,
+           "calib_servidor": calib}
+    if solo or omitidos:
+        rep["parcial"] = True
     todas = [r for _, _, _, rs, _ in por_conjunto for r in rs]
     for nombre, grupo, fs, rs, c in por_conjunto:
         rep["conjuntos"][nombre] = con_robustez(dict(agregar(rs, objetivo), tipo=c.get("tipo", "mixto"), grupo=grupo), [p for p in pares if p["conjunto"] == nombre])
@@ -618,18 +633,39 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
         rep["grupos"][g] = con_robustez(agregar([r for n, gg, _, rs, _ in por_conjunto if gg == g for r in rs], objetivo), [p for p in pares if p["grupo"] == g])
     rep["global"] = con_robustez(agregar(todas, objetivo), pares)
     if base is not None:
+        _heredar_estabilidad_min(rep, base)
         rep["comparacion"] = comparar(rep, base, um, parcial=bool(solo) or bool(omitidos))
         rep["comparacion"]["linea_base"] = linea_base
     rep["ok"] = rep.get("comparacion", {"ok": True})["ok"]
     if filas:
         rep["filas"] = todas
+    for capa_tipo, n in sorted((calib.get("defecto") or {}).items()):
+        if n:
+            aviso(f"CALIB por defecto en {capa_tipo}: {int(n)} decisiones con parámetros por defecto")
     rep["informe"] = informe_md(rep)
     return rep
 
 
+def _heredar_estabilidad_min(rep: dict, base: Optional[dict]) -> None:
+    """Copia `estabilidad_min` de la base (la general y la de cada entrada) al reporte, para que `linea_base(rep)` no apague la puerta."""
+    if not base:
+        return
+    if base.get("estabilidad_min") is not None:
+        rep["estabilidad_min"] = base["estabilidad_min"]
+    if "global" in base and base["global"].get("estabilidad_min") is not None and "global" in rep:
+        rep["global"]["estabilidad_min"] = base["global"]["estabilidad_min"]
+    for sec in ("conjuntos", "tipos", "grupos"):
+        for nombre, mb in (base.get(sec) or {}).items():
+            if mb.get("estabilidad_min") is not None and nombre in (rep.get(sec) or {}):
+                rep[sec][nombre]["estabilidad_min"] = mb["estabilidad_min"]
+
+
 def linea_base(rep: dict) -> dict:
-    """Lo que se guarda como línea base: el reporte sin filas, informe ni comparación (cualquier `.json` de --salida sirve igual)."""
-    return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok")}
+    """Lo que se guarda como línea base: el reporte sin filas, informe ni comparación (cualquier `.json` de --salida sirve igual). Un reporte
+    parcial (--solo u opcionales omitidos) no se guarda: dejaría pasar regresiones en lo que no midió."""
+    if rep.get("parcial"):
+        raise ErrorBateria("no guardo la línea base: la corrida es parcial (--solo u opcionales omitidos); hazla completa")
+    return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok", "calib_servidor")}
 
 
 def json_reporte(rep: dict) -> dict:
@@ -676,4 +712,11 @@ def informe_md(rep: dict) -> str:
         if cmp["fallos"]:
             L += ["| sección | nombre | detalle |", "|---|---|---|"] + [f"| {x['seccion']} | {x['nombre']} | {x['detalle']} |" for x in cmp["fallos"]] + [""]
         L += [f"- aviso: {a}" for a in cmp["avisos"]]
+    if "calib_servidor" in rep:
+        calib = rep["calib_servidor"]
+        L.append(calib_md(calib).rstrip())
+        defecto = {k: v for k, v in (calib.get("defecto") or {}).items() if v}
+        if defecto:
+            L += ["", "AVISO: alguna capa decidió con la CALIB por defecto (" + ", ".join(f"{k}: {int(v)}" for k, v in sorted(defecto.items()))
+                  + "): las confianzas, ECE y cobertura de esos tipos no son comparables con una CALIB real."]
     return "\n".join(L).rstrip() + "\n"

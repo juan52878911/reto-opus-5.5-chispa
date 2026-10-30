@@ -23,7 +23,7 @@ class Servidor:
     """/v1/decide falso: `regla(state, pregunta)` → dict con answer, probs, layer, escalate (y answers en multi)."""
 
     def __init__(self, regla):
-        self.regla, self.pedidos = regla, []
+        self.regla, self.pedidos, self.metrics = regla, [], None
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -41,6 +41,13 @@ class Servidor:
                 except KeyError:
                     b, code = json.dumps({"error": "boom"}).encode(), 400
                 self.send_response(code)
+                self.send_header("Content-Length", str(len(b)))
+                self.end_headers()
+                self.wfile.write(b)
+
+            def do_GET(self):
+                b = (outer.metrics or "").encode()
+                self.send_response(200 if outer.metrics is not None else 404)
                 self.send_header("Content-Length", str(len(b)))
                 self.end_headers()
                 self.wfile.write(b)
@@ -213,17 +220,19 @@ class TestBateria(Base):
         for met, cambio in (("ece", -0.1), ("escalado", -0.1), ("cobertura", 0.1), ("f1_macro", 0.1), ("p99_ms", None), ("errores", -0.1)):
             b = json.loads(json.dumps(B.linea_base(r0)))
             r0 = json.loads(json.dumps(r0))
-            r0["conjuntos"]["choice"]["p99_ms"] = 50.0
+            r0["conjuntos"]["choice"]["p99_ms"] = 500.0
+            r0["conjuntos"]["choice"]["n"] = 100
             c = b["conjuntos"]["choice"]
+            c["n"] = 100
             c[met] = c[met] * 0.1 if cambio is None else c[met] + cambio  # base mejor que lo actual
             if met == "errores":
                 c[met] = -0.1
             fs = [x["metrica"] for x in B.comparar(r0, b, B._fusionar(B.UMBRALES, {}))["fallos"] if x["nombre"] == "choice"]
             self.assertIn(met, fs, met)
-        # la latencia: relativa y con holgura de 1 ms
-        for base_ms, ahora_ms, ok in ((5.0, 12.0, False), (5.0, 7.0, True), (0.2, 0.9, True), (5.0, 1.0, True)):
-            a = {"conjuntos": {"x": {"n": 1, "p99_ms": ahora_ms}}}
-            b = {"conjuntos": {"x": {"n": 1, "p99_ms": base_ms}}}
+        # la latencia: relativa y con holgura de 5 ms (y con muestra suficiente)
+        for base_ms, ahora_ms, ok in ((50.0, 120.0, False), (50.0, 70.0, True), (2.0, 6.0, True), (5.0, 1.0, True), (2.0, 12.0, False)):
+            a = {"conjuntos": {"x": {"n": 100, "p99_ms": ahora_ms}}}
+            b = {"conjuntos": {"x": {"n": 100, "p99_ms": base_ms}}}
             self.assertEqual(B.comparar(a, b, B.UMBRALES)["ok"], ok, (base_ms, ahora_ms))
         # mejorar no falla
         b = json.loads(json.dumps(B.linea_base(r0)))
