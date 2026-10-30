@@ -108,7 +108,7 @@ chispa-server -modelo modelo.chispa -tok e5.chispa-tok
 Usa el mismo tokenizador de e5 con que se entrenó el modelo.
 
 ### Textos largos (`texto_largo`)
-Por defecto un texto que pasa de `max_len` (L2) o de `max_tokens` (L1) se trunca por la cabeza. Con `texto_largo` en `-config` se puede probar `cabeza_cola` o `trozos` (agregación `max` o `media`); la referencia de campos está en [03-api.md](03-api.md#configuración--config). Para dimensionar: con `trozos` cada texto largo cuesta hasta `max_trozos` (8 por defecto) pasadas de ONNX en L2 en lugar de una, así que mira `chispa_texto_largo_total{capa="L2"}` frente a `chispa_preguntas_total` (qué parte del tráfico es larga) y `chispa_texto_largo_trozos_total` (cuántas pasadas extra) antes de activarlo, y baja `max_trozos` si la latencia p99 de L2 sube. Con `cabeza_cola` el coste no cambia (una ventana). Una recarga en caliente aplica la config nueva.
+Por defecto un texto que pasa de `max_len` (L2) o de `max_tokens` (L1) se trunca por la cabeza. Con `texto_largo` en `-config` se puede probar `cabeza_cola` o `trozos` (agregación `max` o `media`); la referencia de campos está en [03-api.md](03-api.md#configuración--config). Para dimensionar: con `trozos` cada petición con texto largo cuesta hasta `max_trozos` (8 por defecto, en total y no por pregunta) pasadas de ONNX en L2 en lugar de una por texto, así que mira `chispa_texto_largo_total{capa="L2"}` frente a `chispa_preguntas_total` (qué parte del tráfico es larga) y `chispa_texto_largo_trozos_total` (cuántas pasadas extra) antes de activarlo, y baja `max_trozos` si la latencia p99 de L2 sube. Con `cabeza_cola` el coste no cambia (una ventana). Una recarga en caliente aplica la config nueva.
 
 ## Imagen OCI
 [`server/deploy/Dockerfile`](../server/deploy/Dockerfile), multietapa:
@@ -219,8 +219,8 @@ Contadores de lo nuevo (torres al vuelo, esquemas nuevos, nonces y plazos):
 | `chispa_esquema_nuevo_preguntas_total` | counter | Preguntas que L2 puntuó con torres al vuelo |
 | `chispa_esquema_nuevo_decididas_total` | counter | De ellas, las que L2 resolvió con el τ de esquema nuevo (el resto sube de capa o escala) |
 | `chispa_esquema_nuevo_tau` | gauge | τ de L2 para esquemas nuevos; solo aparece si la config lo fija (`tau_l2_esquema_nuevo`) |
-| `chispa_texto_largo_total{capa}` | counter | Peticiones cuyo texto superó el truncado de la capa (`L1`: `max_tokens`; `L2`: `max_len` del ONNX, 128 por defecto) |
-| `chispa_texto_largo_trozos_total{capa}` | counter | Ventanas decididas en esos textos (1 por petición con `cabeza`/`cabeza_cola`; hasta `max_trozos` con `trozos`) |
+| `chispa_texto_largo_total{capa}` | counter | Textos largos (por texto y petición, no por pregunta) que superaron el truncado de la capa (`L1`: `max_tokens`; `L2`: `max_len` del ONNX, 128 por defecto) |
+| `chispa_texto_largo_trozos_total{capa}` | counter | Ventanas decididas en esos textos (1 por texto y petición con `cabeza`/`cabeza_cola`; con `trozos`, las que quepan en el `max_trozos` de la petición) |
 | `chispa_cache_nonce_aciertos_total` | counter | Respuestas repetidas servidas de la caché de nonces |
 | `chispa_l3_llamadas_total{resultado}` | counter | Llamadas de L3 al LLM: `ok`, `invalida`, `error`, `timeout`, `presupuesto` |
 | `chispa_l3_latencia_segundos` | histogram | Latencia de cada llamada de L3 (mismos buckets que las demás) |

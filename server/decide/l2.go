@@ -216,7 +216,35 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, err e
 type claveCtxPresupuesto struct{}
 
 // presupuestoTorres cuenta las torres nuevas que ha calculado una petición.
-type presupuestoTorres struct{ usadas atomic.Int64 }
+type presupuestoTorres struct {
+	usadas atomic.Int64
+
+	mu     sync.Mutex
+	trozos int                     // ventanas de texto largo ya decididas por la petición (L1 y L2 juntas)
+	l1     map[string]bool         // textos largos ya contados en L1 (por texto, no por pregunta)
+	l2     map[string]*ranurasMemo // ranuras de ONNX por texto: una pasada por ventana y petición, no por pregunta
+}
+
+// ranurasMemo guarda las ranuras de cada ventana de un texto, calculadas una sola vez en la petición.
+type ranurasMemo struct {
+	once sync.Once
+	rs   [][][]float32
+	err  error
+}
+
+// cupoTrozos son las ventanas que aún puede decidir un texto largo de la petición: lo que queda de max_trozos, y siempre al
+// menos la primera (la cabeza), sin la cual el texto no se podría decidir.
+func (p *presupuestoTorres) cupoTrozos(tope int) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return max(1, tope-p.trozos)
+}
+
+func (p *presupuestoTorres) cobraTrozos(n int) {
+	p.mu.Lock()
+	p.trozos += n
+	p.mu.Unlock()
+}
 
 // conPresupuesto devuelve un ctx con un presupuesto de torres nuevas propio de la petición, si no lo tenía ya.
 func conPresupuesto(ctx context.Context) context.Context {
@@ -384,16 +412,57 @@ func (l *L2) simsDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([][]floa
 
 // idsConsulta son los ids de cada ventana del mensaje. Un tokenizador que sabe trocear da las de la estrategia (y cuenta en
 // /metrics los textos que pasan de max_len); si no, la única de siempre.
-func (l *L2) idsConsulta(estado string) [][]int64 {
+func (l *L2) idsConsulta(pr *presupuestoTorres, estado string) [][]int64 {
 	tt, ok := l.tok.(TokenizadorTrozos)
 	if !ok {
 		return [][]int64{l.tok.IDs(estado)}
 	}
 	ws, largo := tt.Trozos(estado, l.largo)
 	if largo {
+		if cupo := pr.cupoTrozos(l.largo.Trozos()); len(ws) > cupo {
+			ws = ws[:cupo]
+		}
+		pr.cobraTrozos(len(ws))
 		l.met.ObservaTextoLargo("L2", len(ws))
 	}
 	return ws
+}
+
+// ranurasConsulta son las ranuras de cada ventana del mensaje, memoizadas por texto en la petición: el ONNX corre una vez por
+// ventana aunque la petición haga muchas preguntas sobre el mismo texto.
+func (l *L2) ranurasConsulta(ctx context.Context, estado string) ([][][]float32, error) {
+	pr := presupuestoDe(ctx)
+	pr.mu.Lock()
+	if pr.l2 == nil {
+		pr.l2 = map[string]*ranurasMemo{}
+	}
+	m := pr.l2[estado]
+	if m == nil {
+		m = &ranurasMemo{}
+		pr.l2[estado] = m
+	}
+	pr.mu.Unlock()
+	m.once.Do(func() {
+		for _, ids := range l.idsConsulta(pr, estado) {
+			var S [][]float32
+			var err error
+			if sc, ok := l.ses.(SesionSCtx); ok {
+				S, err = sc.RanurasCtx(ctx, ids)
+			} else {
+				S, err = l.ses.Ranuras(ids)
+			}
+			if err != nil {
+				m.err = err
+				return
+			}
+			if len(S) == 0 {
+				m.err = fmt.Errorf("L2: el codificador no devolvió ranuras")
+				return
+			}
+			m.rs = append(m.rs, S)
+		}
+	})
+	return m.rs, m.err
 }
 
 // ventanasDeCtx corre el ONNX en cada ventana del mensaje (como mucho max_trozos) y puntúa cada una contra las torres.
@@ -401,21 +470,12 @@ func (l *L2) ventanasDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([]ve
 	if l.tok == nil {
 		return nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}
+	rs, err := l.ranurasConsulta(ctx, p.Estado)
+	if err != nil {
+		return nil, false, err
+	}
 	var vs []ventana
-	for _, ids := range l.idsConsulta(p.Estado) {
-		var S [][]float32
-		var err error
-		if sc, ok := l.ses.(SesionSCtx); ok {
-			S, err = sc.RanurasCtx(ctx, ids)
-		} else {
-			S, err = l.ses.Ranuras(ids)
-		}
-		if err != nil {
-			return nil, false, err
-		}
-		if len(S) == 0 {
-			return nil, false, fmt.Errorf("L2: el codificador no devolvió ranuras")
-		}
+	for _, S := range rs {
 		for _, t := range ts {
 			if len(S[0]) != len(t.v) {
 				return nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(t.v))
