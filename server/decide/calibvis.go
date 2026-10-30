@@ -14,6 +14,8 @@ const (
 	OrigenFichero = "fichero"  // clave de «tipos» del .chispa
 	OrigenTiposL2 = "tipos_l2" // clave de «tipos_l2» (solo L2 y L2c)
 	OrigenDefecto = "default"  // la capa no la encuentra y usa los parámetros por defecto
+	OrigenCalib   = "calib"    // origen de un τ: sale de la CALIB del .chispa
+	OrigenConfig  = "config"   // origen de un τ: lo fija la config (-config)
 )
 
 // TiposBase son los tipos cuya ausencia en CALIB hace que la capa use parámetros por defecto (choice, noul) o no opine / use otros (score, multi).
@@ -73,10 +75,15 @@ func VistaCalibCapa(capa string, c chispa3.Calib, origen string, conCalib bool) 
 				v.Entradas = append(v.Entradas, EntradaCalib{Capa: capa, Tipo: t, Origen: OrigenDefecto, ParamsTipo: ParamsDefecto()})
 			}
 		case "score":
-			for k := range c.Tipos {
-				if strings.HasPrefix(k, "score") {
-					hay = true
+			// L1 solo lee «score» exacto; L2 solo opina con «score<K>» (y sus «#j»).
+			if capa == "L2" {
+				for k := range c.Tipos {
+					if strings.HasPrefix(k, "score") && !strings.Contains(k, "#") && len(k) > len("score") {
+						hay = true
+					}
 				}
+			} else {
+				_, hay = c.Tipos["score"]
 			}
 		case "multi":
 			for k := range c.Tipos {
@@ -89,7 +96,7 @@ func VistaCalibCapa(capa string, c chispa3.Calib, origen string, conCalib bool) 
 			v.SinCalib = append(v.SinCalib, t)
 		}
 	}
-	or := OrigenFichero
+	or := OrigenCalib
 	if !conCalib {
 		or = OrigenDefecto
 	}
@@ -113,6 +120,40 @@ func (v VistaCalib) AvisoSinCalib() string {
 	}
 	return fmt.Sprintf("AVISO: CALIB de %s sin los tipos [%s]: la capa usa parámetros por defecto (T=%g, a=%g, b=%g, θ=%g) en choice/noul, y en score y multi no opina o aproxima con noul; /metrics: chispa_calib_defecto_total",
 		v.Capa, strings.Join(v.SinCalib, " "), ParamsDefecto().T, ParamsDefecto().A, ParamsDefecto().B, ParamsDefecto().Theta)
+}
+
+// fijaTaus sustituye los τ de la capa por los efectivos (los que usa la cascada). Sin vista registrada de la capa no hace nada.
+func (m *Metricas) fijaTaus(capa string, taus []TauCalib) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if v, ok := m.calibs[capa]; ok {
+		v.Taus = taus
+		m.calibs[capa] = v
+	}
+}
+
+// vaciaCalib borra las vistas de CALIB: una cascada nueva las registra de nuevo y las capas que ya no están no deben seguir publicadas.
+func (m *Metricas) vaciaCalib() {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.calibs = nil
+	m.mu.Unlock()
+}
+
+// origenTau dice de dónde sale el τ efectivo e: calib si coincide con alguno de los de CALIB de la capa, default si es el
+// del defecto y config en otro caso.
+func origenTau(e, def float64, calib []float64) string {
+	for _, c := range calib {
+		if e == c {
+			return OrigenCalib
+		}
+	}
+	if e == def {
+		return OrigenDefecto
+	}
+	return OrigenConfig
 }
 
 // FijaCalib registra la CALIB efectiva de una capa para /metrics; registrar de nuevo la capa (recarga) la sustituye.
