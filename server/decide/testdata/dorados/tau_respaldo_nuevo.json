@@ -1,0 +1,13 @@
+{
+ "descripcion": "L2c con tau_l2c=0.9 y tau_escalate_l2=0.6. Una respuesta de respaldo corta con tau_escalate_l2 salvo que sea de esquema nuevo y haya tau_l2_esquema_nuevo; entonces corta con este. Contrato común servidor/Kotlin/Swift.",
+ "tau_l2c": 0.9,
+ "tau_escalate_l2": 0.6,
+ "casos": [
+  {"nombre": "respaldo conocido, conf sobre tau_escalate", "respaldo": true, "esquema_nuevo": false, "tau_esquema_nuevo": null, "conf": 0.7, "escala": false},
+  {"nombre": "respaldo nuevo sin tau nuevo corta con tau_escalate (decide)", "respaldo": true, "esquema_nuevo": true, "tau_esquema_nuevo": null, "conf": 0.7, "escala": false},
+  {"nombre": "respaldo nuevo sin tau nuevo, bajo tau_escalate", "respaldo": true, "esquema_nuevo": true, "tau_esquema_nuevo": null, "conf": 0.5, "escala": true},
+  {"nombre": "respaldo nuevo con tau nuevo alto", "respaldo": true, "esquema_nuevo": true, "tau_esquema_nuevo": 0.8, "conf": 0.7, "escala": true},
+  {"nombre": "respaldo nuevo con tau nuevo bajo", "respaldo": true, "esquema_nuevo": true, "tau_esquema_nuevo": 0.4, "conf": 0.5, "escala": false},
+  {"nombre": "cabeza conjunta usa tau_l2c", "respaldo": false, "esquema_nuevo": false, "tau_esquema_nuevo": null, "conf": 0.7, "escala": true}
+ ]
+}
