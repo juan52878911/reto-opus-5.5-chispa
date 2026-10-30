@@ -1,0 +1,610 @@
+{
+ "version": 1,
+ "origen": [
+  "/opt/chispa/g8.chispa",
+  "/opt/chispa/g8.chispa"
+ ],
+ "manifiesto": "bateria-chispa",
+ "criterio": "máx(semiancho IC95 de Wilson, 2 × |corrida_1 − corrida_2|), redondeado hacia arriba a 0,005; latencias relativas a 0,05",
+ "umbrales": {
+  "exactitud": 0.005,
+  "f1_macro": 0.005,
+  "cobertura": 0.005,
+  "escalado": 0.005,
+  "errores": 0.0,
+  "p50_ms": 0.5,
+  "p99_ms": 1.0,
+  "por_conjunto": {
+   "hatecheck": {
+    "exactitud": 0.01,
+    "f1_macro": 0.01,
+    "cobertura": 0.01,
+    "escalado": 0.01
+   },
+   "herramientas": {
+    "exactitud": 0.01,
+    "f1_macro": 0.01,
+    "cobertura": 0.01,
+    "escalado": 0.01
+   },
+   "inyecciones": {
+    "exactitud": 0.02,
+    "f1_macro": 0.02,
+    "cobertura": 0.02,
+    "escalado": 0.02
+   },
+   "jevbench": {
+    "exactitud": 0.01,
+    "f1_macro": 0.01,
+    "cobertura": 0.01,
+    "escalado": 0.01
+   }
+  }
+ },
+ "avisos": [
+  "conjuntos/inyecciones/exactitud: el IC95/ruido pide 0.020 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/inyecciones/f1_macro: el IC95/ruido pide 0.020 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)"
+ ],
+ "detalle": {
+  "global": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 11000,
+    "ic95_semiancho": 0.0001745572200893913,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 11000,
+    "ic95_semiancho": 0.0001745572200893913,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 11000,
+    "ic95_semiancho": 0.0001745572200893913,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 11000,
+    "ic95_semiancho": 0.0001745572200893913,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 11000,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.8817119999994247,
+    "corrida_2": 1.8622919999984333,
+    "media": 1.872001999998929,
+    "n": 11000,
+    "ruido_rel": 0.010373920541218723,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 3.4670559999767647,
+    "corrida_2": 3.3695330000114154,
+    "media": 3.41829449999409,
+    "n": 11000,
+    "ruido_rel": 0.02852972438902438,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/clinc150": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 2.1692299999926945,
+    "corrida_2": 2.153579999969679,
+    "media": 2.161404999981187,
+    "n": 5500,
+    "ruido_rel": 0.007240660599541284,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 3.5657279999554703,
+    "corrida_2": 3.474385999993501,
+    "media": 3.5200569999744857,
+    "n": 5500,
+    "ruido_rel": 0.02594901161050267,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/hatecheck": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 361,
+    "ic95_semiancho": 0.005264750510906651,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 361,
+    "ic95_semiancho": 0.005264750510906651,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 361,
+    "ic95_semiancho": 0.005264750510906651,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 361,
+    "ic95_semiancho": 0.005264750510906651,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 361,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.4621909999732452,
+    "corrida_2": 1.4434299999948053,
+    "media": 1.4528104999840252,
+    "n": 361,
+    "ruido_rel": 0.012913590574026159,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 2.3833760000115944,
+    "corrida_2": 2.4733179999998356,
+    "media": 2.428347000005715,
+    "n": 361,
+    "ruido_rel": 0.03703836395211618,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/herramientas": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 368,
+    "ic95_semiancho": 0.005165640423233979,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 368,
+    "ic95_semiancho": 0.005165640423233979,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 368,
+    "ic95_semiancho": 0.005165640423233979,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 368,
+    "ic95_semiancho": 0.005165640423233979,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 368,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.6241959999661049,
+    "corrida_2": 1.5825039999981527,
+    "media": 1.6033499999821288,
+    "n": 368,
+    "ruido_rel": 0.0260030560815897,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 2.8056269999865435,
+    "corrida_2": 2.567150999993828,
+    "media": 2.6863889999901858,
+    "n": 368,
+    "ruido_rel": 0.088771953724344,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/inyecciones": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 116,
+    "ic95_semiancho": 0.016027823393546144,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 116,
+    "ic95_semiancho": 0.016027823393546144,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 116,
+    "ic95_semiancho": 0.016027823393546144,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 116,
+    "ic95_semiancho": 0.016027823393546144,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 116,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.4197589999866977,
+    "corrida_2": 1.4318099999854894,
+    "media": 1.4257844999860936,
+    "n": 116,
+    "ruido_rel": 0.008452188952053559,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 2.3807849999570863,
+    "corrida_2": 2.3689860000217777,
+    "media": 2.374885499989432,
+    "n": 116,
+    "ruido_rel": 0.004968239494224472,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/jevbench": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 231,
+    "ic95_semiancho": 0.008179130103014116,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 231,
+    "ic95_semiancho": 0.008179130103014116,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 231,
+    "ic95_semiancho": 0.008179130103014116,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.05
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 231,
+    "ic95_semiancho": 0.008179130103014116,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 231,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.5384730000391755,
+    "corrida_2": 1.5273120000074414,
+    "media": 1.5328925000233085,
+    "n": 231,
+    "ruido_rel": 0.0072810063533903634,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 250.1581440000109,
+    "corrida_2": 222.0613080000362,
+    "media": 236.10972600002356,
+    "n": 231,
+    "ruido_rel": 0.11899906232567437,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/massive": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 2974,
+    "ic95_semiancho": 0.0006450309512769247,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 2974,
+    "ic95_semiancho": 0.0006450309512769247,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 2974,
+    "ic95_semiancho": 0.0006450309512769247,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 2974,
+    "ic95_semiancho": 0.0006450309512769247,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 2974,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.7466379999859782,
+    "corrida_2": 1.7152869999677023,
+    "media": 1.7309624999768403,
+    "n": 2974,
+    "ruido_rel": 0.01811188862768282,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 2.966912000033517,
+    "corrida_2": 2.870220000033896,
+    "media": 2.9185660000337066,
+    "n": 2974,
+    "ruido_rel": 0.033129968621063925,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/spam": {
+   "exactitud": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 1450,
+    "ic95_semiancho": 0.0013211893235136481,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 1450,
+    "ic95_semiancho": 0.0013211893235136481,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 1450,
+    "ic95_semiancho": 0.0013211893235136481,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 1450,
+    "ic95_semiancho": 0.0013211893235136481,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 1450,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 1.4693210000018553,
+    "corrida_2": 1.428239000006215,
+    "media": 1.4487800000040352,
+    "n": 1450,
+    "ruido_rel": 0.028356272170740757,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 2.6199619999829338,
+    "corrida_2": 2.547740000011345,
+    "media": 2.5838509999971393,
+    "n": 1450,
+    "ruido_rel": 0.02795130213455378,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  }
+ }
+}
