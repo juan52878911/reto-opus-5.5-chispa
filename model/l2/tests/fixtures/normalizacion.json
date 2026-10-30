@@ -1,0 +1,53 @@
+{
+ "descripcion": "entrada → salida de normalizar_mayusculas; contrato-normalizacion.md",
+ "casos": [
+  {
+   "entrada": "ABCDEFG",
+   "salida": "ABCDEFG"
+  },
+  {
+   "entrada": "ABCDEFGHIJklmn",
+   "salida": "abcdefghijklmn"
+  },
+  {
+   "entrada": "ABCDEFGhij",
+   "salida": "ABCDEFGhij"
+  },
+  {
+   "entrada": "ABCDEFGHij",
+   "salida": "abcdefghij"
+  },
+  {
+   "entrada": "ÁRBOL ÑANDÚ ÉXITO",
+   "salida": "árbol ñandú éxito"
+  },
+  {
+   "entrada": "12345 !!! 678",
+   "salida": "12345 !!! 678"
+  },
+  {
+   "entrada": "",
+   "salida": ""
+  },
+  {
+   "entrada": "HOLA 😀 QUIERO CANCELAR 123 MI TARJETA 💳",
+   "salida": "hola 😀 quiero cancelar 123 mi tarjeta 💳"
+  },
+  {
+   "entrada": "Quiero cancelar mi tarjeta",
+   "salida": "Quiero cancelar mi tarjeta"
+  },
+  {
+   "entrada": "ARBOL ñandú",
+   "salida": "ARBOL ñandú"
+  },
+  {
+   "entrada": "CANCELAR MI TARJETA YA",
+   "salida": "cancelar mi tarjeta ya"
+  },
+  {
+   "entrada": "¿QUÉ PASA CON MI PEDIDO? Gracias",
+   "salida": "¿qué pasa con mi pedido? gracias"
+  }
+ ]
+}
