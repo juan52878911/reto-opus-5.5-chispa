@@ -192,8 +192,49 @@ class TestBateria(Base):
         r = self.correr()
         c = r["conjuntos"]["choice"]
         self.assertAlmostEqual(c["errores"], 0.25)
-        self.assertAlmostEqual(c["exactitud"], 0.75)  # hola, adios, dudo ✓; el error es un fallo (y «mal» ya era fallo): sin cambio
+        self.assertAlmostEqual(c["exactitud"], 1.0)  # argmax de probs sobre las filas con probs: hola, adios, dudo ✓; el error no trae probs y no entra
+        self.assertAlmostEqual(c["exactitud_estricta"], 0.5)  # solo hola y adios contestadas; lo escalado y el error, como fallo
         self.assertAlmostEqual(c["cobertura"], 3 / 4)  # 0,95 ✓ 0,9 ✓ 0,6 ✓: el error no tiene confianza y no se acepta
+
+    def test_todo_escalado_no_da_exactitud_cero(self):
+        # tau alta: la cascada escala todo. Con probs, el argmax acierta; lo contestado no existe; lo estricto sí es 0.
+        self.srv.regla = lambda st, q: dict(regla(st, q), answer="", escalate=True, layer="escalar") if q["kind"] != "multi" else regla(st, q)
+        r = self.correr()
+        c = r["conjuntos"]["choice"]
+        self.assertEqual((c["escalado"], c["exactitud_estricta"]), (1.0, 0.0))
+        self.assertAlmostEqual(c["exactitud"], 0.75)  # hola, adios, dudo ✓; «mal» ya era fallo
+        self.assertIsNone(c["exactitud_contestada"])
+        self.assertEqual(c["sin_probs"], 0.0)
+        self.assertIn("exact. contestada", r["informe"])
+        # sin probs: no se puede medir el argmax; se dice y se cuenta aparte, no es un 0
+        self.srv.regla = lambda st, q: {"answer": "", "escalate": True, "layer": "escalar", "probs": {}}
+        c = self.correr()["conjuntos"]["choice"]
+        self.assertIsNone(c["exactitud"])
+        self.assertEqual((c["sin_probs"], c["exactitud_estricta"]), (1.0, 0.0))
+
+    def test_exactitud_contestada_y_puerta(self):
+        r0 = self.correr()
+        c = r0["conjuntos"]["choice"]
+        self.assertAlmostEqual(c["exactitud_contestada"], 2 / 3)  # hola ✓ adios ✓ mal ✗; dudo escaló
+        base = json.loads(json.dumps(B.linea_base(r0)))
+        base["conjuntos"]["choice"]["exactitud_contestada"] = 0.95
+        fs = [x["metrica"] for x in B.comparar(r0, base, B._fusionar(B.UMBRALES, {}))["fallos"]]
+        self.assertIn("exactitud_contestada", fs)
+        # la estricta no es puerta
+        base = json.loads(json.dumps(B.linea_base(r0)))
+        base["conjuntos"]["choice"]["exactitud_estricta"] = 1.0
+        self.assertEqual([x for x in B.comparar(r0, base, B._fusionar(B.UMBRALES, {}))["fallos"] if x["metrica"] == "exactitud_estricta"], [])
+
+    def test_linea_base_anterior_sin_metricas_nuevas_avisa_y_no_falla(self):
+        r0 = self.correr()
+        vieja = json.loads(json.dumps(B.linea_base(r0)))
+        for sec in ("global", "tipos", "grupos", "conjuntos"):
+            for m in ([vieja[sec]] if sec == "global" else vieja[sec].values()):
+                for k in ("exactitud_contestada", "exactitud_estricta", "sin_probs"):
+                    m.pop(k, None)
+        c = B.comparar(r0, vieja, B._fusionar(B.UMBRALES, {}))
+        self.assertTrue(c["ok"], c["fallos"])
+        self.assertTrue(any("exactitud_contestada" in a and "regénerala" in a for a in c["avisos"]))
 
     def test_linea_base_pasa_y_falla_por_umbral(self):
         r0 = self.correr()
@@ -222,8 +263,9 @@ class TestBateria(Base):
             r0 = json.loads(json.dumps(r0))
             r0["conjuntos"]["choice"]["p99_ms"] = 500.0
             r0["conjuntos"]["choice"]["n"] = 100
+            r0["conjuntos"]["choice"]["n_latencia"] = 100
             c = b["conjuntos"]["choice"]
-            c["n"] = 100
+            c["n"] = c["n_latencia"] = 100
             c[met] = c[met] * 0.1 if cambio is None else c[met] + cambio  # base mejor que lo actual
             if met == "errores":
                 c[met] = -0.1

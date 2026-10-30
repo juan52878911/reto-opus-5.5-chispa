@@ -2,8 +2,10 @@
 import json
 import os
 import unittest
+from unittest import mock
 
 from chispa import bateria as B
+from chispa.evaluar import parsear_calib
 
 from test_bateria import Base, CASOS_ROB, Servidor, _por_descripcion, fila
 
@@ -128,7 +130,10 @@ class TestCalibEnInforme(Base):
     def test_informe_con_calib_y_aviso_de_defecto(self):
         self.srv.metrics = METRICAS
         avisos = []
-        r = self.correr(aviso=avisos.append)
+        final = parsear_calib(METRICAS)
+        antes = dict(final, defecto={k: 0.0 for k in final["defecto"]})  # el contador crece 3 durante la corrida; lo previo no cuenta
+        with mock.patch.object(B, "calib_servidor", side_effect=[antes, final]):
+            r = self.correr(aviso=avisos.append)
         self.assertIn("## CALIB del servidor", r["informe"])
         self.assertIn("AVISO", r["informe"].split("## CALIB del servidor")[1])
         self.assertEqual(r["calib_servidor"]["defecto"], {"L1/score": 3.0})
