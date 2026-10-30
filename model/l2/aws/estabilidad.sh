@@ -260,10 +260,11 @@ PYEOF
     else tail -8 "$RES/m1-datos.log"; estado m1_datos "FALLO ver m1-datos.log"; fallo "M1 datos"; fi
   else tail -12 "$RES/m1-build.log"; estado m1_modelo "FALLO ver m1-build.log"; estado m1_bateria_1 "FALLO sin modelo"; estado m1_bateria_2 "FALLO sin modelo"; fallo "M1 modelo, servidor o tokenizador"; fi
 fi
+LB_ARG=(--guardar-linea-base "$RES/linea-base-g8.json"); [ "$LOCAL" = 1 ] && LB_ARG=()   # en seco la corrida es parcial (fixtures) y chispa no guarda su línea base (código 2)
 bateria() {   # n: una corrida de la batería; el código de salida manda (0 bien, 1 regresión, 2 configuración mal)
   ( cd "$REPO" && JEVBENCH_DIR=$JEV/datasets/public CHISPA_DATOS=$DATOS CHISPA_REPO=$REPO PYTHONPATH=$REPO/sdk/python \
       timeout "$(tope 8)m" "$PY" -u -m chispa evaluar --bateria sdk/python/ejemplos/bateria.json --modelo "$M" --tok "$TOK" --servidor "$SERV" \
-        --salida "$RES/bateria-g8-$1" --guardar-linea-base "$RES/linea-base-g8.json" ) > "$RES/bateria-$1.log" 2>&1
+        --salida "$RES/bateria-g8-$1" "${LB_ARG[@]}" ) > "$RES/bateria-$1.log" 2>&1
   local rc=$?
   case $rc in
     0) estado "m1_bateria_$1" "OK $("$PY" -I -c "import json,sys; g=json.load(open(sys.argv[1]))['global']; print('n=%d exactitud=%.4f f1_macro=%.4f p50=%.1f ms' % (g['n'], g['exactitud'], g['f1_macro'], g['p50_ms']))" "$RES/bateria-g8-$1.json")";;
