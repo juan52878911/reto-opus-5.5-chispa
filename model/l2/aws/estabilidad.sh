@@ -176,7 +176,7 @@ CONV=(--salida "$LB" --fuentes massive,hatecheck,clinc150,inyecciones); [ "$LOCA
 POTION=$BASE/potion.chispa-l1
 if "$PY" -m model.datos.convertir "${CONV[@]}" > "$RES/m6-datos.log" 2>&1 \
    && "$PY" runtime/l1/exportar.py "$(ls -d "$HF_HOME"/hub/models--minishlab--potion-multilingual-128M/snapshots/* | head -1)" "$POTION" >> "$RES/m6-datos.log" 2>&1; then
-  estado m6_datos "OK $(tail -4 "$RES/m6-datos.log" | grep -c convertida) tareas convertidas, potion $(stat -c %s "$POTION") bytes"
+  estado m6_datos "OK $(grep -c convertida "$RES/m6-datos.log") tareas convertidas, potion $(stat -c %s "$POTION") bytes"
   FILAS=(); [ "$LOCAL" = 1 ] && FILAS=(--max-filas 30)
   if reint timeout "$(tope 40)m" "$PY" -u -m model.l1.frente_l2 --potion "$POTION" --ckpt "$CKPT" --datos "$LB" --salida "$RES/m6" "${FILAS[@]}" > "$RES/m6.log" 2>&1 \
      && [ -f "$RES/m6/frente_l2.json" ]; then
