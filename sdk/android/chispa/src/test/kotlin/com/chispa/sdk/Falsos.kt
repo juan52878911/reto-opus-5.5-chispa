@@ -114,6 +114,14 @@ class MotorFalso(
 
     override fun tieneTokenizadorE5() = idsE5 != null
     override fun tokenizarE5(texto: String) = idsE5
+
+    /** Texto largo con `trozos`: lo que devuelve [trozosE5] (`[n][len][ids…]…`); null = el motor no trocea. */
+    var trozos: ByteArray? = null
+    var ultimosKs: String? = null
+    override fun trozosE5(texto: String) = trozos
+    override fun puntuarL2Trozos(preguntaJson: String, ranuras: ByteArray, ksJson: String): String {
+        llamadas.add("L2T"); ultimasRanuras = ranuras; ultimosKs = ksJson; return marcar(l2())
+    }
     override fun close() {
         cerrado = true
     }

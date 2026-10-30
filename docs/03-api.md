@@ -242,6 +242,8 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_clave_peticiones_total{clave,resultado}` | peticiones por **id** de clave (nunca la clave): `ok` o `limitada` (429) |
 | `chispa_l3_llamadas_total{resultado}` | llamadas de L3 al LLM: `ok`, `invalida` (respuesta que no sirve; L3 no opina), `error`, `timeout`, `presupuesto` (tope por petición agotado; no se llamó). Sin L3, todo 0 |
 | `chispa_l3_latencia_segundos` | histograma de la latencia de cada llamada al LLM |
+| `chispa_texto_largo_total{capa}` | peticiones cuyo texto superó el truncado de la capa (`max_tokens` de L1, `chispa.consulta.max_len` de L2), con la estrategia que sea; `capa` = `L1` o `L2` |
+| `chispa_texto_largo_trozos_total{capa}` | ventanas decididas en esos textos largos: 1 por petición con `cabeza` y `cabeza_cola`, hasta `max_trozos` con `trozos` |
 
 Tras una petición válida y una rota, el test de métricas
 ([`decide_test.go`](../server/decide/decide_test.go)) espera líneas como `chispa_peticiones_total{codigo="200"} 1`,
@@ -269,6 +271,17 @@ así que se rotan sin reiniciar; los cubos empiezan llenos tras una recarga.
 - Apagado explícito de L1 (el comportamiento de antes del default): `"l1_shrinkage_apagado": true`. Es un booleano y no `null` porque `null` y ausente son indistinguibles para un número opcional; así el apagado queda escrito y la config estricta no cambia. Junto con `l1_shrinkage_lambda` es error de arranque.
 - `l2_shrinkage_lambda`: **sin cambio**, ausente = apagado. El soporte de L2 solo entra por `CONJ` y se midió así.
 - Con el default activo, un `SOPL1` ilegible no impide arrancar (se ignora con aviso); con un λ explícito sí es error. El τ de `CALIB` se calibró sin el encogimiento.
+
+`texto_largo` (opcional): qué hacer con un texto más largo que el truncado de L1 (`max_tokens` del modelo de L1, medido en tokens de su vocabulario) y de L2 (`chispa.consulta.max_len` del ONNX, 128 si falta; cuenta `<s>` y `</s>`). **Ausente = `cabeza`: los primeros tokens, bit a bit lo de siempre.** La sesión de modelos mide cuál conviene; esto solo lo hace configurable.
+```json
+"texto_largo": {"estrategia": "trozos", "agregacion": "max", "solape": 16, "max_trozos": 8, "ventana_l1": 0}
+```
+- `estrategia`: `cabeza` (defecto), `cabeza_cola` (los N/2 primeros y los N/2 últimos tokens, en una sola ventana; N = ventana) o `trozos` (ventanas de N tokens con paso N − `solape`; la primera es la cabeza; en L2 cada ventana vuelve a llevar el prefijo `query: `).
+- `agregacion` (solo con `trozos`): `max` o `media` (defecto `media`) de las probabilidades **por opción** de cada ventana; en `choice` y `score` se renormaliza a 1 (en `score`, la respuesta es la mediana de esa distribución), en `noul` `true` es el agregado, `false` = 1 − `true` y θ decide. En `multi` se agregan las similitudes de cada opción, antes de su sigmoide (con `max` da lo mismo que agregar probabilidades; con `media` es la media de similitudes).
+- `solape` (tokens compartidos entre ventanas contiguas, defecto 0, se acota a N − 1), `max_trozos` (**tope de trozos por petición**: cada trozo cuesta un paso de ONNX en L2; defecto 8, máximo 64; lo que queda más allá se ignora).
+- `ventana_l1` (0 = `max_tokens` del modelo): ventana de L1 con `cabeza_cola` y `trozos`; con `cabeza` no tiene efecto. L2 usa siempre `max_len`.
+- Un texto que cabe en la ventana se decide igual con cualquier estrategia (una sola ventana, idéntica a la cabeza). Se aplica en L1, L2 y L2c (la cabeza conjunta decide cada ventana con las mismas probabilidades de L0 y se agregan). L0 y L3 no cambian. Valores desconocidos o fuera de rango son error de arranque (y de recarga).
+- Coste: `trozos` multiplica por hasta `max_trozos` la inferencia de L2 en los textos largos; `chispa_texto_largo_total` y `chispa_texto_largo_trozos_total` dicen cuántos son y cuánto cuestan. En el móvil es el mismo objeto: `AbrirConTextoLargo` (Go), `Chispa.abrir(textoLargo = TextoLargo(...))` (Kotlin) y `Chispa.abrir(textoLargo: TextoLargo(...))` (Swift); la app pide las ventanas de L2 con `TrozosE5` y las puntúa con `PuntuarL2Trozos` (y `ks` en `CabezaConjunta`).
 
 Con `-modelo` y sin `-config`, el τ de L1 sale de `CALIB.tau_escalate` y el de L2 de `CALIB.tau_escalate_l2` (si falta, `tau_escalate`; con `CONJ`, `tau_l2c` manda). L2 y L2c leen sus parámetros de `CALIB.tipos_l2` si existe y, si no, de `tipos`; L1 siempre de `tipos` (ver [04](04-formato-chispa.md#espacio-de-nombres-de-l2-en-calib)). Con `-config`, manda la config.
 

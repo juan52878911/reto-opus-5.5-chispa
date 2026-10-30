@@ -40,13 +40,16 @@ public final class Chispa {
     /// apagado explícito de L1; un número es explícito. Con `lambdaSoporteL2` y L1 por defecto, el puente solo ofrece λ explícitos: L1 queda en
     /// `lambdaSoporteL1PorDefecto` (4,0) aunque el fichero sea viejo. `lambdaSoporteL2` nil = apagado (sin default). 0 = solo ejemplos, `.infinity` = solo
     /// descripción; negativo o NaN lanza error. Sin sección SOPL1 en el fichero el default no tiene efecto.
+    /// `textoLargo`: qué hacer con un texto que pasa del truncado de L1 y L2 (`TextoLargo`: `cabeza_cola` o `trozos` con agregación `max`/`media`);
+    /// nil (por defecto) = los primeros tokens, lo de siempre. Con `trozos`, L2 corre ONNX en cada ventana (como mucho `maxTrozos`).
     public static func abrir(ruta: String, tokenizador: Tokenizador? = nil, rutaTokenizador: String? = nil,
                              coreML: Bool = true, proveedorOrt: ProveedorOrt? = nil,
                              codificadorTorres: CodificadorTorre? = nil,
                              alErrorCapa: @escaping (String, Error) -> Void = Cascada.registrarErrorCapa,
-                             lambdaSoporteL1: Double? = Chispa.soportePorDefecto, lambdaSoporteL2: Double? = nil) throws -> Chispa {
+                             lambdaSoporteL1: Double? = Chispa.soportePorDefecto, lambdaSoporteL2: Double? = nil,
+                             textoLargo: TextoLargo? = nil) throws -> Chispa {
         guard FileManager.default.isReadableFile(atPath: ruta) else { throw ErrorChispa("no existe el modelo \(ruta)") }
-        let motor = try MotorNativo.abrir(ruta: ruta, soporte: try soporteDe(lambdaSoporteL1, lambdaSoporteL2))
+        let motor = try MotorNativo.abrir(ruta: ruta, soporte: try soporteDe(lambdaSoporteL1, lambdaSoporteL2), textoLargo: textoLargo)
         // `proveedorOrt` manda; sin él, `coreML` (true por defecto) elige entre CoreML y CPU.
         let proveedor = proveedorOrt ?? (coreML ? .coreML : .cpu)
         do {

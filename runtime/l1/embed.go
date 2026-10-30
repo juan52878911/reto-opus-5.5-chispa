@@ -14,8 +14,15 @@ import (
 // explícitas para que ningún compilador funda multiplicación y suma (FMA en arm64); luego
 // out_j = float32(acc_j / norma), con una sola división por elemento.
 func (m *Modelo) Embed(texto string, out []float32) bool {
+	return m.EmbedIDs(m.Tokenizar(texto), out)
+}
+
+// MaxTokens es el tope de tokens de un texto (el de la cabeza).
+func (m *Modelo) MaxTokens() int { return m.p.MaxTokens }
+
+// EmbedIDs es Embed sobre ids ya tokenizados (Embed(t) == EmbedIDs(Tokenizar(t))).
+func (m *Modelo) EmbedIDs(ids []int32, out []float32) bool {
 	clear(out[:m.dim])
-	ids := m.Tokenizar(texto)
 	acc := make([]int64, m.dim)
 	n := 0
 	pesos := m.sec[secPesos]

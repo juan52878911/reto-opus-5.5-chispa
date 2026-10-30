@@ -42,6 +42,16 @@ type embebedor interface {
 	Embed(texto string, out []float32) bool
 }
 
+// embebedorIDs lo cumple *l1.Modelo: tokenizar y sumar por separado, que es lo que hace falta para trocear. Un embebedor falso que no
+// lo cumpla se queda con la cabeza.
+type embebedorIDs interface {
+	embebedor
+	TokenizarTruncado(texto string) ([]int32, bool)
+	TokenizarSinTope(texto string, maxRunas int) []int32
+	EmbedIDs(ids []int32, out []float32) bool
+	MaxTokens() int
+}
+
 type opcion struct {
 	ID          string `json:"id"`
 	Description string `json:"description,omitempty"`
@@ -102,6 +112,9 @@ type Chispa struct {
 	dynUso      map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
 	dynTic      uint64
 
+	largo  tok.TextoLargo // estrategia para textos que pasan del truncado (AbrirConTextoLargo); cero = cabeza
+	largoN atomic.Int64   // textos que pasaron del truncado de L1 o de la consulta de L2 (TextoLargoSuperados)
+
 	sopl        *chispa3.Sopl1 // sección SOPL1 (soporte few-shot: k y media de L1 por opción), o nil
 	lambdaL1    *float64       // λ del encogimiento del soporte en L1; nil = apagado; 0 = solo ejemplos; +Inf = solo descripción
 	lambdaL2    *float64       // ídem en L2c
@@ -146,6 +159,36 @@ const SoporteApagado = -1.0
 func AbrirConSoporte(ruta string, lambdaL1, lambdaL2 float64) (*Chispa, error) {
 	return abrir(ruta, lambdaL1, lambdaL2, true)
 }
+
+// AbrirConTextoLargo es AbrirConSoporte (o Abrir, con explicito=false: los λ se ignoran y valen los de Abrir) con la estrategia para textos que pasan del truncado de L1 (max_tokens del modelo) y de
+// L2 (chispa.consulta.max_len): textoLargoJSON es el mismo objeto que `texto_largo` del servidor,
+// {"estrategia":"cabeza|cabeza_cola|trozos","agregacion":"max|media","solape":N,"max_trozos":N,"ventana_l1":N}. "" o "{}" =
+// cabeza, lo de siempre (bit a bit). Con cabeza_cola, L1 y TokenizarE5 usan los N/2 primeros y últimos tokens; con trozos,
+// L1 decide cada ventana aquí y para L2 la app pide las ventanas con TrozosE5 y las puntúa con PuntuarL2Trozos. Un JSON mal formado, con
+// claves desconocidas o con valores fuera de rango es un error.
+func AbrirConTextoLargo(ruta string, lambdaL1, lambdaL2 float64, explicito bool, textoLargoJSON string) (*Chispa, error) {
+	var tl tok.TextoLargo
+	if strings.TrimSpace(textoLargoJSON) != "" {
+		if err := decodificarEstricto(textoLargoJSON, &tl); err != nil {
+			return nil, fmt.Errorf("texto_largo: %w", err)
+		}
+	}
+	if err := tl.Validar(); err != nil {
+		return nil, err
+	}
+	if !explicito {
+		lambdaL1, lambdaL2 = SoporteL1PorDefecto, SoporteApagado
+	}
+	c, err := abrir(ruta, lambdaL1, lambdaL2, explicito)
+	if err != nil {
+		return nil, err
+	}
+	c.largo = tl
+	return c, nil
+}
+
+// TextoLargoSuperados cuenta los textos que pasaron del truncado de L1 (Decidir) o de la consulta de L2 (TokenizarE5, TrozosE5).
+func (c *Chispa) TextoLargoSuperados() int64 { return c.largoN.Load() }
 
 func abrir(ruta string, lambdaL1, lambdaL2 float64, explicito bool) (*Chispa, error) {
 	// En el móvil se mapea: el .chispa vive en el almacenamiento privado de la app (nadie lo pisa con cp) y leerlo
@@ -580,34 +623,105 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 	if c.e == nil {
 		return fallo(errors.New("el fichero no trae la sección L1"))
 	}
-	msg := make([]float32, c.e.Dim())
-	if !c.e.Embed(texto, msg) {
+	msgs := c.ventanasMsg(texto)
+	if len(msgs) == 0 {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
 	}
 	ops := c.torres(p)
-	sims := make([]float64, len(ops))
-	for i, o := range ops {
-		for j := range msg {
-			sims[i] += float64(msg[j]) * float64(o[j])
-		}
-	}
-	if p.Kind == "noul" {
-		prm := c.params("noul")
-		var s float64
-		for i, o := range p.Opciones {
-			if o.ID == "true" {
-				s = sims[i]
+	sims := make([][]float64, len(msgs))
+	for w, msg := range msgs {
+		sims[w] = make([]float64, len(ops))
+		for i, o := range ops {
+			for j := range msg {
+				sims[w][i] += float64(msg[j]) * float64(o[j])
 			}
 		}
-		return salida(noul(prm.A*s+prm.B, prm.Theta))
 	}
-	if p.Kind == "score" {
-		return salida(puntuarNiveles(p, sims, c.tScore()))
+	agg := c.largo.Agg()
+	if p.Kind == "multi" { // cada opción, un sí/no sobre su similitud: se agregan las similitudes
+		return salida(c.multi(p, tok.AgregarSims(sims, agg)))
 	}
-	if p.Kind == "multi" {
-		return salida(c.multi(p, sims))
+	rs := make([]respuesta, len(sims))
+	theta := 0.5
+	for w, s := range sims {
+		switch p.Kind {
+		case "noul":
+			prm := c.params("noul")
+			theta = prm.Theta
+			var st float64
+			for i, o := range p.Opciones {
+				if o.ID == "true" {
+					st = s[i]
+				}
+			}
+			rs[w] = noul(prm.A*st+prm.B, prm.Theta)
+		case "score":
+			rs[w] = puntuarNiveles(p, s, c.tScore())
+		default:
+			rs[w] = softmax(p, s, c.params("choice").T)
+		}
 	}
-	return salida(softmax(p, sims, c.params("choice").T))
+	return salida(agregarVentanas(p, rs, agg, theta))
+}
+
+// agregarVentanas reúne las respuestas de las ventanas de un texto largo (tok.AgregarProbs, la misma que el servidor). Una sola, o
+// una sin opinión, se devuelve tal cual.
+func agregarVentanas(p pregunta, rs []respuesta, agg string, theta float64) respuesta {
+	if len(rs) == 1 || !rs[0].Opina || rs[0].Probs == nil {
+		return rs[0]
+	}
+	ps := make([]map[string]float64, len(rs))
+	for i, r := range rs {
+		ps[i] = r.Probs
+	}
+	probs, ans, conf, ok := tok.AgregarProbs(p.Kind, idsDe(p), ps, agg, theta)
+	if !ok {
+		return rs[0]
+	}
+	return respuesta{Ok: true, Opina: conf > 0, Answer: ans, Conf: conf, Probs: probs}
+}
+
+// ventanasMsg devuelve el embedding de cada ventana del mensaje en L1 (las sin tokens se omiten). Sin estrategia, o con un texto que
+// cabe, es la única de siempre (c.e.Embed del texto entero); como el servidor (server/decide/l1.go).
+func (c *Chispa) ventanasMsg(texto string) [][]float32 {
+	dim := c.e.Dim()
+	un := func(emb func(out []float32) bool) [][]float32 {
+		e := make([]float32, dim)
+		if !emb(e) {
+			return nil
+		}
+		return [][]float32{e}
+	}
+	entero := func() [][]float32 { return un(func(out []float32) bool { return c.e.Embed(texto, out) }) }
+	m, ok := c.e.(embebedorIDs)
+	if !ok {
+		return entero()
+	}
+	n := m.MaxTokens()
+	if c.largo.VentanaL1 > 0 {
+		n = min(n, c.largo.VentanaL1)
+	}
+	if !c.largo.Activa() {
+		ids, trunc := m.TokenizarTruncado(texto)
+		if trunc {
+			c.largoN.Add(1)
+		}
+		return un(func(out []float32) bool { return m.EmbedIDs(ids, out) })
+	}
+	todo := m.TokenizarSinTope(texto, c.largo.NecesitaTokens(n)*16)
+	if len(todo) <= n {
+		ids, trunc := m.TokenizarTruncado(texto)
+		if trunc {
+			c.largoN.Add(1)
+		}
+		return un(func(out []float32) bool { return m.EmbedIDs(ids, out) })
+	}
+	c.largoN.Add(1)
+	var out [][]float32
+	for _, w := range tok.Trocear(todo, n, c.largo) {
+		out = append(out, un(func(o []float32) bool { return m.EmbedIDs(w, o) })...)
+	}
+	return out
 }
 
 // tScore: la T de «score» si CALIB la trae; si no, la de choice (como server/decide/l1.go).
@@ -925,13 +1039,44 @@ func (c *Chispa) MaxLenPasaje() int {
 }
 
 // TokenizarE5 devuelve los ids de «query: »+texto con <s> y </s> (como runtime/tok), truncados a MaxLenConsulta (el metadato del
-// ONNX de L2, 128 por defecto), en int32 little endian, 4 bytes por id: gomobile no puede devolver []int32. Sin tokenizador
-// devuelve nil.
+// ONNX de L2, 128 por defecto), en int32 little endian, 4 bytes por id: gomobile no puede devolver []int32. Con la estrategia de
+// AbrirConTextoLargo es la primera ventana: la cabeza (cabeza y trozos) o la cabeza_cola. Sin tokenizador devuelve nil.
 func (c *Chispa) TokenizarE5(texto string) []byte {
+	v := c.ventanasE5(texto)
+	if v == nil {
+		return nil
+	}
+	return idsABytes(v[0])
+}
+
+// TrozosE5 devuelve las ventanas de la consulta que decide la estrategia (como mucho max_trozos; una sola si el texto cabe o la
+// estrategia no es «trozos»), cada una con sus <s> y </s> y a lo sumo MaxLenConsulta ids: int32 little endian, [n][len₁][ids₁…][len₂][ids₂…]…
+// La app corre ONNX en cada una y pasa las ranuras concatenadas a PuntuarL2Trozos. Sin tokenizador devuelve nil.
+func (c *Chispa) TrozosE5(texto string) []byte {
+	v := c.ventanasE5(texto)
+	if v == nil {
+		return nil
+	}
+	b := binary.LittleEndian.AppendUint32(nil, uint32(len(v)))
+	for _, w := range v {
+		b = binary.LittleEndian.AppendUint32(b, uint32(len(w)))
+		b = append(b, idsABytes(w)...)
+	}
+	return b
+}
+
+func (c *Chispa) ventanasE5(texto string) [][]int32 {
 	if c.tok == nil {
 		return nil
 	}
-	ids := c.tok.TokenizarMax(tok.Prefijo, texto, c.MaxLenConsulta())
+	v, largo := c.tok.Ventanas(tok.Prefijo, texto, c.MaxLenConsulta(), c.largo)
+	if largo {
+		c.largoN.Add(1)
+	}
+	return v
+}
+
+func idsABytes(ids []int32) []byte {
 	b := make([]byte, 4*len(ids))
 	for i, id := range ids {
 		binary.LittleEndian.PutUint32(b[4*i:], uint32(id))
@@ -1092,6 +1237,21 @@ func simsL2(ts []torreL2, S [][]float32) []float64 {
 // (K·d·4 bytes); se puntúan con MaxSim = max_k softplus(h·s_k) contra las torres de ESQUEMAS y las cabezas de CALIB,
 // igual que server/decide/l2.go. Sin torres (o sin cabeza calibrada) para la pregunta, no opina.
 func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
+	return c.puntuarL2(preguntaJSON, ranuras, []int{k})
+}
+
+// PuntuarL2Trozos es PuntuarL2 para un texto largo con varias ventanas (TrozosE5): ranuras son las de cada ventana una tras otra
+// y ksJSON el número de ranuras de cada una ([k₁,k₂,…]). Se puntúa cada ventana y se agregan las probabilidades según la
+// estrategia de AbrirConTextoLargo (max o media; en multi, las similitudes). Con una sola ventana es PuntuarL2.
+func (c *Chispa) PuntuarL2Trozos(preguntaJSON string, ranuras []byte, ksJSON string) string {
+	var ks []int
+	if err := json.Unmarshal([]byte(ksJSON), &ks); err != nil || len(ks) == 0 || len(ks) > tok.TopeMaxTrozos {
+		return fallo(fmt.Errorf("ks: hace falta una lista de 1 a %d números de ranuras", tok.TopeMaxTrozos))
+	}
+	return c.puntuarL2(preguntaJSON, ranuras, ks)
+}
+
+func (c *Chispa) puntuarL2(preguntaJSON string, ranuras []byte, ks []int) string {
 	p, err := leerPregunta(preguntaJSON)
 	if err != nil {
 		return fallo(err)
@@ -1106,25 +1266,60 @@ func (c *Chispa) PuntuarL2(preguntaJSON string, ranuras []byte, k int) string {
 	if err != nil {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
 	}
-	S, err := ranurasDe(ranuras, k, len(ts[0].v))
+	Ss, err := ventanasRanuras(ranuras, ks, len(ts[0].v))
 	if err != nil {
 		return fallo(err)
 	}
-	sims := simsL2(ts, S)
+	sims := make([][]float64, len(Ss))
+	for i, S := range Ss {
+		sims[i] = simsL2(ts, S)
+	}
+	agg := c.largo.Agg()
 	var r respuesta
-	switch p.Kind {
-	case "choice":
-		r = softmax(p, sims, c.paramsL2("choice").T)
-	case "noul":
-		prm := c.paramsL2("noul")
-		r = noul(prm.A*sims[0]+prm.B, prm.Theta)
-	case "multi":
-		r = c.multiL2(p, sims)
-	default:
-		r = c.score(p, sims[0])
+	if p.Kind == "multi" {
+		r = c.multiL2(p, tok.AgregarSims(sims, agg))
+	} else {
+		rs := make([]respuesta, len(sims))
+		theta := 0.5
+		for i, s := range sims {
+			switch p.Kind {
+			case "choice":
+				rs[i] = softmax(p, s, c.paramsL2("choice").T)
+			case "noul":
+				prm := c.paramsL2("noul")
+				theta = prm.Theta
+				rs[i] = noul(prm.A*s[0]+prm.B, prm.Theta)
+			default:
+				rs[i] = c.score(p, s[0])
+			}
+		}
+		r = agregarVentanas(p, rs, agg, theta)
 	}
 	r.EsquemaNuevo = r.Opina && c.esquemaNuevo(p)
 	return salida(r)
+}
+
+// ventanasRanuras parte las ranuras concatenadas de varias ventanas (ks[i] ranuras de d floats cada una).
+func ventanasRanuras(b []byte, ks []int, d int) ([][][]float32, error) {
+	var total int
+	for _, k := range ks {
+		if k <= 0 {
+			return nil, fmt.Errorf("L2: ventana con %d ranuras", k)
+		}
+		total += k
+	}
+	if len(b) != 4*total*d {
+		return nil, fmt.Errorf("L2: %d bytes de ranuras no son %d×%d float32", len(b), total, d)
+	}
+	out := make([][][]float32, len(ks))
+	for i, k := range ks {
+		S, err := ranurasDe(b[:4*k*d], k, d)
+		if err != nil {
+			return nil, err
+		}
+		out[i], b = S, b[4*k*d:]
+	}
+	return out, nil
 }
 
 // score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j».
@@ -1200,6 +1395,9 @@ type entradaConj struct {
 	L0      map[string]float64 `json:"l0"`      // probabilidades de L0 por id de opción
 	Ranuras []float32          `json:"ranuras"` // las K×d salidas S del ONNX, aplanadas por filas
 	K       int                `json:"k"`
+	// Ks, para un texto largo con trozos: las ranuras de cada ventana (TrozosE5), una tras otra, y cuántas tiene cada una; si
+	// viene, K se ignora. La cabeza decide cada ventana y se agregan las probabilidades (como server/decide/l2c.go).
+	Ks []int `json:"ks,omitempty"`
 }
 
 // CabezaConjunta es L2c: la cabeza lineal de la sección CONJ sobre las probabilidades de L0 y las similitudes de L2
@@ -1233,29 +1431,45 @@ func (c *Chispa) CabezaConjunta(simsJSON string) string {
 	if err != nil {
 		return sinOpinar
 	}
-	S, err := partirRanuras(in.Ranuras, in.K, len(ts[0].v))
+	ks := in.Ks
+	if len(ks) == 0 {
+		ks = []int{in.K}
+	}
+	if len(ks) > tok.TopeMaxTrozos {
+		return fallo(fmt.Errorf("ks: como mucho %d ventanas", tok.TopeMaxTrozos))
+	}
+	flat := make([]byte, 0, 4*len(in.Ranuras))
+	for _, v := range in.Ranuras {
+		flat = binary.LittleEndian.AppendUint32(flat, math.Float32bits(v))
+	}
+	Ss, err := ventanasRanuras(flat, ks, len(ts[0].v))
 	if err != nil {
 		return fallo(err)
 	}
-	if len(S[0]) != e.D {
+	if len(Ss[0][0]) != e.D {
 		return sinOpinar
 	}
-	sims := simsL2(ts, S)
-	var sp []float64 // nil ⇒ simproto de CONJ
-	if c.sopl != nil {
-		if sop, ok := c.sopl.Buscar(chispa3.ClaveConj(p.Texto, ids)); ok {
-			sp = chispa3.SimprotoMezclado(e, sop, c.lambdaL2, ids, S, func(i int) ([]byte, float32, bool) { return ts[i].v, ts[i].e, true })
+	rs := make([]respuesta, len(Ss))
+	for w, S := range Ss {
+		sims := simsL2(ts, S)
+		var sp []float64 // nil ⇒ simproto de CONJ
+		if c.sopl != nil {
+			if sop, ok := c.sopl.Buscar(chispa3.ClaveConj(p.Texto, ids)); ok {
+				sp = chispa3.SimprotoMezclado(e, sop, c.lambdaL2, ids, S, func(i int) ([]byte, float32, bool) { return ts[i].v, ts[i].e, true })
+			}
 		}
-	}
-	pr := e.ProbsCabezaSp(ids, S, sims, in.L0, sp)
-	r := respuesta{Ok: true, Probs: make(map[string]float64, len(pr))}
-	for i, id := range ids {
-		r.Probs[id] = pr[i]
-		if pr[i] > r.Conf {
-			r.Conf, r.Answer = pr[i], id
+		pr := e.ProbsCabezaSp(ids, S, sims, in.L0, sp)
+		r := respuesta{Ok: true, Probs: make(map[string]float64, len(pr))}
+		for i, id := range ids {
+			r.Probs[id] = pr[i]
+			if pr[i] > r.Conf {
+				r.Conf, r.Answer = pr[i], id
+			}
 		}
+		r.Opina = r.Conf > 0
+		rs[w] = r
 	}
-	r.Opina = r.Conf > 0
+	r := agregarVentanas(p, rs, c.largo.Agg(), 0.5)
 	r.EsquemaNuevo = r.Opina && c.esquemaNuevo(p)
 	return salida(r)
 }

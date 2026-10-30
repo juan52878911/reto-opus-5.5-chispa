@@ -65,6 +65,11 @@ type Metricas struct {
 	MultiCalibAusente   atomic.Uint64 // preguntas multi cuya CALIB trae claves con esquema y ninguna casa (cae a la aproximación de noul)
 	torreLatencia       histo         // duración de cada cálculo de torre
 
+	// Texto largo: peticiones cuyo texto superó el truncado de la capa (max_len de L2, max_tokens de L1) y ventanas decididas (1 por
+	// petición con «cabeza» o «cabeza_cola»; hasta max_trozos con «trozos»).
+	TextoLargoL1, TextoLargoL2 atomic.Uint64
+	TrozosL1, TrozosL2         atomic.Uint64
+
 	// Esquema nuevo: preguntas puntuadas por L2 con torres al vuelo.
 	EsquemaNuevoPreguntas atomic.Uint64
 	EsquemaNuevoDecididas atomic.Uint64 // las que L2 resolvió con su τ de esquema nuevo (el resto subió o escaló)
@@ -301,6 +306,12 @@ func (m *Metricas) Escribe(w io.Writer) {
 	fmt.Fprintln(w, "# HELP chispa_torre_latencia_segundos Latencia de cada cálculo de torre al vuelo.")
 	fmt.Fprintln(w, "# TYPE chispa_torre_latencia_segundos histogram")
 	m.torreLatencia.escribe(w, "chispa_torre_latencia_segundos")
+	fmt.Fprintln(w, "# HELP chispa_texto_largo_total Peticiones cuyo texto superó el truncado de la capa (max_len de L2, max_tokens de L1).")
+	fmt.Fprintln(w, "# TYPE chispa_texto_largo_total counter")
+	fmt.Fprintf(w, "chispa_texto_largo_total{capa=\"L1\"} %d\nchispa_texto_largo_total{capa=\"L2\"} %d\n", m.TextoLargoL1.Load(), m.TextoLargoL2.Load())
+	fmt.Fprintln(w, "# HELP chispa_texto_largo_trozos_total Ventanas decididas en textos largos (cabeza y cabeza_cola, 1 por petición; trozos, hasta max_trozos).")
+	fmt.Fprintln(w, "# TYPE chispa_texto_largo_trozos_total counter")
+	fmt.Fprintf(w, "chispa_texto_largo_trozos_total{capa=\"L1\"} %d\nchispa_texto_largo_trozos_total{capa=\"L2\"} %d\n", m.TrozosL1.Load(), m.TrozosL2.Load())
 	fmt.Fprintln(w, "# HELP chispa_esquema_nuevo_preguntas_total Preguntas que L2 puntuó con torres al vuelo (esquema ausente de ESQUEMAS).")
 	fmt.Fprintln(w, "# TYPE chispa_esquema_nuevo_preguntas_total counter")
 	fmt.Fprintf(w, "chispa_esquema_nuevo_preguntas_total %d\n", m.EsquemaNuevoPreguntas.Load())
@@ -362,4 +373,19 @@ func (m *Metricas) escribeCachesBytes(w io.Writer) {
 			fmt.Fprintf(w, "chispa_cache_bytes{cache=%q} %d\n", n, v)
 		}
 	}
+}
+
+// ObservaTextoLargo cuenta un texto que superó el truncado de la capa («L1» o «L2») y las ventanas que costó decidirlo.
+// Seguro con m nil.
+func (m *Metricas) ObservaTextoLargo(capa string, ventanas int) {
+	if m == nil {
+		return
+	}
+	if capa == "L1" {
+		m.TextoLargoL1.Add(1)
+		m.TrozosL1.Add(uint64(ventanas))
+		return
+	}
+	m.TextoLargoL2.Add(1)
+	m.TrozosL2.Add(uint64(ventanas))
 }

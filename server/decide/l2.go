@@ -43,7 +43,8 @@ type L2 struct {
 	vuelo   map[string]*llamadaTorre
 	// Hits y Misses cuentan las peticiones de esquema nuevo con todas sus torres en caché / con alguna por calcular.
 	Hits, Misses atomic.Uint64
-	met          *Metricas // nil = sin contadores en /metrics
+	met          *Metricas  // nil = sin contadores en /metrics
+	largo        TextoLargo // estrategia para consultas que pasan de max_len; cero = cabeza
 
 	// Presupuesto global de torres por segundo (ConTorresPorSegundo); tasa 0 = sin tope.
 	cuboMu               sync.Mutex
@@ -294,9 +295,32 @@ func (l *L2) Similitudes(ctx context.Context, p Pregunta) ([][]float32, []float6
 	return S, sims, ok, err
 }
 
-// similitudesTorres es Similitudes devolviendo además las torres con las que puntuó cada opción (choice) o la única
-// (noul y score), para que L2c mezcle con esas mismas.
+// ventana son las ranuras de una ventana del texto y su MaxSim contra cada torre.
+type ventana struct {
+	S    [][]float32
+	sims []float64
+}
+
+// ConTextoLargo fija la estrategia para consultas que pasan de max_len (cabeza_cola, trozos con agregación max o media).
+// Con cabeza (el valor cero) L2 queda como estaba. Debe llamarse antes de usar L2.
+func (l *L2) ConTextoLargo(tl TextoLargo) *L2 {
+	l.largo = tl
+	return l
+}
+
+// similitudesTorres es la ventana 0 de similitudesVentanas: con cabeza (o un texto que cabe) es la única, y con otra estrategia
+// es la cabeza del texto; así quien no agrega ventanas (Similitudes, L2c sin trozos) sigue viendo lo de siempre.
 func (l *L2) similitudesTorres(ctx context.Context, p Pregunta) ([][]float32, []float64, []torreDin, bool, error) {
+	vs, ts, ok, err := l.similitudesVentanas(ctx, p)
+	if err != nil || !ok {
+		return nil, nil, nil, ok, err
+	}
+	return vs[0].S, vs[0].sims, ts, true, nil
+}
+
+// similitudesTorres es Similitudes devolviendo además las torres con las que puntuó cada opción (choice) o la única
+// (noul y score), para que L2c mezcle con esas mismas. Devuelve una ventana por trozo del texto (ver ConTextoLargo).
+func (l *L2) similitudesVentanas(ctx context.Context, p Pregunta) ([]ventana, []torreDin, bool, error) {
 	// Puntuar antes de llamar al ONNX: sin torres para este esquema no hay nada que hacer.
 	type vt = torreDin
 	var ts []vt
@@ -319,56 +343,84 @@ func (l *L2) similitudesTorres(ctx context.Context, p Pregunta) ([][]float32, []
 }
 
 // similitudesNuevas: esquema ausente de ESQUEMAS. Sin CodificadorTorre, sin opinión; con él, torres al vuelo.
-func (l *L2) similitudesNuevas(ctx context.Context, p Pregunta) ([][]float32, []float64, []torreDin, bool, error) {
+func (l *L2) similitudesNuevas(ctx context.Context, p Pregunta) ([]ventana, []torreDin, bool, error) {
 	if l.torres == nil {
-		return nil, nil, nil, false, nil
+		return nil, nil, false, nil
 	}
 	ts, ok, err := l.torresNuevas(ctx, p)
 	if err != nil || !ok {
-		return nil, nil, nil, false, err
+		return nil, nil, false, err
 	}
 	return l.simsConTorres(ctx, p, ts)
 }
 
-func (l *L2) simsConTorres(ctx context.Context, p Pregunta, ts []torreDin) ([][]float32, []float64, []torreDin, bool, error) {
-	S, sims, ok, err := l.simsDeCtx(ctx, p, ts)
+func (l *L2) simsConTorres(ctx context.Context, p Pregunta, ts []torreDin) ([]ventana, []torreDin, bool, error) {
+	vs, ok, err := l.ventanasDeCtx(ctx, p, ts)
 	if err != nil || !ok {
-		return nil, nil, nil, ok, err
+		return nil, nil, ok, err
 	}
-	return S, sims, ts, true, nil
+	return vs, ts, true, nil
 }
 
 func (l *L2) simsDe(p Pregunta, ts []torreDin) ([][]float32, []float64, bool, error) {
 	return l.simsDeCtx(context.Background(), p, ts)
 }
 
+// simsDeCtx es la ventana 0 de ventanasDeCtx.
 func (l *L2) simsDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([][]float32, []float64, bool, error) {
+	vs, ok, err := l.ventanasDeCtx(ctx, p, ts)
+	if err != nil || !ok {
+		return nil, nil, ok, err
+	}
+	return vs[0].S, vs[0].sims, true, nil
+}
+
+// idsConsulta son los ids de cada ventana del mensaje. Un tokenizador que sabe trocear da las de la estrategia (y cuenta en
+// /metrics los textos que pasan de max_len); si no, la única de siempre.
+func (l *L2) idsConsulta(estado string) [][]int64 {
+	tt, ok := l.tok.(TokenizadorTrozos)
+	if !ok {
+		return [][]int64{l.tok.IDs(estado)}
+	}
+	ws, largo := tt.Trozos(estado, l.largo)
+	if largo {
+		l.met.ObservaTextoLargo("L2", len(ws))
+	}
+	return ws
+}
+
+// ventanasDeCtx corre el ONNX en cada ventana del mensaje (como mucho max_trozos) y puntúa cada una contra las torres.
+func (l *L2) ventanasDeCtx(ctx context.Context, p Pregunta, ts []torreDin) ([]ventana, bool, error) {
 	if l.tok == nil {
-		return nil, nil, false, fmt.Errorf("L2: falta el tokenizador")
+		return nil, false, fmt.Errorf("L2: falta el tokenizador")
 	}
-	var S [][]float32
-	var err error
-	if sc, ok := l.ses.(SesionSCtx); ok {
-		S, err = sc.RanurasCtx(ctx, l.tok.IDs(p.Estado))
-	} else {
-		S, err = l.ses.Ranuras(l.tok.IDs(p.Estado))
-	}
-	if err != nil {
-		return nil, nil, false, err
-	}
-	if len(S) == 0 {
-		return nil, nil, false, fmt.Errorf("L2: el codificador no devolvió ranuras")
-	}
-	for _, t := range ts {
-		if len(S[0]) != len(t.v) {
-			return nil, nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(t.v))
+	var vs []ventana
+	for _, ids := range l.idsConsulta(p.Estado) {
+		var S [][]float32
+		var err error
+		if sc, ok := l.ses.(SesionSCtx); ok {
+			S, err = sc.RanurasCtx(ctx, ids)
+		} else {
+			S, err = l.ses.Ranuras(ids)
 		}
+		if err != nil {
+			return nil, false, err
+		}
+		if len(S) == 0 {
+			return nil, false, fmt.Errorf("L2: el codificador no devolvió ranuras")
+		}
+		for _, t := range ts {
+			if len(S[0]) != len(t.v) {
+				return nil, false, fmt.Errorf("L2: ranuras de dimensión %d y torres de %d", len(S[0]), len(t.v))
+			}
+		}
+		sims := make([]float64, len(ts))
+		for i, t := range ts {
+			sims[i] = maxsim(S, t.v, t.e)
+		}
+		vs = append(vs, ventana{S, sims})
 	}
-	sims := make([]float64, len(ts))
-	for i, t := range ts {
-		sims[i] = maxsim(S, t.v, t.e)
-	}
-	return S, sims, true, nil
+	return vs, true, nil
 }
 
 // esquemaNuevo dice si ESQUEMAS no trae las torres de la pregunta (las mismas que busca Similitudes).
@@ -440,23 +492,40 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 			return Respuesta{}, nil
 		}
 	}
-	_, sims, ok, err := l.Similitudes(ctx, p)
+	vs, _, ok, err := l.similitudesVentanas(ctx, p)
 	if errors.Is(err, errSinPresupuestoTorres) {
 		return Respuesta{Incompleto: true}, nil
 	}
 	if err != nil || !ok {
 		return Respuesta{}, err
 	}
-	switch p.Kind {
-	case KindChoice:
-		return respuestaSoftmax(p, sims, paramsDe(l.calib, "choice").T), nil
-	case KindNoul:
-		prm := paramsDe(l.calib, "noul")
-		return respuestaNoul(prm.A*sims[0]+prm.B, prm.Theta), nil
-	case KindMulti:
-		return respuestaMultiCapa(p, sims, l.calib, l.multi.porEsquema, claveMultiL2, esqMulti), nil
+	agg := l.largo.Agg()
+	if p.Kind == KindMulti { // se agregan las similitudes: cada opción es un sí/no sobre la suya
+		todas := make([][]float64, len(vs))
+		for i, v := range vs {
+			todas[i] = v.sims
+		}
+		return respuestaMultiCapa(p, agregarSims(todas, agg), l.calib, l.multi.porEsquema, claveMultiL2, esqMulti), nil
 	}
-	return l.score(p, sims[0])
+	rs := make([]Respuesta, len(vs))
+	theta := 0.5
+	for i, v := range vs {
+		switch p.Kind {
+		case KindChoice:
+			rs[i] = respuestaSoftmax(p, v.sims, paramsDe(l.calib, "choice").T)
+		case KindNoul:
+			prm := paramsDe(l.calib, "noul")
+			theta = prm.Theta
+			rs[i] = respuestaNoul(prm.A*v.sims[0]+prm.B, prm.Theta)
+		default:
+			r, err := l.score(p, v.sims[0])
+			if err != nil {
+				return Respuesta{}, err
+			}
+			rs[i] = r
+		}
+	}
+	return agregarRespuestas(p, rs, agg, theta), nil
 }
 
 // score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j» (j = 1..K−2, como a_calib_chispa).

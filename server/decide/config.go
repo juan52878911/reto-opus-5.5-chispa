@@ -50,6 +50,9 @@ type Config struct {
 	// Apagado junto con un τ es error.
 	TauL2EsquemaNuevo        *float64 `json:"tau_l2_esquema_nuevo,omitempty"`
 	TauL2EsquemaNuevoApagado bool     `json:"tau_l2_esquema_nuevo_apagado,omitempty"`
+	// Textos más largos que el truncado de L1 (max_tokens) y L2 (max_len): cabeza (defecto, el comportamiento de siempre),
+	// cabeza_cola o trozos con agregación max/media de las probabilidades; ver TextoLargo. Ausente = cabeza.
+	TextoLargo *TextoLargo `json:"texto_largo,omitempty"`
 	// L3 (opcional): escalado a un LLM compatible con OpenAI; ver ConfigL3. Ausente = apagada. Exige una capa "L3" en capas.
 	L3 *ConfigL3 `json:"l3,omitempty"`
 }
@@ -161,6 +164,11 @@ func (c Config) Validar() error {
 	if h := c.AdminTokenSHA256; h != "" {
 		if b, err := hex.DecodeString(h); err != nil || len(b) != sha256.Size {
 			return fmt.Errorf("config: admin_token_sha256 debe ser un SHA-256 en hex de 64 caracteres (use chispa-server -hash-clave)")
+		}
+	}
+	if c.TextoLargo != nil {
+		if err := c.TextoLargo.Validar(); err != nil {
+			return err
 		}
 	}
 	if c.L3 != nil {
