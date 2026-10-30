@@ -48,6 +48,10 @@
   {
    "entrada": "¿QUÉ PASA CON MI PEDIDO? Gracias",
    "salida": "¿qué pasa con mi pedido? gracias"
+  },
+  {
+   "entrada": "LA CITA Nº 2ª vez",
+   "salida": "LA CITA Nº 2ª vez"
   }
  ]
 }
