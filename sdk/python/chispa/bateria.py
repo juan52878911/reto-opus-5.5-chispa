@@ -591,18 +591,39 @@ def _umbral(u: dict, conjunto: Optional[str], metrica: str):
 
 def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) -> dict:
     """{"ok", "fallos", "avisos"}. Falla si una métrica de la línea base empeora más que su umbral (o desaparece), o falta un conjunto.
-    Un umbral `null` desactiva esa métrica. `parcial` (--solo u opcionales omitidos): solo se comparan los conjuntos medidos."""
+    Un umbral `null` desactiva esa métrica. `parcial` (--solo): solo se comparan los conjuntos medidos."""
     fallos, avisos = [], []
-    if base.get("parcial") and not parcial:
+    base_omit = bool(base.get("parcial")) and bool(base.get("omitidos")) and not parcial
+    if base.get("parcial") and not parcial and not base_omit:
         fallos.append({"seccion": "global", "nombre": "global", "metrica": None,
-                       "detalle": "la línea base es parcial (se midió con --solo u opcionales omitidos): no vale para la puerta completa; regenérala con una corrida completa"})
+                       "detalle": "la línea base es parcial (se midió con --solo): no vale para la puerta completa; regenérala con una corrida completa"})
+    ausentes = set(actual.get("opcionales_ausentes") or actual.get("omitidos") or [])
+    medidos, en_base = set(actual.get("conjuntos") or {}), set(base.get("conjuntos") or {})
     modo_distinto = bool(actual.get("agrupado")) != bool(base.get("agrupado"))
     if modo_distinto:
         avisos.append(f"modo de envío distinto (actual {'agrupado' if actual.get('agrupado') else 'sin agrupar'}, línea base "
                       f"{'agrupado' if base.get('agrupado') else 'sin agrupar'}): no se comparan p50_ms ni p99_ms")
-    secs = ("conjuntos",) if parcial else SECCIONES
+    if base_omit:
+        if medidos != en_base:
+            fallos.append({"seccion": "global", "nombre": "global", "metrica": None,
+                           "detalle": "la línea base es parcial (opcionales omitidos) y sus conjuntos no coinciden con los medidos; regenérala"})
+        else:
+            avisos.append("línea base antigua marcada parcial por opcionales omitidos: se usa porque sus conjuntos coinciden con los medidos")
+    tolerados = set()
+    if not parcial:
+        tolerados = {n for n in en_base - medidos if n in ausentes}
+        for n in sorted(tolerados):
+            avisos.append(f"conjunto {n!r} está en la línea base y falta en esta corrida (opcional ausente): no se compara")
+        for n in sorted(medidos - en_base):
+            avisos.append(f"conjunto {n!r}: nuevo, sin base")
     if parcial:
+        secs = ("conjuntos",)
         avisos.append("comparación parcial: solo los conjuntos medidos (global, tipos y grupos no se comparan)")
+    elif medidos == en_base:
+        secs = SECCIONES
+    else:
+        secs = ("conjuntos",)
+        avisos.append("los conjuntos medidos no coinciden con los de la línea base: se compara solo por conjunto (global, tipos y grupos no se comparan)")
     for sec in secs:
         a, b = actual.get(sec), base.get(sec)
         if b is None:
@@ -611,7 +632,7 @@ def comparar(actual: dict, base: dict, umbrales: dict, parcial: bool = False) ->
             a, b = {"global": a}, {"global": b}
         for nombre, mb in (b or {}).items():
             ma = (a or {}).get(nombre)
-            if parcial and ma is None:
+            if ma is None and (parcial or (sec == "conjuntos" and nombre in tolerados)):
                 continue
             if ma is None:
                 fallos.append({"seccion": sec, "nombre": nombre, "metrica": None, "detalle": f"{sec[:-1] if sec != 'global' else sec} {nombre!r} está en la línea base y no se midió"})
@@ -724,7 +745,9 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     rep = {"version": VERSION, "fecha": time.strftime("%Y-%m-%dT%H:%M:%S"), "manifiesto": man.get("nombre", os.path.basename(manifiesto)),
            "fuente": modelo or url, "objetivo": objetivo, "conjuntos": {}, "tipos": {}, "grupos": {}, "omitidos": omitidos,
            "calib_servidor": calib, "agrupado": bool(agrupar)}
-    if solo or omitidos:
+    if omitidos:
+        rep["opcionales_ausentes"] = sorted(omitidos)
+    if solo:
         rep["parcial"] = True
     todas = [r for _, _, _, rs, _ in por_conjunto for r in rs]
     for nombre, grupo, fs, rs, c in por_conjunto:
@@ -738,7 +761,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     rep["global"] = con_robustez(agregar(todas, objetivo), pares)
     if base is not None:
         _heredar_estabilidad_min(rep, base)
-        rep["comparacion"] = comparar(rep, base, um, parcial=bool(solo) or bool(omitidos))
+        rep["comparacion"] = comparar(rep, base, um, parcial=bool(solo))
         rep["comparacion"]["linea_base"] = linea_base
     rep["ok"] = rep.get("comparacion", {"ok": True})["ok"]
     if filas:
@@ -766,7 +789,7 @@ def _heredar_estabilidad_min(rep: dict, base: Optional[dict]) -> None:
 
 def linea_base(rep: dict) -> dict:
     """Lo que se guarda como línea base: el reporte sin filas, informe ni comparación (cualquier `.json` de --salida sirve igual). Un reporte
-    parcial (--solo u opcionales omitidos) no se guarda: dejaría pasar regresiones en lo que no midió."""
+    parcial (--solo) no se guarda: dejaría pasar regresiones en lo que no midió."""
     if rep.get("parcial"):
         raise ErrorBateria("no guardo la línea base: la corrida es parcial (--solo u opcionales omitidos); hazla completa")
     return {k: v for k, v in rep.items() if k not in ("filas", "informe", "comparacion", "ok", "calib_servidor")}
