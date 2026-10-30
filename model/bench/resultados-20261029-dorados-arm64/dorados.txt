@@ -1,0 +1,14 @@
+go: downloading github.com/juan52878911/kindling v0.17.0
+=== RUN   TestDoradosConcurrencia
+=== RUN   TestDoradosConcurrencia/frio
+=== RUN   TestDoradosConcurrencia/caliente
+=== RUN   TestDoradosConcurrencia/cache-minima
+--- PASS: TestDoradosConcurrencia (1.15s)
+    --- PASS: TestDoradosConcurrencia/frio (0.17s)
+    --- PASS: TestDoradosConcurrencia/caliente (0.49s)
+    --- PASS: TestDoradosConcurrencia/cache-minima (0.49s)
+=== RUN   TestDorados
+    dorados_test.go:492: 165 peticiones; opinan map[l0l1/L0/choice:6 l0l1/L1/choice:12 l0l1/L1/multi:6 l0l1/L1/noul:6 l0l1/L1/score:6 l0tf/L0/choice:24 l2/L2/choice:6 l2/L2/multi:6 l2/L2/noul:6 l2/L2/score:6]; cascada map[L0:6 L1:29 L2:25 L3:7 escalar:3]; tolerancia 1e-09
+--- PASS: TestDorados (0.01s)
+PASS
+ok  	github.com/juan52878911/chispa/server/decide	1.159s

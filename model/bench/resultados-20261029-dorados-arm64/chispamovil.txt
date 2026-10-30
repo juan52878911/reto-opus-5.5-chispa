@@ -1,0 +1,161 @@
+=== RUN   TestCalibRealG8CoralAManoIgualQueMovil
+--- PASS: TestCalibRealG8CoralAManoIgualQueMovil (0.00s)
+=== RUN   TestDecidirChoice
+--- PASS: TestDecidirChoice (0.00s)
+=== RUN   TestDecidirTemperaturaDeCalib
+--- PASS: TestDecidirTemperaturaDeCalib (0.00s)
+=== RUN   TestDecidirSinOpinionYErrores
+--- PASS: TestDecidirSinOpinionYErrores (0.00s)
+=== RUN   TestDecidirNoul
+--- PASS: TestDecidirNoul (0.00s)
+=== RUN   TestPuntuarL2Choice
+--- PASS: TestPuntuarL2Choice (0.00s)
+=== RUN   TestPuntuarL2SinTorresYForma
+--- PASS: TestPuntuarL2SinTorresYForma (0.00s)
+=== RUN   TestPuntuarL2NoulYScore
+--- PASS: TestPuntuarL2NoulYScore (0.00s)
+=== RUN   TestScoreCoral
+--- PASS: TestScoreCoral (0.00s)
+=== RUN   TestAbrirSoloCalibYL2
+--- PASS: TestAbrirSoloCalibYL2 (0.00s)
+=== RUN   TestAbrirErrores
+--- PASS: TestAbrirErrores (0.00s)
+=== RUN   TestAbrirL0
+--- PASS: TestAbrirL0 (0.00s)
+=== RUN   TestDecidirScoreNiveles
+--- PASS: TestDecidirScoreNiveles (0.00s)
+=== RUN   TestESQUEMASV2ClaveConDescripcion
+--- PASS: TestESQUEMASV2ClaveConDescripcion (0.00s)
+=== RUN   TestAvisoSiEsquemasYConjDifierenDeVersion
+--- PASS: TestAvisoSiEsquemasYConjDifierenDeVersion (0.00s)
+=== RUN   TestScoreCoralFixtureExportadorParidadServidor
+--- PASS: TestScoreCoralFixtureExportadorParidadServidor (0.00s)
+=== RUN   TestScoreL2MedianaCORALNoMonotonaParidad
+--- PASS: TestScoreL2MedianaCORALNoMonotonaParidad (0.00s)
+=== RUN   TestInstalarTorresL2ReinstalarNoDesaloja
+--- PASS: TestInstalarTorresL2ReinstalarNoDesaloja (0.00s)
+=== RUN   TestInstalarTorresL2ProtegeRecienInstaladas
+--- PASS: TestInstalarTorresL2ProtegeRecienInstaladas (0.00s)
+=== RUN   TestDorados
+    dorados_test.go:214: 95 peticiones; opinan map[l0l1/L0/choice:6 l0l1/L1/choice:12 l0l1/L1/multi:6 l0l1/L1/noul:6 l0l1/L1/score:6 l0tf/L0/choice:24 l2/L2/choice:6 l2/L2/multi:6 l2/L2/noul:6 l2/L2/score:6]; |Δ| máxima frente al servidor amd64 1.11e-16 (tolerancia 1e-09)
+--- PASS: TestDorados (0.01s)
+=== RUN   TestDoradosConcurrencia
+--- PASS: TestDoradosConcurrencia (0.30s)
+=== RUN   TestMismaHuellaQueDemoWasm
+    huella_test.go:64: sin L1 recortado: CHISPA_L1_RECORTADO=… o demo/wasm/potion-es.chispa-l1 (ver demo/wasm/README.md)
+--- SKIP: TestMismaHuellaQueDemoWasm (0.00s)
+=== RUN   TestLambdaCalibTresCasos
+--- PASS: TestLambdaCalibTresCasos (0.00s)
+=== RUN   TestMaxLenDeMetadatos
+    maxlen_test.go:59: sin .chispa-tok: stat /root/.cache/chispa/e5.chispa-tok: no such file or directory
+--- SKIP: TestMaxLenDeMetadatos (0.00s)
+=== RUN   TestMaxLenSobreElTopeFallaAlAbrir
+--- PASS: TestMaxLenSobreElTopeFallaAlAbrir (0.00s)
+=== RUN   TestMultiL1ParidadConServidor
+--- PASS: TestMultiL1ParidadConServidor (0.00s)
+=== RUN   TestMultiL2ParidadConServidor
+--- PASS: TestMultiL2ParidadConServidor (0.00s)
+=== RUN   TestMultiL2PrecedenciaParidadConServidor
+2026/10/30 01:38:06 AVISO: el .chispa no trae CALIB multi_l2 para este esquema de multi: L2 no opina en multi y escala (reentrena con `chispa train` y ejemplos multi, y L2)
+--- PASS: TestMultiL2PrecedenciaParidadConServidor (0.00s)
+=== RUN   TestMultiContratoJSON
+--- PASS: TestMultiContratoJSON (0.00s)
+=== RUN   TestMultiCalibPorEsquemaMovil
+--- PASS: TestMultiCalibPorEsquemaMovil (0.00s)
+=== RUN   TestScoreParidadConServidor
+--- PASS: TestScoreParidadConServidor (0.00s)
+=== RUN   TestDecidirL0TFParidadConServidor
+    paridad_test.go:113: modelo.l0tf: 270 frases, |Δp| frente al servidor 0, frente a sklearn 3.96e-08
+    paridad_test.go:113: modelo_f16.l0tf: 270 frases, |Δp| frente al servidor 0, frente a sklearn 0.000229
+--- PASS: TestDecidirL0TFParidadConServidor (0.03s)
+=== RUN   TestDecidirL0TFOtroEsquemaNoOpina
+--- PASS: TestDecidirL0TFOtroEsquemaNoOpina (0.00s)
+=== RUN   TestCabezaConjuntaParidadConServidor
+    paridad_test.go:248: caso 0: |Δp| servidor 0
+--- PASS: TestCabezaConjuntaParidadConServidor (0.00s)
+=== RUN   TestCabezaConjuntaSinOpinar
+--- PASS: TestCabezaConjuntaSinOpinar (0.00s)
+=== RUN   TestTokenizarE5ParidadConRuntimeTok
+    paridad_test.go:310: sin .chispa-tok (runtime/tok/exportar.py; CHISPA_TOK): stat /root/.cache/chispa/e5.chispa-tok: no such file or directory
+--- SKIP: TestTokenizarE5ParidadConRuntimeTok (0.00s)
+=== RUN   TestTokenizarE5RutaMala
+--- PASS: TestTokenizarE5RutaMala (0.00s)
+=== RUN   TestR11MultiSinMultiL2NoPideTorres
+--- PASS: TestR11MultiSinMultiL2NoPideTorres (0.00s)
+=== RUN   TestR11CalibMultiAusenteAvisa
+--- PASS: TestR11CalibMultiAusenteAvisa (0.00s)
+=== RUN   TestR11CodigosYOrdenComoServidor
+--- PASS: TestR11CodigosYOrdenComoServidor (0.00s)
+=== RUN   TestR12MultiL2SinCalibDelEsquemaCuentaAusente
+--- PASS: TestR12MultiL2SinCalibDelEsquemaCuentaAusente (0.00s)
+=== RUN   TestR13MultiCalibAusenteUnaVezPorPeticion
+--- PASS: TestR13MultiCalibAusenteUnaVezPorPeticion (0.00s)
+=== RUN   TestR1LeerPreguntaValida
+--- PASS: TestR1LeerPreguntaValida (0.00s)
+=== RUN   TestR1PrefijoTORR
+--- PASS: TestR1PrefijoTORR (0.00s)
+=== RUN   TestR1ExtraerL2Atomico
+--- PASS: TestR1ExtraerL2Atomico (0.00s)
+=== RUN   TestR1HashSeccionYTauL2c
+--- PASS: TestR1HashSeccionYTauL2c (0.00s)
+=== RUN   TestR1DynLRU
+--- PASS: TestR1DynLRU (0.00s)
+=== RUN   TestL2MarcaEsquemaNuevoSoloPorESQUEMAS
+--- PASS: TestL2MarcaEsquemaNuevoSoloPorESQUEMAS (0.00s)
+=== RUN   TestMultiL2UsaCabezasPropias
+--- PASS: TestMultiL2UsaCabezasPropias (0.00s)
+=== RUN   TestRechazaSeparadoresDeClave
+--- PASS: TestRechazaSeparadoresDeClave (0.00s)
+=== RUN   TestSinTORREsquemaNuevoNoInstalaTorresNiOpina
+--- PASS: TestSinTORREsquemaNuevoNoInstalaTorresNiOpina (0.00s)
+=== RUN   TestSoporteL1ApagadoNoCambiaNada
+--- PASS: TestSoporteL1ApagadoNoCambiaNada (0.00s)
+=== RUN   TestSoporteL1MueveHaciaLosEjemplos
+--- PASS: TestSoporteL1MueveHaciaLosEjemplos (0.00s)
+=== RUN   TestAbrirConSoporteLeeSOPL1
+--- PASS: TestAbrirConSoporteLeeSOPL1 (0.00s)
+=== RUN   TestCabezaConjuntaConSoporteParidadConServidor
+--- PASS: TestCabezaConjuntaConSoporteParidadConServidor (0.00s)
+=== RUN   TestSOPL1InvalidaApagadaAbreSinAviso_YActivaAvisa
+--- PASS: TestSOPL1InvalidaApagadaAbreSinAviso_YActivaAvisa (0.00s)
+=== RUN   TestCabezaConjuntaUsaNL2ParidadConServidor
+--- PASS: TestCabezaConjuntaUsaNL2ParidadConServidor (0.00s)
+=== RUN   TestT1TauL2EsquemaNuevo
+--- PASS: TestT1TauL2EsquemaNuevo (0.00s)
+=== RUN   TestTextoLargoMovilNoRegresion
+--- PASS: TestTextoLargoMovilNoRegresion (0.01s)
+=== RUN   TestAbrirConTextoLargoRechazaMalos
+--- PASS: TestAbrirConTextoLargoRechazaMalos (0.00s)
+=== RUN   TestTextoLargoL1ParidadConServidor
+--- PASS: TestTextoLargoL1ParidadConServidor (0.00s)
+=== RUN   TestTextoLargoL2ParidadConServidor
+    texto_largo_test.go:196: sin .chispa-tok: stat /root/.cache/chispa/e5.chispa-tok: no such file or directory
+--- SKIP: TestTextoLargoL2ParidadConServidor (0.00s)
+=== RUN   TestTextoLargoCabezaConjuntaVentanas
+--- PASS: TestTextoLargoCabezaConjuntaVentanas (0.00s)
+=== RUN   TestAbrirConTextoLargoNoExplicitoEsAbrir
+--- PASS: TestAbrirConTextoLargoNoExplicitoEsAbrir (0.00s)
+=== RUN   TestTextosTorreL2ParidadPython
+--- PASS: TestTextosTorreL2ParidadPython (0.00s)
+=== RUN   TestTiposL2ParidadYCompatibilidad
+--- PASS: TestTiposL2ParidadYCompatibilidad (0.00s)
+=== RUN   TestTauEscalateL2YL1ConservaSusTipos
+--- PASS: TestTauEscalateL2YL1ConservaSusTipos (0.00s)
+=== RUN   TestMultiTiposL2
+--- PASS: TestMultiTiposL2 (0.00s)
+=== RUN   TestTextosYDecisionIgualesAlServidor
+--- PASS: TestTextosYDecisionIgualesAlServidor (0.00s)
+=== RUN   TestEsquemaNuevoOtroOrdenSigueEnCache
+--- PASS: TestEsquemaNuevoOtroOrdenSigueEnCache (0.00s)
+=== RUN   TestInstalarTorresL2Rechaza
+--- PASS: TestInstalarTorresL2Rechaza (0.00s)
+=== RUN   TestTorreMetadatosEIds
+--- PASS: TestTorreMetadatosEIds (0.00s)
+=== RUN   TestAbrirConTORR
+--- PASS: TestAbrirConTORR (0.00s)
+=== RUN   TestValidarParidadServidor
+--- PASS: TestValidarParidadServidor (0.00s)
+=== RUN   TestEstadoLargoParidadServidor
+--- PASS: TestEstadoLargoParidadServidor (0.00s)
+PASS
+ok  	chispa/sdk/movil/chispamovil	0.386s
