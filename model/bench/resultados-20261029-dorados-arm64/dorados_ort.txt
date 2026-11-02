@@ -1,0 +1,6 @@
+go: downloading github.com/yalue/onnxruntime_go v1.38.0
+=== RUN   TestDoradosORT
+    dorados_ort_test.go:121: 8 peticiones con ORT real, |Δ| máxima 1.94e-07 (tolerancia 1e-06), opinan 8
+--- PASS: TestDoradosORT (0.08s)
+PASS
+ok  	github.com/juan52878911/chispa/server/decide	0.092s

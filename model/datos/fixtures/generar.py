@@ -114,5 +114,29 @@ def xnli():
                 [{"premise": p, "hypothesis": h, "label": l} for p, h, l in filas[:n]])
 
 
+def sib200():
+    d = tarjeta("sib200", "cc-by-sa-4.0")
+    textos = {"train": [("travel", "El tren llega a la ciudad antigua."), ("sports", "El equipo ganó el partido."),
+                        ("health", "El médico recomienda dormir ocho horas.")],
+              "dev": [("politics", "El congreso votó la ley.")], "test": [("geography", "El río cruza el valle."), ("sports", "Ganó la carrera.")]}
+    for split, rs in textos.items():
+        (d / "data" / "spa_Latn").mkdir(parents=True, exist_ok=True)
+        with open(d / "data" / "spa_Latn" / f"{split}.tsv", "w", encoding="utf-8") as fh:
+            fh.write("index_id\tcategory\ttext\n")
+            for i, (c, t) in enumerate(rs):
+                fh.write(f"{i}\t{c}\t{t}\n")
+
+
+def pawsx():
+    d = tarjeta("pawsx", "other")
+    with open(d / "README.md", "a", encoding="utf-8") as fh:
+        fh.write("\n### Licensing Information\n\nThe dataset may be freely used for any purpose, although acknowledgement is appreciated.\n")
+    filas = [("Juan vive en Madrid.", "En Madrid vive Juan.", 1), ("Ana vio a Luis en el parque.", "Luis vio a Ana en el parque.", 0),
+             ("Compré pan ayer.", "Ayer compré pan.", 1), ("El perro mordió al niño.", "El niño mordió al perro.", 0)]
+    for split, n in (("train", 3), ("validation", 2), ("test", 4)):
+        parquet(d / "es" / f"{split}-00000-of-00001.parquet",
+                [{"id": i, "sentence1": a, "sentence2": b, "label": l} for i, (a, b, l) in enumerate(filas[:n])])
+
+
 if __name__ == "__main__":
-    massive(); hatecheck(); banking77(); clinc150(); inyecciones(); xnli()
+    massive(); hatecheck(); banking77(); clinc150(); inyecciones(); xnli(); sib200(); pawsx()

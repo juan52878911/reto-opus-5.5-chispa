@@ -1,0 +1,15 @@
+entorno	OK 8 vCPU
+paquete	OK
+checkpoint	OK 4113441 bytes
+jevbench	OK 231 casos (609a664e81f4)
+m2_largos	OK 231 casos, 82 largos, recomienda cabeza
+m5_meta	OK 14 ficheros de tsjev
+m5_score	OK n=18 ckpt=0.278 reajuste=0.278 oraculo=0.667; arreglo: GPU (g5.xlarge)
+m6_datos	OK 4 tareas convertidas, potion 154772608 bytes
+m6_frente_l2	OK media L1/L2 k=32: 1.257 (5 tareas), cumple>=0,90: si
+m1_modelo	OK .chispa 473056063 bytes (chispa train --ckpt, perfil servidor), chispa-server -tags ort, tokenizador e5
+m1_datos	OK 5 fuentes convertidas
+m1_bateria_1	FALLO configuración (código 2), fallo de la batería (sdk/, no se arregla aquí): chispa: no guardo la línea base: la corrida es parcial (--solo u opcionales omitidos); hazla completa
+m1_umbrales	FALLO sin las dos corridas
+m3_robustez	OK 5 tareas, peor tipo: L1 largo 69.6 %, L2 largo 53.6 %; 11 (modelo, tipo) por encima del 5 %, 11 arreglos propuestos
+m4_espanol	OK 4 pares, Δ(es−en) exactitud -3.3 pts [-6.0, -0.7], F1 -0.0 pts; brecha > 3 pts: si (plan.md); no medidos: ninguno

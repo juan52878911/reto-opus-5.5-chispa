@@ -24,7 +24,7 @@ import torch.nn.functional as F
 from model.evaluacion import metricas as M
 
 from . import datos as D
-from .modelo import clave_cabeza, maxsim, texto_consulta, texto_opcion
+from .modelo import clave_cabeza, indice_etiqueta, maxsim, texto_consulta, texto_opcion
 
 PRECISION = 0.95
 MIN_FILAS = 20  # por debajo, o con una sola clase, no se ajusta: se conserva la cabeza del modelo (sin_ajuste)
@@ -182,12 +182,20 @@ def auroc(conf, ok):
     return float((r[ok].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
 
 
-def _conf_ok(ps, ys, clave=None):
-    """Confianza (máxima) y acierto; en las cabezas score la etiqueta es la mediana CORAL, no el argmax."""
-    pred = (lambda p: M.etiqueta_coral(p)) if str(clave).startswith("score") else (lambda p: int(p.argmax()))
-    conf = [float(p.max()) for p in ps]
-    ok = [pred(p) == y for p, y in zip(ps, ys)]
-    return conf, ok
+def _conf_ok(ps, ys, clave=None, theta=0.5):
+    """Confianza y acierto con la regla del runtime. score: etiqueta = mediana CORAL y confianza p[etiqueta] (`l2.go`);
+    noul: «true» si pt ≥ θ y confianza = probabilidad de la clase decidida (`l1.go`); choice: argmax y su probabilidad."""
+    clave = str(clave)
+    if clave.startswith("score"):
+        pred = [M.etiqueta_coral(p) for p in ps]
+        conf = [float(p[k]) for p, k in zip(ps, pred)]
+    elif clave == "noul":
+        pred = [int(float(p[1]) >= theta) for p in ps]
+        conf = [float(p[1]) if k else float(1 - p[1]) for p, k in zip(ps, pred)]
+    else:
+        pred = [int(p.argmax()) for p in ps]
+        conf = [float(p.max()) for p in ps]
+    return conf, [k == y for k, y in zip(pred, ys)]
 
 
 def _tipo_tarea(filas):
@@ -208,7 +216,7 @@ def _calibrar(modelo, enc, filas, lote=64):
     for r in filas:
         modelo.asegurar_cabeza(clave_cabeza(r))
     ss = simil(modelo, enc, filas, lote)
-    ys = [r["opciones"].index(r["etiqueta"]) for r in filas]
+    ys = [indice_etiqueta(r) for r in filas]
     claves = [clave_cabeza(r) for r in filas]
     por_clave, por_tarea = defaultdict(list), defaultdict(list)
     for i, r in enumerate(filas):
@@ -222,32 +230,32 @@ def _calibrar(modelo, enc, filas, lote=64):
         d["theta"] = umbral_noul([ss[i] for i in idx], [ys[i] for i in idx], p) if clave == "noul" and aj else 0.5
         return p, d, aj
 
-    def medir(idx, clave, p, p0):
+    def medir(idx, clave, p, p0, theta=0.5):
         y = [ys[i] for i in idx]
-        antes = _conf_ok([probs_de(clave, ss[i], p0) for i in idx], y, clave)
-        despues = _conf_ok([probs_de(clave, ss[i], p) for i in idx], y, clave)
+        antes = _conf_ok([probs_de(clave, ss[i], p0) for i in idx], y, clave, 0.5)
+        despues = _conf_ok([probs_de(clave, ss[i], p) for i in idx], y, clave, theta)
         return antes, despues
 
     tipos, tareas, params = {}, {}, {}
     for clave, idx in sorted(por_clave.items()):
         p0 = cabeza_inicial(modelo, clave)
         p, d, aj = ajuste(idx, clave)
-        antes, despues = medir(idx, clave, p, p0)
+        antes, despues = medir(idx, clave, p, p0, d["theta"])
         tipos[clave] = {**d, "n": len(idx), "ajustado": aj, "ece_antes": M.ece(*antes), "ece_despues": M.ece(*despues)}
     for (tarea, clave), idx in sorted(por_tarea.items()):
         p0 = cabeza_inicial(modelo, clave)
         p, d, aj = ajuste(idx, clave)
-        antes, despues = medir(idx, clave, p, p0)
+        antes, despues = medir(idx, clave, p, p0, d["theta"])
         tau, cob, prec = tau_escalate(*despues)
         params[(tarea, clave)] = p
         tareas[tarea] = {"cabeza": clave, **d, "n": len(idx), "ajustado": aj, "ece_antes": M.ece(*antes),
                          "ece_despues": M.ece(*despues), "tau": tau, "cobertura": cob, "precision_cubierta": prec,
                          "exactitud": float(np.mean(despues[1])), "auroc_escalate": auroc(*despues)}
-    # τ único de la sección CALIB: filas de todas las tareas, calibradas con su propia tarea
+    # τ único de la sección CALIB: filas de todas las tareas, con los parámetros POR CABEZA que se escriben en CALIB (`tipos`)
     conf, ok = [], []
     for (tarea, clave), idx in por_tarea.items():
-        p = params[(tarea, clave)]  # por (tarea, cabeza): una tarea con varias K tiene varias cabezas
-        c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx], clave)
+        p = tipos[clave]
+        c, o = _conf_ok([probs_de(clave, ss[i], p) for i in idx], [ys[i] for i in idx], clave, p["theta"])
         conf += c
         ok += o
     tau, cob, prec = tau_escalate(conf, ok)

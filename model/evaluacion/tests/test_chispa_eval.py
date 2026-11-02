@@ -27,6 +27,14 @@ def pred(i, probs, ms=None):
 
 
 class TestMetricas(unittest.TestCase):
+    def test_top1_score_orden_declarado(self):
+        """R16: la mediana CORAL usa los niveles en orden ascendente aunque la lista venga al revés."""
+        probs = {"1": 0.05, "2": 0.1, "3": 0.15, "4": 0.3, "5": 0.4}
+        asc = M.top1(probs, "score", ["1", "2", "3", "4", "5"])
+        self.assertEqual(asc, M.top1(probs, "score", ["5", "4", "3", "2", "1"]))
+        self.assertEqual(asc, M.top1(probs, "score", ["3", "1", "5", "2", "4"]))
+        self.assertEqual(asc[0], "4")
+
     def test_exactitud_y_macro_f1(self):
         y = ["a", "a", "b", "b", "c"]
         p = ["a", "b", "b", "b", "a"]

@@ -1,0 +1,6 @@
+instalar	OK go go1.27.1 ort 1.31.1
+dorados	OK 2 PASS
+dorados_ort	OK 1 PASS
+concurrencia	OK 2 PASS
+decide_todo	OK 0 PASS
+chispamovil	OK 71 PASS

@@ -1,7 +1,7 @@
 {
   "nombre": "bateria-chispa",
   "objetivo": 0.95,
-  "comentario": "Rutas por variable de entorno (los datos no están en el repo): JEVBENCH_DIR (clon de JevBench o su datasets/public), CHISPA_DATOS (carpeta con los JSONL de filas de model/esquema.md) y CHISPA_REPO (raíz de este repo). Se mide el split=test. Un conjunto con «opcional» se omite con aviso si falta; los demás, no. Los umbrales son el empeoramiento máximo tolerado (absoluto; p50_ms y p99_ms, relativo).",
+  "comentario": "Rutas por variable de entorno (los datos no están en el repo): JEVBENCH_DIR (clon de JevBench o su datasets/public), CHISPA_DATOS (salida de `python -m model.datos.convertir --salida DIR`: un <fuente>.jsonl por fuente con todos los splits) y CHISPA_REPO (raíz de este repo). Se mide el split=test. Un conjunto con «opcional» se omite con aviso si falta; los demás, no. Los umbrales son el empeoramiento máximo tolerado (absoluto; p50_ms y p99_ms, relativo).",
   "umbrales": {
     "exactitud": 0.01,
     "f1_macro": 0.01,
@@ -32,32 +32,32 @@
     },
     {
       "nombre": "massive",
-      "ruta": "${CHISPA_DATOS}/massive/test.jsonl",
+      "ruta": "${CHISPA_DATOS}/massive.jsonl",
       "tipo": "choice",
       "grupo": "prueba"
     },
     {
       "nombre": "clinc150",
-      "ruta": "${CHISPA_DATOS}/clinc150/test.jsonl",
+      "ruta": "${CHISPA_DATOS}/clinc150.jsonl",
       "tipo": "choice",
       "grupo": "prueba"
     },
     {
       "nombre": "hatecheck",
-      "ruta": "${CHISPA_DATOS}/hatecheck/test.jsonl",
-      "tipo": "mixto",
+      "ruta": "${CHISPA_DATOS}/hatecheck.jsonl",
+      "tipo": "noul",
       "grupo": "prueba"
     },
     {
       "nombre": "spam",
-      "ruta": "${CHISPA_DATOS}/spam/test.jsonl",
-      "tipo": "mixto",
+      "ruta": "${CHISPA_DATOS}/spam_tanaos.jsonl",
+      "tipo": "noul",
       "grupo": "prueba"
     },
     {
       "nombre": "inyecciones",
-      "ruta": "${CHISPA_DATOS}/inyecciones/test.jsonl",
-      "tipo": "mixto",
+      "ruta": "${CHISPA_DATOS}/inyecciones.jsonl",
+      "tipo": "noul",
       "grupo": "prueba"
     },
     {
@@ -69,35 +69,35 @@
     {
       "nombre": "massive-nv",
       "ruta": "${CHISPA_DATOS}/no_vistas/massive.jsonl",
-      "tipo": "mixto",
+      "tipo": "choice",
       "grupo": "no_visto",
       "opcional": true
     },
     {
       "nombre": "hatecheck-nv",
       "ruta": "${CHISPA_DATOS}/no_vistas/hatecheck.jsonl",
-      "tipo": "mixto",
+      "tipo": "noul",
       "grupo": "no_visto",
       "opcional": true
     },
     {
       "nombre": "inyecciones-nv",
       "ruta": "${CHISPA_DATOS}/no_vistas/inyecciones.jsonl",
-      "tipo": "mixto",
+      "tipo": "noul",
       "grupo": "no_visto",
       "opcional": true
     },
     {
       "nombre": "clinc150-control",
       "ruta": "${CHISPA_DATOS}/no_vistas/clinc150_control.jsonl",
-      "tipo": "mixto",
+      "tipo": "choice",
       "grupo": "no_visto",
       "opcional": true
     },
     {
       "nombre": "herramientas-control",
       "ruta": "${CHISPA_DATOS}/no_vistas/herramientas_control.jsonl",
-      "tipo": "mixto",
+      "tipo": "choice",
       "grupo": "no_visto",
       "opcional": true
     }

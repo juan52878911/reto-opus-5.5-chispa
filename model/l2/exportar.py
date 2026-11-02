@@ -35,7 +35,7 @@ import torch.nn.functional as F
 
 from . import calibrar as C
 from . import datos as D
-from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, texto_opcion
+from .modelo import K_RANURAS, MAX_TOK, clave_cabeza, maxsim, niveles_score, normalizar_mayusculas, texto_opcion
 
 RAIZ = Path(__file__).resolve().parents[2]
 VOCAB_PODADO = RAIZ / "model" / "bench" / "vocab-podado-e5-small.json"
@@ -237,10 +237,7 @@ def opcion_consulta(fila):
         if "true" not in fila["opciones"]:
             raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
         return "true"
-    try:
-        return max(fila["opciones"], key=int)
-    except ValueError:
-        raise ValueError("pregunta score con niveles no numéricos: %r" % (fila["opciones"],))
+    return niveles_score(fila["opciones"])[-1]
 
 
 def texto_torre_consulta(fila):
@@ -297,7 +294,7 @@ def probs_onnx(modelo, enc, sess, filas, torres):
     vec = {(p, k, tuple(o)): torch.from_numpy(q.astype(np.float32) * np.float32(e)) for p, k, o, q, e in torres}
     out = []
     for r in filas:
-        b = enc.tok(["query: " + r["texto"]], padding=True, truncation=True, max_length=enc.max_tok, return_tensors="pt")
+        b = enc.tok(["query: " + normalizar_mayusculas(r["texto"])], padding=True, truncation=True, max_length=enc.max_tok, return_tensors="pt")
         S = torch.from_numpy(correr(sess, b["input_ids"].numpy(), b["attention_mask"].numpy()))
         if r["tipo"] == "choice":
             h = torch.stack([vec[clave_torre(r, o)] for o in r["opciones"]])
@@ -327,7 +324,7 @@ def fraccion_unk(enc, filas, vocab):
     """Parte de los tokens de las filas que la poda manda a <unk>: si es alta, la paridad mide la poda y no la cuantización."""
     keep, tot, fuera = set(vocab["ids_originales"]), 0, 0
     for r in filas:
-        ids = enc.tok(["query: " + r["texto"]], truncation=True, max_length=enc.max_tok)["input_ids"][0]
+        ids = enc.tok(["query: " + normalizar_mayusculas(r["texto"])], truncation=True, max_length=enc.max_tok)["input_ids"][0]
         tot += len(ids)
         fuera += sum(int(i) not in keep for i in ids)
     return fuera / max(tot, 1)
@@ -432,7 +429,7 @@ def ids_calib_consulta(enc, filas, n=500, semilla=0):
     if not todos:
         return ids_torre(enc, textos_calib(filas, n, semilla))
     todos = todos if len(todos) <= n else sorted(random.Random(semilla).sample(todos, n), key=todos.index)
-    return ids_torre(enc, ["query: " + t for t in todos])
+    return ids_torre(enc, ["query: " + normalizar_mayusculas(t) for t in todos])
 
 
 def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinamico", per_channel=True, max_len=MAX_TOK, ids_calib=None,
@@ -506,7 +503,7 @@ def top1_torres(modelo, enc, sess_q, sess_t, filas, lote=64):
     got = dict(zip(textos, torch.from_numpy(correr_torre(sess_t, ids_torre(enc, textos)).astype(np.float32))))
     ok, margenes = [], []
     for r in filas:
-        b = enc.tok(["query: " + r["texto"]], truncation=True, max_length=enc.max_tok)
+        b = enc.tok(["query: " + normalizar_mayusculas(r["texto"])], truncation=True, max_length=enc.max_tok)
         S = torch.from_numpy(correr(sess_q, np.array(b["input_ids"]), np.array(b["attention_mask"])))
         sa = maxsim(S, torch.stack([ref[texto_opcion(r, o)] for o in r["opciones"]]))[0]
         sb = maxsim(S, torch.stack([got[texto_opcion(r, o)] for o in r["opciones"]]))[0]
@@ -677,7 +674,7 @@ def calib_completa(modelo, chispa):
     θ = 0,5), igual que en `jevbench_l2`; las que trae (de `calibrar` sobre el dev) no se tocan. Así un esquema nuevo de cualquier tipo
     usa en el servidor los parámetros del checkpoint y no los valores por defecto."""
     faltan = {}
-    for clave in CABEZAS_L2:
+    for clave in (*CABEZAS_L2, *sorted(k for k in modelo.coral if k not in CABEZAS_L2)):  # todas las score del checkpoint
         if clave not in chispa["tipos"]:
             modelo.asegurar_cabeza(clave)
             p = C.cabeza_inicial(modelo, clave)

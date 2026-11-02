@@ -1,0 +1,17 @@
+entorno	OK 8 vCPU
+paquete	OK
+checkpoint	OK 4113441 bytes
+jevbench	OK 231 casos (609a664e81f4)
+m2_largos	OK 231 casos, 82 largos, recomienda cabeza
+m5_meta	OK 14 ficheros de tsjev
+m5_score	OK n=18 ckpt=0.333 reajuste=0.333 oraculo=0.667; arreglo: GPU (g5.xlarge)
+orientacion_score	OK jev rho max/min/inv=-0.52/-0.66/0.52; meta rho max=0.12; el modelo ordena bien en el meta y no generaliza a JevBench
+m6_datos	OK 4 tareas convertidas, potion 154772608 bytes
+m6_frente_l2	OK media L1/L2 k=32: 1.273 (5 tareas), cumple>=0,90: si
+m1_modelo	OK .chispa 473056064 bytes (chispa train --ckpt, perfil servidor), chispa-server -tags ort, tokenizador e5
+m1_datos	OK 5 fuentes convertidas
+m1_bateria_1	OK 
+m1_bateria_2	OK 
+m1_umbrales	OK 6 métricas, 4 conjuntos con umbral propio, 1 avisos
+m3_robustez	OK 5 tareas, peor tipo: L1 largo 69.6 %, L2 largo 61.5 %; 11 (modelo, tipo) por encima del 5 %, 11 arreglos propuestos
+m4_espanol	OK 4 pares, Δ(es−en) exactitud -3.5 pts [-5.9, -1.1], F1 -1.5 pts; brecha > 3 pts: si (plan.md); no medidos: ninguno

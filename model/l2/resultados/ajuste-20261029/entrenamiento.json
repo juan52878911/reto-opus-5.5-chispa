@@ -1,0 +1,82 @@
+{
+ "pasos": 2683,
+ "total": 2683,
+ "mejor": {
+  "f1": 0.379847877438725,
+  "paso": 1340
+ },
+ "filas": 128828,
+ "info": {
+  "locales": 128828,
+  "excluir": {
+   "conjuntos": [
+    "hatecheck",
+    "inyecciones",
+    "massive"
+   ],
+   "sin_filas_locales": []
+  },
+  "meta": {
+   "tareas": 378,
+   "tope_tarea": 2000,
+   "alfa": 0.3,
+   "fuera": {
+    "filas": 49745,
+    "tareas": 43
+   },
+   "cupo_total": 171172,
+   "elegidas": 171172,
+   "tareas_fuera": [
+    "HelpSteer2/helpfulness",
+    "HelpSteer3/principle",
+    "PARARULE-Plus",
+    "SpaceNLI",
+    "amazon_polarity/amazon_polarity",
+    "babi_nli/positional-reasoning",
+    "civil_comments/sexual_explicit_share",
+    "conceptrules_v2",
+    "cosmos_qa",
+    "dbpedia_14/dbpedia_14",
+    "defeasible-nli/atomic",
+    "discosense",
+    "ethics/deontology",
+    "ethos/multilabel",
+    "goal-step-wikihow/step",
+    "hh-rlhf/harmless-base",
+    "hope_edi/english",
+    "lex_glue/ledgar",
+    "lex_glue/scotus",
+    "maud/bringdown-timing",
+    "multilingual/AfriSenti-twitter-sentiment/por",
+    "multilingual/NusaX-senti/bjn",
+    "multilingual/NusaX-senti/eng",
+    "multilingual/klue/sts",
+    "multilingual/mtop",
+    "multilingual/offenseval_dravidian/tamil",
+    "multilingual/xcopa/id",
+    "multilingual/xcopa/tr",
+    "multilingual/xcsr/X-CSQA-ar",
+    "multilingual/xcsr/X-CSQA-nl",
+    "multilingual/xstory_cloze/ar",
+    "multilingual/xstory_cloze/es",
+    "nan-nli",
+    "numer_sense",
+    "procedural-typed-decisions/goal_directed_planning",
+    "qasc",
+    "recast/recast_verbnet",
+    "robust_nli/LI_LI",
+    "robust_nli/ST_NE",
+    "rumoureval_2019/RumourEval2019",
+    "snips_built_in_intents",
+    "utilitarianism",
+    "webinstruct/mc"
+   ]
+  },
+  "blandas": 178365,
+  "filas": 128828,
+  "meta_filas": 171172
+ },
+ "kappa_dev": null,
+ "segundos": 852.6440672874451,
+ "interrumpido": false
+}

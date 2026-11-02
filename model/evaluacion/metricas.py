@@ -91,7 +91,8 @@ def top1(probs, tipo=None, opciones=None):
     Con `tipo` == "score" la opción es la mediana CORAL (`mediana_coral`), como el runtime, no el argmax de P(y=k)."""
     k = max(probs, key=lambda c: probs[c])
     if tipo == "score" and opciones:
-        k = opciones[etiqueta_coral([probs.get(o, 0.0) for o in opciones])]
+        ops = sorted(opciones, key=int)   # niveles en orden ascendente, sea cual sea el declarado (R16)
+        k = ops[etiqueta_coral([probs.get(o, 0.0) for o in ops])]
     return k, probs[max(probs, key=lambda c: probs[c])]
 
 

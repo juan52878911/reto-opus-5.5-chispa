@@ -1,0 +1,13 @@
+=== RUN   TestAuthConcurrenciaRespetaRafaga
+2026/10/30 01:37:57 AVISO: arranque sin claves de API: /v1/decide está abierto
+--- PASS: TestAuthConcurrenciaRespetaRafaga (0.00s)
+=== RUN   TestDoradosConcurrencia
+=== RUN   TestDoradosConcurrencia/frio
+=== RUN   TestDoradosConcurrencia/caliente
+=== RUN   TestDoradosConcurrencia/cache-minima
+--- PASS: TestDoradosConcurrencia (1.16s)
+    --- PASS: TestDoradosConcurrencia/frio (0.17s)
+    --- PASS: TestDoradosConcurrencia/caliente (0.49s)
+    --- PASS: TestDoradosConcurrencia/cache-minima (0.49s)
+PASS
+ok  	github.com/juan52878911/chispa/server/decide	1.168s

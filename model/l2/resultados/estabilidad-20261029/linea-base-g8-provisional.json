@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "fecha": "2026-10-30T02:26:46",
+  "manifiesto": "bateria-chispa",
+  "fuente": "/opt/chispa/g8.chispa",
+  "objetivo": 0.95,
+  "conjuntos": {
+    "jevbench": {
+      "n": 231,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.5273120000074414,
+      "p99_ms": 222.0613080000362,
+      "tipo": "mixto",
+      "grupo": "jevbench"
+    },
+    "massive": {
+      "n": 2974,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.7152869999677023,
+      "p99_ms": 2.870220000033896,
+      "tipo": "choice",
+      "grupo": "prueba"
+    },
+    "clinc150": {
+      "n": 5500,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 2.153579999969679,
+      "p99_ms": 3.474385999993501,
+      "tipo": "choice",
+      "grupo": "prueba"
+    },
+    "hatecheck": {
+      "n": 361,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.4434299999948053,
+      "p99_ms": 2.4733179999998356,
+      "tipo": "noul",
+      "grupo": "prueba"
+    },
+    "spam": {
+      "n": 1450,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.428239000006215,
+      "p99_ms": 2.547740000011345,
+      "tipo": "noul",
+      "grupo": "prueba"
+    },
+    "inyecciones": {
+      "n": 116,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.4318099999854894,
+      "p99_ms": 2.3689860000217777,
+      "tipo": "noul",
+      "grupo": "prueba"
+    },
+    "herramientas": {
+      "n": 368,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.5825039999981527,
+      "p99_ms": 2.567150999993828,
+      "tipo": "choice",
+      "grupo": "prueba"
+    }
+  },
+  "tipos": {
+    "choice": {
+      "n": 8981,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.9711539999889283,
+      "p99_ms": 3.4169539999879817
+    },
+    "noul": {
+      "n": 2001,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.4371400000072754,
+      "p99_ms": 2.558551000049647
+    },
+    "score": {
+      "n": 18,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.481081000008544,
+      "p99_ms": 1.953184000001329
+    }
+  },
+  "grupos": {
+    "jevbench": {
+      "n": 231,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.5273120000074414,
+      "p99_ms": 222.0613080000362
+    },
+    "prueba": {
+      "n": 10769,
+      "errores": 0.0,
+      "exactitud": 0.0,
+      "f1_macro": 0.0,
+      "ece": null,
+      "cobertura": 0.0,
+      "escalado": 1.0,
+      "p50_ms": 1.8707719999611072,
+      "p99_ms": 3.3492219999970985
+    }
+  },
+  "omitidos": {
+    "massive-nv": "sin datos: ${CHISPA_DATOS}/no_vistas/massive.jsonl",
+    "hatecheck-nv": "sin datos: ${CHISPA_DATOS}/no_vistas/hatecheck.jsonl",
+    "inyecciones-nv": "sin datos: ${CHISPA_DATOS}/no_vistas/inyecciones.jsonl",
+    "clinc150-control": "sin datos: ${CHISPA_DATOS}/no_vistas/clinc150_control.jsonl",
+    "herramientas-control": "sin datos: ${CHISPA_DATOS}/no_vistas/herramientas_control.jsonl"
+  },
+  "global": {
+    "n": 11000,
+    "errores": 0.0,
+    "exactitud": 0.0,
+    "f1_macro": 0.0,
+    "ece": null,
+    "cobertura": 0.0,
+    "escalado": 1.0,
+    "p50_ms": 1.8622919999984333,
+    "p99_ms": 3.3695330000114154
+  }
+}
