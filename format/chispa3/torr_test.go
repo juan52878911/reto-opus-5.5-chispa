@@ -223,6 +223,9 @@ func TestTextoTorreEfectivo(t *testing.T) {
 			if !errors.Is(err, ErrContenido) || !strings.Contains(err.Error(), c.fallaCon) {
 				t.Errorf("caso %d: %v", i, err)
 			}
+			if esInconsistente := errors.Is(err, ErrTextoTorreInconsistente); esInconsistente != (c.fallaCon == "no coinciden") {
+				t.Errorf("caso %d: ErrTextoTorreInconsistente = %v: %v", i, esInconsistente, err)
+			}
 			continue
 		}
 		if err != nil || got != c.want {

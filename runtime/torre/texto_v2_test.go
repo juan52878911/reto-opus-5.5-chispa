@@ -15,12 +15,15 @@ type casoV2 struct {
 	V2       []string `json:"v2_sin_id"`
 }
 
-// Paridad con el generador de Python (server/decide/testdata/gen_texto_torre_v2.py): v1 y v2 de los mismos casos.
+// Paridad con el generador de Python (fixture copiado tal cual del entrenamiento): v1 y v2 de los mismos casos.
 func TestParidadTextoV2(t *testing.T) {
-	var cs []casoV2
-	leerJSON(t, "../../server/decide/testdata/texto_torre_v2.json", &cs)
-	if len(cs) < 25 {
-		t.Fatalf("solo %d casos", len(cs))
+	var fx struct {
+		Preguntas []casoV2 `json:"preguntas"`
+	}
+	leerJSON(t, "../../server/decide/testdata/texto_torre_v2.json", &fx)
+	cs := fx.Preguntas
+	if len(cs) == 0 {
+		t.Fatal("sin preguntas en el fixture")
 	}
 	for i, c := range cs {
 		k := c.Kind

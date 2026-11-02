@@ -12,6 +12,7 @@ import (
 
 	"chispa/format/chispa3"
 	"chispa/runtime/tok"
+	"chispa/runtime/torre"
 )
 
 // Tokenizador convierte un texto en ids del tokenizador original de e5 (con «query: »
@@ -43,6 +44,8 @@ type L2 struct {
 	maxNuevas int
 	// textoTorre es META.texto_torre del .chispa («v1» / «v2_sin_id»); vacío = v1.
 	textoTorre string
+	// motivoSinTorre: por qué no hay torre al vuelo pese a traer TORR (texto_torre_inconsistente); "" = ninguno.
+	motivoSinTorre string
 	// vuelo agrupa los cálculos en curso por ClaveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
 	muVuelo sync.Mutex
 	vuelo   map[string]*llamadaTorre
@@ -102,6 +105,7 @@ func (l *L2) tomaFichaTorre() bool {
 // UsaMetricas conecta L2 con /metrics (lo hace NuevaCascada).
 func (l *L2) UsaMetricas(m *Metricas) {
 	l.met = m
+	m.FijaTorreMotivo(l.motivoSinTorre)
 	if m != nil {
 		or := l.origenCalib
 		if or == "" {
@@ -150,6 +154,21 @@ func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 		l.maxNuevas = MaxTorresNuevasPorDefecto
 	}
 	return l
+}
+
+// ConMotivoSinTorre anota por qué L2 no calcula torres al vuelo aunque el .chispa traiga TORR (p. ej. texto_torre_inconsistente);
+// /healthz lo publica en torre_al_vuelo_motivo y /metrics en chispa_torre_al_vuelo_desactivada.
+func (l *L2) ConMotivoSinTorre(m string) *L2 {
+	l.motivoSinTorre = m
+	return l
+}
+
+// MotivoSinTorre es el motivo anotado con ConMotivoSinTorre ("" = ninguno).
+func (l *L2) MotivoSinTorre() string {
+	if l == nil {
+		return ""
+	}
+	return l.motivoSinTorre
 }
 
 // ConTextoTorre fija la versión del texto de torre (META.texto_torre); vacío = v1.
@@ -299,9 +318,16 @@ func presupuestoDe(ctx context.Context) *presupuestoTorres {
 // errSinPresupuestoTorres si a la petición (todas sus preguntas juntas, ver conPresupuesto) ya no le quedan torres nuevas por calcular: L2 no opina.
 func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bool, err error) {
 	ops := OpcionesConsulta(p)
+	claves := make([]string, len(ops))
+	textos := make([]string, len(ops))
+	falta := make([]bool, len(ops))
+	calculada := make([]bool, len(ops))
 	faltan := 0
-	for _, o := range ops {
-		if _, hit := l.cache.Get(ClaveTorre(p.Texto, o)); !hit {
+	for i, o := range ops {
+		textos[i] = TextoTorre(l.textoTorre, p, o)
+		claves[i] = torre.ClaveTexto(textos[i]) // clave del texto efectivo: depende de las demás opciones en v2
+		if _, hit := l.cache.Get(claves[i]); !hit {
+			falta[i] = true
 			faltan++
 		}
 	}
@@ -312,35 +338,45 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 			// siguiente petición avance (con un tope menor que las opciones, la pregunta acaba respondiendo).
 			cupo := max(0, l.maxNuevas-int(tras-int64(faltan)))
 			pr.usadas.Add(-int64(faltan - cupo))
-			for _, o := range ops {
+			for i := range ops {
 				if cupo == 0 || ctx.Err() != nil {
 					break
 				}
-				k := ClaveTorre(p.Texto, o)
-				if _, hit := l.cache.Get(k); hit {
+				if _, hit := l.cache.Get(claves[i]); hit {
 					continue
 				}
-				if _, err := l.torreUnica(ctx, k, TextoTorre(l.textoTorre, p, o)); err != nil {
+				if _, err := l.torreUnica(ctx, claves[i], textos[i]); err != nil {
 					break
 				}
 				cupo--
 			}
+			pr.usadas.Add(-int64(cupo)) // lo reservado y no gastado vuelve a la petición
 			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 			return nil, false, errSinPresupuestoTorres
 		}
+		defer func() { // al salir (error, ctx cancelado) se devuelve el cupo reservado y no gastado
+			gastadas := 0
+			for i := range falta {
+				if falta[i] && calculada[i] {
+					gastadas++
+				}
+			}
+			pr.usadas.Add(-int64(faltan - gastadas))
+		}()
 	}
 	out := make([]torreDin, len(ops))
-	for i, o := range ops {
+	for i := range ops {
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
-		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(l.textoTorre, p, o)); err != nil {
+		if out[i], err = l.torreUnica(ctx, claves[i], textos[i]); err != nil {
 			if errors.Is(err, ErrPresupuestoTorres) {
 				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 				return nil, false, errSinPresupuestoTorres
 			}
 			return nil, false, err
 		}
+		calculada[i] = true
 	}
 	if faltan == 0 {
 		l.Hits.Add(1)

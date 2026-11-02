@@ -12,25 +12,28 @@ import (
 	"chispa/runtime/torre"
 )
 
-// Paridad con el generador de Python (server/decide/testdata/gen_texto_torre_v2.py): v1 y v2 de los mismos casos.
+// Paridad con el generador de Python (fixture copiado tal cual del entrenamiento): v1 y v2 de los mismos casos.
 func TestTextosTorreL2ParidadV2(t *testing.T) {
 	b, err := os.ReadFile("../../../server/decide/testdata/texto_torre_v2.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var cs []struct {
-		Kind     string `json:"kind"`
-		Pregunta string `json:"pregunta"`
-		Opciones []struct {
-			ID          string `json:"id"`
-			Description string `json:"description"`
-		} `json:"opciones"`
-		V1 []string `json:"v1"`
-		V2 []string `json:"v2_sin_id"`
+	var fx struct {
+		Preguntas []struct {
+			Kind     string `json:"kind"`
+			Pregunta string `json:"pregunta"`
+			Opciones []struct {
+				ID          string `json:"id"`
+				Description string `json:"description"`
+			} `json:"opciones"`
+			V1 []string `json:"v1"`
+			V2 []string `json:"v2_sin_id"`
+		} `json:"preguntas"`
 	}
-	if err := json.Unmarshal(b, &cs); err != nil || len(cs) < 25 {
-		t.Fatalf("paridad: %d casos, %v", len(cs), err)
+	if err := json.Unmarshal(b, &fx); err != nil || len(fx.Preguntas) == 0 {
+		t.Fatalf("paridad: %d casos, %v", len(fx.Preguntas), err)
 	}
+	cs := fx.Preguntas
 	for i, k := range cs {
 		p := pregunta{Texto: k.Pregunta, Kind: k.Kind}
 		for _, o := range k.Opciones {
@@ -104,7 +107,7 @@ func abrirConMetaYTorr(t *testing.T, meta, texto string) (*Chispa, error) {
 	return Abrir(escribirV3(t, secs))
 }
 
-// La versión efectiva sale de TORR; META que la trae y discrepa es un error de carga claro (en los dos sentidos).
+// La versión efectiva sale de TORR; META que la trae y discrepa carga sin torre al vuelo, con aviso y motivo (en los dos sentidos).
 func TestAbrirTextoTorreSaleDeTORR(t *testing.T) {
 	c, err := abrirConMetaYTorr(t, `{"version":1}`, chispa3.TextoTorreV2SinID)
 	if err != nil || c.TextoTorre() != "v2_sin_id" {
@@ -115,9 +118,15 @@ func TestAbrirTextoTorreSaleDeTORR(t *testing.T) {
 		{`{"version":1,"texto_torre":"v2_sin_id"}`, chispa3.TextoTorreV1},
 		{`{"version":1,"texto_torre":"v1"}`, chispa3.TextoTorreV2SinID},
 	} {
-		if _, err := abrirConMetaYTorr(t, meta.meta, meta.texto); err == nil || !strings.Contains(err.Error(), "no coinciden") {
-			t.Errorf("%s con TORR %q: error %v", meta.meta, meta.texto, err)
+		c, err := abrirConMetaYTorr(t, meta.meta, meta.texto)
+		if err != nil {
+			t.Errorf("%s con TORR %q: Abrir no debe fallar: %v", meta.meta, meta.texto, err)
+			continue
 		}
+		if c.TieneTorre() || c.TorreAlVueloMotivo() != "texto_torre_inconsistente" || !strings.Contains(c.Avisos(), "no coinciden") {
+			t.Errorf("%s con TORR %q: torre %v, motivo %q, avisos %q", meta.meta, meta.texto, c.TieneTorre(), c.TorreAlVueloMotivo(), c.Avisos())
+		}
+		c.Cerrar()
 	}
 }
 

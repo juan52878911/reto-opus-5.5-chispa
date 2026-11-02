@@ -17,14 +17,22 @@ type Capa struct {
 	Tau    float64 `json:"tau"`
 }
 
+// TorresPorSegundoPorDefecto es el tope global de torres al vuelo por segundo de la config (con ráfaga igual). e5-small int8 tarda
+// del orden de 4-8 ms por pasaje corto en un núcleo (estimado, sin medir en esta máquina) y las pasadas de ORT se serializan:
+// la capacidad sostenida es de ~150-250 torres/s. 400 queda por encima (no recorta ráfagas legítimas) y por debajo de nada útil: cubre
+// de sobra una pregunta completa (max_opciones = 256 cabe en la ráfaga) y corta un flujo sostenido de textos únicos cerca de saturar.
+const TorresPorSegundoPorDefecto = 400.0
+
 // Config es el JSON de configuración del servidor.
 type Config struct {
-	Capas            []Capa     `json:"capas"`
-	Modelos          []string   `json:"modelos"`                      // ficheros .chispa para L0
-	CacheEsquemas    int        `json:"cache_esquemas"`               // entradas del LRU de esquemas
-	CacheRespuestas  int        `json:"cache_respuestas"`             // entradas del LRU de nonces
-	CacheTorres      int        `json:"cache_torres"`                 // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
-	MaxTorresNuevas  int        `json:"max_torres_nuevas"`            // torres sin cachear que una petición puede calcular (0 = 64); por encima L2 no opina
+	Capas           []Capa   `json:"capas"`
+	Modelos         []string `json:"modelos"`           // ficheros .chispa para L0
+	CacheEsquemas   int      `json:"cache_esquemas"`    // entradas del LRU de esquemas
+	CacheRespuestas int      `json:"cache_respuestas"`  // entradas del LRU de nonces
+	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
+	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 256); por encima L2 no opina
+	// Tope global de torres al vuelo por segundo (cubo con ráfaga igual); 0 = sin tope global. Por defecto TorresPorSegundoPorDefecto.
+	TorresPorSegundo float64    `json:"torres_por_segundo"`
 	Limites          Limites    `json:"limites"`                      // topes de entrada de /v1/decide
 	APIKeys          []ClaveAPI `json:"api_keys"`                     // si no está vacío, /v1/decide exige Authorization: Bearer <clave> y limita por clave
 	APIKeysAbierto   bool       `json:"api_keys_abierto,omitempty"`   // permite que una recarga sin api_keys deje /v1/decide abierto (si no, se rechaza)
@@ -89,7 +97,7 @@ const CacheTorresPorDefecto = 16384
 func ConfigPorDefecto() Config {
 	return Config{
 		Capas:         []Capa{{"L0", 0.80}, {"L1", 0.80}, {"L2", 0.70}, {"L3", 0.60}},
-		CacheEsquemas: 1024, CacheRespuestas: 4096, CacheTorres: CacheTorresPorDefecto, MaxTorresNuevas: MaxTorresNuevasPorDefecto, Limites: LimitesPorDefecto(),
+		CacheEsquemas: 1024, CacheRespuestas: 4096, CacheTorres: CacheTorresPorDefecto, MaxTorresNuevas: MaxTorresNuevasPorDefecto, TorresPorSegundo: TorresPorSegundoPorDefecto, Limites: LimitesPorDefecto(),
 	}
 }
 
@@ -137,6 +145,21 @@ func (c Config) Validar() error {
 	}
 	if c.CacheTorres < 0 || c.MaxTorresNuevas < 0 {
 		return fmt.Errorf("config: cache_torres y max_torres_nuevas no pueden ser negativos")
+	}
+	if c.TorresPorSegundo < 0 || math.IsNaN(c.TorresPorSegundo) || math.IsInf(c.TorresPorSegundo, 0) {
+		return fmt.Errorf("config: torres_por_segundo debe ser un número >= 0 (0 = sin tope global): %v", c.TorresPorSegundo)
+	}
+	// El cacheo parcial solo avanza si la caché cabe la pregunta más grande que una petición puede pedir calcular: con
+	// cache_torres < max_torres_nuevas cada petición desaloja lo que cacheó la anterior. Se valida con los valores efectivos.
+	cacheT, maxT := c.CacheTorres, c.MaxTorresNuevas
+	if cacheT == 0 {
+		cacheT = CacheTorresPorDefecto
+	}
+	if maxT == 0 {
+		maxT = MaxTorresNuevasPorDefecto
+	}
+	if cacheT < maxT {
+		return fmt.Errorf("config: cache_torres (%d) debe ser >= max_torres_nuevas (%d)", cacheT, maxT)
 	}
 	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
 		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)

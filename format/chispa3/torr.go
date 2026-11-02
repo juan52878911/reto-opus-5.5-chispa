@@ -3,6 +3,7 @@ package chispa3
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"unicode/utf8"
 )
@@ -113,8 +114,15 @@ func (f *Fichero) Torre() (Torre, error) {
 	return DecodificarTORR(b)
 }
 
+// ErrTextoTorreInconsistente: META.texto_torre y TORR no coinciden. TextoTorreEfectivo lo envuelve en ese caso; quien carga el modelo
+// puede degradar (L0/L1/L2 con ESQUEMAS siguen sirviendo) en vez de rechazar el fichero entero, sin torre al vuelo.
+var ErrTextoTorreInconsistente = errors.New("texto_torre de META y TORR inconsistentes")
+
+// MotivoTextoTorreInconsistente es el motivo público (healthz, métrica) de la torre al vuelo desactivada por ErrTextoTorreInconsistente.
+const MotivoTextoTorreInconsistente = "texto_torre_inconsistente"
+
 // TextoTorreEfectivo es la versión del texto de torre con que se montan las torres al vuelo del fichero: sale de TORR (v1 si es
-// TORR v1, la de su cabecera si es v2). Si META trae texto_torre y no coincide con TORR, es un error de carga (el fichero se
+// TORR v1, la de su cabecera si es v2). Si META trae texto_torre y no coincide con TORR, es un error (ErrTextoTorreInconsistente; el fichero se
 // entrenó con un texto y META dice otro: calcular cualquiera de los dos sería servir torres distintas a las entrenadas).
 // META sin texto_torre no se contrasta (ausente = v1 solo cuando no hay TORR que lo diga). Exige TORR.
 func (f *Fichero) TextoTorreEfectivo() (string, error) {
@@ -142,7 +150,7 @@ func (f *Fichero) TextoTorreEfectivo() (string, error) {
 		return "", fmt.Errorf("%w: META.texto_torre %q desconocido (se esperaba %q o %q)", ErrContenido, m.TextoTorre, TextoTorreV1, TextoTorreV2SinID)
 	}
 	if m.TextoTorre != t.TextoTorre {
-		return "", fmt.Errorf("%w: META.texto_torre %q y TORR (texto %q) no coinciden: el fichero está mal escrito", ErrContenido, m.TextoTorre, t.TextoTorre)
+		return "", fmt.Errorf("%w: %w: META.texto_torre %q y TORR (texto %q) no coinciden: el fichero está mal escrito", ErrContenido, ErrTextoTorreInconsistente, m.TextoTorre, t.TextoTorre)
 	}
 	return t.TextoTorre, nil
 }
