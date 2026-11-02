@@ -101,7 +101,7 @@ func TestMetricasPresupuestoAgotado(t *testing.T) {
 		t.Fatalf("%+v %v", r, err)
 	}
 	quiero(t, m, "chispa_torres_presupuesto_agotado_total 1")
-	quiero(t, m, "chispa_torres_calculadas_total 0")
+	quiero(t, m, "chispa_torres_calculadas_total 4") // las que cabían en el tope quedan en la caché
 }
 
 func TestMetricasEsquemaNuevo(t *testing.T) {

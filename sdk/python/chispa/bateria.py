@@ -445,12 +445,14 @@ def _f1_macro(rs: List[dict]) -> Optional[float]:
 
 MOTIVOS_SIN_OPINION = ("sin_opinion", "score_ids_no_validos")
 UMBRAL_SIN_OPINION = 0.5  # por encima, el informe lo dice como alerta
+UMBRAL_INCOMPLETAS = 0.2  # por encima, alerta de escaladas incompletas (presupuesto de torres, fallo de capa)
+MOTIVO_SIN_PRESUPUESTO = "sin_presupuesto_torres"
 
 
 def _incompleta(r: dict) -> bool:
-    """Escaló porque una capa falló o se quedó sin presupuesto (`escalate_reason` «incompleta»). Un servidor nuevo (con `capas` en /healthz) que escala
+    """Escaló porque una capa falló o se quedó sin presupuesto (`escalate_reason` «incompleta» o «sin_presupuesto_torres»). Un servidor nuevo (con `capas` en /healthz) que escala
     sin motivo también es una escalada incompleta; un servidor antiguo no tiene motivos y ahí vale el atajo de `_sin_opinion`."""
-    return not r["error"] and r["escalate"] and (r.get("escalate_reason") == "incompleta" or (not r.get("escalate_reason") and not r.get("servidor_antiguo")))
+    return not r["error"] and r["escalate"] and (r.get("escalate_reason") in ("incompleta", MOTIVO_SIN_PRESUPUESTO) or (not r.get("escalate_reason") and not r.get("servidor_antiguo")))
 
 
 def _sin_opinion(r: dict) -> bool:
@@ -478,6 +480,7 @@ def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
          "exactitud_estricta": sum(_acierto_fila(r) for r in cont) / n, "sin_probs": sum(1 for r in rs if not r["error"] and not r["probs"]) / n,
          "nadie_opino": sum(1 for r in rs if _sin_opinion(r)) / n,
          "incompletas": sum(1 for r in rs if _incompleta(r)) / n,
+         "sin_presupuesto_torres": sum(1 for r in rs if not r["error"] and r["escalate"] and r.get("escalate_reason") == MOTIVO_SIN_PRESUPUESTO) / n,
          "baja_confianza": sum(1 for r in rs if not r["error"] and r["escalate"] and not _sin_opinion(r) and not _incompleta(r)) / n, "f1_macro": _f1_macro(rs),
          "ece": ece(dec), "cobertura": cobertura(dec, total, objetivo), "escalado": sum(1 for r in rs if not r["error"] and r["escalate"]) / n,
          "p50_ms": _pct(cli, 0.5), "p99_ms": _pct(cli, 0.99)}
@@ -724,6 +727,20 @@ def alertas_sin_opinion(rep: dict, cap: Optional[dict], umbral: float = UMBRAL_S
     return out
 
 
+def alertas_incompletas(rep: dict, umbral: float = UMBRAL_INCOMPLETAS) -> List[str]:
+    """Alertas de escaladas incompletas (global y por conjunto) por encima de `umbral`, con la causa probable."""
+    out = []
+    for nombre, m in [("global", rep["global"])] + list(rep["conjuntos"].items()):
+        if (m.get("incompletas") or 0) > umbral:
+            sp = m.get("sin_presupuesto_torres") or 0
+            causa = ("presupuesto de torres agotado (`escalate_reason` sin_presupuesto_torres: preguntas con más opciones nuevas que `max_torres_nuevas`, "
+                     "o `torres_por_segundo` bajo; sube el tope o repite la corrida para que la caché avance)" if sp > 0 else
+                     "una capa falló o agotó su plazo/presupuesto (L3, torres)")
+            out.append(f"ALERTA: escaladas incompletas en el {_p(m['incompletas'])} de las filas ({nombre}): ninguna capa opinó y alguna no pudo; "
+                       f"causa probable: {causa}; mira chispa_torres_presupuesto_agotado_total y chispa_capa_no_opina_total{{causa}} en /metrics")
+    return out
+
+
 def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str] = None, servidor: Optional[str] = None, tok: Optional[str] = None,
             config: Optional[str] = None, extra=(), linea_base: Optional[str] = None, umbrales: Optional[str] = None, robustez: bool = False,
             robustez_max: int = 200, solo: Optional[List[str]] = None, objetivo: Optional[float] = None, concurrencia: int = 4, timeout: float = 10.0,
@@ -815,7 +832,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     rep["ok"] = rep.get("comparacion", {"ok": True})["ok"]
     if cap is not None:
         rep["capacidades_servidor"] = cap
-    rep["alertas"] = alertas_sin_opinion(rep, cap)
+    rep["alertas"] = alertas_sin_opinion(rep, cap) + alertas_incompletas(rep)
     for a in rep["alertas"]:
         aviso(a)
     if filas:
@@ -855,7 +872,7 @@ def json_reporte(rep: dict) -> dict:
 
 # ---------------------------------------------------------------- informe
 def _fila_md(nombre: str, m: dict, rob: bool) -> str:
-    c = [nombre, str(m["n"]), _f(m["exactitud"]), _f(m.get("exactitud_contestada")), _f(m.get("exactitud_estricta")), _p(m.get("sin_probs")), _p(m.get("nadie_opino")), _p(m.get("baja_confianza")), _f(m["f1_macro"]), _f(m["ece"]), _p(m["cobertura"]), _p(m["escalado"]), _p(m["errores"]),
+    c = [nombre, str(m["n"]), _f(m["exactitud"]), _f(m.get("exactitud_contestada")), _f(m.get("exactitud_estricta")), _p(m.get("sin_probs")), _p(m.get("nadie_opino")), _p(m.get("incompletas")), _p(m.get("sin_presupuesto_torres")), _p(m.get("baja_confianza")), _f(m["f1_macro"]), _f(m["ece"]), _p(m["cobertura"]), _p(m["escalado"]), _p(m["errores"]),
          _f(m["p50_ms"], 1), _f(m["p99_ms"], 1)]
     if rob:
         c += [_p(m.get("estabilidad")), _f(m.get("delta_conf")), _f(m.get("delta_conf_p95"))]
@@ -864,7 +881,7 @@ def _fila_md(nombre: str, m: dict, rob: bool) -> str:
 
 def informe_md(rep: dict) -> str:
     rob = "estabilidad" in rep["global"]
-    cab = ["n", "exactitud (argmax)", "exact. contestada", "exact. estricta", "sin probs", "nadie opinó", "baja confianza", "F1 macro", "ECE", f"cobertura a {_f(rep['objetivo'], 2)}", "escalado", "errores", "p50 ms", "p99 ms"] + (["estabilidad", "Δ confianza", "Δ conf. p95"] if rob else [])
+    cab = ["n", "exactitud (argmax)", "exact. contestada", "exact. estricta", "sin probs", "nadie opinó", "incompletas", "sin presup. torres", "baja confianza", "F1 macro", "ECE", f"cobertura a {_f(rep['objetivo'], 2)}", "escalado", "errores", "p50 ms", "p99 ms"] + (["estabilidad", "Δ confianza", "Δ conf. p95"] if rob else [])
     L = [f"# Batería de regresión: {rep['manifiesto']}", "",
          f"Fuente: `{rep['fuente']}` · objetivo de precisión: {_f(rep['objetivo'], 2)} · {rep['fecha']}", ""]
     for titulo, sec in (("Global", None), ("Por tipo", "tipos"), ("Por grupo", "grupos"), ("Por conjunto", "conjuntos")):

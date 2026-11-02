@@ -7,12 +7,13 @@ import (
 
 // Causas de «sin opinión» de una capa (etiqueta «causa» de chispa_capa_no_opina_total).
 const (
-	CausaSinTorre        = "sin_torre"            // esquema ausente de ESQUEMAS y el .chispa no trae TORR (o falta -tok/ORT): L2 no puede calcular torres
-	CausaTipoNoSoportado = "tipo_no_soportado"    // la capa no decide ese tipo (p. ej. multi sin cabeza calibrada)
-	CausaScoreIds        = "score_ids_no_validos" // score con ids que no son 1..K
-	CausaSinModelo       = "sin_modelo"           // la capa no tiene modelo cargado
-	CausaEsquemaNoVisto  = "esquema_no_entrenado" // L0 sin modelo para ese esquema
-	CausaSinOpinion      = "sin_opinion"          // otra causa
+	CausaSinTorre          = "sin_torre"            // esquema ausente de ESQUEMAS y el .chispa no trae TORR (o falta -tok/ORT): L2 no puede calcular torres
+	CausaTipoNoSoportado   = "tipo_no_soportado"    // la capa no decide ese tipo (p. ej. multi sin cabeza calibrada)
+	CausaScoreIds          = "score_ids_no_validos" // score con ids que no son 1..K
+	CausaSinModelo         = "sin_modelo"           // la capa no tiene modelo cargado
+	CausaEsquemaNoVisto    = "esquema_no_entrenado" // L0 sin modelo para ese esquema
+	CausaSinOpinion        = "sin_opinion"          // otra causa
+	CausaPresupuestoTorres = "presupuesto_torres"   // L2 agotó el presupuesto de torres nuevas (por petición o por segundo)
 )
 
 // ExplicaNoOpina lo implementan las capas que saben decir por qué no opinaron.
