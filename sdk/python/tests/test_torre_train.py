@@ -220,3 +220,43 @@ class TestTorreTrain(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTorreAutodetectada(unittest.TestCase):
+    """`chispa train --ckpt`: además de torre.onnx, un *.onnx de nombre libre con metadata chispa.torre.*."""
+
+    def setUp(self):
+        self.d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.d, True)
+
+    def escribir(self, nombre, meta):
+        (self.d / nombre).write_bytes(onnx_torre(meta=meta))
+
+    def buscar(self):
+        from chispa.train import _torre_junto_al_ckpt
+        msgs = []
+        return _torre_junto_al_ckpt(self.d, msgs.append), msgs
+
+    META = {"chispa.torre.dim": 8, "chispa.torre.max_len": 128, "chispa.torre.prefijo": "passage: "}
+
+    def test_nombre_libre_con_metadata(self):
+        self.escribir("torre-e5.onnx", self.META)
+        self.escribir("otro.onnx", {})
+        r, _ = self.buscar()
+        self.assertEqual(r, self.d / "torre-e5.onnx")
+
+    def test_sin_metadata_no_se_incluye(self):
+        self.escribir("modelo.onnx", {})
+        self.assertIsNone(self.buscar()[0])
+
+    def test_varios_avisa_y_no_elige(self):
+        self.escribir("a.onnx", self.META)
+        self.escribir("b.onnx", self.META)
+        r, msgs = self.buscar()
+        self.assertIsNone(r)
+        self.assertTrue(any("varios" in m and "a.onnx" in m and "b.onnx" in m for m in msgs))
+
+    def test_nombre_conocido_tiene_prioridad(self):
+        self.escribir("torre.onnx", {})
+        self.escribir("a.onnx", self.META)
+        self.assertEqual(self.buscar()[0], self.d / "torre.onnx")

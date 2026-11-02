@@ -23,8 +23,8 @@ func TestNormalizarMayusculasParidad(t *testing.T) {
 	if err := json.Unmarshal(b, &f); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.Casos) != 13 {
-		t.Fatalf("esperaba 13 casos, hay %d", len(f.Casos))
+	if len(f.Casos) != 15 {
+		t.Fatalf("esperaba 15 casos, hay %d", len(f.Casos))
 	}
 	for _, c := range f.Casos {
 		if g := NormalizarMayusculas(c.Entrada); g != c.Salida {
