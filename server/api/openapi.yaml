@@ -338,3 +338,7 @@ components:
         torre_al_vuelo:
           type: boolean
           description: "L2 puede calcular la torre de un esquema nuevo (el .chispa trae TORR y estan -tok y ONNX Runtime). Con false y sin L1, un esquema que el .chispa no trae escala con escalate_reason sin_opinion."
+        texto_torre:
+          type: string
+          enum: [v1, v2_sin_id]
+          description: "Version del texto de torre que usa L2 al calcular torres al vuelo (campo texto_torre del META del .chispa; ausente = v1). Solo aparece si torre_al_vuelo es true."
