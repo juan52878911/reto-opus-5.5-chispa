@@ -86,6 +86,39 @@ data class Respuesta(
     val escalar: Boolean,
     val ms: Double,
     val respuestas: List<String> = emptyList(),
+    /**
+     * Solo si [escalar] y se sabe por qué (mismo campo y valores que `escalate_reason` del servidor): [MotivoEscalada.SIN_OPINION],
+     * [MotivoEscalada.BAJA_CONFIANZA] o [MotivoEscalada.SCORE_IDS_NO_VALIDOS]; null si no escaló o si escaló por el fallo de una capa.
+     */
+    val escalateReason: String? = null,
 )
+
+/** Valores de `escalate_reason` (`server/decide/cascada.go`). */
+object MotivoEscalada {
+    /** Ninguna capa opinó (sin error): el modelo no puede decidir ese esquema. */
+    const val SIN_OPINION = "sin_opinion"
+
+    /** Alguna capa opinó pero ninguna llegó a su τ. */
+    const val BAJA_CONFIANZA = "baja_confianza"
+
+    /** Sin opinión porque los ids de un `score` no son exactamente 1..K. */
+    const val SCORE_IDS_NO_VALIDOS = "score_ids_no_validos"
+}
+
+/**
+ * Los ids de un `score` valen si son exactamente 1..K: enteros canónicos (sin «01», «+1»), sin huecos ni repetidos, en cualquier
+ * orden. Cualquier otra pregunta vale. Es la misma regla que aplica el motor Go en cada capa (que entonces no opina).
+ */
+fun scoreIdsValidos(pregunta: Pregunta): Boolean {
+    if (pregunta.tipo != "score") return true
+    val k = pregunta.opciones.size
+    val vistos = BooleanArray(k)
+    for (o in pregunta.opciones) {
+        val n = o.id.toIntOrNull() ?: return false
+        if (n.toString() != o.id || n < 1 || n > k || vistos[n - 1]) return false
+        vistos[n - 1] = true
+    }
+    return k > 0
+}
 
 class ErrorChispa(mensaje: String, causa: Throwable? = null) : Exception(mensaje, causa)

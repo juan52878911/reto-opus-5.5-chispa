@@ -71,21 +71,14 @@ func TestScoreDocePermutado(t *testing.T) {
 	}
 }
 
-// ids no numéricos: se conserva el orden declarado (el nivel es la posición), nunca el lexicográfico.
-func TestScoreNoNumericosConservaOrden(t *testing.T) {
+// ids no 1..K (bajo/medio/alto, 0..K-1…): L2 no opina y dice por qué.
+func TestScoreNoNumericosNoOpina(t *testing.T) {
 	c := &Chispa{calib: calibNiveles(3)}
-	pos := func(ids []string) int {
+	for _, ids := range [][]string{{"bajo", "medio", "alto"}, {"0", "1", "2"}, {"01", "2", "3"}} {
 		r := c.score(pregunta{Kind: "score", Opciones: opsIDs(ids...)}, 1)
-		for i, id := range ids {
-			if id == r.Answer {
-				return i
-			}
+		if r.Opina || r.Conf != 0 || r.EscalateReason != "score_ids_no_validos" {
+			t.Fatalf("%v: %+v", ids, r)
 		}
-		t.Fatalf("%v: sin respuesta: %+v", ids, r)
-		return -1
-	}
-	if a, b := pos([]string{"bajo", "medio", "alto"}), pos([]string{"alto", "medio", "bajo"}); a != b {
-		t.Fatalf("el nivel debe ser la posición declarada: %d vs %d", a, b)
 	}
 }
 
@@ -109,12 +102,7 @@ func TestScoreParidadPythonOrden(t *testing.T) {
 		orden, num := ordenNivel(ops)
 		if c.Error {
 			if num {
-				t.Fatalf("%s: Python rechaza y aquí es numérico", c.Caso)
-			}
-			for i := range ops {
-				if orden[i].ID != ops[i].ID {
-					t.Fatalf("%s: no se conservó el orden declarado: %v", c.Caso, orden)
-				}
+				t.Fatalf("%s: Python rechaza y aquí vale", c.Caso)
 			}
 			continue
 		}

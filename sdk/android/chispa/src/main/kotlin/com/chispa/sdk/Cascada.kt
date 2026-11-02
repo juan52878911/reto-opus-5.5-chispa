@@ -56,6 +56,7 @@ class Cascada(
         val t0 = reloj()
         fun ms() = (reloj() - t0) / 1e6
         var mejor = SalidaCapa.SIN_OPINION
+        var fallo = false // una capa lanzó: la escalada no lleva motivo (como `ninguna` en el servidor)
         val previas = LinkedHashMap<String, SalidaCapa>()
         for (c in capas) {
             val r = try {
@@ -66,6 +67,7 @@ class Cascada(
                 } catch (_: Throwable) {
                     // registrar nunca debe romper la decisión
                 }
+                fallo = true
                 SalidaCapa.SIN_OPINION
             }
             previas[c.capa.nombre] = r
@@ -79,7 +81,13 @@ class Cascada(
                 return Respuesta(r.respuesta, r.confianza, r.probs, c.capa.nombre, false, ms(), r.respuestas.orEmpty())
             }
         }
-        return Respuesta(mejor.respuesta, mejor.confianza, mejor.probs, CAPA_ESCALAR, true, ms(), mejor.respuestas.orEmpty())
+        val motivo = when {
+            mejor.confianza > 0 -> MotivoEscalada.BAJA_CONFIANZA
+            fallo -> null
+            !scoreIdsValidos(pregunta) -> MotivoEscalada.SCORE_IDS_NO_VALIDOS
+            else -> MotivoEscalada.SIN_OPINION
+        }
+        return Respuesta(mejor.respuesta, mejor.confianza, mejor.probs, CAPA_ESCALAR, true, ms(), mejor.respuestas.orEmpty(), motivo)
     }
 
     companion object {

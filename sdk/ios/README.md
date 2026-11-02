@@ -47,3 +47,5 @@ xcodebuild test -scheme Chispa -destination 'platform=iOS Simulator,name=iPhone 
 ```
 (`xcodebuild -scheme Chispa` descubre el esquema del paquete; usa el simulador que haya en el runner.) Si
 `onnxruntime-swift-package-manager` no resuelve `from: "1.19.2"`, ajustar la versión en `Package.swift`.
+
+**score y `escalateReason`.** Un `score` solo vale con ids exactamente `1..K` (en cualquier orden); con otros ids ninguna capa opina. `Respuesta.escalateReason` (nulo/`nil` si no escaló o escaló por el fallo de una capa) trae, igual que `escalate_reason` del servidor: `sin_opinion`, `baja_confianza` o `score_ids_no_validos`.

@@ -163,7 +163,8 @@ final class CodificadorTorreMotor: CodificadorTorre {
 
 /// Normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras y más del 70 % en mayúscula devuelve el
 /// texto en minúsculas; si no, el mismo. Solo para el mensaje que entra a L2. Cuenta escalares Unicode (`isAlphabetic` y
-/// `isUppercase` de `properties`, no los de `Character`, que da por mayúsculas «ª», «º») y pasa a minúsculas con `lowercased()`.
+/// `isUppercase` de `properties`, no los de `Character`, que da por mayúsculas «ª», «º») y pasa a minúsculas escalar a escalar con `properties.lowercaseMapping`,
+/// quedándose con el primer escalar (mapeo simple, como Go: «İ» → «i», sigma final → «σ»; `lowercased()` daría «ς»).
 public func normalizarMayusculas(_ texto: String) -> String {
     var letras = 0
     var mayus = 0
@@ -171,7 +172,12 @@ public func normalizarMayusculas(_ texto: String) -> String {
         letras += 1
         if u.properties.isUppercase { mayus += 1 }
     }
-    return letras >= 8 && mayus * 10 > 7 * letras ? texto.lowercased() : texto
+    guard letras >= 8 && mayus * 10 > 7 * letras else { return texto }
+    var salida = String.UnicodeScalarView()
+    for u in texto.unicodeScalars {
+        salida.append(u.properties.lowercaseMapping.unicodeScalars.first ?? u)
+    }
+    return String(salida)
 }
 
 /// Un `Tokenizador` que sabe dar varias ventanas de un texto largo (`texto_largo`); `CapaL2` lo usa si el tokenizador lo implementa.
@@ -260,6 +266,7 @@ struct CapaL2: Capa {
     }
 
     func decidir(_ texto: String, _ pregunta: Pregunta, previas: [String: SalidaCapa]) throws -> SalidaCapa {
+        if !pregunta.scoreIdsValidos { return .sinOpinion } // score con ids que no son 1..K: no opina, sin tokenizar ni ONNX
         let pj = pregunta.json()
         // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
         if !motor.torresL2(pj) {
