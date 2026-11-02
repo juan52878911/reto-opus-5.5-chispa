@@ -254,7 +254,8 @@ PYEOF
       if s3cp "$TSJEV_ES_S3/${f#tsjev-es/}" "$META/$f" 2>/dev/null; then NE=$((NE+1)); else NEF=$((NEF+1)); echo "aviso: no se pudo bajar $f"; fi
     done < "$BASE/tsjev-es.lista"
   fi
-  if [ "$NE" -gt 0 ] && [ "$NEF" = 0 ]; then
+  if [ "${CHISPA_SIN_TSJEV_ES:-0}" = 1 ]; then :   # omitido arriba: ni se cuenta ni falla
+  elif [ "$NE" -gt 0 ] && [ "$NEF" = 0 ]; then
     HAY_META=1   # con el meta de tsjev o sin él, tsjev-es ya es un directorio de meta
     NT=$("$PY" -I - "$META/tsjev-es" <<'PYEOF'
 import glob, gzip, json, sys
