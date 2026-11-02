@@ -10,4 +10,5 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
   echo model/datos/comun.py
   echo model/datos/validar.py
   find model/meta -type f \( -name '*.py' -o -name '*.sh' \) -not -path '*/tests/*' -not -path '*/__pycache__/*'
-} | LC_ALL=C sort | tar -czf - -T -
+  echo model/meta/resultados/conversion-20261027.json   # traducir.sh lista las claves del meta con él (el rol no tiene ListBucket)
+} | LC_ALL=C sort | COPYFILE_DISABLE=1 tar --no-xattrs -czf - -T -
