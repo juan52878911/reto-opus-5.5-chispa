@@ -1,0 +1,731 @@
+{
+ "version": 1,
+ "origen": [
+  "/opt/chispa/g8.chispa",
+  "/opt/chispa/g8.chispa"
+ ],
+ "manifiesto": "bateria-chispa",
+ "criterio": "máx(semiancho IC95 de Wilson, 2 × |corrida_1 − corrida_2|), redondeado hacia arriba a 0,005; latencias relativas a 0,05",
+ "umbrales": {
+  "exactitud": 0.01,
+  "f1_macro": 0.01,
+  "cobertura": 0.005,
+  "ece": 0.005,
+  "escalado": 0.005,
+  "errores": 0.0,
+  "mae": 0.02,
+  "p50_ms": 0.5,
+  "p99_ms": 1.0,
+  "por_conjunto": {
+   "clinc150": {
+    "f1_macro": 0.005
+   },
+   "hatecheck": {
+    "exactitud": 0.055,
+    "f1_macro": 0.055,
+    "cobertura": 0.01,
+    "ece": 0.035,
+    "escalado": 0.01
+   },
+   "herramientas": {
+    "exactitud": 0.05,
+    "f1_macro": 0.05,
+    "cobertura": 0.045,
+    "ece": 0.035,
+    "escalado": 0.04
+   },
+   "inyecciones": {
+    "exactitud": 0.09,
+    "f1_macro": 0.09,
+    "cobertura": 0.07,
+    "ece": 0.075,
+    "escalado": 0.02
+   },
+   "jevbench": {
+    "exactitud": 0.065,
+    "f1_macro": 0.065,
+    "cobertura": 0.03,
+    "ece": 0.04,
+    "escalado": 0.04
+   },
+   "massive": {
+    "exactitud": 0.02,
+    "f1_macro": 0.02,
+    "cobertura": 0.01,
+    "ece": 0.01,
+    "escalado": 0.01
+   },
+   "spam": {
+    "exactitud": 0.015,
+    "f1_macro": 0.015,
+    "cobertura": 0.015,
+    "ece": 0.025
+   }
+  }
+ },
+ "avisos": [
+  "conjuntos/hatecheck/exactitud: el IC95/ruido pide 0.055 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/hatecheck/f1_macro: el IC95/ruido pide 0.055 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/hatecheck/ece: el IC95/ruido pide 0.035 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/herramientas/exactitud: el IC95/ruido pide 0.050 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/herramientas/f1_macro: el IC95/ruido pide 0.050 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/herramientas/cobertura: el IC95/ruido pide 0.045 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/herramientas/ece: el IC95/ruido pide 0.035 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/herramientas/escalado: el IC95/ruido pide 0.040 y el manifiesto tiene 0.030 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/inyecciones/exactitud: el IC95/ruido pide 0.090 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/inyecciones/f1_macro: el IC95/ruido pide 0.090 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/inyecciones/cobertura: el IC95/ruido pide 0.070 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/inyecciones/ece: el IC95/ruido pide 0.075 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/jevbench/exactitud: el IC95/ruido pide 0.065 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/jevbench/f1_macro: el IC95/ruido pide 0.065 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/jevbench/ece: el IC95/ruido pide 0.040 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/jevbench/escalado: el IC95/ruido pide 0.040 y el manifiesto tiene 0.030 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/massive/exactitud: el IC95/ruido pide 0.020 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/massive/f1_macro: el IC95/ruido pide 0.020 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/spam/exactitud: el IC95/ruido pide 0.015 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/spam/f1_macro: el IC95/ruido pide 0.015 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/spam/ece: el IC95/ruido pide 0.025 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)"
+ ],
+ "detalle": {
+  "global": {
+   "exactitud": {
+    "corrida_1": 0.5718181818181818,
+    "corrida_2": 0.5718181818181818,
+    "media": 0.5718181818181818,
+    "n": 11000,
+    "ic95_semiancho": 0.009245461499576139,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.29800173754071935,
+    "corrida_2": 0.29800173754071935,
+    "media": 0.29800173754071935,
+    "n": 11000,
+    "ic95_semiancho": 0.00854626015492076,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.01,
+    "corrida_2": 0.01,
+    "media": 0.01,
+    "n": 11000,
+    "ic95_semiancho": 0.001866948462068813,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.06470231976340143,
+    "corrida_2": 0.06470231976340143,
+    "media": 0.06470231976340143,
+    "n": 11000,
+    "ic95_semiancho": 0.004598921543691472,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 0.9798181818181818,
+    "corrida_2": 0.9798181818181818,
+    "media": 0.9798181818181818,
+    "n": 11000,
+    "ic95_semiancho": 0.0026327984945774168,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 11000,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "mae": {
+    "corrida_1": 1.2222222222222223,
+    "corrida_2": 1.2222222222222223,
+    "media": 1.2222222222222223,
+    "n": 11000,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.05
+   },
+   "p50_ms": {
+    "corrida_1": 4.123886999991555,
+    "corrida_2": 5.216240999970978,
+    "media": 4.6700639999812665,
+    "n": 11000,
+    "ruido_rel": 0.23390557388160094,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 162.54756900002576,
+    "corrida_2": 149.42243699999835,
+    "media": 155.98500300001206,
+    "n": 11000,
+    "ruido_rel": 0.08414355064650922,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/clinc150": {
+   "f1_macro": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 5500,
+    "ic95_semiancho": 0.000348992601821971,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 5500,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 2.129160999970736,
+    "corrida_2": 2.134842000032222,
+    "media": 2.132001500001479,
+    "n": 5500,
+    "ruido_rel": 0.0026646323004378904,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 3.436778999912349,
+    "corrida_2": 3.4478200000194192,
+    "media": 3.442299499965884,
+    "n": 5500,
+    "ruido_rel": 0.003207449005288429,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/hatecheck": {
+   "exactitud": {
+    "corrida_1": 0.47645429362880887,
+    "corrida_2": 0.47645429362880887,
+    "media": 0.47645429362880887,
+    "n": 361,
+    "ic95_semiancho": 0.05125035769266456,
+    "ruido": 0.0,
+    "umbral": 0.055,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.46536119795951947,
+    "corrida_2": 0.46536119795951947,
+    "media": 0.46536119795951947,
+    "n": 361,
+    "ic95_semiancho": 0.051184709600078496,
+    "ruido": 0.0,
+    "umbral": 0.055,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.002770083102493075,
+    "corrida_2": 0.002770083102493075,
+    "media": 0.002770083102493075,
+    "n": 361,
+    "ic95_semiancho": 0.0075165234446419645,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.1051602828252619,
+    "corrida_2": 0.1051602828252619,
+    "media": 0.1051602828252619,
+    "n": 361,
+    "ic95_semiancho": 0.03175102181830571,
+    "ruido": 0.0,
+    "umbral": 0.035,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 361,
+    "ic95_semiancho": 0.005264750510906651,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 361,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 23.1284809999579,
+    "corrida_2": 22.793399000079262,
+    "media": 22.96094000001858,
+    "n": 361,
+    "ruido_rel": 0.014593566285978188,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 39.62111299995286,
+    "corrida_2": 34.37476399994921,
+    "media": 36.99793849995103,
+    "n": 361,
+    "ruido_rel": 0.1418011168381879,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/herramientas": {
+   "exactitud": {
+    "corrida_1": 0.6331521739130435,
+    "corrida_2": 0.6331521739130435,
+    "media": 0.6331521739130435,
+    "n": 368,
+    "ic95_semiancho": 0.049005551909842425,
+    "ruido": 0.0,
+    "umbral": 0.05,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.6093861445833446,
+    "corrida_2": 0.6093861445833446,
+    "media": 0.6093861445833446,
+    "n": 368,
+    "ic95_semiancho": 0.04960322736333451,
+    "ruido": 0.0,
+    "umbral": 0.05,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.24728260869565216,
+    "corrida_2": 0.24728260869565216,
+    "media": 0.24728260869565216,
+    "n": 368,
+    "ic95_semiancho": 0.04392970035429853,
+    "ruido": 0.0,
+    "umbral": 0.045,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.09917341976033721,
+    "corrida_2": 0.09917341976033721,
+    "media": 0.09917341976033721,
+    "n": 368,
+    "ic95_semiancho": 0.030661455002007593,
+    "ruido": 0.0,
+    "umbral": 0.035,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 0.8315217391304348,
+    "corrida_2": 0.8315217391304348,
+    "media": 0.8315217391304348,
+    "n": 368,
+    "ic95_semiancho": 0.038197834122667244,
+    "ruido": 0.0,
+    "umbral": 0.04,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 368,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 24.713935000022502,
+    "corrida_2": 22.103382999944188,
+    "media": 23.408658999983345,
+    "n": 368,
+    "ruido_rel": 0.11152078382961501,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 30.623175000073388,
+    "corrida_2": 27.96095000007881,
+    "media": 29.2920625000761,
+    "n": 368,
+    "ruido_rel": 0.09088554279807581,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/inyecciones": {
+   "exactitud": {
+    "corrida_1": 0.49137931034482757,
+    "corrida_2": 0.49137931034482757,
+    "media": 0.49137931034482757,
+    "n": 116,
+    "ic95_semiancho": 0.08950757400805225,
+    "ruido": 0.0,
+    "umbral": 0.09,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.3438788227399099,
+    "corrida_2": 0.3438788227399099,
+    "media": 0.3438788227399099,
+    "n": 116,
+    "ic95_semiancho": 0.08519177625935623,
+    "ruido": 0.0,
+    "umbral": 0.09,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.1810344827586207,
+    "corrida_2": 0.1810344827586207,
+    "media": 0.1810344827586207,
+    "n": 116,
+    "ic95_semiancho": 0.0696932248870035,
+    "ruido": 0.0,
+    "umbral": 0.07,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.20136086012767332,
+    "corrida_2": 0.20136086012767332,
+    "media": 0.20136086012767332,
+    "n": 116,
+    "ic95_semiancho": 0.0724338439956394,
+    "ruido": 0.0,
+    "umbral": 0.075,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 1.0,
+    "corrida_2": 1.0,
+    "media": 1.0,
+    "n": 116,
+    "ic95_semiancho": 0.016027823393546144,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 116,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 33.4852690000389,
+    "corrida_2": 33.82377800005543,
+    "media": 33.65452350004716,
+    "n": 116,
+    "ruido_rel": 0.010058350700346561,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 59.81035900003917,
+    "corrida_2": 80.14621299992086,
+    "media": 69.97828599998002,
+    "n": 116,
+    "ruido_rel": 0.290602344845764,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/jevbench": {
+   "exactitud": {
+    "corrida_1": 0.48917748917748916,
+    "corrida_2": 0.48917748917748916,
+    "media": 0.48917748917748916,
+    "n": 231,
+    "ic95_semiancho": 0.06393497011860455,
+    "ruido": 0.0,
+    "umbral": 0.065,
+    "actual": 0.02
+   },
+   "f1_macro": {
+    "corrida_1": 0.48384579176023046,
+    "corrida_2": 0.48384579176023046,
+    "media": 0.48384579176023046,
+    "n": 231,
+    "ic95_semiancho": 0.06391686832087524,
+    "ruido": 0.0,
+    "umbral": 0.065,
+    "actual": 0.02
+   },
+   "cobertura": {
+    "corrida_1": 0.05194805194805195,
+    "corrida_2": 0.05194805194805195,
+    "media": 0.05194805194805195,
+    "n": 231,
+    "ic95_semiancho": 0.02931475268355887,
+    "ruido": 0.0,
+    "umbral": 0.03,
+    "actual": 0.05
+   },
+   "ece": {
+    "corrida_1": 0.08557393067449762,
+    "corrida_2": 0.08557393067449762,
+    "media": 0.08557393067449762,
+    "n": 231,
+    "ic95_semiancho": 0.036414413713128965,
+    "ruido": 0.0,
+    "umbral": 0.04,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 0.9134199134199135,
+    "corrida_2": 0.9134199134199135,
+    "media": 0.9134199134199135,
+    "n": 231,
+    "ic95_semiancho": 0.03659797973750063,
+    "ruido": 0.0,
+    "umbral": 0.04,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 231,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "mae": {
+    "corrida_1": 1.2222222222222223,
+    "corrida_2": 1.2222222222222223,
+    "media": 1.2222222222222223,
+    "n": 231,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.05
+   },
+   "p50_ms": {
+    "corrida_1": 97.51643899994633,
+    "corrida_2": 109.37887599993701,
+    "media": 103.44765749994167,
+    "n": 231,
+    "ruido_rel": 0.11467090977867107,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 309.2900169999666,
+    "corrida_2": 298.35906099992826,
+    "media": 303.82453899994744,
+    "n": 231,
+    "ruido_rel": 0.03597785760168714,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/massive": {
+   "exactitud": {
+    "corrida_1": 0.41257565568258237,
+    "corrida_2": 0.41257565568258237,
+    "media": 0.41257565568258237,
+    "n": 2974,
+    "ic95_semiancho": 0.017682427205180113,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.34356340458996965,
+    "corrida_2": 0.34356340458996965,
+    "media": 0.34356340458996965,
+    "n": 2974,
+    "ic95_semiancho": 0.017058290722183508,
+    "ruido": 0.0,
+    "umbral": 0.02,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.02051109616677875,
+    "corrida_2": 0.02051109616677875,
+    "media": 0.02051109616677875,
+    "n": 2974,
+    "ic95_semiancho": 0.005128399113384102,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.02543452474193187,
+    "corrida_2": 0.02543452474193187,
+    "media": 0.02543452474193187,
+    "n": 2974,
+    "ic95_semiancho": 0.005687913750079891,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 0.956960322797579,
+    "corrida_2": 0.956960322797579,
+    "media": 0.956960322797579,
+    "n": 2974,
+    "ic95_semiancho": 0.007313114110502931,
+    "ruido": 0.0,
+    "umbral": 0.01,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 2974,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 20.53445699993972,
+    "corrida_2": 19.503654000004644,
+    "media": 20.019055499972183,
+    "n": 2974,
+    "ruido_rel": 0.05149109057300475,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 27.127026000016485,
+    "corrida_2": 27.06366200004595,
+    "media": 27.09534400003122,
+    "n": 2974,
+    "ruido_rel": 0.002338556763496369,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  },
+  "conjuntos/spam": {
+   "exactitud": {
+    "corrida_1": 0.9262068965517242,
+    "corrida_2": 0.9262068965517242,
+    "media": 0.9262068965517242,
+    "n": 1450,
+    "ic95_semiancho": 0.01348587335588012,
+    "ruido": 0.0,
+    "umbral": 0.015,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.9255422125024775,
+    "corrida_2": 0.9255422125024775,
+    "media": 0.9255422125024775,
+    "n": 1450,
+    "ic95_semiancho": 0.013541078029463065,
+    "ruido": 0.0,
+    "umbral": 0.015,
+    "actual": 0.01
+   },
+   "cobertura": {
+    "corrida_1": 0.9296551724137931,
+    "corrida_2": 0.9296551724137931,
+    "media": 0.9296551724137931,
+    "n": 1450,
+    "ic95_semiancho": 0.013194357514485463,
+    "ruido": 0.0,
+    "umbral": 0.015,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.2223701162574414,
+    "corrida_2": 0.2223701162574414,
+    "media": 0.2223701162574414,
+    "n": 1450,
+    "ic95_semiancho": 0.021388376355738595,
+    "ruido": 0.0,
+    "umbral": 0.025,
+    "actual": 0.02
+   },
+   "escalado": {
+    "corrida_1": 0.9917241379310345,
+    "corrida_2": 0.9917241379310345,
+    "media": 0.9917241379310345,
+    "n": 1450,
+    "ic95_semiancho": 0.004834792755490038,
+    "ruido": 0.0,
+    "umbral": 0.005,
+    "actual": 0.03
+   },
+   "errores": {
+    "corrida_1": 0.0,
+    "corrida_2": 0.0,
+    "media": 0.0,
+    "n": 1450,
+    "ic95_semiancho": 0.0,
+    "ruido": 0.0,
+    "umbral": 0.0,
+    "actual": 0.0
+   },
+   "p50_ms": {
+    "corrida_1": 30.589183999950365,
+    "corrida_2": 29.522874000008414,
+    "media": 30.05602899997939,
+    "n": 1450,
+    "ruido_rel": 0.035477407875228004,
+    "umbral": 0.5,
+    "actual": 0.5
+   },
+   "p99_ms": {
+    "corrida_1": 39.886213000045245,
+    "corrida_2": 38.87121100001423,
+    "media": 39.378712000029736,
+    "n": 1450,
+    "ruido_rel": 0.02577539864763102,
+    "umbral": 1.0,
+    "actual": 1.0
+   }
+  }
+ }
+}
