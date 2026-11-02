@@ -32,7 +32,7 @@ func TestTextosTorreL2ParidadPython(t *testing.T) {
 		for _, o := range k.Opciones {
 			p.Opciones = append(p.Opciones, opcion{ID: o.ID, Description: o.Description})
 		}
-		if got := torre.Textos(aTorre(p)); !reflect.DeepEqual(got, k.Torre) {
+		if got := torre.Textos("v1", aTorre(p)); !reflect.DeepEqual(got, k.Torre) {
 			t.Errorf("caso %d (%s): Go %q, Python %q", i, k.Kind, got, k.Torre)
 		}
 	}

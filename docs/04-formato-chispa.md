@@ -33,6 +33,7 @@ Los números salen del enum de [`chispa3.go`](../format/chispa3/chispa3.go).
 
 ### Notas por sección
 - **META**: `dorado` guarda la huella del conjunto dorado con que se evaluó, si la hay.
+- **META.`texto_torre`** (opcional): versión del texto con que L2 calcula al vuelo la torre de las opciones de un esquema nuevo (sección `TORR`). `"v1"` (valor por defecto si el campo falta, así que los `.chispa` anteriores no cambian) es `passage: pregunta · id · descripción`; `"v2_sin_id"` omite el id cuando la opción tiene descripción: `passage: pregunta · descripción`. Cualquier otro valor es un error de carga (`META.texto_torre "…" desconocido`), no un v1 silencioso. Regla completa en [08-esquemas-nuevos.md](08-esquemas-nuevos.md#texto-de-torre). Lo leen `format/chispa3` (`MetaTexto`, `VersionTextoTorre()`), el servidor, `chispamovil` y, a través de este, los SDK de Android e iOS.
 - **L0**: elegido por el conjunto de etiquetas igual al de ids de las opciones. Un modelo por esquema.
 - **L1**: `choice`, `noul`, `score` y `multi`. Los parámetros de calibración están en `CALIB`.
 - **L2**: el ONNX acepta los ids del tokenizador de e5. El servidor necesita `-tok` ([06-despliegue.md](06-despliegue.md)).

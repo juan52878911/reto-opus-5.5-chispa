@@ -111,6 +111,7 @@ type Chispa struct {
 	conj        *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
 	tok         *tok.Tokenizador   // tokenizador de e5, o nil
 	torre       *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
+	textoTorre  string             // META.texto_torre («v1» / «v2_sin_id»); vacío = v1
 	dyn         map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
 	dynUso      map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
 	dynTic      uint64
@@ -220,6 +221,13 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
+	if f.Tiene(chispa3.META) {
+		m, err := f.MetaTexto()
+		if err != nil {
+			return fmt.Errorf("sección META: %w", err)
+		}
+		c.textoTorre = m.VersionTextoTorre()
+	}
 	if f.Tiene(chispa3.CALIB) {
 		var err error
 		if c.calib, err = f.Calib(); err != nil {

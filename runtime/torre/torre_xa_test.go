@@ -27,7 +27,7 @@ func TestXAOpcionesConsultaScoreSoloUnoAK(t *testing.T) {
 		if got := OpcionesConsulta(Pregunta{Kind: KindScore, Opciones: ops}); got != nil {
 			t.Errorf("%v: %v, esperaba ninguna torre", ids, got)
 		}
-		if got := Textos(Pregunta{Texto: "q", Kind: KindScore, Opciones: ops}); len(got) != 0 {
+		if got := Textos("", Pregunta{Texto: "q", Kind: KindScore, Opciones: ops}); len(got) != 0 {
 			t.Errorf("%v: textos %v", ids, got)
 		}
 	}

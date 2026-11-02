@@ -659,10 +659,18 @@ func resumenCapas(modelosL0 int, cp decide.Capacidades) string {
 			efectivas = append(efectivas, n)
 		}
 	}
-	msg := fmt.Sprintf("capas efectivas: %s; sin modelo: %s; torre al vuelo (esquemas nuevos en L2): %v", strings.Join(efectivas, ", "), strings.Join(sin, ", "), cp.TorreAlVuelo)
+	msg := fmt.Sprintf("capas efectivas: %s; sin modelo: %s; torre al vuelo (esquemas nuevos en L2): %v; texto_torre: %s", strings.Join(efectivas, ", "), strings.Join(sin, ", "), cp.TorreAlVuelo, textoTorreLog(cp.TextoTorre))
 	if !cp.TorreAlVuelo {
 		msg += ". AVISO: sin torre al vuelo, los esquemas que el .chispa no trae en ESQUEMAS no los decide L2: " +
 			"si tampoco los decide L0/L1, escalan sin probs con escalate_reason sin_opinion (reconstruya con `chispa train --torre`)"
 	}
 	return msg
+}
+
+// textoTorreLog es la versión del texto de torre para el log: «-» si L2 no calcula torres al vuelo.
+func textoTorreLog(v string) string {
+	if v == "" {
+		return "-"
+	}
+	return v
 }

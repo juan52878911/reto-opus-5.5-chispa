@@ -35,6 +35,8 @@ class MotorNativo private constructor(private val go: ChispaGo) : Motor {
         return List(a.length()) { a.getString(it) }
     }
 
+    override fun textoTorre(): String = go.textoTorre()
+
     override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean =
         go.instalarTorresL2(preguntaJson, torres, n.toLong())
 
