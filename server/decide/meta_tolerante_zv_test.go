@@ -12,10 +12,15 @@ func TestArmarDesdeMetaZeroShotTolerante(t *testing.T) {
 	f := conTorreSeccion(t)
 	secs := []chispa3.Seccion{{Tipo: chispa3.META, Datos: []byte(
 		`{"version":1,"tareas":["q"],"licencias":{"massive":{"licencia":"CC-BY"}},"dorado":"dorado/v3.jsonl","otro":1,"texto_torre":"v2_sin_id"}`)}}
-	for _, tp := range []chispa3.Tipo{chispa3.L2, chispa3.ESQUEMAS, chispa3.TORR} {
+	for _, tp := range []chispa3.Tipo{chispa3.L2, chispa3.ESQUEMAS} {
 		d, _ := f.Bytes(tp)
 		secs = append(secs, chispa3.Seccion{Tipo: tp, Datos: d})
 	}
+	tr, err := chispa3.CodificarTORR(chispa3.Torre{Dim: 2, MaxLen: 128, Prefijo: "passage: ", TextoTorre: chispa3.TextoTorreV2SinID, ONNX: []byte("onnx-torre")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secs = append(secs, chispa3.Seccion{Tipo: chispa3.TORR, Datos: tr})
 	mt, err := ArmarDesde(v3Tiny(t, calibTiny(), secs...), NuevoL0(8), &Config{}, false, tokFalso{}, ConSesionS(sesionFalsa{[][]float32{{3, 0}}}))
 	if err != nil {
 		t.Fatalf("META zero-shot debía cargar: %v", err)

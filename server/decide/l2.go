@@ -320,7 +320,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 				if _, hit := l.cache.Get(k); hit {
 					continue
 				}
-				if _, err := l.torreUnica(ctx, k, TextoTorre(l.textoTorre, p.Texto, o)); err != nil {
+				if _, err := l.torreUnica(ctx, k, TextoTorre(l.textoTorre, p, o)); err != nil {
 					break
 				}
 				cupo--
@@ -334,7 +334,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
-		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(l.textoTorre, p.Texto, o)); err != nil {
+		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(l.textoTorre, p, o)); err != nil {
 			if errors.Is(err, ErrPresupuestoTorres) {
 				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 				return nil, false, errSinPresupuestoTorres

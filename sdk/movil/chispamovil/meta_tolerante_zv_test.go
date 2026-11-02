@@ -1,14 +1,18 @@
 package chispamovil
 
 import (
+	"strings"
 	"testing"
 
 	"chispa/format/chispa3"
 )
 
-func seccionTorreFalsa(t *testing.T) chispa3.Seccion {
+func seccionTorreFalsa(t *testing.T) chispa3.Seccion { return seccionTorreFalsaTexto(t, "") }
+
+// seccionTorreFalsaTexto es una TORR de prueba con la versión de texto dada (vacío = v1, TORR v1).
+func seccionTorreFalsaTexto(t *testing.T, texto string) chispa3.Seccion {
 	t.Helper()
-	tb, err := chispa3.CodificarTORR(chispa3.Torre{Dim: 256, MaxLen: 64, Prefijo: "passage: ", ONNX: []byte("onnx!")})
+	tb, err := chispa3.CodificarTORR(chispa3.Torre{Dim: 256, MaxLen: 64, Prefijo: "passage: ", TextoTorre: texto, ONNX: []byte("onnx!")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +25,11 @@ func seccionesMetaLibre(t *testing.T, meta string, conTorre bool) []chispa3.Secc
 		chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: mustEsq()})
 	secs[0].Datos = []byte(meta)
 	if conTorre {
-		secs = append(secs, seccionTorreFalsa(t))
+		texto := ""
+		if strings.Contains(meta, `"texto_torre":"v2_sin_id"`) {
+			texto = chispa3.TextoTorreV2SinID
+		}
+		secs = append(secs, seccionTorreFalsaTexto(t, texto))
 	}
 	return secs
 }

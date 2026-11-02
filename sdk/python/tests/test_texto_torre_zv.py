@@ -73,6 +73,34 @@ class TestTextoTorreTrain(unittest.TestCase):
         d = json.loads(formato.leer((self.d / "s.chispa").read_bytes())[formato.META])
         self.assertEqual(sorted(d), ["dorado", "licencias", "tareas", "texto_torre", "version"])
 
+    def torr(self):
+        return formato.leer_torr(formato.leer((self.d / "s.chispa").read_bytes())[formato.TORR])
+
+    def test_torr_lleva_la_version_del_texto(self):
+        self.correr(l2=self.l2("v2_sin_id"), torre=self.onnx("v2_sin_id"))
+        raw = formato.leer((self.d / "s.chispa").read_bytes())[formato.TORR]
+        self.assertEqual((struct.unpack("<I", raw[:4])[0], self.torr()["texto_torre"]), (2, "v2_sin_id"))
+        inf = self.correr(l2=self.l2(), torre=self.onnx())  # v1: TORR v1, como siempre
+        raw = formato.leer((self.d / "s.chispa").read_bytes())[formato.TORR]
+        self.assertEqual((struct.unpack("<I", raw[:4])[0], self.torr()["texto_torre"], inf["torre"]["texto_torre"]), (1, "v1", "v1"))
+
+    def test_avisa_de_descripciones_repetidas(self):
+        (self.d / "e.json").write_text(json.dumps({"id": "u", "pregunta": "¿Cuál?", "tipo": "choice", "opciones": {
+            "a": "igual", "b": "  igual\t", "c": "otra", "d": "", "e": " "}}))
+        for version, avisa in (("v2_sin_id", True), ("v1", False)):
+            log = []
+            entrenar(None, self.d / "e.json", self.d / "s.chispa", l1=self.d / "l1.bin", l2=self.l2(None if version == "v1" else version),
+                     torre=self.onnx(None if version == "v1" else version), log=log.append)
+            av = [m for m in log if "descripción repetida" in m]
+            self.assertEqual(len(av), 1 if avisa else 0, log)
+            if avisa:
+                self.assertIn("'a', 'b'", av[0])
+                self.assertIn("'igual'", av[0])
+        from chispa.torre import descripciones_repetidas
+        from chispa.datos import Opcion
+        self.assertEqual(descripciones_repetidas([Opcion("a", "x"), Opcion("b", "y"), Opcion("c", " x ")]), {"x": ["a", "c"]})
+        self.assertEqual(descripciones_repetidas([Opcion("a", "Saldo"), Opcion("b", "saldo"), Opcion("c", ""), Opcion("d", " ")]), {})
+
     def test_l2_v2_sin_torre_copia_v2(self):
         self.correr(l2=self.l2("v2_sin_id"))
         self.assertEqual(self.texto(), "v2_sin_id")

@@ -104,10 +104,10 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 	}
 	textoTorre := chispa3.TextoTorreV1
-	if f.Tiene(chispa3.TORR) { // solo con TORR importa; META se lee tolerante (solo texto_torre)
-		v, err := f.VersionTextoTorre()
+	if f.Tiene(chispa3.TORR) { // la versión efectiva sale de TORR; si META trae texto_torre y discrepa, error de carga
+		v, err := f.TextoTorreEfectivo()
 		if err != nil {
-			return mt, fmt.Errorf("sección META: %w", err)
+			return mt, err
 		}
 		textoTorre = v
 	}
@@ -277,7 +277,13 @@ func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTo
 	if err != nil {
 		return err
 	}
-	if err := torre.ValidarPrefijo(binary.LittleEndian.Uint32(b), t.Prefijo); err != nil {
+	// torre.ValidarPrefijo solo conoce la fila de TORR v1 (server/torre queda fuera de esta zona); TORR v2 exige el mismo prefijo
+	// y solo añade la versión del texto, así que se valida con la fila v1. Una versión desconocida ya la rechazó Torre().
+	vTorr := binary.LittleEndian.Uint32(b)
+	if vTorr == 2 {
+		vTorr = 1
+	}
+	if err := torre.ValidarPrefijo(vTorr, t.Prefijo); err != nil {
 		return err
 	}
 	if enc == nil {

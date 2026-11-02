@@ -150,13 +150,34 @@ def comprobar_dim_l2(secs: dict, dim: int) -> None:
         raise ChispaError(f"--torre: la dim de la torre ({dim}) no casa con la de L2/ESQUEMAS ({dim_l2})")
 
 
-def anadir_torr(salida, torre: dict, inf: dict) -> None:
+def descripciones_repetidas(opciones) -> dict:
+    """{descripción (tras strip) → ids} de las opciones de una pregunta que comparten descripción (dos o más; las vacías no cuentan). Es
+    la regla de texto de torre v2 (`runtime/torre.TextoOpcion`): esas opciones usan el texto v1, con id."""
+    por = {}
+    for o in opciones:
+        d = o.description.strip()
+        if d:
+            por.setdefault(d, []).append(o.id)
+    return {d: ids for d, ids in por.items() if len(ids) >= 2}
+
+
+def avisar_descripciones_repetidas(opciones, version: str, log=print) -> None:
+    """Avisa, con texto v2, de las descripciones repetidas de una pregunta (cuáles y qué opciones): esas opciones llevan el id en la torre."""
+    if version != "v2_sin_id":
+        return
+    for d, ids in descripciones_repetidas(opciones).items():
+        log(f"AVISO: descripción repetida en la pregunta ({', '.join(map(repr, ids))}: {d!r}); con texto_torre v2_sin_id esas opciones "
+            "usan el texto v1 (con id) en la torre al vuelo")
+
+
+def anadir_torr(salida, torre: dict, inf: dict, texto_torre=None) -> None:
     """Reescribe `salida` (.chispa v3) con TORR añadida. Paso común a los tres caminos: el entrenador de Go escribe el fichero
     entero, así que la sección se añade después, conservando las demás byte a byte; actualiza el informe."""
     salida = Path(salida)
     secs = formato.leer(salida.read_bytes())
     comprobar_dim_l2(secs, torre["dim"])
-    secs[formato.TORR] = formato.torr(torre["onnx"], torre["dim"], torre["max_len"], torre["prefijo"])
+    texto = texto_torre or torre.get("texto_torre") or "v1"  # v2 escribe TORR v2; v1, TORR v1
+    secs[formato.TORR] = formato.torr(torre["onnx"], torre["dim"], torre["max_len"], torre["prefijo"], texto)
     tmp = salida.with_name(salida.name + ".tmp")  # mismo directorio: os.replace es atómico
     try:
         tmp.write_bytes(formato.escribir(secs))
@@ -166,7 +187,7 @@ def anadir_torr(salida, torre: dict, inf: dict) -> None:
     inf["bytes"] = salida.stat().st_size
     if "TORR" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("TORR")
-    inf["torre"] = {k: torre[k] for k in ("dim", "max_len", "prefijo")}
+    inf["torre"] = {k: torre[k] for k in ("dim", "max_len", "prefijo")} | {"texto_torre": texto}
 
 
 def texto_torre_de(secs: dict) -> str:
