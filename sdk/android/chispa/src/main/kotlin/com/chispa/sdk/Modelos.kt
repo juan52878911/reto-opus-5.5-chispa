@@ -103,6 +103,9 @@ object MotivoEscalada {
 
     /** Sin opinión porque los ids de un `score` no son exactamente 1..K. */
     const val SCORE_IDS_NO_VALIDOS = "score_ids_no_validos"
+
+    /** Solo servidor: una capa falló o se quedó sin plazo/presupuesto. El motor del móvil no lo devuelve (no tiene timeouts de L3 ni presupuesto compartido). */
+    const val INCOMPLETA = "incompleta"
 }
 
 /**

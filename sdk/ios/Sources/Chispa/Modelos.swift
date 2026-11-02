@@ -113,6 +113,8 @@ public enum MotivoEscalada {
     public static let bajaConfianza = "baja_confianza"
     /// Sin opinión porque los ids de un `score` no son exactamente 1..K.
     public static let scoreIdsNoValidos = "score_ids_no_validos"
+    /// Solo servidor: una capa falló o se quedó sin plazo/presupuesto. El motor del móvil no lo devuelve (no tiene timeouts de L3 ni presupuesto compartido).
+    public static let incompleta = "incompleta"
 }
 
 extension Pregunta {
