@@ -20,6 +20,42 @@ type Meta struct {
 	Dorado    string            `json:"dorado"` // sha256 hex del dorado
 }
 
+// Versiones del texto de torre (META.texto_torre).
+const (
+	TextoTorreV1      = "v1"
+	TextoTorreV2SinID = "v2_sin_id"
+)
+
+// MetaTexto es Meta con el campo opcional texto_torre. Va aparte de Meta para que la conversión de otros módulos a Meta (que
+// exige los mismos campos) no se rompa.
+type MetaTexto struct {
+	Meta
+	// TextoTorre es la versión del texto de torre al vuelo: TextoTorreV1 o TextoTorreV2SinID; ausente = v1.
+	TextoTorre string `json:"texto_torre,omitempty"`
+}
+
+// VersionTextoTorre es la versión efectiva del texto de torre: v1 si META no la trae.
+func (m MetaTexto) VersionTextoTorre() string {
+	if m.TextoTorre == "" {
+		return TextoTorreV1
+	}
+	return m.TextoTorre
+}
+
+func (m MetaTexto) Codificar() ([]byte, error) {
+	if err := m.validar(); err != nil {
+		return nil, err
+	}
+	return json.Marshal(m)
+}
+
+func (m MetaTexto) validar() error {
+	if m.TextoTorre != "" && m.TextoTorre != TextoTorreV1 && m.TextoTorre != TextoTorreV2SinID {
+		return fmt.Errorf("%w: META.texto_torre %q desconocido (se esperaba %q o %q)", ErrContenido, m.TextoTorre, TextoTorreV1, TextoTorreV2SinID)
+	}
+	return m.Meta.validar()
+}
+
 func (m Meta) Codificar() ([]byte, error) {
 	if err := m.validar(); err != nil {
 		return nil, err
@@ -62,19 +98,54 @@ func decodificarJSON(b []byte, dst any) error {
 }
 
 func DecodificarMeta(b []byte) (Meta, error) {
-	var m Meta
+	m, err := DecodificarMetaTexto(b)
+	return m.Meta, err
+}
+
+// DecodificarMetaTexto decodifica META con texto_torre (valor desconocido = error; ausente = v1).
+func DecodificarMetaTexto(b []byte) (MetaTexto, error) {
+	var m MetaTexto
 	if err := decodificarJSON(b, &m); err != nil {
-		return Meta{}, err
+		return MetaTexto{}, err
 	}
 	return m, m.validar()
 }
 
 func (f *Fichero) Meta() (Meta, error) {
+	m, err := f.MetaTexto()
+	return m.Meta, err
+}
+
+// MetaTexto lee META con texto_torre.
+func (f *Fichero) MetaTexto() (MetaTexto, error) {
 	b, err := f.Bytes(META)
 	if err != nil {
-		return Meta{}, err
+		return MetaTexto{}, err
 	}
-	return DecodificarMeta(b)
+	return DecodificarMetaTexto(b)
+}
+
+// VersionTextoTorre lee de META solo texto_torre, de forma tolerante: ignora el resto de campos (que el runtime no usa) y valida
+// únicamente ese valor (desconocido = error; ausente = v1). Sin sección META devuelve v1.
+func (f *Fichero) VersionTextoTorre() (string, error) {
+	if !f.Tiene(META) {
+		return TextoTorreV1, nil
+	}
+	b, err := f.Bytes(META)
+	if err != nil {
+		return "", err
+	}
+	var m struct {
+		TextoTorre string `json:"texto_torre"`
+	}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return "", fmt.Errorf("%w: META: %v", ErrContenido, err)
+	}
+	mt := MetaTexto{TextoTorre: m.TextoTorre}
+	if m.TextoTorre != "" && m.TextoTorre != TextoTorreV1 && m.TextoTorre != TextoTorreV2SinID {
+		return "", fmt.Errorf("%w: META.texto_torre %q desconocido (se esperaba %q o %q)", ErrContenido, m.TextoTorre, TextoTorreV1, TextoTorreV2SinID)
+	}
+	return mt.VersionTextoTorre(), nil
 }
 
 // ---- CALIB ----

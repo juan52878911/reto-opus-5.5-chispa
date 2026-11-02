@@ -10,7 +10,7 @@ import (
 func TestTextosYOpciones(t *testing.T) {
 	ch := Pregunta{Texto: "q", Kind: KindChoice, Opciones: []Opcion{{ID: "a", Description: "x"}, {ID: "b"}}}
 	want := []string{"passage: q · a · x", "passage: q · b · "}
-	if got := Textos(ch); !reflect.DeepEqual(got, want) {
+	if got := Textos("", ch); !reflect.DeepEqual(got, want) {
 		t.Fatalf("choice: %q", got)
 	}
 	if got := OpcionesConsulta(Pregunta{Kind: KindNoul}); !reflect.DeepEqual(got, []Opcion{{ID: "true"}}) {
@@ -85,7 +85,7 @@ func TestParidadPython(t *testing.T) {
 		if k == "multi" {
 			k = KindChoice
 		}
-		if got := Textos(Pregunta{Texto: c.Pregunta, Kind: k, Opciones: c.Opciones}); !reflect.DeepEqual(got, c.Torre) {
+		if got := Textos("v1", Pregunta{Texto: c.Pregunta, Kind: k, Opciones: c.Opciones}); !reflect.DeepEqual(got, c.Torre) {
 			t.Errorf("caso %d (%s): Go %q, Python %q", i, c.Kind, got, c.Torre)
 		}
 	}

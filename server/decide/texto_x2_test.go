@@ -30,7 +30,7 @@ func cargarParidad(t *testing.T) []casoParidad {
 // La torre de L2 (TextosTorre) es idéntica a texto_opcion/texto_consulta de model/l2/modelo.py.
 func TestTextosTorreParidadPython(t *testing.T) {
 	for i, c := range cargarParidad(t) {
-		if got := TextosTorre(Pregunta{Texto: c.Pregunta, Kind: c.Kind, Opciones: c.Opciones}); !reflect.DeepEqual(got, c.Torre) {
+		if got := TextosTorre("v1", Pregunta{Texto: c.Pregunta, Kind: c.Kind, Opciones: c.Opciones}); !reflect.DeepEqual(got, c.Torre) {
 			t.Errorf("caso %d (%s): Go %q, Python %q", i, c.Kind, got, c.Torre)
 		}
 	}

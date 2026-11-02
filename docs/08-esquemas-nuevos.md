@@ -11,7 +11,7 @@ prueban la mecánica, no la calidad. Falta el ONNX real de la torre: no hay pari
 ## Qué pasa con un esquema nuevo
 Un esquema que llega en la petición y que ningún `.chispa` trae:
 - **L1** lo decide: calcula el embedding de cada opción al vuelo y lo cachea por esquema ([`l1.go`](../server/decide/l1.go)). Necesita sección L1.
-- **L2, con `TORR`**, calcula la torre de cada opción al vuelo (pasaje «pregunta · opción · descripción» con prefijo de `TORR`, ONNX de la sección) y la guarda en un LRU por torre (clave `HashEsquema(pregunta, [opción, descripción])`). Hace falta `chispa-server -tok …` compilado con `-tags ort`. Si `ESQUEMAS` ya trae la torre, se usa esa. Una petición puede calcular como mucho `max_torres_nuevas` torres sin cachear (64 por defecto; por encima, L2 no opina) y la caché guarda `cache_torres` (16 384 por defecto), ambas en `-config`.
+- **L2, con `TORR`**, calcula la torre de cada opción al vuelo (pasaje «pregunta · opción · descripción» —o «pregunta · descripción» con `texto_torre: "v2_sin_id"`, ver [Texto de torre](#texto-de-torre)— con prefijo de `TORR`, ONNX de la sección) y la guarda en un LRU por torre (clave `HashEsquema(pregunta, [opción, descripción])`). Hace falta `chispa-server -tok …` compilado con `-tags ort`. Si `ESQUEMAS` ya trae la torre, se usa esa. Una petición puede calcular como mucho `max_torres_nuevas` torres sin cachear (64 por defecto; por encima, L2 no opina) y la caché guarda `cache_torres` (16 384 por defecto), ambas en `-config`.
 - **L2, sin `TORR`**, busca en `ESQUEMAS` por `HashEsquema(pregunta, opciones)`; sin ella no opina y decide solo L1.
 - **L0, L2c y L0TF** solo existen para el esquema con el que se entrenó el `.chispa`.
 
@@ -27,6 +27,17 @@ PYTHONPATH=sdk/python python -m chispa train --esquema ferreteria.yaml --l2 l2.c
   si faltan, de la forma de `h` (dim) y de los defaults 128 y `"passage: "` (`max_len` hasta 512; el runtime trunca el pasaje a ese valor). `--torre-dim`, `--torre-max-len` y `--torre-prefijo` mandan;
   si chocan con los metadatos (o `--torre-dim` con la forma de `h`), error.
 - `TORR` se añade al final, reescribiendo el `.chispa` ya escrito (el entrenador de Go lo escribe entero); las demás secciones no cambian. Sin `--torre`, la salida es la de siempre.
+
+## Texto de torre
+
+El texto «passage: …» que se codifica con e5 depende de `META.texto_torre` del `.chispa` (ausente = `v1`; valor desconocido = error de carga). Hay un vector de torre por opción en choice y multi, uno (la opción `true`) en noul y uno (el nivel máximo) en score; para cada uno, con `strip(descripción)` = la descripción sin espacios Unicode en los extremos, solo para decidir si está vacía:
+
+| versión | descripción no vacía | descripción vacía |
+|---|---|---|
+| `v1` | `passage: pregunta · id · descripción` | `passage: pregunta · id · ` |
+| `v2_sin_id` | `passage: pregunta · descripción` (la descripción tal cual, sin `strip`) | el texto v1 exacto: `passage: pregunta · id · ` |
+
+Sin cambios entre versiones: las claves de caché y de `ESQUEMAS` (`HashEsquema`, siguen llevando el id), el prefijo de `TORR`, la tokenización, el ONNX, el texto de la consulta y la normalización de mayúsculas (solo del mensaje). Una sola función por plataforma, `TextoTorre(version, pregunta, id, descripcion)` en `runtime/torre`, la usan el servidor (todos los caminos de torre al vuelo) y `chispamovil`; los SDK de Android e iOS piden los textos a `chispamovil` (`textosTorreL2`) y no los construyen. `GET /healthz` expone `texto_torre` cuando hay torre al vuelo, y el log de arranque lo repite en «capas efectivas». Paridad con Python: `server/decide/testdata/texto_torre_v2.json`, que genera `gen_texto_torre_v2.py` (la referencia `model/l2/modelo.py` aún no tiene v2, así que la regla v2 está implementada en el generador).
 
 ## Zero-shot con torre al vuelo, paso a paso
 1. Escribe el esquema con una descripción por opción ([02-inicio-rapido.md](02-inicio-rapido.md#1-el-esquema)).

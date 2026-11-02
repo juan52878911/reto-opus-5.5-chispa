@@ -45,6 +45,9 @@ public protocol Motor: AnyObject {
     /// motor no sabe pedirlas (motor sin soporte, o ya las tiene). Las torres que calcule el propio motor no pasan
     /// por aquí: basta con que `torresL2` diga true.
     func textosTorreL2(_ preguntaJson: String) -> [String]
+    /// Versión del texto de torre del `.chispa` (META.texto_torre): «v1» (campo ausente) o «v2_sin_id». El motor (`chispamovil`)
+    /// es el único que construye los textos de `textosTorreL2`; el SDK los pasa tal cual al codificador, sin reconstruirlos.
+    func textoTorre() -> String
     /// Entrega al motor las torres de `preguntaJson` (`n` vectores de d float32 little endian, uno por texto de
     /// `textosTorreL2`); el motor las cuantiza y las cachea, así que la siguiente `torresL2` de ese esquema da true sin
     /// volver a calcular. false si no las acepta.
@@ -77,6 +80,7 @@ public extension Motor {
         #"{"ok":false,"error":"el motor no puntúa trozos","probs":{}}"#
     }
     func textosTorreL2(_ preguntaJson: String) -> [String] { [] }
+    func textoTorre() -> String { "v1" }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool { false }
     func tieneTorre() -> Bool { false }
     func onnxTorre() -> Data? { nil }

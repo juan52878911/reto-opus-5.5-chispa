@@ -41,6 +41,8 @@ type L2 struct {
 	cache  *LRU[torreDin] // ClaveTorre → torre cuantizada de una opción (o de la consulta, en noul y score)
 	// maxNuevas es el tope de torres por calcular en una sola petición; por encima, L2 no opina.
 	maxNuevas int
+	// textoTorre es META.texto_torre del .chispa («v1» / «v2_sin_id»); vacío = v1.
+	textoTorre string
 	// vuelo agrupa los cálculos en curso por ClaveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
 	muVuelo sync.Mutex
 	vuelo   map[string]*llamadaTorre
@@ -146,6 +148,23 @@ func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 		l.maxNuevas = MaxTorresNuevasPorDefecto
 	}
 	return l
+}
+
+// ConTextoTorre fija la versión del texto de torre (META.texto_torre); vacío = v1.
+func (l *L2) ConTextoTorre(v string) *L2 {
+	l.textoTorre = v
+	return l
+}
+
+// VersionTextoTorre es la versión del texto de torre con que L2 calcula torres al vuelo; "" si no las calcula.
+func (l *L2) VersionTextoTorre() string {
+	if l == nil || l.torres == nil {
+		return ""
+	}
+	if l.textoTorre == "" {
+		return chispa3.TextoTorreV1
+	}
+	return l.textoTorre
 }
 
 // ConMaxTorresNuevas fija cuántas torres sin cachear puede calcular una petición (<= 0: el valor por defecto).
@@ -297,7 +316,7 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
-		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(p.Texto, o)); err != nil {
+		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(l.textoTorre, p.Texto, o)); err != nil {
 			if errors.Is(err, ErrPresupuestoTorres) {
 				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 				return nil, false, errSinPresupuestoTorres

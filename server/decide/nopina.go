@@ -102,6 +102,8 @@ func (l *L0) Activa() bool { return l != nil && len(l.modelos) > 0 }
 type Capacidades struct {
 	Capas        map[string]bool `json:"capas"`
 	TorreAlVuelo bool            `json:"torre_al_vuelo"`
+	// TextoTorre es META.texto_torre con que L2 arma el texto de torre al vuelo («v1» / «v2_sin_id»); vacío sin torre al vuelo.
+	TextoTorre string `json:"texto_torre,omitempty"`
 }
 
 func activaCapa(d Decisor) bool {
@@ -119,6 +121,9 @@ func (c *Cascada) Capacidades() Capacidades {
 		cp.Capas[k.d.Nombre()] = activaCapa(k.d)
 		if t, ok := k.d.(interface{ TorreAlVuelo() bool }); ok && t.TorreAlVuelo() {
 			cp.TorreAlVuelo = true
+		}
+		if t, ok := k.d.(interface{ VersionTextoTorre() string }); ok && t.VersionTextoTorre() != "" {
+			cp.TextoTorre = t.VersionTextoTorre()
 		}
 	}
 	return cp

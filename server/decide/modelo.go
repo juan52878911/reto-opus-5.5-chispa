@@ -103,6 +103,14 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			return mt, err
 		}
 	}
+	textoTorre := chispa3.TextoTorreV1
+	if f.Tiene(chispa3.TORR) { // solo con TORR importa; META se lee tolerante (solo texto_torre)
+		v, err := f.VersionTextoTorre()
+		if err != nil {
+			return mt, fmt.Errorf("sección META: %w", err)
+		}
+		textoTorre = v
+	}
 	var calib chispa3.Calib
 	if f.Tiene(chispa3.CALIB) {
 		var err error
@@ -215,6 +223,7 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			mt.avisarCalib(VistaCalibCapa("L2", calib.ParaL2(), or, !base.sinCalibFichero))
 			cerrables := []any{base.ses}
 			if f.Tiene(chispa3.TORR) {
+				base.ConTextoTorre(textoTorre)
 				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas); err != nil {
 					mt.Avisos = append(mt.Avisos, "sin torres al vuelo: "+err.Error())
 				}

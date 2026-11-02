@@ -5,8 +5,10 @@ import "chispa/runtime/torre"
 // Las reglas puras de las torres viven en runtime/torre (sin red, para que el motor móvil no arrastre net/http); aquí se
 // reexportan con los nombres de siempre.
 
-// TextoTorre es la regla única de texto de torre (ver torre.Texto).
-func TextoTorre(pregunta string, o Opcion) string { return torre.Texto(pregunta, torre.Opcion(o)) }
+// TextoTorre es la regla única de texto de torre por versión de META.texto_torre (ver torre.TextoTorre).
+func TextoTorre(version, pregunta string, o Opcion) string {
+	return torre.TextoTorre(version, pregunta, o.ID, o.Description)
+}
 
 func aTorre(p Pregunta) torre.Pregunta {
 	k := p.Kind
@@ -35,8 +37,8 @@ func deOpcionesTorre(os []torre.Opcion) []Opcion {
 	return out
 }
 
-// TextosTorre son los textos de torre de una pregunta, en el orden de OpcionesConsulta.
-func TextosTorre(p Pregunta) []string { return torre.Textos(aTorre(p)) }
+// TextosTorre son los textos de torre de una pregunta en la versión dada, en el orden de OpcionesConsulta.
+func TextosTorre(version string, p Pregunta) []string { return torre.Textos(version, aTorre(p)) }
 
 // ClaveTorre es la clave de caché de una torre (ver torre.Clave).
 func ClaveTorre(pregunta string, o Opcion) string { return torre.Clave(pregunta, torre.Opcion(o)) }

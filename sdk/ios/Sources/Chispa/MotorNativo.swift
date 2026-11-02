@@ -58,6 +58,7 @@ final class MotorNativo: Motor {
               let a = (try? JSONSerialization.jsonObject(with: d)) as? [String] else { return [] }
         return a
     }
+    func textoTorre() -> String { go.textoTorre() }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool {
         go.instalarTorresL2(preguntaJson, torres: torres, n: n)
     }

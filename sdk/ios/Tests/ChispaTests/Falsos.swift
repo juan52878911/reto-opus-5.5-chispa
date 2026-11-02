@@ -43,6 +43,8 @@ final class MotorFalso: Motor {
     var cerrado = false
     /// Zero-shot: mientras `torres` sea false el motor pide estos textos; al instalarlas, `torres` pasa a true (caché).
     var textosTorre: [String] = []
+    var versionTorre = "v1"
+    func textoTorre() -> String { versionTorre }
     var torresInstaladas: Data?
     var nInstaladas = 0
     /// false = `instalarTorresL2` rechaza las torres (y no las cachea).
