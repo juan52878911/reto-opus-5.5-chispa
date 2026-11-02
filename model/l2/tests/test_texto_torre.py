@@ -56,11 +56,12 @@ class Paridad(unittest.TestCase):
             self.assertEqual(texto_opcion(f, c["opcion"], "v2_sin_id"), c["v2"], c)
 
     def test_preguntas(self):
-        """Los 15 casos del runtime (server/decide/testdata) y los de descripciones repetidas, contra texto_opcion / texto_consulta."""
+        """Los casos del runtime (server/decide/testdata) y los de descripciones repetidas, contra texto_opcion / texto_consulta."""
         casos = json.loads(FIX.read_text(encoding="utf-8"))["preguntas"]
         rt = json.loads((Path(__file__).parents[3] / "server" / "decide" / "testdata" / "texto_torre_v2.json").read_text(encoding="utf-8"))
-        self.assertEqual(casos[:len(rt)], rt)
-        self.assertGreaterEqual(len(casos), len(rt) + 6)
+        rt = rt["preguntas"] if isinstance(rt, dict) else rt   # tras copiar este fichero a server/ es el mismo dict
+        self.assertGreaterEqual(len(casos), 34)
+        self.assertEqual([c for c in rt if c not in casos], [])
         for c in casos:
             tipo = "choice" if c["kind"] == "multi" else c["kind"]
             f = {"pregunta": c["pregunta"], "tipo": tipo, "opciones": [o["id"] for o in c["opciones"]],
