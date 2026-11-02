@@ -33,8 +33,37 @@ def crc32c(b: bytes) -> int:
     return c ^ 0xFFFFFFFF
 
 
-def escribir(secciones: Dict[int, bytes]) -> bytes:
+MAX_FICHERO_DEFECTO = 1 << 30  # `chispa3.MaxFicheroDefecto`: el tope del servidor si su config no pone `max_fichero`
+MAX_FICHERO = MAX_FICHERO_DEFECTO  # tope de `escribir`; `chispa train --max-fichero` lo sube (o baja) mientras entrena
+NOMBRES = {META: "META", L0: "L0", L1: "L1", L2: "L2", ESQUEMAS: "ESQUEMAS", CALIB: "CALIB", CONJ: "CONJ", L0TF: "L0TF", TORR: "TORR", SOPL1: "SOPL1"}
+
+
+class ErrTamano(ValueError):
+    """El .chispa que se iba a escribir supera el tope de tamaño: no se escribe nada (un fichero así no cargaría en el servidor)."""
+
+
+def tamanos_por_seccion(secciones: Dict[int, int]) -> str:
+    """«L1 155000000, L2 473000000, …» a partir de {tipo: bytes}."""
+    return ", ".join(f"{NOMBRES.get(t, t)} {n}" for t, n in sorted(secciones.items()))
+
+
+def mensaje_tamano(total: int, tope: int, secciones: Dict[int, int], cota: bool = False) -> str:
+    """Mensaje de `ErrTamano`: tamaño por sección y qué hacer. `cota`: `total` es un mínimo (faltan secciones por calcular)."""
+    return (f"el .chispa de salida ocuparía {'al menos ' if cota else ''}{total} bytes y supera el tope de {tope} bytes "
+            f"(secciones: {tamanos_por_seccion(secciones)}): no se escribe. Quita --l1, o sube el tope con --max-fichero y con "
+            f'"max_fichero" (bytes) en la config de chispa-server (por defecto {MAX_FICHERO_DEFECTO}, 1 GiB)')
+
+
+def escribir(secciones: Dict[int, bytes], max_fichero: int = None) -> bytes:
+    """Serializa; falla con `ErrTamano` si el fichero supera `max_fichero` (por defecto `MAX_FICHERO`) antes de construir los bytes."""
+    tope = MAX_FICHERO if max_fichero is None else max_fichero
     tipos = sorted(secciones)
+    fin_ = 0
+    for t in tipos:
+        fin_ = ((fin_ + 15) & ~15) + len(secciones[t])
+    total_ = 32 + 56 * len(tipos) + fin_
+    if total_ > tope:
+        raise ErrTamano(mensaje_tamano(total_, tope, {t: len(secciones[t]) for t in tipos}))
     tabla, datos, fin = b"", bytearray(), 0
     for t in tipos:
         ini = (fin + 15) & ~15

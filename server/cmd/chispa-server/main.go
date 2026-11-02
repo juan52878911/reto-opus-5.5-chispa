@@ -499,7 +499,11 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 	capaL1, capaL2 := decide.NuevoL1(), decide.NuevoL2()
 	var cerrar func() error
 	if modelo != "" {
-		f, err := chispa3.Abrir(modelo)
+		f, err := chispa3.AbrirCon(modelo, chispa3.Limites{MaxFichero: cfg.MaxFicheroBytes()})
+		if errors.Is(err, chispa3.ErrTamano) {
+			return nil, fmt.Errorf("%s: %w (tope aplicado: %d bytes%s; para cargar un .chispa más grande suba \"max_fichero\" en la config, en bytes)",
+				modelo, err, cfg.MaxFicheroBytes(), map[bool]string{true: ", el de por defecto", false: ", de max_fichero"}[cfg.MaxFichero == nil])
+		}
 		if err != nil {
 			return nil, err
 		}

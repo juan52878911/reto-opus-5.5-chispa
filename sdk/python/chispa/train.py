@@ -392,7 +392,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
 LAMBDA_L1_SUGERIDA = 4.0
 
 
-def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
+def _entrenar_con_tope(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
              shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, perfil="servidor", sin_torre=False, texto_torre=None, log=print) -> dict:
@@ -425,6 +425,9 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
         from .torre import validar_torre
         torre = validar_torre(torre, torre_dim, torre_max_len, torre_prefijo, log)
+        sec = _cota_tamano(l1, l2, torre)
+        if sum(sec.values()) > formato.MAX_FICHERO:  # L1 + L2 + TORR ya no caben: antes de entrenar
+            raise ChispaError(formato.mensaje_tamano(sum(sec.values()), formato.MAX_FICHERO, sec, cota=True))
         if l2 and Path(l2).is_file():  # con --l2 se sabe ya: falla antes de entrenar
             from .torre import comprobar_dim_l2
             comprobar_dim_l2(formato.leer(Path(l2).read_bytes()), torre["dim"])
@@ -452,6 +455,43 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, lam,
                      inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
     return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre, q_tipo.options)
+
+
+def _cota_tamano(l1, l2, torre) -> dict:
+    """Tamaño por sección de lo que ya se sabe antes de entrenar (L1, L2/ESQUEMAS del `--l2` y ONNX de la torre): una cota inferior.
+    Con --ckpt el L2 aún no existe, así que ahí solo vale lo demás y el tope definitivo lo comprueba `formato.escribir`."""
+    sec = {}
+    if l1 and Path(l1).is_file():
+        sec[formato.L1] = Path(l1).stat().st_size
+    if l2 and Path(l2).is_file():
+        for t, b in formato.leer(Path(l2).read_bytes()).items():
+            if t in (formato.L2, formato.ESQUEMAS):
+                sec[t] = len(b)
+    if torre:
+        sec[formato.TORR] = len(torre["onnx"])
+    return sec
+
+
+def entrenar(ejemplos, esquema, salida, *, max_fichero=None, **kw) -> dict:
+    """`_entrenar_con_tope` con el tope de tamaño del .chispa de salida (`max_fichero`, bytes; por defecto 1 GiB, el que carga el servidor sin
+    tocar su config). Si la salida lo supera falla con ChispaError **sin dejar** un .chispa en `salida` (ni el intermedio del entrenador);
+    el mensaje da el tamaño por sección y qué hacer. Mira antes de entrenar lo que ya se sabe (L1, `--l2`, torre) y, al final, el fichero entero."""
+    if max_fichero is not None and not max_fichero > 0:
+        raise ChispaError(f"--max-fichero debe ser > 0 bytes: {max_fichero}")
+    tope = formato.MAX_FICHERO_DEFECTO if max_fichero is None else int(max_fichero)
+    previo, formato.MAX_FICHERO = formato.MAX_FICHERO, tope
+    try:
+        if kw.get("l1") or kw.get("l2"):  # barato: nada de entrenar si ya solo L1 y L2 no caben
+            sec = _cota_tamano(kw.get("l1"), kw.get("l2"), None)
+            if sum(sec.values()) > tope:
+                raise ChispaError(formato.mensaje_tamano(sum(sec.values()), tope, sec, cota=True))
+        try:
+            return _entrenar_con_tope(ejemplos, esquema, salida, **kw)
+        except formato.ErrTamano as e:
+            Path(salida).unlink(missing_ok=True)  # el intermedio del entrenador (sin TORR…) no es el .chispa que se pidió
+            raise ChispaError(str(e)) from None
+    finally:
+        formato.MAX_FICHERO = previo
 
 
 def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre=None, opciones=None) -> dict:
@@ -608,7 +648,7 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
             for t_, e in ex:
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
         tt_l2 = texto_torre_de(formato.leer(Path(l2_ch).read_bytes())) if l2_ch else None
-        plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
+        plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "max_fichero": formato.MAX_FICHERO, "semilla": semilla,
                 "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "sin_l0": sin_l0, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
                 "conj": conj_ruta, "l0tf": l0tf_ruta, "l1_lambda": lambda_l1, "tau_l2c": (conj_inf or {}).get("tau_l2c"),
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,

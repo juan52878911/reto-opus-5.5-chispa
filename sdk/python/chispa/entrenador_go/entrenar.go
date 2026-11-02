@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"chispa/format/chispa3"
@@ -149,7 +150,7 @@ func entrenar(p *Plan) (*Informe, error) {
 		inf.Omitidas["L2"] = "sin checkpoint de L2 (--l2): solo L0 y L1"
 		inf.Omitidas["ESQUEMAS"] = "sin checkpoint de L2"
 	} else {
-		f, err := chispa3.Abrir(p.L2Chispa)
+		f, err := chispa3.AbrirCon(p.L2Chispa, p.limites())
 		if err != nil {
 			return nil, fmt.Errorf("--l2: %w", err)
 		}
@@ -215,8 +216,15 @@ func entrenar(p *Plan) (*Informe, error) {
 	if err := chispa3.Escribir(&buf, secs); err != nil {
 		return nil, err
 	}
+	tope := p.MaxFichero
+	if tope <= 0 {
+		tope = chispa3.MaxFicheroDefecto
+	}
+	if int64(buf.Len()) > tope {
+		return nil, errTope(secs, int64(buf.Len()), tope)
+	}
 	// ida y vuelta antes de escribir
-	f, err := chispa3.Desde(buf.Bytes(), chispa3.Limites{})
+	f, err := chispa3.Desde(buf.Bytes(), chispa3.Limites{MaxFichero: tope})
 	if err != nil {
 		return nil, err
 	}
@@ -361,4 +369,15 @@ func copiarCalibL2(calib *chispa3.Calib, c2 chispa3.Calib) {
 func codificarMeta(m Meta) ([]byte, error) {
 	return chispa3.MetaTexto{Meta: chispa3.Meta{Version: m.Version, Tareas: m.Tareas, Licencias: m.Licencias, Dorado: m.Dorado},
 		TextoTorre: m.TextoTorre}.Codificar()
+}
+
+// errTope explica por qué el .chispa de salida no se escribe: su tamaño por sección frente al tope (nada se escribe; un fichero
+// mayor que el tope del servidor no cargaría).
+func errTope(secs []chispa3.Seccion, total, tope int64) error {
+	var partes []string
+	for _, s := range secs {
+		partes = append(partes, fmt.Sprintf("%v %d", s.Tipo, len(s.Datos)))
+	}
+	return fmt.Errorf("el .chispa de salida ocuparía %d bytes y supera el tope de %d bytes (secciones: %s): no se escribe. Quite --l1, "+
+		"o suba el tope con --max-fichero y con \"max_fichero\" en la config del servidor (por defecto 1 GiB)", total, tope, strings.Join(partes, ", "))
 }

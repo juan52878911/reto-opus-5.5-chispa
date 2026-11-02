@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"chispa/format/chispa3"
 	"github.com/juan52878911/kindling/pkg/chispa"
 )
 
@@ -25,23 +26,24 @@ type pregunta struct {
 
 // Plan es lo que Python pasa al entrenador.
 type Plan struct {
-	Ejemplos  string   `json:"ejemplos"` // JSONL {"text","label"}
-	Prueba    string   `json:"prueba"`   // idem, solo para `evaluar`
-	Pregunta  pregunta `json:"pregunta"`
-	L1        string   `json:"l1"`        // .chispa-l1; vacío = sin L1
-	L2Chispa  string   `json:"l2_chispa"` // .chispa v3 de model/l2/exportar.py: de aquí salen L2 y ESQUEMAS; vacío = sin L2
-	Conj      string   `json:"conj"`      // sección CONJ ya codificada (train.py --conjunta); vacío = sin cabeza conjunta
-	L0TF      string   `json:"l0tf"`      // sección L0TF ya codificada (train.py --conjunta); vacío = sin L0 tfidf
-	TauL2c    *float64 `json:"tau_l2c"`   // τ de L2c fuera de pliegue (train.py --conjunta); nil = sin τ propio
-	Meta      Meta     `json:"meta"`
-	Salida    string   `json:"salida"`
-	Semilla   uint64   `json:"semilla"`
-	FracValid float64  `json:"frac_valid"`    // 0,2 por defecto
-	TauL0     float64  `json:"tau_l0"`        // τ de L0 en `evaluar` (el servidor lo toma de su config): 0,8
-	TauObj    float64  `json:"tau_precision"` // precisión objetivo de τ de escalate: 0,95
-	SinL0     bool     `json:"sin_l0"`        // pocos ejemplos por opción (few-shot): sin L0; L1 se calibra con todos los ejemplos
-	L1Lambda  *float64 `json:"l1_lambda"`     // λ de encogimiento (SOPL1) con el que calibrar L1; nil = sin encogimiento
-	L0MaxMB   float64  `json:"l0_max_mb"`     // tope de la tabla de pesos de L0 en MB (1e6 bytes); 48 por defecto
+	Ejemplos   string   `json:"ejemplos"` // JSONL {"text","label"}
+	Prueba     string   `json:"prueba"`   // idem, solo para `evaluar`
+	Pregunta   pregunta `json:"pregunta"`
+	L1         string   `json:"l1"`        // .chispa-l1; vacío = sin L1
+	L2Chispa   string   `json:"l2_chispa"` // .chispa v3 de model/l2/exportar.py: de aquí salen L2 y ESQUEMAS; vacío = sin L2
+	Conj       string   `json:"conj"`      // sección CONJ ya codificada (train.py --conjunta); vacío = sin cabeza conjunta
+	L0TF       string   `json:"l0tf"`      // sección L0TF ya codificada (train.py --conjunta); vacío = sin L0 tfidf
+	TauL2c     *float64 `json:"tau_l2c"`   // τ de L2c fuera de pliegue (train.py --conjunta); nil = sin τ propio
+	Meta       Meta     `json:"meta"`
+	Salida     string   `json:"salida"`
+	Semilla    uint64   `json:"semilla"`
+	FracValid  float64  `json:"frac_valid"`    // 0,2 por defecto
+	TauL0      float64  `json:"tau_l0"`        // τ de L0 en `evaluar` (el servidor lo toma de su config): 0,8
+	TauObj     float64  `json:"tau_precision"` // precisión objetivo de τ de escalate: 0,95
+	SinL0      bool     `json:"sin_l0"`        // pocos ejemplos por opción (few-shot): sin L0; L1 se calibra con todos los ejemplos
+	L1Lambda   *float64 `json:"l1_lambda"`     // λ de encogimiento (SOPL1) con el que calibrar L1; nil = sin encogimiento
+	MaxFichero int64    `json:"max_fichero"`   // tope en bytes del .chispa de salida (--max-fichero); 0 = 1 GiB, el del servidor por defecto
+	L0MaxMB    float64  `json:"l0_max_mb"`     // tope de la tabla de pesos de L0 en MB (1e6 bytes); 48 por defecto
 }
 
 type Meta struct {
@@ -157,3 +159,6 @@ func bucketsParaL0(clases int, maxMB float64) int {
 	}
 	return b
 }
+
+// limites son los de chispa3 para abrir el .chispa de salida y el de --l2: el tope de --max-fichero (0 = 1 GiB).
+func (p *Plan) limites() chispa3.Limites { return chispa3.Limites{MaxFichero: p.MaxFichero} }

@@ -352,8 +352,11 @@ func TestAbrirRutas(t *testing.T) {
 	if _, err := Abrir(vacio); !errors.Is(err, ErrTruncado) {
 		t.Fatal(err)
 	}
-	if _, err := AbrirCon("testdata/urgencia.chispa", Limites{MaxFichero: 10}); !errors.Is(err, ErrTamano) {
+	if _, err := AbrirCon("testdata/urgencia.chispa", Limites{MaxFichero: 10}); !errors.Is(err, ErrTamano) || !strings.Contains(err.Error(), "tope de 10 bytes") {
 		t.Fatal(err)
+	}
+	if MaxFicheroDefecto != 1<<30 || (Limites{}).maxFichero() != 1<<30 {
+		t.Fatal("el tope por defecto cambió")
 	}
 }
 

@@ -104,6 +104,8 @@ type Limites struct {
 
 const (
 	defMaxFichero = 1 << 30
+	// MaxFicheroDefecto es el tope de tamaño del fichero entero cuando Limites.MaxFichero es 0 (1 GiB).
+	MaxFicheroDefecto = defMaxFichero
 	defMaxSeccion = 512 << 20
 )
 
@@ -239,7 +241,7 @@ func AbrirCon(ruta string, lim Limites) (*Fichero, error) {
 		return nil, fmt.Errorf("chispa3: %s no es un fichero regular", ruta)
 	}
 	if st.Size() > lim.maxFichero() {
-		return nil, fmt.Errorf("%w: fichero de %d bytes", ErrTamano, st.Size())
+		return nil, fmt.Errorf("%w: fichero de %d bytes, tope de %d bytes", ErrTamano, st.Size(), lim.maxFichero())
 	}
 	if st.Size() < tamCabecera {
 		return nil, fmt.Errorf("%w: %d bytes", ErrTruncado, st.Size())
@@ -264,7 +266,7 @@ func AbrirCon(ruta string, lim Limites) (*Fichero, error) {
 // Desde valida data como un .chispa v3 (o v1/v2). data debe seguir vivo y sin cambios mientras se use.
 func Desde(data []byte, lim Limites) (*Fichero, error) {
 	if int64(len(data)) > lim.maxFichero() {
-		return nil, fmt.Errorf("%w: %d bytes", ErrTamano, len(data))
+		return nil, fmt.Errorf("%w: %d bytes, tope de %d bytes", ErrTamano, len(data), lim.maxFichero())
 	}
 	if len(data) < len(magia) || !bytes.Equal(data[:len(magia)], magia[:]) {
 		return nil, ErrMagia
