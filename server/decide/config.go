@@ -9,6 +9,8 @@ import (
 	"log"
 	"math"
 	"os"
+
+	"chispa/format/chispa3"
 )
 
 // Capa configura una capa de la cascada: su nombre y su umbral τ.
@@ -23,6 +25,14 @@ type Capa struct {
 // de sobra una pregunta completa (max_opciones = 256 cabe en la ráfaga) y corta un flujo sostenido de textos únicos cerca de saturar.
 const TorresPorSegundoPorDefecto = 400.0
 
+// MaxFicheroBytes es el tope de tamaño del .chispa de -modelo: max_fichero de la config o, sin él, 1 GiB.
+func (c *Config) MaxFicheroBytes() int64 {
+	if c.MaxFichero != nil {
+		return *c.MaxFichero
+	}
+	return chispa3.MaxFicheroDefecto
+}
+
 // Config es el JSON de configuración del servidor.
 type Config struct {
 	Capas           []Capa   `json:"capas"`
@@ -31,6 +41,9 @@ type Config struct {
 	CacheRespuestas int      `json:"cache_respuestas"`  // entradas del LRU de nonces
 	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
 	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 256); por encima L2 no opina
+	// Tope en bytes del tamaño del .chispa de -modelo (ausente = 1 GiB, chispa3.MaxFicheroDefecto); si está, debe ser > 0. Un servidor
+	// completo (L1 potion + L2 fp32 + TORR fp32) pasa de 1 GiB: súbalo aquí.
+	MaxFichero *int64 `json:"max_fichero,omitempty"`
 	// Tope global de torres al vuelo por segundo (cubo con ráfaga max(tasa, max_torres_nuevas, 1)); 0 = sin tope global, si no >= 1. Por defecto TorresPorSegundoPorDefecto.
 	TorresPorSegundo float64    `json:"torres_por_segundo"`
 	Limites          Limites    `json:"limites"`                      // topes de entrada de /v1/decide
@@ -184,6 +197,9 @@ func (c Config) Validar() error {
 	}
 	if c.CacheEsquemas < 1 || c.CacheRespuestas < 1 {
 		return fmt.Errorf("config: los tamaños de caché deben ser >= 1")
+	}
+	if c.MaxFichero != nil && *c.MaxFichero <= 0 {
+		return fmt.Errorf("config: max_fichero debe ser > 0 bytes (ausente = %d, 1 GiB): %d", chispa3.MaxFicheroDefecto, *c.MaxFichero)
 	}
 	if c.CacheTorres < 0 || c.MaxTorresNuevas < 0 {
 		return fmt.Errorf("config: cache_torres y max_torres_nuevas no pueden ser negativos")

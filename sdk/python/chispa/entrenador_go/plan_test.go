@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"chispa/format/chispa3"
@@ -49,5 +50,16 @@ func TestMetaConservaTextoTorre(t *testing.T) {
 	m.TextoTorre = "v9"
 	if _, err := codificarMeta(m); err == nil {
 		t.Error("v9 debía fallar")
+	}
+}
+
+// ZH: el error de tope dice el tamaño por sección, el tope y qué subir.
+func TestErrTopeDiceSeccionesYComoSubirlo(t *testing.T) {
+	secs := []chispa3.Seccion{{Tipo: chispa3.L1, Datos: make([]byte, 700)}, {Tipo: chispa3.CALIB, Datos: make([]byte, 30)}}
+	err := errTope(secs, 900, 500)
+	for _, q := range []string{"900 bytes", "tope de 500 bytes", "L1 700", "CALIB 30", "--l1", "--max-fichero", `"max_fichero"`} {
+		if !strings.Contains(err.Error(), q) {
+			t.Errorf("falta %q en: %v", q, err)
+		}
 	}
 }

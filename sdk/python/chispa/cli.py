@@ -110,6 +110,8 @@ def main(argv=None) -> int:
                    "de las opciones (y L2/ESQUEMAS con --l2/--ckpt). Con pocos por opción (< 10), few-shot: sin L0 y L1 calibrada con ellos")
     t.add_argument("--esquema", required=True, help="YAML/JSON: id, pregunta, tipo, opciones (con descripciones)")
     t.add_argument("--salida", required=True, help="el .chispa que se escribe")
+    t.add_argument("--max-fichero", type=int, help="tope en bytes del .chispa de salida (por defecto 1 073 741 824, 1 GiB: lo que carga chispa-server sin tocar su config). "
+                   "Si la salida lo supera, train falla sin escribir nada y da el tamaño por sección. Para un .chispa mayor sube también \"max_fichero\" en la config de chispa-server")
     t.add_argument("--l1", help=".chispa-l1 (potion exportado con runtime/l1/exportar.py)")
     t.add_argument("--ckpt", help="checkpoint de L2: calibra y exporta L2 y ESQUEMAS con model/l2")
     t.add_argument("--perfil", choices=("servidor", "movil", "movil-int8"), default="servidor",
@@ -207,7 +209,7 @@ def main(argv=None) -> int:
                      pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, sin_soporte=a.sin_soporte, tau_l2_esquema_nuevo=a.tau_l2_esquema_nuevo, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
-                     texto_torre=a.texto_torre, torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo, perfil=a.perfil, sin_torre=a.sin_torre,
+                     texto_torre=a.texto_torre, torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo, perfil=a.perfil, sin_torre=a.sin_torre, max_fichero=a.max_fichero,
                      log=lambda m: print(m, file=sys.stderr))
         elif a.cmd == "evaluar" and a.bateria:
             return _bateria(a)

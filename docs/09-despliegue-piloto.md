@@ -60,6 +60,7 @@ Lo que no escribas queda en el valor por defecto de `ConfigPorDefecto()`. Sin co
   "cache_esquemas": 1024, "cache_respuestas": 4096,
   "cache_esquemas_mb": 64, "cache_respuestas_mb": 48,
   "cache_torres": 16384, "max_torres_nuevas": 256, "torres_por_segundo": 400,
+  "max_fichero": 1073741824,
   "tau_l2_esquema_nuevo": 0.846,
   "l1_shrinkage_lambda": 4,
   "api_keys": [
@@ -76,6 +77,7 @@ Lo que no escribas queda en el valor por defecto de `ConfigPorDefecto()`. Sin co
 | `limites.*` | Bytes UTF-8; negativo = error de arranque. Los valores del ejemplo son los por defecto |
 | `cache_esquemas`, `cache_respuestas` | ≥ 1. `cache_*_mb`: 0 = 64 y 48 MiB; máximo 1 048 576 |
 | `cache_torres`, `max_torres_nuevas`, `torres_por_segundo` | 0 = 16 384 y 256 (`torres_por_segundo`: por defecto 400, 0 = sin tope global, si no ≥ 1). Con `TORR`, un `cache_torres` < 4096 (16 × `max_opciones`) se sube a 4096 con `AVISO` (log, `cache_torres_efectiva` en `/healthz`, gauges `chispa_cache_torres_efectiva` y `chispa_cache_torres_ajustada`); no falla, y sin `TORR` no se exige nada. Un `max_opciones` > 4096 con `TORR` desactiva la torre al vuelo con `AVISO` y `torre_al_vuelo_motivo: max_opciones_excesivo` (no falla el arranque; sin `TORR` cualquier `max_opciones` > 0 vale). Si se pasa el tope por petición, L2 cachea las torres que caben y escala con `sin_presupuesto_torres` |
+| `max_fichero` | Tope en **bytes** del tamaño del `.chispa` de `-modelo` (ausente = 1 073 741 824, 1 GiB). Un servidor completo (L1 potion 155 MB + L2 fp32 473 MB + `TORR` fp32 472 MB ≈ 1,1 GB) lo supera: sin subirlo, el arranque falla con `chispa3: supera un tamaño máximo` y el error dice el tope aplicado y esta clave. Si está, debe ser > 0 (0 o negativo es un error de config). Solo cuenta el fichero de `-modelo`; vale también en cada recarga. `chispa train --max-fichero` fija el mismo tope al escribir ([02](02-inicio-rapido.md)) |
 | `tau_l2_esquema_nuevo` | Por defecto 0,846 (prioridad config > `CALIB` > 0,846). Es prudente: precisión 0,95 con ~97 % de escalado en tareas no vistas ([06](06-despliegue.md)). `"tau_l2_esquema_nuevo_apagado": true` lo quita; **no puede ir junto a un τ** |
 | `l1_shrinkage_lambda` | Ausente = 4. `"l1_shrinkage_apagado": true` lo apaga (no junto a un λ). `l2_shrinkage_lambda` ausente = sin mezcla. Solo tiene efecto si el `.chispa` trae `SOPL1` |
 | `api_keys` | `rps` > 0; `rafaga` 0 = ceil(rps); `id` y hash únicos; `torres_por_segundo` opcional (0 o ≥ 1) es un tope de torres al vuelo propio de la clave, además del global. Se relee en cada recarga |
