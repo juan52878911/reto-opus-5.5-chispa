@@ -1,8 +1,12 @@
 package decide
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"io"
+	"os"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -66,6 +70,10 @@ func (l *L0) AnadirTF(nombre string, m *chispa3.L0TFModelo) error {
 // Cargar lee ficheros .chispa.
 func (l *L0) Cargar(paths ...string) error {
 	for _, p := range paths {
+		if esV3(p) {
+			return fmt.Errorf("L0: %s es un .chispa v3: \"modelos\" espera .chispa v1/v2 de un solo L0 (el de kindling); "+
+				"para un v3 use \"modelo\" (-modelo), o mkmodelo -unir si solo hace falta unir secciones de ficheros distintos", p)
+		}
 		m, err := chispa.LoadFile(p)
 		if err != nil {
 			return fmt.Errorf("L0: %s: %w", p, err)
@@ -75,6 +83,21 @@ func (l *L0) Cargar(paths ...string) error {
 		}
 	}
 	return nil
+}
+
+// esV3 dice si el fichero empieza con la cabecera de un .chispa v3 (misma magia que v1/v2, versión 3 en el byte 8).
+func esV3(ruta string) bool {
+	f, err := os.Open(ruta)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var cab [10]byte
+	if _, err := io.ReadFull(f, cab[:]); err != nil {
+		return false
+	}
+	return bytes.Equal(cab[:8], []byte{0x89, 'C', 'H', 'I', '\r', '\n', 0x1a, '\n'}) &&
+		binary.LittleEndian.Uint16(cab[8:]) == chispa3.Version
 }
 
 func (l *L0) Nombre() string { return "L0" }
