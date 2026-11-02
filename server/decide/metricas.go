@@ -73,6 +73,8 @@ type Metricas struct {
 	// Esquema nuevo: preguntas puntuadas por L2 con torres al vuelo.
 	EsquemaNuevoPreguntas atomic.Uint64
 	EsquemaNuevoDecididas atomic.Uint64 // las que L2 resolvió con su τ de esquema nuevo (el resto subió o escaló)
+	cacheTorresEf         int           // tamaño efectivo de la caché de torres del modelo en servicio (0 = sin torre al vuelo)
+	cacheTorresAjustada   bool          // cache_torres de la config se subió al mínimo
 	torreMotivo           string        // motivo de torre al vuelo desactivada del modelo en servicio ("" = ninguno)
 	tauEsquemaNuevo       *float64      // τ propio de L2 para esquemas nuevos, si la cascada lo tiene
 
@@ -157,6 +159,17 @@ func (m *Metricas) FijaTorreMotivo(motivo string) {
 	}
 	m.mu.Lock()
 	m.torreMotivo = motivo
+	m.mu.Unlock()
+}
+
+// FijaCacheTorres fija los gauges chispa_cache_torres_efectiva y chispa_cache_torres_ajustada (efectiva 0 = sin torres al vuelo;
+// ajustada = la config pedía menos y se subió); lo llama el servidor junto a FijaTorreMotivo. nil-safe.
+func (m *Metricas) FijaCacheTorres(efectiva int, ajustada bool) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.cacheTorresEf, m.cacheTorresAjustada = efectiva, ajustada
 	m.mu.Unlock()
 }
 
@@ -326,6 +339,19 @@ func (m *Metricas) Escribe(w io.Writer) {
 		}
 		fmt.Fprintf(w, "chispa_torre_al_vuelo_desactivada{motivo=%q} %d\n", mo, v)
 	}
+	m.mu.Lock()
+	cacheEf, cacheAj := m.cacheTorresEf, m.cacheTorresAjustada
+	m.mu.Unlock()
+	fmt.Fprintln(w, "# HELP chispa_cache_torres_efectiva Tamaño efectivo de la caché de torres al vuelo del modelo en servicio (0 = sin torres al vuelo); sube a ceil(1,5·max_opciones) si cache_torres pide menos.")
+	fmt.Fprintln(w, "# TYPE chispa_cache_torres_efectiva gauge")
+	fmt.Fprintf(w, "chispa_cache_torres_efectiva %d\n", cacheEf)
+	fmt.Fprintln(w, "# HELP chispa_cache_torres_ajustada 1 si cache_torres de la config se subió al mínimo al montar el modelo en servicio.")
+	fmt.Fprintln(w, "# TYPE chispa_cache_torres_ajustada gauge")
+	cv := 0
+	if cacheAj {
+		cv = 1
+	}
+	fmt.Fprintf(w, "chispa_cache_torres_ajustada %d\n", cv)
 	fmt.Fprintln(w, "# HELP chispa_recargas_total Recargas en caliente del .chispa por resultado (ok, error).")
 	fmt.Fprintln(w, "# TYPE chispa_recargas_total counter")
 	for _, r := range []string{"ok", "error"} {

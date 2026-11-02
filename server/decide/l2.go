@@ -46,6 +46,8 @@ type L2 struct {
 	textoTorre string
 	// motivoSinTorre: por qué no hay torre al vuelo pese a traer TORR (texto_torre_inconsistente); "" = ninguno.
 	motivoSinTorre string
+	// cacheTorresEf es el tamaño efectivo de la caché de torres; cacheTorresCfg el que pedía la config si hubo que subirlo (0 = sin ajuste).
+	cacheTorresEf, cacheTorresCfg int
 	// vuelo agrupa los cálculos en curso por ClaveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
 	muVuelo sync.Mutex
 	vuelo   map[string]*llamadaTorre
@@ -231,6 +233,20 @@ func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 func (l *L2) ConMotivoSinTorre(m string) *L2 {
 	l.motivoSinTorre = m
 	return l
+}
+
+// ConCacheTorresEfectiva anota el tamaño efectivo de la caché de torres y, si ArmarDesde lo subió, el que pedía la config (0 = sin ajuste).
+func (l *L2) ConCacheTorresEfectiva(efectiva, pedida int) *L2 {
+	l.cacheTorresEf, l.cacheTorresCfg = efectiva, pedida
+	return l
+}
+
+// CacheTorresEfectiva es el tamaño efectivo de la caché de torres (0 = sin torres al vuelo) y el pedido por la config si se subió (0 = sin ajuste).
+func (l *L2) CacheTorresEfectiva() (efectiva, pedida int) {
+	if l == nil {
+		return 0, 0
+	}
+	return l.cacheTorresEf, l.cacheTorresCfg
 }
 
 // MotivoSinTorre es el motivo anotado con ConMotivoSinTorre ("" = ninguno).

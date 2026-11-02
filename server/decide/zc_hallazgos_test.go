@@ -66,19 +66,14 @@ func TestZC2EsperadorCancelado(t *testing.T) {
 	}
 }
 
-// ZC-3: la caché debe caber 1,5 × max_opciones; max_torres_nuevas ya no manda (solo avisa).
+// ZC-3 (revisado en ZE): Validar ya no exige el mínimo de caché; max_torres_nuevas solo avisa.
 func TestZC3CacheTorresValidacion(t *testing.T) {
 	caso := func(cache, max int) Config {
 		c := ConfigPorDefecto()
 		c.CacheTorres, c.MaxTorresNuevas = cache, max
 		return c
 	}
-	for _, k := range [][2]int{{64, 64}, {256, 64}, {383, 256}} {
-		if err := caso(k[0], k[1]).Validar(); err == nil || !strings.Contains(err.Error(), "cache_torres") {
-			t.Errorf("cache=%d max=%d debía rechazarse: %v", k[0], k[1], err)
-		}
-	}
-	for _, k := range [][2]int{{384, 64}, {1024, 2048}, {16384, 256}} {
+	for _, k := range [][2]int{{64, 64}, {256, 64}, {383, 256}, {384, 64}, {1024, 2048}, {16384, 256}} {
 		if err := caso(k[0], k[1]).Validar(); err != nil {
 			t.Errorf("cache=%d max=%d debía ser válida: %v", k[0], k[1], err)
 		}
@@ -90,10 +85,13 @@ func TestZC3CacheTorresValidacion(t *testing.T) {
 		t.Errorf("el defecto no avisa: %q", av)
 	}
 	c := caso(0, 0)
-	c.Limites.MaxOpciones = 2000 // la mínima sigue a los límites efectivos
+	c.Limites.MaxOpciones = 2000
 	c.CacheTorres = 1024
-	if err := c.Validar(); err == nil {
-		t.Error("con max_opciones 2000 una caché de 1024 no basta")
+	if err := c.Validar(); err != nil {
+		t.Errorf("Validar no conoce el modelo y no exige mínimo: %v", err)
+	}
+	if c.cacheTorresMinima() != 3000 {
+		t.Errorf("la mínima sigue a los límites efectivos: %d", c.cacheTorresMinima())
 	}
 }
 

@@ -143,7 +143,8 @@ func (c Config) cacheTorresEfectiva() int {
 	return c.CacheTorres
 }
 
-// cacheTorresMinima es ceil(1,5 · max_opciones): lo que debe caber en la caché de torres para que la pregunta más grande progrese.
+// cacheTorresMinima es ceil(1,5 · max_opciones): lo que debe caber en la caché de torres para que la pregunta más grande progrese
+// (por los fragmentos del LRU). No lo valida Validar (no sabe si el .chispa trae TORR): ArmarDesde sube el valor efectivo si hay TORR.
 func (c Config) cacheTorresMinima() int { return (3*c.maxOpcionesEfectivo() + 1) / 2 }
 
 // Avisos son las combinaciones válidas pero dudosas de la config; CargarConfig las registra.
@@ -194,13 +195,6 @@ func (c Config) Validar() error {
 		// Con ráfaga 1 y menos de una ficha por segundo, la torre al vuelo se apagaba sin avisar; el cubo ya no baja de 1, pero
 		// una tasa fraccionaria no tiene sentido: 0 (sin tope) o >= 1.
 		return fmt.Errorf("config: torres_por_segundo debe ser 0 (sin tope global) o >= 1: %v", c.TorresPorSegundo)
-	}
-	// El cacheo parcial solo avanza si la caché cabe la pregunta más grande que se puede preguntar (max_opciones) con margen por
-	// los fragmentos del LRU (lru.go): si no, cada tanda desaloja la anterior y la pregunta no responde nunca. Se valida con
-	// los valores efectivos. max_torres_nuevas no entra aquí: es un tope por petición y solo avisa (Avisos).
-	if cacheT, min := c.cacheTorresEfectiva(), c.cacheTorresMinima(); cacheT < min {
-		return fmt.Errorf("config: cache_torres (%d) debe ser >= %d (1,5 × max_opciones=%d, por los %d fragmentos del LRU) para que una pregunta con torres al vuelo quepa en la caché",
-			cacheT, min, c.maxOpcionesEfectivo(), fragmentos)
 	}
 	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
 		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)
