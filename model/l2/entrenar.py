@@ -277,7 +277,14 @@ def main(argv=None):
         ck = torch.load(a.inicial, map_location=a.device, weights_only=False)
         for k in ck.get("cabezas", []):
             modelo.asegurar_cabeza(k, a.device)
-        modelo.load_state_dict(ck["modelo"])
+        estado_ini = dict(ck["modelo"])
+        nuevas = sorted(k for k in claves if k not in ck.get("cabezas", []))
+        for n, v in modelo.state_dict().items():   # una cabeza score de una K que el checkpoint no tenía (p. ej. score5 de Clandestino) arranca con su init
+            if n not in estado_ini and n.startswith("coral.") and n.split(".")[1] in nuevas:
+                estado_ini[n] = v
+        if nuevas:
+            print("cabezas nuevas sin pesos iniciales (init por defecto): %s" % nuevas, flush=True)
+        modelo.load_state_dict(estado_ini)
         modelo.texto_torre = a.texto_torre or ck.get("texto_torre", "v1")
         enc.cargar_enc(ck.get("enc"))
         opt = nuevo_opt()
