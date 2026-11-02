@@ -209,6 +209,7 @@ def fase_velocidad(a):
     router = crear_router(a.falso)
     modelo = a.modelos[0]
     muestra = reducir(massive, N_VELOCIDAD + 3)
+    muestra = (muestra * (N_VELOCIDAD + 3))[:N_VELOCIDAD + 3]   # con datos de verdad hay de sobra; los fixtures de la prueba en seco tienen 3 filas
     for f in muestra[:3]:   # calentamiento (carga del checkpoint): no cuenta
         decidir(router, f, modelo)
     ms = []
