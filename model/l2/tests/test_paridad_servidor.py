@@ -16,6 +16,12 @@ class Paridad(unittest.TestCase):
         self.assertEqual(P.textos_servidor(f), P.textos_python(f))
         self.assertEqual(P.textos_servidor(f)[0], texto_opcion(f, "a"))
 
+    def test_v2_con_descripciones_repetidas(self):
+        f = fila("choice", ["a", "b", "c"], {"a": "igual", "b": " igual ", "c": "otra"})
+        self.assertEqual(P.textos_servidor(f, "v2_sin_id"), P.textos_python(f, "v2_sin_id"))
+        self.assertEqual(P.textos_servidor(f, "v2_sin_id")[2], "passage: ¿Qué? · otra")
+        self.assertEqual(P.textos_servidor(f, "v2_sin_id")[:2], P.textos_servidor(f)[:2])
+
     def test_noul_y_score_con_descripcion_en_la_peticion(self):
         # desde D1e la petición de /v1/decide lleva las descripciones de «true» y de los niveles: servidor y Python coinciden
         n = fila("noul", ["false", "true"], {"true": "se cumple"})

@@ -1,7 +1,7 @@
 # Contrato de normalización de mayúsculas de L2 (W3b)
 
 Para la sesión del runtime (paridad en Go). Referencia ejecutable: `modelo.normalizar_mayusculas`; tests en
-`model/l2/tests/test_normalizacion.py`; casos en `model/l2/tests/fixtures/normalizacion.json` (15 pares entrada → salida; el 13.º, «LA CITA Nº 2ª vez», fija que «ª» y «º» son letras pero no mayúsculas: no cambia; el 14.º y el 15.º fijan «İ» → «i» y la sigma final → «σ»).
+`model/l2/tests/test_normalizacion.py`; casos en `model/l2/tests/fixtures/normalizacion.json` (16 pares entrada → salida; el 13.º, «LA CITA Nº 2ª vez», fija que «ª» y «º» son letras pero no mayúsculas: no cambia; el 14.º y el 15.º fijan «İ» → «i» y la sigma final → «σ»; el 16.º, «ⓉⓄⒹⓄ ⓂⒶⓁ ok», no cambia: las letras circuladas ⓐ–ⓩ no son letras para Python, que cuenta 2 letras y 0 mayúsculas entre ellas; `isupper()` sí marcaría las circuladas, por eso se cuentan solo sobre letras).
 
 ## Regla exacta
 Sea `L` la lista de caracteres del texto con `str.isalpha()` verdadero (Unicode, incluye acentos y ñ; no cuentan dígitos, signos ni emojis).

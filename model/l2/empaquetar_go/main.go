@@ -69,7 +69,7 @@ func codificarEsquemas(b []byte) ([]byte, error) {
 
 // empaquetar valida cada sección con los decodificadores de chispa3 y escribe el fichero.
 func empaquetar(metaB, l2, esqB, calibB []byte, salida string) error {
-	m, err := chispa3.DecodificarMeta(metaB)
+	m, err := chispa3.DecodificarMetaTexto(metaB)
 	if err != nil {
 		return err
 	}

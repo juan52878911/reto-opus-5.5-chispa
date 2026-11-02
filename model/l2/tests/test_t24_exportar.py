@@ -147,7 +147,10 @@ class Exportacion(unittest.TestCase):
         def falso(cmd, **kw):
             visto.update(kw["env"])
             return subprocess.CompletedProcess(cmd, 0, "", "")
-        with mock.patch.dict(os.environ, {"GOWORK": "/x/go.work"}), mock.patch.object(E.subprocess, "run", falso):
+        # GOFLAGS/GOPROXY heredados tienen prioridad a propósito (AWS fija los suyos): se vacían para probar el valor por defecto.
+        limpio = {k: v for k, v in os.environ.items() if k not in ("GOFLAGS", "GOPROXY")}
+        limpio["GOWORK"] = "/x/go.work"
+        with mock.patch.dict(os.environ, limpio, clear=True), mock.patch.object(E.subprocess, "run", falso):
             E.empaquetar({}, "a.onnx", {}, {}, "s.chispa")
         self.assertEqual(visto["GOWORK"], "off")
         self.assertEqual(visto["GOFLAGS"], "-mod=mod")

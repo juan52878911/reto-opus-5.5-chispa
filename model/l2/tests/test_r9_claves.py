@@ -57,7 +57,23 @@ class R9(unittest.TestCase):
 
     def test_fixture_r9_al_dia(self):
         esp = json.loads((G.FIX / "esquemas-r9.json").read_text(encoding="utf-8"))
-        self.assertEqual(esp, G.generar())
+        self.comparar(esp, G.generar())
+
+    def comparar(self, esp, obt, ruta="$"):
+        """Estructura y textos exactos; los floats con tolerancia relativa 1e-5: salen de la red con pesos aleatorios (semilla fija) y
+        su último dígito depende de la CPU (FMA/AVX, hilos de BLAS). El test Go lee la fixture tal cual, así que no hace falta regenerarla."""
+        if isinstance(esp, dict):
+            self.assertEqual(sorted(esp), sorted(obt), ruta)
+            for k in esp:
+                self.comparar(esp[k], obt[k], f"{ruta}.{k}")
+        elif isinstance(esp, list):
+            self.assertEqual(len(esp), len(obt), ruta)
+            for i, (a, b) in enumerate(zip(esp, obt)):
+                self.comparar(a, b, f"{ruta}[{i}]")
+        elif isinstance(esp, float):
+            self.assertAlmostEqual(esp, obt, delta=1e-5 * max(1.0, abs(esp)), msg=ruta)
+        else:
+            self.assertEqual(esp, obt, ruta)
 
 
 if __name__ == "__main__":

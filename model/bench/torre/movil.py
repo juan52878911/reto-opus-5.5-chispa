@@ -49,29 +49,30 @@ def latencia_consulta(sess, ids, calentar=3):
 
 @torch.no_grad()
 def referencia(modelo, enc, filas, textos_h):
+    version = modelo.texto_torre
     """h de PyTorch para `textos_h`, y por fila choice: S de PyTorch (K,d) y la opción que elige con las torres de PyTorch."""
     h_ref = E.h_torch(modelo, enc, textos_h)
-    ops = list(dict.fromkeys(texto_opcion(r, o) for r in filas for o in r["opciones"]))
+    ops = list(dict.fromkeys(texto_opcion(r, o, version) for r in filas for o in r["opciones"]))
     h_op = dict(zip(ops, torch.from_numpy(E.h_torch(modelo, enc, ops))))
     S, elegida = [], []
     for r in filas:
         H, m = enc.tokens([r["texto"]])
         s = modelo.ranuras(H, m)
         S.append(s[0].numpy())
-        elegida.append(int(maxsim(s, torch.stack([h_op[texto_opcion(r, o)] for o in r["opciones"]]))[0].argmax()))
+        elegida.append(int(maxsim(s, torch.stack([h_op[texto_opcion(r, o, version)] for o in r["opciones"]]))[0].argmax()))
     return h_ref, S, elegida
 
 
 @torch.no_grad()
-def top1_y_coseno_s(enc, sess_q, sess_t, filas, S_ref, elegida):
+def top1_y_coseno_s(enc, sess_q, sess_t, filas, S_ref, elegida, version="v1"):
     """Acuerdo top-1 de ONNX (consulta y torre) con PyTorch (consulta y torre) y coseno medio de S (por ranura)."""
-    ops = list(dict.fromkeys(texto_opcion(r, o) for r in filas for o in r["opciones"]))
+    ops = list(dict.fromkeys(texto_opcion(r, o, version) for r in filas for o in r["opciones"]))
     h_op = dict(zip(ops, torch.from_numpy(E.correr_torre(sess_t, E.ids_torre(enc, ops)).astype(np.float32))))
     ok, cos = [], []
     for r, sr, el in zip(filas, S_ref, elegida):
         b = enc.tok(["query: " + r["texto"]], truncation=True, max_length=enc.max_tok)
         S = E.correr(sess_q, np.array(b["input_ids"]), np.array(b["attention_mask"]))
-        ok.append(int(maxsim(torch.from_numpy(S), torch.stack([h_op[texto_opcion(r, o)] for o in r["opciones"]]))[0].argmax()) == el)
+        ok.append(int(maxsim(torch.from_numpy(S), torch.stack([h_op[texto_opcion(r, o, version)] for o in r["opciones"]]))[0].argmax()) == el)
         cos.append(float(E.cosenos(S[0], sr).mean()))
     return float(np.mean(ok)), float(np.mean(cos)), len(ok)
 
@@ -84,7 +85,7 @@ def medir_variante(nombre, vocab, etiqueta, modelo, enc, encoder, trabajo, ref, 
     t0 = time.time()
     # torre
     pt = t / "torre.onnx"
-    inf = E.exportar_torre(encoder, modelo.torre, pt, t / "tw", vocab, cuant=ct, max_len=enc.max_tok, ids_calib=ids_t)
+    inf = E.exportar_torre(encoder, modelo.torre, pt, t / "tw", vocab, cuant=ct, max_len=enc.max_tok, ids_calib=ids_t, texto_torre=modelo.texto_torre)
     res["torre_mb"] = inf["mb"]
     sess_t = E.sesion(pt)
     h = E.correr_torre(sess_t, E.ids_torre(enc, textos_h))
@@ -97,7 +98,7 @@ def medir_variante(nombre, vocab, etiqueta, modelo, enc, encoder, trabajo, ref, 
     E.cuantizar(q32, pq, cq, True, ids_calib=ids_q)
     res["consulta_mb"] = pq.stat().st_size / 1e6
     sess_q = E.sesion(pq)
-    res["top1"], res["coseno_s"], res["n_top1"] = top1_y_coseno_s(enc, sess_q, sess_t, filas, ref[1], ref[2])
+    res["top1"], res["coseno_s"], res["n_top1"] = top1_y_coseno_s(enc, sess_q, sess_t, filas, ref[1], ref[2], modelo.texto_torre)
     res["consulta"] = latencia_consulta(sess_q, ids_lat_q)
     res["cumple"] = bool(res["top1"] >= MIN_TOP1 and res["torre_mb"] <= MAX_MB and res["consulta_mb"] <= MAX_MB)
     res["segundos"] = round(time.time() - t0, 1)
@@ -129,7 +130,7 @@ def medir(a):
     filas = [r for r in E.filas_massive(a.filas) if r["tipo"] == "choice"]
     textos_h = E.textos_golden(a.filas)
     # <unk> de lo que mide este banco (no de la comprobación): torres de la paridad, opciones y mensajes (con `query: `) de las filas
-    ops_u = list(dict.fromkeys(texto_opcion(r, o) for r in filas for o in r["opciones"]))
+    ops_u = list(dict.fromkeys(texto_opcion(r, o, modelo.texto_torre) for r in filas for o in r["opciones"]))
     for k, ts in (("torre_h", textos_h), ("opciones", ops_u), ("mensajes", ["query: " + r["texto"] for r in filas])):
         ampl["unk_%s_antes" % k], ampl["unk_%s_despues" % k] = (E.fraccion_unk_textos(enc, ts, v) for v in (base, vocab))
     with tempfile.TemporaryDirectory() as td:   # control: la poda ampliada con los propios textos medidos (0 % de <unk>)

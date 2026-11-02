@@ -9,6 +9,8 @@ CHISPA_S3=__CHISPA_S3__
 # Sube ckpt/mejor.pt, resultados.tgz, estado.tsv, comparacion.md y log.txt. W4: segundo ajuste, 3 épocas (--epocas 3; una época ≈ 14 min en la g5, y
 # --minutos 40 recorta las épocas si la máquina va más lenta) e instala Go (go${GO_VERSION}, como model/bench/torre/e2e.sh) para que M3 (L1) corra aquí.
 # Coste ≈ 1 USD: g5.xlarge 1,01 USD/h × ≈ 60 min; el techo es `shutdown -h +75` = 1,3 USD. Opcionales: CHISPA_{G8,META,BLANDAS}_S3, CHISPA_MINUTOS, CHISPA_MAX_FILAS_M3/M4.
+# CHISPA_TEXTO_TORRE=v2_sin_id (W6): el ajuste pasa `--texto-torre v2_sin_id` (texto de torre sin id si hay descripción, contrato-torre.md) y el nuevo se
+# mide con él; G.8 sigue en v1 (su checkpoint no trae texto_torre). M3 incluye `todo_mayusculas`. Mismo tope: ≈ 1 USD y `shutdown -h +75`.
 # CHISPA_LOCAL=1: prueba en seco (G.8 aleatorio, fixtures, CHISPA_PASOS=6, max_tok 48; sin pip, descargas ni shutdown; «s3» = /tmp/chispa/s3/).
 EXCLUIR=${CHISPA_EXCLUIR:-massive,hatecheck,inyecciones}
 G8_S3=${CHISPA_G8_S3:-s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt}
@@ -18,6 +20,8 @@ EPIS="--episodios --k-min 4 --k-max 32 --frac-meta 0.5 --frac-zeroshot 0.25"
 G8="--tope-tarea 2000 --alfa 0.3 --max-tok 256 --excluir-fuera"
 GO_VERSION=1.27.1
 LOCAL=${CHISPA_LOCAL:-0}
+TEXTO_TORRE=${CHISPA_TEXTO_TORRE:-}
+case $TEXTO_TORRE in ""|v1|v2_sin_id) ;; *) echo "CHISPA_TEXTO_TORRE debe ser v1 o v2_sin_id, no «$TEXTO_TORRE»"; exit 2;; esac
 AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)   # solo para la prueba en seco
 if [ "$LOCAL" = 1 ]; then [ "${CHISPA_S3#__}" != "$CHISPA_S3" ] && CHISPA_S3=s3://local/ajuste; else shutdown -h +75; fi
 set -uo pipefail
@@ -195,6 +199,7 @@ echo "== 4. ajuste fino $(date -u +%T)"
 ARGS=(--salida "$NUEVO" --datos "$DATOS" --herramientas --blandas "$BLANDAS" --s3 "$CHISPA_S3/ckpt" --max-filas 300000 --excluir-tareas "$EXCLUIR"
       --desde "$G8CK" --aumento)
 [ $HAY_META = 1 ] && ARGS+=(--meta "$META")
+[ -n "$TEXTO_TORRE" ] && ARGS+=(--texto-torre "$TEXTO_TORRE")
 read -ra L2A <<< "$EPIS $G8"
 ARGS+=("${L2A[@]}")
 if [ "$LOCAL" = 1 ]; then
