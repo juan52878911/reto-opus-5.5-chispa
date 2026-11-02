@@ -15,6 +15,11 @@ Si chispamovil (L0, L1, ids de agregación, torre de consulta) y las capas de Ko
   score fuera de `1..K`). Va en el resultado de chispamovil y en los tipos públicos de Kotlin y Swift, con el mismo nombre de
   campo y los mismos valores que el servidor. Tests de cada motivo en chispamovil; en Kotlin y Swift, tests escritos y
   revisados a mano.
+- **Tres tests de chispamovil que hoy fallan** (VF17 sobre `sdk` `92b1707`: 87 PASS, 3 FAIL, 1 SKIP) tienen que acabar en verde:
+  - `TestTiposL2ParidadYCompatibilidad` y `TestTextosYDecisionIgualesAlServidor`: sus fixtures de score usan ids bajo/medio/alto,
+    que el servidor ya no admite. Pásalos a `1..K`, o a «no opina» si el test trata justo de eso.
+  - `TestTextoLargoL1ParidadConServidor`: el servidor no opina y el móvil sí. Con la regla `1..K` en el móvil tiene que
+    coincidir.
 - Verde: `cd sdk/movil/chispamovil && go vet ./... && go test -race -count=1 ./...` con `CHISPA_TOK=/tmp/e5.chispa-tok`.
 - Parada: si algo falla 2 veces seguidas por la misma causa, manda `blocker` y para.
 
