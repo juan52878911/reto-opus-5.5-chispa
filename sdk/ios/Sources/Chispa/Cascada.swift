@@ -51,6 +51,7 @@ final class Cascada {
         let t0 = reloj()
         func ms() -> Double { Double(reloj() &- t0) / 1e6 }
         var mejor = SalidaCapa.sinOpinion
+        var fallo = false // una capa lanzó: la escalada no lleva motivo (como `ninguna` en el servidor)
         var previas: [String: SalidaCapa] = [:]
         for c in capas {
             let r: SalidaCapa
@@ -58,6 +59,7 @@ final class Cascada {
                 r = try c.capa.decidir(texto, pregunta, previas: previas)
             } catch {
                 alErrorCapa(c.capa.nombre, error)
+                fallo = true
                 r = .sinOpinion
             }
             previas[c.capa.nombre] = r
@@ -68,8 +70,14 @@ final class Cascada {
                                  capa: c.capa.nombre, escalar: false, ms: ms(), respuestas: r.respuestas ?? [])
             }
         }
+        let motivo: String?
+        if mejor.confianza > 0 { motivo = MotivoEscalada.bajaConfianza }
+        else if fallo { motivo = nil }
+        else if !pregunta.scoreIdsValidos { motivo = MotivoEscalada.scoreIdsNoValidos }
+        else { motivo = MotivoEscalada.sinOpinion }
         return Respuesta(respuesta: mejor.respuesta, confianza: mejor.confianza, probs: mejor.probs,
-                         capa: Cascada.capaEscalar, escalar: true, ms: ms(), respuestas: mejor.respuestas ?? [])
+                         capa: Cascada.capaEscalar, escalar: true, ms: ms(), respuestas: mejor.respuestas ?? [],
+                         escalateReason: motivo)
     }
 
     /// Arma la cascada con las capas del motor (L0 y L1 si el fichero las trae) y L2 si además hay `l2`.

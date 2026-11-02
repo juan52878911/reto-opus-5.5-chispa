@@ -70,6 +70,7 @@ Biblioteca `:chispa` y demo `:demo`. L0 y L1 vienen de `chispamovil` (gomobile).
 val chispa = Chispa.abrir(contexto, "modelo.chispa")
 val r = chispa.decidir("quiero comprar dos camisetas", listOf(pregunta)).first()
 r.respuesta; r.confianza; r.capa; r.escalar; r.ms
+// r.escalateReason (si escaló): MotivoEscalada.SIN_OPINION, BAJA_CONFIANZA o SCORE_IDS_NO_VALIDOS. INCOMPLETA existe por paridad con el servidor, pero el móvil nunca lo devuelve (no tiene timeouts de L3 ni presupuesto compartido).
 ```
 
 - Cascada L0 → L1 → L2 con el mismo criterio que el servidor.

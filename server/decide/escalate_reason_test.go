@@ -57,9 +57,9 @@ func TestEscalateReasonBajaConfianzaYScoreIds(t *testing.T) {
 	if r := cascadaDe(t, met, nada).Decidir(context.Background(), ps); r.EscalateReason != MotivoScoreIdsNoValidos {
 		t.Fatalf("%+v", r)
 	}
-	// Una capa que falla no es «sin opinión»: no hay motivo.
+	// Una capa que falla no es «sin opinión»: lleva el motivo «incompleta», no «sin_opinión».
 	rota := &falso{n: "L1", err: context.DeadlineExceeded}
-	if r := cascadaDe(t, met, rota).Decidir(context.Background(), p); r.EscalateReason != "" {
+	if r := cascadaDe(t, met, rota).Decidir(context.Background(), p); r.EscalateReason != MotivoIncompleta {
 		t.Fatalf("%+v", r)
 	}
 	// Una decisión normal no lleva motivo.

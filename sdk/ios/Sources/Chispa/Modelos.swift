@@ -100,4 +100,34 @@ public struct Respuesta: Equatable {
     public let escalar: Bool
     public let ms: Double
     public var respuestas: [String] = []
+    /// Solo si `escalar` y se sabe por qué (mismo campo y valores que `escalate_reason` del servidor, ver `MotivoEscalada`); nil si no
+    /// escaló o si escaló por el fallo de una capa.
+    public var escalateReason: String? = nil
+}
+
+/// Valores de `escalate_reason` (`server/decide/cascada.go`).
+public enum MotivoEscalada {
+    /// Ninguna capa opinó (sin error): el modelo no puede decidir ese esquema.
+    public static let sinOpinion = "sin_opinion"
+    /// Alguna capa opinó pero ninguna llegó a su τ.
+    public static let bajaConfianza = "baja_confianza"
+    /// Sin opinión porque los ids de un `score` no son exactamente 1..K.
+    public static let scoreIdsNoValidos = "score_ids_no_validos"
+    /// Solo servidor: una capa falló o se quedó sin plazo/presupuesto. El motor del móvil no lo devuelve (no tiene timeouts de L3 ni presupuesto compartido).
+    public static let incompleta = "incompleta"
+}
+
+extension Pregunta {
+    /// Los ids de un `score` valen si son exactamente 1..K: enteros canónicos (sin «01», «+1»), sin huecos ni repetidos, en cualquier
+    /// orden. Cualquier otra pregunta vale. Es la misma regla que aplica el motor Go en cada capa (que entonces no opina).
+    public var scoreIdsValidos: Bool {
+        if tipo != "score" { return true }
+        let k = opciones.count
+        var vistos = [Bool](repeating: false, count: k)
+        for o in opciones {
+            guard let n = Int(o.id), String(n) == o.id, n >= 1, n <= k, !vistos[n - 1] else { return false }
+            vistos[n - 1] = true
+        }
+        return k > 0
+    }
 }

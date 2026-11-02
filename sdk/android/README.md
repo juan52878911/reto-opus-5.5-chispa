@@ -88,3 +88,5 @@ posicionales de antes compilan igual); `Cascada.decidir` la rellena con la de la
 Tests: `MultiTest.kt` (9) con `jsonMulti` y `PREGUNTA_MULTI` de `Falsos.kt`. Revisadas a mano las firmas: `SalidaCapa.copy` conserva
 `respuestas` (lo usa `CapaL2`), `List(n) { aj.getString(it) }` sobre `JSONArray`, `orEmpty()` sobre `List<String>?`.
 Sin compilar ni ejecutar. Verificar con: `cd sdk/android && ./gradlew :chispa:testDebugUnitTest --tests '*MultiTest'`.
+
+**score y `escalateReason`.** Un `score` solo vale con ids exactamente `1..K` (en cualquier orden); con otros ids ninguna capa opina. `Respuesta.escalateReason` (nulo/`nil` si no escaló o escaló por el fallo de una capa) trae, igual que `escalate_reason` del servidor: `sin_opinion`, `baja_confianza` o `score_ids_no_validos`.

@@ -214,7 +214,7 @@ internal fun relojMonotonicoMs(): Long = System.nanoTime() / 1_000_000L
 /**
  * Normalización de mayúsculas (docs/contrato-normalizacion.md): con al menos 8 letras y más del 70 % en mayúscula devuelve el
  * texto en minúsculas; si no, el mismo. Solo para el mensaje que entra a L2. Cuenta por code point (`Character.isLetter` /
- * `isUpperCase`) y pasa a minúsculas con `lowercase(Locale.ROOT)`.
+ * `isUpperCase`) y pasa a minúsculas por code point con `Character.toLowerCase(cp)` (mapeo simple, como Go y Python en el contrato: «İ» → «i», sigma final → «σ»).
  */
 fun normalizarMayusculas(texto: String): String {
     var letras = 0
@@ -228,7 +228,15 @@ fun normalizarMayusculas(texto: String): String {
             if (Character.isUpperCase(cp)) mayus++
         }
     }
-    return if (letras >= 8 && mayus * 10 > 7 * letras) texto.lowercase(java.util.Locale.ROOT) else texto
+    if (letras < 8 || mayus * 10 <= 7 * letras) return texto
+    val sb = StringBuilder(texto.length)
+    i = 0
+    while (i < texto.length) {
+        val cp = texto.codePointAt(i)
+        i += Character.charCount(cp)
+        sb.appendCodePoint(Character.toLowerCase(cp))
+    }
+    return sb.toString()
 }
 
 /**
@@ -255,6 +263,7 @@ class CapaL2(
         decidir(texto, pregunta, emptyMap())
 
     override fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa {
+        if (!scoreIdsValidos(pregunta)) return SalidaCapa.SIN_OPINION // score con ids que no son 1..K: no opina, sin tokenizar ni ONNX
         val pj = pregunta.toJson()
         // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
         if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
@@ -281,7 +290,7 @@ class CapaL2(
             if (c.opina) return c
         }
         val bytes = ss.fold(ByteArray(0)) { acc, s -> acc + s.aBytes() }
-        val ks = ss.joinToString(prefix = "[", postfix = "]") { it.k.toString() }
+        val ks = ss.joinToString(separator = ",", prefix = "[", postfix = "]") { it.k.toString() }
         val r = SalidaCapa.desdeJson(motor.puntuarL2Trozos(pj, bytes, ks))
         return if (motor.tieneConj()) r.copy(respaldo = true) else r
     }

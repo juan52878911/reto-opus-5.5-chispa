@@ -47,7 +47,19 @@ Ejemplo real: [`choice.resp.json`](../server/decide/testdata/choice.resp.json). 
 - `probs`: probabilidad calibrada de cada opción, la de la capa que respondió. Suman 1 en `choice`, `score` y `noul`; en `multi` cada opción lleva la suya, en [0, 1], y **no** suman 1.
 - `layer`: la capa que contestó (`L0`…`L3`). Si `escalate` es true, vale `"escalar"`: ninguna capa llegó a su τ.
 - `escalate`: ninguna capa llegó a su τ. `answer` y `probs` son entonces la mejor pista, o `""` y `{}` si nadie opinó.
-- `escalate_reason`: **solo si `escalate` es true** (campo aditivo; ausente en lo demás), el porqué de la escalada: `"sin_opinion"` (ninguna capa opinó, sin error: el modelo no puede decidir ese esquema; `answer` `""` y `probs` `{}`), `"score_ids_no_validos"` (sin opinión porque los ids de un `score` no son 1..K) o `"baja_confianza"` (alguna capa opinó pero ninguna llegó a su τ; `probs` es la mejor pista). Si escaló por un fallo o presupuesto agotado de una capa, no lleva motivo. La causa de cada «no opina» (`sin_torre`, `tipo_no_soportado`, …) va en `/metrics` (`chispa_capa_no_opina_total`). Una escalada `sin_opinion` en todas las peticiones casi siempre es un `.chispa` sin `TORR` ante esquemas que no trae: `chispa train` y el arranque del servidor lo avisan.
+- `escalate_reason`: **solo si `escalate` es true** (campo aditivo; ausente en lo demás), el porqué de la escalada: `"sin_opinion"` (ninguna capa opinó, sin error: el modelo no puede decidir ese esquema; `answer` `""` y `probs` `{}`), `"score_ids_no_validos"` (sin opinión porque los ids de un `score` no son 1..K) o `"baja_confianza"` (alguna capa opinó pero ninguna llegó a su τ; `probs` es la mejor pista). `"incompleta"` (ninguna capa opinó y alguna falló o se quedó sin presupuesto: no es «nadie opinó»; `answer` `""` y `probs` `{}`; solo lo devuelve el servidor: el motor del móvil no tiene timeouts de L3 ni presupuesto compartido, aunque sus tipos aceptan el valor). La causa de cada «no opina» va en `/metrics` (`chispa_capa_no_opina_total{capa,causa}`):
+
+| `causa` | Significa |
+|---|---|
+| `sin_modelo` | la capa no tiene modelo cargado (Stub, L0 sin modelos, L1/L2 sin sesión; `/healthz` la da como `false`) |
+| `esquema_no_entrenado` | L0 tiene modelos, pero no para ese esquema |
+| `sin_torre` | L2 y esquema ausente de ESQUEMAS, y el `.chispa` no trae `TORR` (o falta `-tok`/ORT) |
+| `tipo_no_soportado` | la capa no decide ese tipo: multi sin cabeza calibrada, o score 1..K sin cabeza `scoreK` (o sin algún `scoreK#j`) en CALIB; el exportador solo escribe `score2`…`score5` |
+| `score_ids_no_validos` | score con ids que no son 1..K |
+| `sin_opinion` | otra causa |
+
+Una escalada `sin_opinion` en todas las peticiones casi siempre es un `.chispa` sin `TORR` ante esquemas que no trae: `chispa train` y el arranque del servidor lo avisan.
+
 - `ms`: tiempo de la cascada para esa pregunta. `nonce` vuelve tal cual.
 
 Con `noul` y `score` ([`noul_score_escala.req.json`](../server/decide/testdata/noul_score_escala.req.json) y

@@ -94,7 +94,7 @@ class Resultado:
     ms: float = 0.0
     nonce: Optional[str] = None
     answers: Optional[List[str]] = None  # solo en multi: las opciones activas (p ≥ θ), en el orden de la pregunta; [] si ninguna
-    escalate_reason: str = ""  # solo si escalate: "sin_opinion" (ninguna capa opinó), "score_ids_no_validos" o "baja_confianza"; "" si no se sabe (servidor anterior)
+    escalate_reason: str = ""  # solo si escalate: "sin_opinion" (ninguna capa opinó), "score_ids_no_validos", "baja_confianza" o "incompleta" (fallo o sin plazo/presupuesto); "" si no se sabe (servidor anterior)
 
     @classmethod
     def de_json(cls, d: dict) -> "Resultado":

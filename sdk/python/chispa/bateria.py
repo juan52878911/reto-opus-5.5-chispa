@@ -447,9 +447,16 @@ MOTIVOS_SIN_OPINION = ("sin_opinion", "score_ids_no_validos")
 UMBRAL_SIN_OPINION = 0.5  # por encima, el informe lo dice como alerta
 
 
+def _incompleta(r: dict) -> bool:
+    """Escaló porque una capa falló o se quedó sin presupuesto (`escalate_reason` «incompleta»). Un servidor nuevo (con `capas` en /healthz) que escala
+    sin motivo también es una escalada incompleta; un servidor antiguo no tiene motivos y ahí vale el atajo de `_sin_opinion`."""
+    return not r["error"] and r["escalate"] and (r.get("escalate_reason") == "incompleta" or (not r.get("escalate_reason") and not r.get("servidor_antiguo")))
+
+
 def _sin_opinion(r: dict) -> bool:
-    """Escaló porque ninguna capa opinó. Con servidores sin `escalate_reason`, escalar sin probs es lo mismo."""
-    return not r["error"] and r["escalate"] and (r.get("escalate_reason") in MOTIVOS_SIN_OPINION or (not r.get("escalate_reason") and not r["probs"]))
+    """Escaló porque ninguna capa opinó. Solo con servidores antiguos (sin `capas` en /healthz, marcados en la fila con `servidor_antiguo`),
+    sin `escalate_reason`, escalar sin probs es lo mismo; con un servidor nuevo un motivo vacío es una escalada incompleta (`_incompleta`)."""
+    return not r["error"] and r["escalate"] and (r.get("escalate_reason") in MOTIVOS_SIN_OPINION or (not r.get("escalate_reason") and bool(r.get("servidor_antiguo")) and not r["probs"]))
 
 
 def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
@@ -470,7 +477,8 @@ def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
          "exactitud_contestada": sum(_acierto_fila(r) for r in cont) / len(cont) if cont else None,
          "exactitud_estricta": sum(_acierto_fila(r) for r in cont) / n, "sin_probs": sum(1 for r in rs if not r["error"] and not r["probs"]) / n,
          "nadie_opino": sum(1 for r in rs if _sin_opinion(r)) / n,
-         "baja_confianza": sum(1 for r in rs if not r["error"] and r["escalate"] and not _sin_opinion(r)) / n, "f1_macro": _f1_macro(rs),
+         "incompletas": sum(1 for r in rs if _incompleta(r)) / n,
+         "baja_confianza": sum(1 for r in rs if not r["error"] and r["escalate"] and not _sin_opinion(r) and not _incompleta(r)) / n, "f1_macro": _f1_macro(rs),
          "ece": ece(dec), "cobertura": cobertura(dec, total, objetivo), "escalado": sum(1 for r in rs if not r["error"] and r["escalate"]) / n,
          "p50_ms": _pct(cli, 0.5), "p99_ms": _pct(cli, 0.99)}
     d = [abs(int(_mejor(r)[0]) - int(r["etiqueta"])) for r in rs if r["tipo"] == "score" and (_mejor(r)[0] or "").isdigit()]
@@ -768,6 +776,8 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
             aviso("el .chispa no puede opinar sobre esquemas que no estén en su ESQUEMAS: sin TORR no hay torre al vuelo en L2 y no hay L1; "
                   "los esquemas nuevos del manifiesto escalarán sin probs (no se comprueba qué esquemas trae ESQUEMAS)")
         res = (_correr_agrupado if agrupar else _correr)(cliente, tareas, concurrencia)
+        for r in res:
+            r["servidor_antiguo"] = cap is None
         por_conjunto, i = [], 0
         for c, fs in cargados:
             rs = res[i:i + len(fs)]

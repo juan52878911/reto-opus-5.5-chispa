@@ -204,13 +204,13 @@ func AgregarProbs(kind string, ids []string, ps []map[string]float64, agg string
 		return probs, "false", 1 - pt, true
 	}
 	var z float64
-	for _, v := range probs {
-		z += v
+	for _, id := range ids { // en el orden de las opciones, no el de un map: la suma en coma flotante depende del orden
+		z += probs[id]
 	}
 	if z <= 0 {
 		return nil, "", 0, false
 	}
-	for id := range probs {
+	for _, id := range ids {
 		probs[id] /= z
 	}
 	if kind == "score" {

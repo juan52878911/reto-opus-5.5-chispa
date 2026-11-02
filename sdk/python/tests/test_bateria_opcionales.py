@@ -4,7 +4,7 @@ import unittest
 
 from chispa import bateria as B
 
-from test_bateria import Base
+from tests.test_bateria import Base
 
 
 class Opcionales(Base):
