@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from chispa import formato
 from chispa.cliente import ChispaError
@@ -231,6 +232,26 @@ class TestEntrenar(unittest.TestCase):
         self.assertIn("L0", inf["omitidas"])
         self.assertTrue(any("sin L0" in m for m in logs))
         self.assertTrue((self.d / "s.chispa").is_file())
+
+    @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
+    def test_entrenador_precompilado_no_necesita_go(self):
+        """CHISPA_ENTRENADOR: se compila una vez y entrenar() lo usa sin go en el PATH ni go build."""
+        binario = self.d / "entrenador"
+        from chispa.train import fuentes_go, preparar_go
+        d = preparar_go(self.d, fuentes_go(encontrar_repo()))
+        env = dict(os.environ, GOFLAGS="-mod=mod", GOPROXY="off")
+        subprocess.run([encontrar_go(), "build", "-o", str(binario), "."], cwd=d, env=env, check=True, capture_output=True)
+        with mock.patch.dict(os.environ, {"CHISPA_ENTRENADOR": str(binario)}), \
+                mock.patch("chispa.train.encontrar_go", return_value=None), \
+                mock.patch("chispa.train.subprocess.run", wraps=subprocess.run) as run:
+            inf = entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / "s.chispa", log=lambda m: None)
+        self.assertEqual(inf["secciones"], ["META", "L0", "CALIB"])
+        self.assertEqual([c.args[0][0] for c in run.call_args_list], [str(binario)])
+
+    def test_entrenador_precompilado_invalido(self):
+        with mock.patch.dict(os.environ, {"CHISPA_ENTRENADOR": str(self.d / "noexiste")}):
+            with self.assertRaisesRegex(ChispaError, "CHISPA_ENTRENADOR"):
+                entrenar(self.d / "ej.jsonl", self.d / "e.json", self.d / "s.chispa", log=lambda m: None)
 
     @unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")
     def test_con_go(self):

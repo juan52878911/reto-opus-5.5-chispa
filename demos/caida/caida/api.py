@@ -25,19 +25,21 @@ class ErrorRed(Exception):
     """No hubo respuesta HTTP 200 utilizable."""
 
 
-def construir_peticion(estado: str, opciones: List[Tuple[str, str]]) -> dict:
-    """Una sola petición con las tres preguntas tipadas sobre el mismo `state`.
+def construir_peticiones(estados: Dict[str, str], opciones: List[Tuple[str, str]]) -> List[dict]:
+    """Dos peticiones por turno, porque `state` es único por petición: [choice (con la lista de opciones en su estado),
+    score + noul (solo tablero y pieza)]. `estados`: {id_pregunta: texto}; riesgo y completa comparten el suyo.
     `opciones`: [(id, descripción)] del choice, ids "1".."n"."""
-    return {
-        "state": estado,
-        "questions": [
-            {"id": ID_COLOCACION, "question": PREGUNTA_COLOCACION, "kind": "choice",
-             "options": [{"id": i, "description": d} for i, d in opciones]},
-            {"id": ID_RIESGO, "question": PREGUNTA_RIESGO, "kind": "score",
-             "options": [{"id": i, "description": d} for i, d in NIVELES_RIESGO.items()]},
-            {"id": ID_COMPLETA, "question": PREGUNTA_COMPLETA, "kind": "noul"},
-        ],
-    }
+    if estados[ID_RIESGO] != estados[ID_COMPLETA]:
+        raise ValueError("riesgo y completa van en la misma petición: necesitan el mismo estado")
+    return [
+        {"state": estados[ID_COLOCACION],
+         "questions": [{"id": ID_COLOCACION, "question": PREGUNTA_COLOCACION, "kind": "choice",
+                        "options": [{"id": i, "description": d} for i, d in opciones]}]},
+        {"state": estados[ID_RIESGO],
+         "questions": [{"id": ID_RIESGO, "question": PREGUNTA_RIESGO, "kind": "score",
+                        "options": [{"id": i, "description": d} for i, d in NIVELES_RIESGO.items()]},
+                       {"id": ID_COMPLETA, "question": PREGUNTA_COMPLETA, "kind": "noul"}]},
+    ]
 
 
 def decidir(url: str, cuerpo: dict, timeout: float = 10.0) -> Tuple[Dict[str, dict], float]:

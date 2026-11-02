@@ -1,7 +1,8 @@
 """Servidor HTTP falso con la forma de `/v1/decide` (http.server, sin modelos). Para tests y pruebas de humo.
 
 Modos: «primera» (choice → "1", score → 2, noul → true), «escalar» (todo escala, sin opinión),
-«aleatorio» (choice al azar). `python -m caida.servidor_falso --modo primera --puerto 8099`.
+«aleatorio» (choice al azar), «escalar_probs» (todo escala pero con `probs`: el choice favorece la opción 1),
+«escalar_probs_ciego» (como el anterior, pero el choice favorece una opción al azar). `python -m caida.servidor_falso --modo primera --puerto 8099`.
 """
 from __future__ import annotations
 
@@ -13,21 +14,28 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
+MODOS = ("primera", "escalar", "aleatorio", "escalar_probs", "escalar_probs_ciego")
+
+
 def responder(q: dict, modo: str, rng: random.Random) -> dict:
     base = {"id": q["id"], "kind": q["kind"], "ms": 1.0}
     if modo == "escalar":
         return {**base, "answer": "", "probs": {}, "layer": "escalar", "escalate": True, "escalate_reason": "sin_opinion"}
+    esc = modo.startswith("escalar_probs")
+    ext = {"escalate": True, "escalate_reason": "bajo_tau"} if esc else {"escalate": False}
+    resp = (lambda a: "") if esc else (lambda a: a)
+    capa = (lambda c: "escalar") if esc else (lambda c: c)
     if q["kind"] == "choice":
         ids = [o["id"] for o in q["options"]]
-        r = rng.choice(ids) if modo == "aleatorio" else ids[0]
+        r = rng.choice(ids) if modo in ("aleatorio", "escalar_probs_ciego") else ids[0]
         resto = (1.0 - 0.7) / max(1, len(ids) - 1)
         probs = {i: (0.7 if i == r else resto) for i in ids}
-        return {**base, "answer": r, "probs": probs, "layer": "L1", "escalate": False}
+        return {**base, "answer": resp(r), "probs": probs, "layer": capa("L1"), **ext}
     if q["kind"] == "score":
         ids = sorted(o["id"] for o in q["options"])
         probs = {i: (0.5 if i == "2" else 0.5 / (len(ids) - 1)) for i in ids}
-        return {**base, "answer": "2", "probs": probs, "layer": "L0", "escalate": False}
-    return {**base, "answer": "true", "probs": {"false": 0.2, "true": 0.8}, "layer": "L0", "escalate": False}
+        return {**base, "answer": resp("2"), "probs": probs, "layer": capa("L0"), **ext}
+    return {**base, "answer": resp("true"), "probs": {"false": 0.2, "true": 0.8}, "layer": capa("L0"), **ext}
 
 
 class ServidorFalso:
@@ -82,7 +90,7 @@ class ServidorFalso:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--modo", choices=("primera", "escalar", "aleatorio"), default="primera")
+    ap.add_argument("--modo", choices=MODOS, default="primera")
     ap.add_argument("--puerto", type=int, default=8099)
     ap.add_argument("--retardo-ms", type=float, default=0.0)
     a = ap.parse_args(argv)

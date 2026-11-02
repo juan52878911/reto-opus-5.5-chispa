@@ -15,34 +15,85 @@ RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 
 
 class TestPeticion(unittest.TestCase):
-    def test_forma_exacta_tres_preguntas_en_una_peticion(self):
+    def test_forma_exacta_dos_peticiones_por_turno(self):
         with ServidorFalso("primera") as s:
             ag = AgenteChispa(s.url)
-            j = Juego(1)
-            ag.decidir(j)
-            self.assertEqual(len(s.peticiones), 1, "una sola petición por turno")
-            cuerpo = s.peticiones[0]
-        self.assertEqual(set(cuerpo), {"state", "questions"})
-        self.assertIsInstance(cuerpo["state"], str)
-        qs = cuerpo["questions"]
-        self.assertEqual([(q["id"], q["kind"]) for q in qs],
-                         [("colocacion", "choice"), ("riesgo", "score"), ("completa", "noul")])
-        self.assertEqual(qs[0]["question"], "¿Dónde coloco la pieza?")
-        ops = qs[0]["options"]
+            ag.preparar(1)
+            ag.decidir(Juego(1))
+            self.assertEqual(len(s.peticiones), 2, "choice, y score + noul")
+            ch, resto = s.peticiones
+        for c in (ch, resto):
+            self.assertEqual(set(c), {"state", "questions"})
+            self.assertIsInstance(c["state"], str)
+        self.assertEqual([(q["id"], q["kind"]) for q in ch["questions"]], [("colocacion", "choice")])
+        self.assertEqual([(q["id"], q["kind"]) for q in resto["questions"]], [("riesgo", "score"), ("completa", "noul")])
+        q0 = ch["questions"][0]
+        self.assertEqual(q0["question"], "¿Dónde coloco la pieza?")
+        ops = q0["options"]
         self.assertEqual([o["id"] for o in ops], ["1", "2", "3", "4", "5", "6"])
         self.assertTrue(all(set(o) == {"id", "description"} and o["description"] for o in ops))
         self.assertRegex(ops[0]["description"], r"^limpia \d+ filas?, .*deja \d+ huecos?, altura máxima \d+$")
-        self.assertEqual([o["id"] for o in qs[1]["options"]], ["1", "2", "3", "4", "5"])
-        self.assertNotIn("options", qs[2])
-        self.assertEqual(len({q["id"] for q in qs}), 3)
+        self.assertEqual([o["id"] for o in resto["questions"][0]["options"]], ["1", "2", "3", "4", "5"])
+        self.assertNotIn("options", resto["questions"][1])
 
-    def test_las_opciones_son_las_6_mejores_del_profesor(self):
+    def test_el_estado_de_riesgo_y_completa_no_lleva_las_opciones(self):
+        with ServidorFalso("primera") as s:
+            AgenteChispa(s.url).decidir(Juego(1))
+            ch, resto = s.peticiones
+        self.assertIn("Opciones:", ch["state"])
+        self.assertNotIn("Opciones:", resto["state"])
+        self.assertTrue(ch["state"].startswith(resto["state"]), "el del choice es el del resto más la lista de opciones")
+        self.assertIn("Pieza:", resto["state"])
+
+    def test_las_opciones_son_las_6_mejores_del_profesor_barajadas(self):
         from caida.agentes import ranking
         with ServidorFalso("primera") as s:
             j = Juego(2)
-            d = AgenteChispa(s.url).decidir(j)
+            ag = AgenteChispa(s.url)
+            ag.preparar(2)
+            d = ag.decidir(j)
         r = ranking(j)
-        self.assertEqual([(o["rot"], o["col"]) for o in d.opciones], [(c.rot, c.col) for c, _, _ in r[:6]])
+        for o in d.opciones:  # el mapeo a la colocación real está en cada opción
+            c = r[o["rank"] - 1][0]
+            self.assertEqual((o["rot"], o["col"]), (c.rot, c.col))
+        self.assertEqual(sorted(o["rank"] for o in d.opciones), [1, 2, 3, 4, 5, 6])
+        self.assertNotEqual([o["rank"] for o in d.opciones], [1, 2, 3, 4, 5, 6], "con la semilla 2 el orden no es el del profesor")
+
+    def test_el_barajado_depende_de_la_semilla_de_la_partida(self):
+        def ordenes(sem):
+            with ServidorFalso("escalar") as s:
+                r = jugar_partida(sem, AgenteChispa(s.url), 6)
+            return [[o["rank"] for o in d.opciones] for d in r["decisiones"] if not d.forzada]
+        self.assertEqual(ordenes(4), ordenes(4))
+        self.assertNotEqual(ordenes(4), ordenes(5))
+
+
+class TestEstadoUnico(unittest.TestCase):
+    def test_entrenamiento_e_inferencia_usan_la_misma_funcion(self):
+        """Cada ejemplo de entrenamiento coincide con el `state` que `peticiones_turno` manda para esa misma pregunta."""
+        from unittest import mock
+        from caida import entrenar_fewshot, estado
+        vistos = []
+        real = estado.texto_pregunta
+
+        def espia(q, j, ops):
+            t = real(q, j, ops)
+            bodies = estado.peticiones_turno(j, ops)  # el juego aún no ha avanzado: es la petición de ESE turno
+            vistos.append((q, t, next(b["state"] for b in bodies if q in [x["id"] for x in b["questions"]])))
+            return t
+
+        with mock.patch.object(entrenar_fewshot, "texto_pregunta", espia):
+            generar(12, semilla=9)
+        self.assertGreater(len(vistos), 30)
+        for q, t, enviado in vistos:
+            self.assertEqual(t, enviado, q)
+            self.assertEqual("Opciones:" in t, q == "colocacion", q)
+
+    def test_ejemplos_de_riesgo_y_completa_sin_lista_de_opciones(self):
+        d = generar(12, semilla=9)
+        for q in ("riesgo", "completa"):
+            self.assertTrue(all("Opciones:" not in f["texto"] and "Pieza:" in f["texto"] for f in d[q]), q)
+        self.assertTrue(all("Opciones:" in f["texto"] for f in d["colocacion"]))
 
 
 class TestEscudo(unittest.TestCase):
@@ -53,11 +104,62 @@ class TestEscudo(unittest.TestCase):
         self.assertTrue(ds and all(d.escudo and d.motivo_escudo == "sin_opinion" for d in ds))
         self.assertEqual(evaluar.resumen([r])["tasa_escudo"], 1.0)
 
-    def test_primera_coincide_con_el_profesor(self):
+    def test_siempre_la_1_baja_al_azar_entre_6_al_barajar(self):
+        """Con las opciones barajadas, «siempre la 1» ya no es la del profesor: coincide como un azar entre 6."""
         with ServidorFalso("primera") as s:
-            r = jugar_partida(1, AgenteChispa(s.url), 25)
+            ps = [jugar_partida(sem, AgenteChispa(s.url), 40) for sem in range(1, 21)]
+        res = evaluar.resumen(ps)
+        self.assertEqual(res["intervenciones_escudo"], 0)
+        self.assertEqual(res["n_chispa_tau"], res["decisiones"])
+        self.assertTrue(0.10 < res["coincidencia"] < 0.24, res["coincidencia"])
+
+    def test_sin_barajar_la_1_es_la_del_profesor(self):
+        with ServidorFalso("primera") as s:
+            r = jugar_partida(1, AgenteChispa(s.url, barajar=False), 25)
         res = evaluar.resumen([r])
         self.assertEqual((res["coincidencia"], res["intervenciones_escudo"]), (1.0, 0))
+
+    def test_tau_por_defecto_con_probs_y_escalada_es_escudo(self):
+        with ServidorFalso("escalar_probs") as s:
+            r = jugar_partida(1, AgenteChispa(s.url), 25)
+        self.assertTrue(all(d.decidio == "escudo" for d in r["decisiones"]))
+        self.assertEqual(evaluar.resumen([r])["tasa_escudo"], 1.0)
+
+    def test_argmax_juega_el_argmax_aunque_escale(self):
+        with ServidorFalso("escalar_probs") as s:
+            r = jugar_partida(1, AgenteChispa(s.url, decidir="argmax", barajar=False), 25)
+        ds = r["decisiones"]
+        self.assertTrue(ds and all(d.decidio == "chispa_bajo_tau" and not d.escudo and d.id_elegida == "1" for d in ds))
+        res = evaluar.resumen([r])
+        self.assertEqual((res["n_chispa_bajo_tau"], res["n_chispa_tau"], res["n_escudo"]), (len(ds), 0, 0))
+        self.assertEqual(res["coincidencia_chispa_bajo_tau"], 1.0)
+
+    def test_argmax_sin_probs_juega_el_profesor_y_cuenta_escudo(self):
+        with ServidorFalso("escalar") as s:
+            r = jugar_partida(1, AgenteChispa(s.url, decidir="argmax"), 25)
+        res = evaluar.resumen([r])
+        self.assertTrue(all(d.decidio == "escudo" for d in r["decisiones"]))
+        self.assertEqual((res["n_escudo"], res["n_chispa_bajo_tau"], res["coincidencia_escudo"]), (len(r["decisiones"]), 0, 1.0))
+
+    def test_argmax_ciego_coincide_como_azar(self):
+        with ServidorFalso("escalar_probs_ciego") as s:
+            ps = [jugar_partida(sem, AgenteChispa(s.url, decidir="argmax"), 40) for sem in range(1, 21)]
+        res = evaluar.resumen(ps)
+        self.assertEqual(res["n_chispa_bajo_tau"], res["decisiones"])
+        self.assertTrue(0.10 < res["coincidencia_chispa_bajo_tau"] < 0.24, res["coincidencia_chispa_bajo_tau"])
+
+    def test_probs_invalidas(self):
+        from caida.partida import argmax_probs
+        ids = ["1", "2", "3"]
+        self.assertEqual(argmax_probs({"1": 0.1, "2": 0.6, "3": 0.3}, ids), "2")
+        self.assertEqual(argmax_probs({"1": 0.5, "2": 0.5, "3": 0.0}, ids), "1")
+        for malas in (None, {}, [], {"1": 1.0}, {"1": "x", "2": 1, "3": 0}, {"1": float("nan"), "2": 1, "3": 0},
+                      {"1": -1, "2": 1, "3": 0}, {"1": 0, "2": 0, "3": 0}, {"1": True, "2": 0, "3": 0}):
+            self.assertIsNone(argmax_probs(malas, ids), malas)
+
+    def test_decidir_invalido(self):
+        with self.assertRaises(ValueError):
+            AgenteChispa("http://x", decidir="otro")
 
     def test_sin_servidor_cuenta_error_de_red_como_escudo(self):
         d = AgenteChispa("http://127.0.0.1:9", timeout=0.5).decidir(Juego(1))
@@ -75,7 +177,7 @@ class TestEvaluador(unittest.TestCase):
             self.assertLessEqual(a["resumen"]["piezas_media"], 40)
             for k in ("latencia_ms_p50", "latencia_ms_p99"):
                 self.assertIsNotNone(a["resumen"][k])
-        self.assertEqual(r["agentes"]["chispa_zero_shot"]["resumen"]["coincidencia"], 1.0)
+        self.assertLess(r["agentes"]["chispa_zero_shot"]["resumen"]["coincidencia"], 0.5)  # opciones barajadas
         self.assertGreater(r["agentes"]["profesor"]["resumen"]["piezas_media"], r["agentes"]["aleatorio"]["resumen"]["piezas_media"])
         json.dumps(r)
         self.assertIn("| chispa_few_shot |", evaluar.markdown(r))
@@ -86,6 +188,18 @@ class TestEvaluador(unittest.TestCase):
             self.assertTrue(os.path.exists(os.path.join(d, "evaluacion.json")))
             self.assertTrue(os.path.exists(os.path.join(d, "evaluacion.md")))
             self.assertEqual(json.load(open(os.path.join(d, "evaluacion.json")))["agentes"]["chispa_zero_shot"]["resumen"]["tasa_escudo"], 1.0)
+
+    def test_cli_argmax_separa_las_tres_cifras(self):
+        with ServidorFalso("escalar_probs") as s, tempfile.TemporaryDirectory() as d:
+            self.assertEqual(evaluar.main(["--url", s.url, "--salida", d, "--partidas", "2", "--max-piezas", "10", "--decidir", "argmax"]), 0)
+            r = json.load(open(os.path.join(d, "evaluacion.json")))
+            md = open(os.path.join(d, "evaluacion.md")).read()
+        self.assertEqual(r["decidir"], "argmax")
+        z = r["agentes"]["chispa_zero_shot"]["resumen"]
+        self.assertEqual((z["n_escudo"], z["n_chispa_tau"]), (0, 0))
+        self.assertGreater(z["n_chispa_bajo_tau"], 0)
+        self.assertIn("bajo_tau", md)
+        self.assertIn("`argmax`", md)
 
     def test_url_muerta_sale_con_2(self):
         self.assertEqual(evaluar.main(["--url", "http://127.0.0.1:9", "--salida", tempfile.mkdtemp()]), 2)
@@ -154,6 +268,31 @@ class TestTraza(unittest.TestCase):
             self.assertEqual(set(t["preguntas"]), {"colocacion", "riesgo", "completa"})
             self.assertIn("probs", t["preguntas"]["colocacion"])
             self.assertEqual(len(list(traza.reproducir(ruta))), r["piezas"])  # sin servidor: motor + semilla
+
+    def test_traza_argmax_guarda_decidio_modo_y_mapeo(self):
+        with ServidorFalso("escalar_probs") as s, tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "t.jsonl")
+            traza.grabar(ruta, 3, s.url, 12, decidir="argmax")
+            cab, turnos = traza.leer(ruta)
+            self.assertEqual(cab["decidir"], "argmax")
+            self.assertTrue(all(t["decidio"] == "chispa_bajo_tau" and not t["escudo"] for t in turnos))
+            self.assertTrue(all(sorted(o["rank"] for o in t["opciones"]) == [1, 2, 3, 4, 5, 6] for t in turnos))
+            ps = panel.paneles(turnos, cab["decidir"])
+            self.assertTrue(all(p["etiqueta_bajo_tau"] == "bajo τ: el servidor escalaría" and p["modo"] == "argmax" for p in ps))
+            self.assertEqual(ps[-1]["bajo_tau"], len(turnos))
+            self.assertEqual(ps[-1]["escudo"], 0)
+            self.assertEqual(len(list(traza.reproducir(ruta))), len(turnos))
+
+    def test_traza_tau_marca_chispa_tau_y_escudo(self):
+        with ServidorFalso("primera") as s, ServidorFalso("escalar") as e, tempfile.TemporaryDirectory() as d:
+            traza.grabar(os.path.join(d, "a"), 3, s.url, 8)
+            traza.grabar(os.path.join(d, "b"), 3, e.url, 8)
+            cab, a = traza.leer(os.path.join(d, "a"))
+            _, b = traza.leer(os.path.join(d, "b"))
+        self.assertEqual(cab["decidir"], "tau")
+        self.assertTrue(all(t["decidio"] == "chispa_tau" for t in a))
+        self.assertTrue(all(t["decidio"] == "escudo" for t in b))
+        self.assertTrue(all(p["etiqueta_bajo_tau"] is None and p["modo"] == "tau" for p in panel.paneles(a)))
 
     def test_reproducir_detecta_traza_alterada(self):
         with ServidorFalso("primera") as s, tempfile.TemporaryDirectory() as d:
@@ -227,7 +366,7 @@ class TestMedir(unittest.TestCase):
         with ServidorFalso("primera") as s:
             r = medir.medir(s.url, 10)
             n = len(s.peticiones)
-        self.assertEqual(n, 10 + 1 + 10)
+        self.assertEqual(n, 2 * (10 + 1 + 10), "dos peticiones por decisión")
         for k in ("fria", "caliente"):
             for m in ("ms_p50", "ms_p95", "ms_p99", "decisiones_por_s"):
                 self.assertIsNotNone(r[k][m])
@@ -237,9 +376,30 @@ class TestMedir(unittest.TestCase):
     def test_la_fria_manda_descripciones_distintas(self):
         with ServidorFalso("primera") as s:
             medir.medir(s.url, 5)
-            fria = s.peticiones[:5]
+            fria = s.peticiones[:10][0::2]  # las del choice de 5 decisiones
         d = {o["description"] for p in fria for o in p["questions"][0]["options"]}
         self.assertEqual(len(d), 5 * 6)
+
+
+class TestCorrerSh(unittest.TestCase):
+    def test_correr_con_decidir_argmax_termina_con_0(self):
+        import subprocess
+        sh = os.path.join(RAIZ, "demos", "caida", "correr.sh")
+        with ServidorFalso("escalar_probs") as s, tempfile.TemporaryDirectory() as d:
+            p = subprocess.run(["bash", sh, "--url", s.url, "--salida", d, "--decidir", "argmax", "--partidas", "2",
+                                "--max-piezas", "8", "--n-medir", "3"], capture_output=True, text=True, timeout=300)
+            self.assertEqual(p.returncode, 0, p.stdout[-1500:] + p.stderr[-1500:])
+            ev = json.load(open(os.path.join(d, "evaluacion.json")))
+            cab, _ = traza.leer(os.path.join(d, "traza.jsonl"))
+            self.assertEqual(json.load(open(os.path.join(d, "latencia.json")))["decidir"], "argmax")
+        self.assertEqual((ev["decidir"], cab["decidir"]), ("argmax", "argmax"))
+
+    def test_decidir_invalido_falla(self):
+        import subprocess
+        sh = os.path.join(RAIZ, "demos", "caida", "correr.sh")
+        p = subprocess.run(["bash", sh, "--url", "http://127.0.0.1:9", "--salida", tempfile.mkdtemp(), "--decidir", "otro"],
+                           capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(p.returncode, 0)
 
 
 @unittest.skipUnless(importlib.util.find_spec("PIL"), "sin Pillow (requirements-render.txt)")

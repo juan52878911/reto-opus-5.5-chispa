@@ -116,6 +116,11 @@ func TestZC4TasaFraccionariaYRafaga(t *testing.T) {
 	if av := c.Avisos(); len(av) != 0 {
 		t.Fatalf("avisos %q", av)
 	}
+	// El defecto (60 < 256) es lo medido: no genera aviso en cada arranque.
+	c.TorresPorSegundo = TorresPorSegundoPorDefecto
+	if av := c.Avisos(); len(av) != 0 {
+		t.Fatalf("el defecto no debe avisar: %q", av)
+	}
 	// Con tasa 0,5 (aunque Validar ya no la deje pasar) o 1, una pregunta completa responde: ráfaga max(tasa, max_torres_nuevas, 1).
 	for _, tasa := range []float64{0.5, 1} {
 		l := l2Torres(t, &codificadorContador{}, 1024).ConTorresPorSegundo(tasa)

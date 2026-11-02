@@ -6,7 +6,7 @@ from typing import Iterator, List, Tuple
 
 from . import api
 from .motor import Juego, a_texto
-from .partida import AgenteChispa, Decision, jugar_partida
+from .partida import DECIDIR, AgenteChispa, Decision, jugar_partida
 
 VERSION = 1
 
@@ -28,7 +28,7 @@ def registro_turno(turno: int, antes, d: Decision, ef, juego_despues: Juego) -> 
         "preguntas": {k: (_pregunta(v) if isinstance(v, dict) and "kind" in v else v) for k, v in d.preguntas.items()},
         "elegida": d.id_elegida, "rot": d.col.rot, "col": d.col.col,
         "celdas_elegidas": [list(c) for c in d.col.celdas],
-        "escudo": d.escudo, "motivo_escudo": d.motivo_escudo, "forzada": d.forzada,
+        "decidio": d.decidio or None, "escudo": d.escudo, "motivo_escudo": d.motivo_escudo, "forzada": d.forzada,
         "ms_cliente": d.ms_cliente, "ms_servidor": d.ms_servidor,
         "filas": ef.filas, "columnas_borradas": list(ef.columnas), "puntos_turno": ef.puntos + 10,
         "puntos": juego_despues.puntos, "filas_total": juego_despues.filas_limpiadas,
@@ -36,12 +36,12 @@ def registro_turno(turno: int, antes, d: Decision, ef, juego_despues: Juego) -> 
     }
 
 
-def grabar(ruta: str, semilla: int, url: str, max_piezas: int) -> dict:
+def grabar(ruta: str, semilla: int, url: str, max_piezas: int, decidir: str = "tau") -> dict:
     """Juega una partida de Chispa contra `url` y escribe la traza en `ruta`. Devuelve el resumen de la partida."""
-    agente = AgenteChispa(url)
+    agente = AgenteChispa(url, decidir=decidir)
     with open(ruta, "w", encoding="utf-8") as f:
         f.write(json.dumps({"tipo": "cabecera", "version": VERSION, "semilla": semilla, "url": url,
-                            "max_piezas": max_piezas, "k": api.K}, ensure_ascii=False) + "\n")
+                            "max_piezas": max_piezas, "k": api.K, "decidir": decidir}, ensure_ascii=False) + "\n")
         n = [0]
 
         def cada(antes, d, ef, j):
@@ -80,15 +80,17 @@ def main(argv=None) -> int:
     ap.add_argument("--salida", required=True, help="fichero .jsonl de la traza")
     ap.add_argument("--semilla", type=int, default=1)
     ap.add_argument("--max-piezas", type=int, default=100)
+    ap.add_argument("--decidir", choices=DECIDIR, default="tau",
+                    help="tau: si Chispa escala juega el profesor (escudo); argmax: se juega su argmax si trae probs")
     a = ap.parse_args(argv)
     try:
         api.salud(a.url)
     except api.ErrorRed as e:
         print(f"jugar: el servidor {a.url} no responde a /healthz: {e}")
         return 2
-    r = grabar(a.salida, a.semilla, a.url, a.max_piezas)
+    r = grabar(a.salida, a.semilla, a.url, a.max_piezas, a.decidir)
     ds = r["decisiones"]
-    esc = sum(d.escudo for d in ds)
-    print(f"jugar: semilla {a.semilla}: {r['piezas']} piezas, {r['filas']} filas, {r['puntos']} puntos, "
-          f"escudo {esc}/{len(ds)}; traza en {a.salida}")
+    n = {k: sum(d.decidio == k for d in ds) for k in ("chispa_tau", "chispa_bajo_tau", "escudo")}
+    print(f"jugar: semilla {a.semilla} (decidir {a.decidir}): {r['piezas']} piezas, {r['filas']} filas, {r['puntos']} puntos, "
+          f"chispa_tau {n['chispa_tau']}, chispa_bajo_tau {n['chispa_bajo_tau']}, escudo {n['escudo']} de {len(ds)}; traza en {a.salida}")
     return 0
