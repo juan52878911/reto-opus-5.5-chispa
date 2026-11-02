@@ -16,15 +16,16 @@ import uuid
 from typing import List
 
 from . import api
-from .agentes import descripcion, ranking
-from .estado import texto_estado
+from .agentes import ranking
+from .estado import peticiones_turno
 from .motor import Juego
+from .partida import DECIDIR
 from .util import escribir_json, percentil, redondea
 
 
-def cuerpos_reales(n: int, semilla: int = 1) -> List[dict]:
-    """Peticiones de turnos reales de una partida del profesor (se repite la partida con otras semillas si hace falta)."""
-    out: List[dict] = []
+def cuerpos_reales(n: int, semilla: int = 1) -> List[List[dict]]:
+    """Por decisión, sus dos peticiones (choice; score + noul), de turnos reales de una partida del profesor (se repite la partida con otras semillas si hace falta)."""
+    out: List[List[dict]] = []
     s = semilla
     while len(out) < n:
         j = Juego(s)
@@ -32,28 +33,34 @@ def cuerpos_reales(n: int, semilla: int = 1) -> List[dict]:
             r = ranking(j)
             if len(r) >= 2:
                 ops = [(str(i + 1), c, m) for i, (c, _, m) in enumerate(r[:api.K])]
-                out.append(api.construir_peticion(texto_estado(j, ops), [(i, descripcion(c, m)) for i, c, m in ops]))
+                out.append(peticiones_turno(j, ops))
             j.jugar(r[0][0])
         s += 1
     return out
 
 
-def salar(cuerpo: dict, marca: str) -> dict:
-    """Copia con descripciones únicas (fuerza torres nuevas) y estado único."""
-    c = copy.deepcopy(cuerpo)
-    c["state"] += f"\n[{marca}]"
-    for q in c["questions"]:
-        for o in q.get("options", []):
-            o["description"] = f'{o.get("description", "")} [{marca}-{q["id"]}-{o["id"]}]'
-    return c
+def salar(cuerpos: List[dict], marca: str) -> List[dict]:
+    """Copia de las peticiones de una decisión con descripciones únicas (fuerza torres nuevas) y estado único."""
+    out = copy.deepcopy(cuerpos)
+    for c in out:
+        c["state"] += f"\n[{marca}]"
+        for q in c["questions"]:
+            for o in q.get("options", []):
+                o["description"] = f'{o.get("description", "")} [{marca}-{q["id"]}-{o["id"]}]'
+    return out
 
 
-def serie(url: str, cuerpos: List[dict], timeout: float) -> dict:
+def serie(url: str, decisiones: List[List[dict]], timeout: float) -> dict:
+    """Cada decisión son dos peticiones en serie; su latencia es la suma."""
     lat, srv, escalas, errores = [], [], 0, 0
     t0 = time.perf_counter()
-    for c in cuerpos:
+    for cuerpos in decisiones:
         try:
-            res, ms = api.decidir(url, c, timeout)
+            res, ms = {}, 0.0
+            for c in cuerpos:
+                r, t = api.decidir(url, c, timeout)
+                res.update(r)
+                ms += t
         except api.ErrorRed:
             errores += 1
             continue
@@ -62,35 +69,36 @@ def serie(url: str, cuerpos: List[dict], timeout: float) -> dict:
         escalas += any(r.get("escalate") for r in res.values())
     total = time.perf_counter() - t0
     return {
-        "peticiones": len(cuerpos), "ok": len(lat), "errores_red": errores, "peticiones_con_escalada": escalas,
+        "peticiones": len(decisiones), "ok": len(lat), "errores_red": errores, "peticiones_con_escalada": escalas,
         "ms_p50": redondea(percentil(lat, 50)), "ms_p95": redondea(percentil(lat, 95)), "ms_p99": redondea(percentil(lat, 99)),
         "ms_media": redondea(sum(lat) / len(lat)) if lat else None,
         "ms_servidor_media": redondea(sum(srv) / len(srv)) if srv else None,
-        # una decisión = una petición de tres preguntas, en serie desde un solo cliente
+        # una decisión = dos peticiones (3 preguntas), en serie desde un solo cliente
         "decisiones_por_s": redondea(len(lat) / total, 1) if total > 0 and lat else None,
     }
 
 
-def medir(url: str, n: int = 100, timeout: float = 30.0) -> dict:
+def medir(url: str, n: int = 100, timeout: float = 30.0, decidir: str = "tau") -> dict:
     cuerpos = cuerpos_reales(n)
     marca = uuid.uuid4().hex[:8]
     fria = serie(url, [salar(c, f"{marca}-{i}") for i, c in enumerate(cuerpos)], timeout)
     # caliente: la petición «fija» se manda una vez para llenar la caché y luego n veces
     fija = salar(cuerpos[0], f"{marca}-fija")
-    api.decidir(url, fija, timeout)
+    for c in fija:
+        api.decidir(url, c, timeout)
     caliente = serie(url, [fija] * n, timeout)
-    return {"url": url, "peticiones_por_serie": n, "preguntas_por_peticion": 3, "fria": fria, "caliente": caliente}
+    return {"url": url, "decidir": decidir, "decisiones_por_serie": n, "peticiones_por_decision": 2, "preguntas_por_decision": 3, "fria": fria, "caliente": caliente}
 
 
 def markdown(r: dict) -> str:
     cols = [("ms_p50", "p50 ms"), ("ms_p95", "p95 ms"), ("ms_p99", "p99 ms"), ("ms_servidor_media", "ms servidor (media)"),
             ("decisiones_por_s", "decisiones/s"), ("peticiones_con_escalada", "con escalada"), ("errores_red", "errores")]
-    l = [f"# Chispa: Caída — latencia por petición de 3 preguntas ({r['peticiones_por_serie']} por serie)", "", f"Servidor: `{r['url']}`", "",
+    l = [f"# Chispa: Caída — latencia por petición de 3 preguntas ({r['decisiones_por_serie']} decisiones por serie, 2 peticiones cada una)", "", f"Servidor: `{r['url']}` (modo de decisión `{r['decidir']}`: no cambia lo que se pide, solo se anota)", "",
          "| caché de torres | " + " | ".join(t for _, t in cols) + " |", "|---|" + "---|" * len(cols)]
     for nombre in ("fria", "caliente"):
         s = r[nombre]
         l.append(f"| {nombre} | " + " | ".join("—" if s[k] is None else str(s[k]) for k, _ in cols) + " |")
-    l += ["", "Cliente único y en serie: `decisiones/s` = peticiones/segundo. Fría = descripciones nunca vistas (torres al vuelo); caliente = la misma petición repetida."]
+    l += ["", "Cliente único y en serie: `decisiones/s` = decisiones/segundo. Fría = descripciones nunca vistas (torres al vuelo); caliente = la misma petición repetida."]
     return "\n".join(l) + "\n"
 
 
@@ -100,13 +108,14 @@ def main(argv=None) -> int:
     ap.add_argument("--salida", required=True, help="directorio (latencia.json y latencia.md)")
     ap.add_argument("--n", type=int, default=100, help="peticiones por serie")
     ap.add_argument("--timeout", type=float, default=30.0)
+    ap.add_argument("--decidir", choices=DECIDIR, default="tau", help="se anota en el informe; la latencia medida es la misma")
     a = ap.parse_args(argv)
     try:
         api.salud(a.url)
     except api.ErrorRed as e:
         print(f"medir: {a.url} no responde a /healthz: {e}", file=sys.stderr)
         return 2
-    r = medir(a.url, a.n, a.timeout)
+    r = medir(a.url, a.n, a.timeout, a.decidir)
     os.makedirs(a.salida, exist_ok=True)
     escribir_json(os.path.join(a.salida, "latencia.json"), r)
     md = markdown(r)

@@ -6,8 +6,11 @@ Un `.chispa` por pregunta (L0 se elige por el conjunto de etiquetas): se escribe
 
 Etiquetas:
 - colocacion: el id (1..K) de la jugada del profesor. El profesor es siempre la opción 1 en vivo, así que para que
-  haya ejemplos de todas las opciones la lista de opciones del ejemplo se ROTA (offset = turno mod K) y se renumera
-  1..K; la etiqueta es la posición de la mejor del profesor tras rotar. El texto lista las opciones en ese orden.
+  haya ejemplos de todas las opciones la lista de opciones del ejemplo se BARAJA y se renumera 1..K (igual que en vivo,
+  donde `AgenteChispa` baraja con la semilla de la partida); la etiqueta es la posición de la mejor del profesor tras
+  barajar. El texto lista las opciones en ese orden.
+- El texto de cada pregunta sale de `estado.texto_pregunta`, la misma función que arma el `state` de la petición:
+  colocacion lleva tablero, pieza y lista de opciones; riesgo y completa, solo tablero y pieza.
 - riesgo: nivel 1–5 por la altura máxima ANTES de colocar (≤4→1, 5–7→2, 8–10→3, 11–12→4, ≥13→5).
 - completa: "true" si alguna colocación de la pieza limpia ≥ 1 fila, si no "false".
 Las partidas llevan ruido (`--ruido`: fracción de jugadas al azar en vez de la del profesor) para que el tablero
@@ -26,7 +29,7 @@ from typing import Dict, List
 
 from . import api
 from .agentes import descripcion, puede_completar_fila, ranking, riesgo_derivado
-from .estado import texto_estado
+from .estado import texto_pregunta
 from .motor import Juego
 
 
@@ -40,7 +43,6 @@ def generar(n: int, semilla: int = 1000, ruido: float = 0.25, max_partidas: int 
     cupo = {q: -(-n // len(cs)) for q, cs in clases.items()}
     cubo: Dict[str, Dict[str, List[dict]]] = {q: defaultdict(list) for q in clases}
     rng = random.Random(semilla)
-    turno = 0
     for p in range(max_partidas):
         if all(len(cubo[q][c]) >= cupo[q] for q in clases for c in clases[q]):
             break
@@ -49,18 +51,16 @@ def generar(n: int, semilla: int = 1000, ruido: float = 0.25, max_partidas: int 
             r = ranking(j)
             if len(r) >= api.K:
                 top = r[:api.K]
-                off = turno % api.K
-                rot = top[off:] + top[:off]
+                rot = list(top)
+                rng.shuffle(rot)
                 ops = [(str(i + 1), c, m) for i, (c, _, m) in enumerate(rot)]
-                texto = texto_estado(j, ops)
+                texto = texto_pregunta(api.ID_COLOCACION, j, ops)
                 etiqueta = str(next(i for i, (c, _, _) in enumerate(rot) if c is top[0][0]) + 1)
                 _poner(cubo, cupo, api.ID_COLOCACION, texto, etiqueta)
-                turno += 1
-            # riesgo y completa se describen sobre el estado SIN la lista de opciones del choice
+            # riesgo y completa: el estado SIN la lista de opciones del choice, como en la petición
             ops1 = [(str(i + 1), c, m) for i, (c, _, m) in enumerate(r[:api.K])]
-            texto1 = texto_estado(j, ops1)
-            _poner(cubo, cupo, api.ID_RIESGO, texto1, str(riesgo_derivado(j.tablero)))
-            _poner(cubo, cupo, api.ID_COMPLETA, texto1, "true" if puede_completar_fila(j) else "false")
+            _poner(cubo, cupo, api.ID_RIESGO, texto_pregunta(api.ID_RIESGO, j, ops1), str(riesgo_derivado(j.tablero)))
+            _poner(cubo, cupo, api.ID_COMPLETA, texto_pregunta(api.ID_COMPLETA, j, ops1), "true" if puede_completar_fila(j) else "false")
             j.jugar(r[rng.randrange(len(r))][0] if rng.random() < ruido else r[0][0])
     out: Dict[str, List[dict]] = {}
     for q, cs in clases.items():

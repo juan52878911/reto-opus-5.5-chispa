@@ -134,11 +134,16 @@ def _panel(d, p: dict) -> None:
     d.text((x0, y), f"Latencia {lat}     Decisiones/s {dps}", font=_fuente(24), fill=TEXTO)
     y += 46
     d.text((x0, y), f"Escudo: {p['escudo']} intervenciones de {p['decisiones']} decisiones", font=_fuente(24, True), fill=CORAL if p["escudo"] else MENTA)
+    d.text((W - 70 - 190, 46), f"modo: {p['modo']}", font=_fuente(18, True), fill=TENUE)
+    if p["etiqueta_bajo_tau"]:
+        y += 40
+        d.rounded_rectangle([x0, y, x0 + 470, y + 40], radius=8, fill=CORAL)
+        d.text((x0 + 14, y + 6), p["etiqueta_bajo_tau"], font=_fuente(24, True), fill=FONDO)
 
 
-def fotogramas(turnos: List[dict], seg_por_turno: float = 0.6, fps: int = FPS) -> Iterator["object"]:
+def fotogramas(turnos: List[dict], seg_por_turno: float = 0.6, fps: int = FPS, modo: str = "tau") -> Iterator["object"]:
     """Genera imágenes PIL: la pieza cae hasta su sitio y, si hay limpieza, el tablero se actualiza con un destello."""
-    ps = paneles(turnos)
+    ps = paneles(turnos, modo)
     n = max(4, int(seg_por_turno * fps))
     caida = n // 2
     for t, p in zip(turnos, ps):
@@ -193,13 +198,13 @@ def main(argv=None) -> int:
     if not ruta_ffmpeg():
         print("renderizar: falta ffmpeg (ni en el PATH ni imageio-ffmpeg); se salta el vídeo", file=sys.stderr)
         return 3
-    _, turnos = leer(a.traza)
+    cab, turnos = leer(a.traza)
     if a.max_turnos:
         turnos = turnos[:a.max_turnos]
     if not turnos:
         print("renderizar: la traza no tiene turnos", file=sys.stderr)
         return 1
-    n = crear_mp4(fotogramas(turnos, a.seg_por_turno), a.salida)
+    n = crear_mp4(fotogramas(turnos, a.seg_por_turno, modo=cab.get("decidir", "tau")), a.salida)
     print(f"renderizar: {n} fotogramas ({n / FPS:.1f} s a {FPS} fps, {W}x{H}) en {a.salida}")
     return 0
 

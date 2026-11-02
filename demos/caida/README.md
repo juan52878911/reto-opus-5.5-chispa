@@ -33,13 +33,17 @@ Las formas de 4 celdas unidas por lados son todas las clásicas; por eso las de 
 
 - **aleatorio**: colocación válida al azar (semilla propia).
 - **profesor**: heurístico con pesos fijos (`caida/agentes.py`, `PESOS`) sobre el tablero resultante: `+8` por fila limpiada, `+0,4` por celda borrada por chispa, `−6` por hueco (celda vacía con algo encima), `−1` por altura máxima, `−0,35` por altura total, `−0,8` por rugosidad (suma de |h[i]−h[i+1]|). Desempate: giro y columna menores.
-- **chispa**: cada turno **una** petición a `POST /v1/decide` con tres preguntas sobre el mismo `state` (contrato: `docs/03-api.md`, `server/api/openapi.yaml`, cliente en `sdk/python/chispa/cliente.py`):
+- **chispa**: cada turno **dos** peticiones a `POST /v1/decide` (`state` es uno por petición; contrato: `docs/03-api.md`, `server/api/openapi.yaml`, cliente en `sdk/python/chispa/cliente.py`):
   - `colocacion` (`choice`, «¿Dónde coloco la pieza?»): las **6** mejores colocaciones del profesor, ids `1`…`6` (la `1` es la mejor), cada descripción con sus consecuencias («limpia 1 fila, deja 0 huecos, altura máxima 5»).
   - `riesgo` (`score`, ids `1`…`5`): riesgo de quedarse sin salida.
   - `completa` (`noul`): ¿esta pieza puede completar una fila?
   - Si Chispa escala (`escalate: true`), no opina o la red falla, juega el profesor y cuenta como **intervención del escudo** (`escalate_reason` queda en la traza; un error de red cuenta aparte en `errores_red`).
 
-El `state` es texto: tablero en ASCII (`.` vacío, `#` bloque, `*` chispa), alturas por columna, huecos, pieza y la lista de opciones.
+El `state` es texto y sale de `caida/estado.py:texto_pregunta`, la misma función que usa `entrenar_fewshot` para los ejemplos: `colocacion` lleva tablero (ASCII: `.` vacío, `#` bloque, `*` chispa), alturas, huecos, pieza **y la lista de opciones**; `riesgo` y `completa` (segunda petición) llevan solo tablero y pieza.
+
+**Orden de las opciones:** se ofrecen **barajadas** con la semilla de la partida (la `1` ya no es la del profesor); cada opción de la traza lleva su `rank` (puesto del profesor, 1 = la mejor) y su `rot`/`col` reales. «Siempre la 1» coincide como un azar entre 6 (≈ 0,167).
+
+**`--decidir argmax|tau`** (por defecto `tau`, el comportamiento de siempre): con `tau`, si Chispa escala juega el profesor (escudo). Con `argmax`, si el choice trae `probs` válidas se juega su argmax aunque escale; solo sin `probs` (o inválidas) juega el profesor. Cada turno anota `decidio`: `chispa_tau` (no escaló), `chispa_bajo_tau` (escaló pero se jugó su argmax) o `escudo`. El evaluador y su tabla separan las tres cifras y la coincidencia con el profesor de cada una; el vídeo muestra «bajo τ: el servidor escalaría» en esos turnos y el modo en una esquina. El τ del servidor no se toca.
 
 ## Los comandos
 
@@ -47,21 +51,21 @@ Desde `demos/caida/` (o con `PYTHONPATH=demos/caida`):
 
 | comando | qué hace |
 |---|---|
-| `python3 -m caida.jugar --url URL --salida traza.jsonl [--semilla N --max-piezas N]` | Juega una partida de Chispa y escribe la **traza** JSONL. Solo biblioteca estándar. |
+| `python3 -m caida.jugar --url URL --salida traza.jsonl [--semilla N --max-piezas N --decidir argmax|tau]` | Juega una partida de Chispa y escribe la **traza** JSONL. Solo biblioteca estándar. |
 | `python3 -m caida.renderizar --traza traza.jsonl --salida partida.mp4` | Traza → MP4 1080p/30 fps. Necesita Pillow y ffmpeg; sin ellos sale con código 3 y avisa. |
 | `python3 -m caida.entrenar_fewshot --salida dir/ --n 60 …` | Genera los ejemplos few-shot, los esquemas y `entrenar.sh`. |
-| `python3 -m caida.medir --url URL --salida dir/ [--n 100]` | Latencia p50/p95/p99 por petición de 3 preguntas con caché de torres fría y caliente, y decisiones/s. |
-| `python3 -m caida.evaluar --url URL [--url-fewshot URL2] --salida dir/` | 20 partidas con semillas 1…20 por agente (aleatorio, profesor, Chispa zero-shot, Chispa few-shot). |
-| `python3 -m caida.servidor_falso --modo primera\|escalar\|aleatorio --puerto 8099` | Servidor HTTP falso con la forma de `/v1/decide` (sin modelos). |
-| `demos/caida/correr.sh --url URL --salida dir/` | `jugar` + `medir` + `evaluar` y, si hay Pillow y ffmpeg, `renderizar`. Si faltan, lo dice y se salta solo el vídeo. |
-| `demos/caida/empaquetar.sh [dir]` | `chispa-server` linux/amd64 (`-tags ort`) + `libonnxruntime.so` (la de `CHISPA_ORT_LIB`) + `demos/caida` en un tar.gz fuera del repo. |
+| `python3 -m caida.medir --url URL --salida dir/ [--n 100 --decidir argmax|tau]` | Latencia p50/p95/p99 por decisión (2 peticiones, 3 preguntas) con caché de torres fría y caliente, y decisiones/s. |
+| `python3 -m caida.evaluar --url URL [--url-fewshot URL2] --salida dir/ [--decidir argmax|tau]` | 20 partidas con semillas 1…20 por agente (aleatorio, profesor, Chispa zero-shot, Chispa few-shot). |
+| `python3 -m caida.servidor_falso --modo primera\|escalar\|aleatorio\|escalar_probs\|escalar_probs_ciego --puerto 8099` | Servidor HTTP falso con la forma de `/v1/decide` (sin modelos). |
+| `demos/caida/correr.sh --url URL --salida dir/ [--decidir argmax|tau]` | `jugar` + `medir` + `evaluar` y, si hay Pillow y ffmpeg, `renderizar`. Si faltan, lo dice y se salta solo el vídeo. |
+| `demos/caida/empaquetar.sh [dir]` | `chispa-server` linux/amd64 (`-tags ort`) + `libonnxruntime.so` (la de `CHISPA_ORT_LIB`) + `bin/chispa-entrenador` (el entrenador de Go, linux/amd64) + `sdk/python/chispa` + `demos/caida` en un tar.gz fuera del repo. |
 
 Zero-shot y few-shot son dos servidores distintos: `evaluar` y `correr.sh` usan `--url` para zero-shot y `--url-fewshot` (por defecto, el mismo `--url`) para few-shot.
 
 ### La traza (`traza.jsonl`)
 
 Una cabecera (`semilla`, `url`…) y una línea por turno con: `tablero` (antes de colocar), `pieza`, `estado` enviado, `opciones` con descripciones y celdas,
-`preguntas` (por cada una: `answer`, `probs`, `layer`, `escalate`, `escalate_reason`, `ms_servidor`), `elegida`, `rot`/`col`, `escudo` y su `motivo_escudo`,
+`preguntas` (por cada una: `answer`, `probs`, `layer`, `escalate`, `escalate_reason`, `ms_servidor`), `elegida`, `rot`/`col`, `decidio`, `escudo` y su `motivo_escudo`,
 `ms_cliente` (medida en el cliente) y `ms_servidor` (suma de lo que reporta el servidor), `filas`, `puntos`. La partida se reproduce **sin modelo**
 con `caida.traza.reproducir(ruta)` (motor + semilla + jugadas, y comprueba que cada tablero coincide).
 
@@ -84,7 +88,7 @@ Para renderizar: `pip install -r requirements-render.txt` (Pillow e `imageio-ffm
 `chispa train` hace un `.chispa` por pregunta. `entrenar_fewshot` genera, de partidas del profesor (con `--ruido` de jugadas al azar para llegar a tableros altos; las etiquetas siguen siendo las del profesor), `N` ejemplos por pregunta
 (JSONL con `texto` y `etiqueta`, repartidos por igual entre clases):
 
-- `colocacion`: etiqueta = id (1…6) de la jugada del profesor. En vivo el profesor es siempre la opción 1, así que en los ejemplos la lista se **rota** (turno mod 6) y se renumera, y el texto lista las opciones en ese orden; si no, todas las etiquetas serían `1` y `chispa train` no puede entrenar.
+- `colocacion`: etiqueta = id (1…6) de la jugada del profesor. En vivo el profesor es siempre la opción 1, así que en los ejemplos la lista se **baraja** y se renumera (como en vivo), y el texto lista las opciones en ese orden; si no, todas las etiquetas serían `1` y `chispa train` no puede entrenar.
 - `riesgo`: nivel 1–5 por la altura máxima antes de colocar (≤4 → 1, 5–7 → 2, 8–10 → 3, 11–12 → 4, ≥13 → 5).
 - `completa`: `true` si alguna colocación de la pieza limpia al menos una fila, si no `false`.
 
@@ -109,3 +113,15 @@ no cambia las otras dos, que se deciden con L1 y la torre al vuelo del esquema d
 `python3 -m pytest demos/caida` (o, sin pytest, `python3 -m unittest discover -s demos/caida/tests -t demos/caida`): determinismo por semilla, regla de chispa, piezas propias,
 forma exacta de la petición, escudo, datos few-shot (incluye leerlos con el cargador de `sdk/python`), evaluador, medidor y panel contra el servidor falso, traza reproducible.
 Los tests de dibujo se saltan sin Pillow.
+
+## Entrenar sin Go en el destino
+
+`chispa train` compila el entrenador de Go con `go build`. Si el destino (Linux amd64) no tiene Go, el tar de `empaquetar.sh` trae el binario
+`bin/chispa-entrenador` y el SDK en `sdk/python`; se le indica con la variable `CHISPA_ENTRENADOR`:
+
+```
+export CHISPA_ENTRENADOR="$PWD/bin/chispa-entrenador"
+PYTHONPATH=sdk/python python3 -m chispa train --ejemplos … --esquema … --salida x.chispa
+```
+
+Sin la variable, todo sigue como antes (Go + fuentes del repositorio). Las órdenes que además necesitan Go (`--conjunta`, `--ckpt`) no usan el binario.

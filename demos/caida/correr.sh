@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # «Chispa: Caída»: jugar (traza) + medir (latencia) + evaluar (20 partidas por agente) y, si hay Pillow y ffmpeg, renderizar.
-# Uso: demos/caida/correr.sh --url http://host:8090 --salida dir/ [--url-fewshot URL] [--semilla N] [--max-piezas N] [--partidas N] [--n-medir N]
+# Uso: demos/caida/correr.sh --url http://host:8090 --salida dir/ [--url-fewshot URL] [--semilla N] [--max-piezas N] [--partidas N] [--n-medir N] [--decidir argmax|tau]
 set -euo pipefail
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-URL=""; URL_FS=""; SALIDA=""; SEMILLA=1; MAXP=150; PARTIDAS=20; NMEDIR=100
+URL=""; URL_FS=""; SALIDA=""; SEMILLA=1; MAXP=150; PARTIDAS=20; NMEDIR=100; DECIDIR=tau
 while [ $# -gt 0 ]; do
   case "$1" in
     --url) URL="$2"; shift 2;;
@@ -13,21 +13,23 @@ while [ $# -gt 0 ]; do
     --max-piezas) MAXP="$2"; shift 2;;
     --partidas) PARTIDAS="$2"; shift 2;;
     --n-medir) NMEDIR="$2"; shift 2;;
+    --decidir) DECIDIR="$2"; shift 2;;
     *) echo "argumento desconocido: $1" >&2; exit 64;;
   esac
 done
+case "$DECIDIR" in argmax|tau) ;; *) echo "--decidir: argmax o tau, no «$DECIDIR»" >&2; exit 64;; esac
 [ -n "$URL" ] && [ -n "$SALIDA" ] || { echo "uso: correr.sh --url http://… --salida dir/" >&2; exit 64; }
 PY="${PYTHON:-python3}"
 mkdir -p "$SALIDA"
 cd "$AQUI"
 export PYTHONPATH="$AQUI${PYTHONPATH:+:$PYTHONPATH}"
 
-echo "== 1/4 jugar: partida grabada (semilla $SEMILLA) =="
-"$PY" -m caida.jugar --url "$URL" --salida "$SALIDA/traza.jsonl" --semilla "$SEMILLA" --max-piezas "$MAXP"
+echo "== 1/4 jugar: partida grabada (semilla $SEMILLA, decidir $DECIDIR) =="
+"$PY" -m caida.jugar --url "$URL" --salida "$SALIDA/traza.jsonl" --semilla "$SEMILLA" --max-piezas "$MAXP" --decidir "$DECIDIR"
 echo "== 2/4 medir: latencia por petición de 3 preguntas =="
-"$PY" -m caida.medir --url "$URL" --salida "$SALIDA" --n "$NMEDIR"
+"$PY" -m caida.medir --url "$URL" --salida "$SALIDA" --n "$NMEDIR" --decidir "$DECIDIR"
 echo "== 3/4 evaluar: $PARTIDAS partidas por agente =="
-"$PY" -m caida.evaluar --url "$URL" ${URL_FS:+--url-fewshot "$URL_FS"} --salida "$SALIDA" --partidas "$PARTIDAS" --max-piezas "$MAXP"
+"$PY" -m caida.evaluar --url "$URL" ${URL_FS:+--url-fewshot "$URL_FS"} --salida "$SALIDA" --partidas "$PARTIDAS" --max-piezas "$MAXP" --decidir "$DECIDIR"
 echo "== 4/4 renderizar: vídeo =="
 set +e
 "$PY" -m caida.renderizar --traza "$SALIDA/traza.jsonl" --salida "$SALIDA/partida.mp4"

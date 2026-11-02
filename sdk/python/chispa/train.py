@@ -45,6 +45,17 @@ def encontrar_go() -> Optional[str]:
     return None
 
 
+def entrenador_precompilado() -> Optional[str]:
+    """Binario del entrenador de Go ya compilado (`CHISPA_ENTRENADOR=/ruta/binario`): permite entrenar sin Go en el destino.
+    None si la variable no está; ChispaError si apunta a algo que no es un fichero ejecutable."""
+    ruta = os.environ.get("CHISPA_ENTRENADOR")
+    if not ruta:
+        return None
+    if not (os.path.isfile(ruta) and os.access(ruta, os.X_OK)):
+        raise ChispaError(f"CHISPA_ENTRENADOR={ruta} no es un fichero ejecutable")
+    return str(Path(ruta).resolve())
+
+
 def fuentes_go(repo: Optional[Path] = None) -> Optional[tuple]:
     """(format/chispa3, runtime/l1) que compila el entrenador: los del repositorio si se encuentra y, si no, las copias que el
     wheel lleva en `entrenador_go/vendor/` (las pone `setup.py` al construir). None si no hay ni una cosa ni otra."""
@@ -598,6 +609,7 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
     salida.parent.mkdir(parents=True, exist_ok=True)
     repo, go = encontrar_repo(repo), encontrar_go()
     fuentes = fuentes_go(repo)
+    binario = entrenador_precompilado()
     if ckpt and not repo:
         raise ChispaError("--ckpt necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
     if conjunta:
@@ -609,7 +621,7 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
             raise ChispaError("--conjunta necesita el repositorio (model/l2): usa --repo o CHISPA_REPO")
     with tempfile.TemporaryDirectory(prefix="chispa-train-") as tmp:
         tmp = Path(tmp)
-        if not (usar_go and fuentes and go):
+        if not (usar_go and (binario or (fuentes and go))):
             if conjunta:
                 raise ChispaError("--conjunta necesita el entrenador de Go (instala Go) y el repositorio (--repo o CHISPA_REPO)")
             motivo = ("desactivado" if not usar_go else "no hay Go en el PATH (instala Go ≥ 1.27 para entrenar L0)" if not go
@@ -656,14 +668,18 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
                 "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"],
                          **({"texto_torre": tt_l2} if tt_l2 and tt_l2 != "v1" else {})}}
         (tmp / "plan.json").write_text(json.dumps(plan, ensure_ascii=False))
-        d = preparar_go(tmp, fuentes)
-        env = dict(os.environ, GOFLAGS=os.environ.get("GOFLAGS", "-mod=mod"), GOPROXY=os.environ.get("GOPROXY", "off"))
         t = time.time()
-        b = subprocess.run([go, "build", "-o", str(tmp / "entrenador"), "."], cwd=d, env=env, capture_output=True, text=True)
-        if b.returncode:
-            raise ChispaError(f"go build falló:\n{b.stderr[-2000:]}")
+        if binario:
+            ejecutable = binario
+        else:
+            d = preparar_go(tmp, fuentes)
+            env = dict(os.environ, GOFLAGS=os.environ.get("GOFLAGS", "-mod=mod"), GOPROXY=os.environ.get("GOPROXY", "off"))
+            b = subprocess.run([go, "build", "-o", str(tmp / "entrenador"), "."], cwd=d, env=env, capture_output=True, text=True)
+            if b.returncode:
+                raise ChispaError(f"go build falló:\n{b.stderr[-2000:]}")
+            ejecutable = str(tmp / "entrenador")
         t_build = time.time() - t
-        r = subprocess.run([str(tmp / "entrenador"), "entrenar", str(tmp / "plan.json")], capture_output=True, text=True)
+        r = subprocess.run([ejecutable, "entrenar", str(tmp / "plan.json")], capture_output=True, text=True)
         if r.returncode:
             raise ChispaError(f"entrenador falló:\n{r.stderr[-2000:]}")
         inf = json.loads(r.stdout)
