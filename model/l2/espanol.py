@@ -6,6 +6,11 @@ número de casos, y la diferencia es − en con IC95.
 Pares (mismo contenido en los dos idiomas, unidos por id; el esquema, esto es pregunta, ids y descripciones, es el mismo en español para
 los dos lados, así que solo cambia el idioma del mensaje): massive (es/en, test), xnli (es/en, test; CC-BY-NC, solo se evalúa),
 sib200 (spa_Latn/eng_Latn, test) y paws-x (es/en, test). Un par al que le falte un lado en la caché de HF queda en `no_medido`.
+M4 ampliado (v3): MASSIVE es/en ya estaba; se añade MMMLU ES_LA (`openai/MMMLU`, `test/mmlu_ES-LA.csv`) emparejado por posición con el MMLU
+original (`cais/mmlu`, `all/test-*.parquet`): un par solo vale si coinciden la materia y la letra correcta (MMMLU traduce el test de MMLU en el
+mismo orden; si menos del 95 % coincide, no hay pareja). Sin pareja en inglés, MMMLU se mide solo en español (`solo_es` en el JSON), marcado
+«sin pareja en inglés» y fuera de la media es − en. Aquí las opciones son contenido, no esquema: `texto` es la pregunta y las descripciones de A-D
+son el texto de cada opción en el idioma de la fila. Solo se mide, nunca se entrena.
 L2 va sin soporte (k = 0). IC95 = bootstrap emparejado por caso (B remuestreos, semilla fija); la media entre tareas remuestrea cada tarea.
 Si la diferencia pasa de 3 puntos (en exactitud o en macro-F1, en la media o en alguna tarea), `plan.md` prepara el reentrenamiento sin
 lanzarlo: fuentes en español de licencia comercial (licencia leída de la tarjeta de HF en la caché), tamaño, cambios en
@@ -129,11 +134,70 @@ def par_paws(hf):
     return par, None
 
 
-PARES = {"massive": par_massive, "xnli": par_xnli, "sib200": par_sib200, "paws-x": par_paws}
+PREGUNTA_MMLU = "¿Cuál es la respuesta correcta?"
+MIN_COINCIDE_MMLU = 0.95
+
+
+def _filas_mmmlu(hf):
+    """-> (filas del MMMLU ES_LA, motivo si faltan). Cada una lleva `_materia` y `_pos` (posición en el fichero) para emparejar."""
+    r = _snap(hf, "openai/MMMLU")
+    ruta = next(iter(sorted(r.glob("**/mmlu_ES*LA*.csv"))), None) if r else None
+    if ruta is None:
+        return None, "mmmlu: falta test/mmlu_ES-LA.csv de openai/MMMLU en la caché de HF"
+    out = []
+    for i, x in enumerate(_tabla(ruta) or []):
+        if x.get("Answer") not in ("A", "B", "C", "D") or not all(str(x.get(k, "")).strip() for k in ("Question", "A", "B", "C", "D")):
+            continue
+        f = _fila("mmmlu", i, "conocimiento", "choice", PREGUNTA_MMLU, str(x["Question"]).strip(), "ABCD",
+                  {k: str(x[k]).strip() for k in "ABCD"}, x["Answer"], "es")
+        f["_materia"], f["_pos"] = str(x.get("Subject", "")), i
+        out.append(f)
+    return out, (None if out else "mmmlu: el fichero no trae filas válidas (columnas esperadas: Question, A, B, C, D, Answer, Subject)")
+
+
+def _filas_mmlu_en(hf):
+    """-> {posición: (materia, letra, pregunta, opciones)} del MMLU original `cais/mmlu` (config all, test), o None."""
+    r = _snap(hf, "cais/mmlu")
+    ruta = next(iter(sorted((r / "all").glob("test-*.parquet"))), None) if r else None
+    t = _tabla(ruta) if ruta else None
+    if not t:
+        return None
+    return {i: (str(x["subject"]), "ABCD"[int(x["answer"])], str(x["question"]).strip(), [str(c).strip() for c in x["choices"]])
+            for i, x in enumerate(t) if len(x["choices"]) == 4 and 0 <= int(x["answer"]) < 4}
+
+
+def par_mmmlu(hf):
+    es, motivo = _filas_mmmlu(hf)
+    if not es:
+        return None, motivo
+    en = _filas_mmlu_en(hf)
+    if en is None:
+        return None, "mmmlu: sin pareja en inglés (falta cais/mmlu all/test-*.parquet): solo se mide en español"
+    par = []
+    for x in es:
+        y = en.get(x["_pos"])
+        if y is None or y[0] != x["_materia"] or y[1] != x["etiqueta"]:
+            continue
+        g = _fila("mmmlu", x["_pos"], "conocimiento", "choice", PREGUNTA_MMLU, y[2], "ABCD", dict(zip("ABCD", y[3])), y[1], "en")
+        par.append(({k: v for k, v in x.items() if not k.startswith("_")}, g))
+    if len(par) < MIN_COINCIDE_MMLU * len(es):
+        return None, "mmmlu: sin pareja en inglés fiable (coinciden materia y respuesta en %d de %d filas, mínimo %.0f %%): solo se mide en español" % (
+            len(par), len(es), 100 * MIN_COINCIDE_MMLU)
+    return par, None
+
+
+def solo_es_mmmlu(hf):
+    es, motivo = _filas_mmmlu(hf)
+    return ([{k: v for k, v in x.items() if not k.startswith("_")} for x in es] if es else None), motivo
+
+
+PARES = {"massive": par_massive, "xnli": par_xnli, "sib200": par_sib200, "paws-x": par_paws, "mmmlu": par_mmmlu}
+SOLO_ES = {"mmmlu": solo_es_mmmlu}   # si el par no sale (sin pareja en inglés), se mide solo en español
 
 
 def cargar_pares(hf, max_filas, solo=None):
-    """-> {nombre: [(fila_es, fila_en)]} con el mismo número de casos (≤ max_filas, submuestra fija), {nombre: motivo no medido}."""
+    """-> {nombre: [(fila_es, fila_en)]} con el mismo número de casos (≤ max_filas, submuestra fija), {nombre: motivo no medido}.
+    Lo que se puede medir solo en español queda en `cargar_solo_es`."""
     pares, no_medido = {}, {}
     for nombre, f in PARES.items():
         if solo and nombre not in solo:
@@ -149,6 +213,21 @@ def cargar_pares(hf, max_filas, solo=None):
             p = [p[i] for i in sorted(random.Random(SEMILLA).sample(range(len(p)), max_filas))]
         pares[nombre] = p
     return pares, no_medido
+
+
+def cargar_solo_es(hf, max_filas, no_medido, solo=None):
+    """-> {nombre: [fila_es]} de las fuentes de `SOLO_ES` cuyo par falló (están en `no_medido`); misma submuestra fija que los pares."""
+    out = {}
+    for nombre, f in SOLO_ES.items():
+        if nombre not in no_medido or (solo and nombre not in solo):
+            continue
+        try:
+            filas, _ = f(hf)
+        except Exception:
+            filas = None
+        if filas:
+            out[nombre] = [filas[i] for i in sorted(random.Random(SEMILLA).sample(range(len(filas)), max_filas))] if len(filas) > max_filas else filas
+    return out
 
 
 # ------------------------------------------------------------------ métricas
@@ -250,6 +329,10 @@ def informe_md(res):
         L.append("| %s | %d | %.3f | %.3f | %+.1f | %s | %.3f | %.3f | %+.1f | %s |" % (
             "**media**" if t == "__media__" else t, r["n"], r["acc_es"], r["acc_en"], 100 * r["d_acc"], ic("d_acc"), r["f1_es"], r["f1_en"], 100 * r["d_f1"], ic("d_f1")))
     L.append("")
+    if res.get("solo_es"):
+        L += ["Solo en español (sin pareja en inglés: no entra en la media es − en):", "", "| tarea | n | exact es | F1 es |", "|---|---|---|---|"]
+        L += ["| %s (sin pareja en inglés) | %d | %.3f | %.3f |" % (t, r["n"], r["acc_es"], r["f1_es"]) for t, r in res["solo_es"].items()]
+        L.append("")
     for t, m in res["no_medido"].items():
         L.append("- no medido: %s" % m)
     L += ["", "**Brecha > %.0f puntos: %s.**" % (UMBRAL_PUNTOS, "SÍ, ver plan.md" if res["brecha"] else "no")]
@@ -272,7 +355,8 @@ def main(argv=None):
     from model.l2.robustez import ModeloL2
     hf = a.hf or str(HF_HUB)
     pares, no_medido = cargar_pares(hf, a.max_filas, set(filter(None, a.solo.split(","))) or None)
-    if not pares:
+    solo_es = cargar_solo_es(hf, a.max_filas, no_medido, set(filter(None, a.solo.split(","))) or None)
+    if not pares and not solo_es:
         print("ningún par es/en disponible: %s" % no_medido, file=sys.stderr)
         return 1
     l2 = ModeloL2(a.ckpt, a.device, a.max_tok)
@@ -284,7 +368,14 @@ def main(argv=None):
         assert y == [f["etiqueta"] for f in en] and len(es) == len(en)
         tareas[nombre] = (y, l2.decidir(es, None), l2.decidir(en, None), clases)
         print(nombre, len(es), flush=True)
-    res = {"ckpt": a.ckpt, "max_tok": l2.enc.max_tok, "boot": a.boot, "no_medido": no_medido, "tareas": bootstrap(tareas, a.boot)}
+    res_es = {}
+    for nombre, es in solo_es.items():
+        y = [f["etiqueta"] for f in es]
+        acc, f1 = acierto_y_f1(y, l2.decidir(es, None), sorted(es[0]["opciones"]))
+        res_es[nombre] = {"n": len(es), "acc_es": acc, "f1_es": f1, "nota": "sin pareja en inglés"}
+        print(nombre, len(es), "solo es", flush=True)
+    res = {"ckpt": a.ckpt, "max_tok": l2.enc.max_tok, "boot": a.boot, "no_medido": no_medido, "tareas": bootstrap(tareas, a.boot) if tareas else {},
+           "solo_es": res_es}
     res["brecha"] = any(abs(100 * r[c]) > UMBRAL_PUNTOS for r in res["tareas"].values() for c in ("d_acc", "d_f1"))
     sal = Path(a.salida)
     sal.mkdir(parents=True, exist_ok=True)

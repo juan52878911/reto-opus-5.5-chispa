@@ -85,14 +85,44 @@ class TestEspanol(unittest.TestCase):
 
     def test_pares_mismo_numero_y_esquema(self):
         pares, nm = espanol.cargar_pares(self.HF, 8)
-        self.assertEqual(sorted(pares), ["massive", "sib200"])
+        self.assertEqual(sorted(pares), ["massive", "mmmlu", "sib200"])
         self.assertEqual(sorted(nm), ["paws-x", "xnli"])
-        for ps in pares.values():
+        for nombre, ps in pares.items():
             self.assertEqual(len(ps), 8)
             for es, en in ps:
-                self.assertEqual((es["pregunta"], es["opciones"], es["descripciones"], es["etiqueta"]),
-                                 (en["pregunta"], en["opciones"], en["descripciones"], en["etiqueta"]))
+                # en MMMLU las descripciones son el texto de cada opción, en el idioma de la fila
+                campos = ("pregunta", "opciones", "etiqueta") + (() if nombre == "mmmlu" else ("descripciones",))
+                self.assertEqual([es[c] for c in campos], [en[c] for c in campos])
                 self.assertNotEqual(es["texto"], en["texto"])
+
+    def test_mmmlu_sin_pareja_en_ingles_se_mide_solo_en_espanol(self):
+        import shutil, tempfile
+        with tempfile.TemporaryDirectory() as t:
+            shutil.copytree(self.HF, t, dirs_exist_ok=True)
+            shutil.rmtree(Path(t) / "datasets--cais--mmlu")
+            pares, nm = espanol.cargar_pares(t, 8)
+            self.assertNotIn("mmmlu", pares)
+            self.assertIn("sin pareja en inglés", nm["mmmlu"])
+            es = espanol.cargar_solo_es(t, 8, nm)
+            self.assertEqual(list(es), ["mmmlu"])
+            self.assertEqual(len(es["mmmlu"]), 8)
+            self.assertFalse(any(k.startswith("_") for k in es["mmmlu"][0]))
+            self.assertEqual(espanol.cargar_solo_es(t, 8, {}), {})   # el par salió: no hay medida solo en español
+
+    def test_mmmlu_con_pareja_desalineada_no_empareja(self):
+        import shutil, tempfile
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        with tempfile.TemporaryDirectory() as t:
+            shutil.copytree(self.HF, t, dirs_exist_ok=True)
+            ruta = next((Path(t) / "datasets--cais--mmlu").glob("**/test-*.parquet"))
+            filas = pq.read_table(ruta).to_pylist()
+            for x in filas:
+                x["answer"] = (x["answer"] + 1) % 4   # otra letra correcta en todas
+            pq.write_table(pa.Table.from_pylist(filas), ruta)
+            pares, nm = espanol.cargar_pares(t, 8)
+            self.assertNotIn("mmmlu", pares)
+            self.assertIn("coinciden materia y respuesta en 0 de 12", nm["mmmlu"])
 
     def test_bootstrap_determinista_y_signo(self):
         y = ["a", "b"] * 20

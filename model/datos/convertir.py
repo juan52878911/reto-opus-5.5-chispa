@@ -1,6 +1,6 @@
 """Convierte los datasets públicos al esquema de Chispa (`model/esquema.md`).
 
-    python -m model.datos.convertir --salida <dir> [--fuentes massive,hatecheck] [--fixtures]
+    python -m model.datos.convertir --salida <dir> [--fuentes massive,hatecheck] [--con-opcionales] [--fixtures]
 
 Escribe `<dir>/<fuente>.jsonl` (todos los splits) y `<dir>/resumen.json` con el estado por fuente:
 `convertida` (con filas por split), `no disponible` (no está en ~/hf) o `no convertida` (con el error).
@@ -20,6 +20,7 @@ from .comun import FuenteAusente, filtrar_score
 FUENTES_LIBRES = ("odio_alia", "toxicidad_protestas", "toxicidad_constitucion", "goemociones", "spam_tanaos", "soporte_ti",
                   "ciberacoso", "clima", "riesgo_suicida", "pqrs_gb9w", "pqrs_e86p", "pqrs_xtj2", "pqrs_enrutamiento")
 FUENTES = ("massive", "hatecheck", "banking77", "clinc150", "inyecciones", "xnli", "sib200", "pawsx") + FUENTES_LIBRES
+FUENTES_OPCIONALES = ("clandestino",)   # no entran por defecto (no se conocen sus columnas reales); `--con-opcionales` o `--fuentes` las pide
 NO_EN_PLAN = {"necos-tox": "no disponible: no está en ~/hf (NECOS-TOX solo si se encuentra)"}
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -69,13 +70,14 @@ def convertir_fuentes(salida, fuentes=FUENTES, usar_fixtures=False):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--salida", required=True)
-    ap.add_argument("--fuentes", default=",".join(FUENTES))
+    ap.add_argument("--fuentes", default=None, help="por defecto FUENTES (más FUENTES_OPCIONALES con --con-opcionales)")
+    ap.add_argument("--con-opcionales", action="store_true", help="añade %s a las fuentes por defecto" % ",".join(FUENTES_OPCIONALES))
     ap.add_argument("--fixtures", action="store_true", help="convertir los fixtures en vez de ~/hf")
     a = ap.parse_args(argv)
-    fuentes = [s for s in a.fuentes.split(",") if s]
-    mal = [s for s in fuentes if s not in FUENTES]
+    fuentes = [s for s in (a.fuentes.split(",") if a.fuentes else FUENTES + (FUENTES_OPCIONALES if a.con_opcionales else ())) if s]
+    mal = [s for s in fuentes if s not in FUENTES + FUENTES_OPCIONALES]
     if mal:
-        ap.error("fuentes desconocidas %s; válidas: %s" % (mal, ",".join(FUENTES)))
+        ap.error("fuentes desconocidas %s; válidas: %s" % (mal, ",".join(FUENTES + FUENTES_OPCIONALES)))
     resumen = convertir_fuentes(a.salida, fuentes, a.fixtures)
     for nombre, r in resumen.items():
         print("%-12s %s" % (nombre, r if isinstance(r, str) else

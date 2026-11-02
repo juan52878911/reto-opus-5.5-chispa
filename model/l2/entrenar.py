@@ -3,7 +3,7 @@
     python -m model.l2.entrenar --salida DIR --datos DIR_CONVERTIDOS [--herramientas] [--meta DIR] [--blandas DIR ...]
         [--max-filas 600000] [--epocas 1] [--minutos M] [--s3 s3://bucket/prefijo] [--dev-max 4000]
         [--descongelar N] [--renombrar P] [--maestro-extra DIR --peso-extra W] [--inicial|--desde CKPT]
-        [--aumento [--aumento-fracs ids=0.3,mayusculas=0.15,erratas=0.2,parafrasis=0.3,ingles=0.2,relleno=0.15]]
+        [--aumento [--aumento-fracs ids=0.3,mayusculas=0.15,erratas=0.3,parafrasis=0.4,ingles=0.1,relleno=0.15]]   (los valores por defecto, los de v3)
         [--episodios [--k-min 4 --k-max 32 --vias 16 --frac-meta 0.5 --frac-zeroshot 0.25]]
 
 AdamW (3e-4 ranuras y cabezas, 1e-4 torre), warmup 5 % y coseno, lotes de 64 mensajes con muestreo por tarea (n^0,5).
