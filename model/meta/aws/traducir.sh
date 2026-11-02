@@ -102,7 +102,7 @@ t=$(date +%s)
 if [ "$LOCAL" != 1 ]; then
   "$PY" -I - <<'PYEOF' || { fallo "descarga de Opus-MT"; paso modelo fallo "$t"; cierre; }
 from huggingface_hub import snapshot_download
-d = snapshot_download("Helsinki-NLP/opus-mt-en-es", allow_patterns=["*.json", "*.spm", "*.md", "*.txt", "*.safetensors"])
+d = snapshot_download("Helsinki-NLP/opus-mt-en-es", allow_patterns=["*.json", "*.spm", "*.md", "*.txt", "*.safetensors", "pytorch_model.bin"])
 print("modelo:", d)
 PYEOF
   export HF_HUB_OFFLINE=1   # a partir de aquí todo sale de $HF_HOME
