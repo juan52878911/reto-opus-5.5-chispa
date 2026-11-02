@@ -290,7 +290,7 @@ class CapaL2(
             if (c.opina) return c
         }
         val bytes = ss.fold(ByteArray(0)) { acc, s -> acc + s.aBytes() }
-        val ks = ss.joinToString(prefix = "[", postfix = "]") { it.k.toString() }
+        val ks = ss.joinToString(separator = ",", prefix = "[", postfix = "]") { it.k.toString() }
         val r = SalidaCapa.desdeJson(motor.puntuarL2Trozos(pj, bytes, ks))
         return if (motor.tieneConj()) r.copy(respaldo = true) else r
     }
