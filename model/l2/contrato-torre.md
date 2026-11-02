@@ -12,6 +12,28 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
   (`"true"` en noul y el nivel máximo en score).
 - La clave en ESQUEMAS y CONJ es `HashEsquema2` (siguiente sección) e incluye la descripción.
 
+## Texto de torre versión 2: sin id cuando hay descripción (`texto_torre: "v2_sin_id"`)
+Aprobado el 2026-11-02, porque el id de la opción en el texto hacía que renombrar ids cambiara el 35 % de las decisiones de L2.
+- **Flag:** el campo `texto_torre` de la sección **META** del `.chispa` (JSON).
+  - Valores: `"v1"` o `"v2_sin_id"`.
+  - **Si falta, es `"v1"`**, así que los `.chispa` existentes no cambian.
+  - Lo escribe `model.l2.exportar` según el checkpoint: el checkpoint guarda `texto_torre` en su configuración y se entrena
+    con él. `chispa train` lo copia del `l2.chispa` al `.chispa` final.
+- **Texto v2 de una opción**, por vector de torre, en choice, en multi por opción, y en la opción de noul (`true`) y de score
+  (nivel máximo):
+  - si `descripción(opción).strip()` no está vacía: `"passage: " + pregunta + " · " + descripción(opción)`;
+  - si está vacía, el texto v1 exacto: `"passage: " + pregunta + " · " + opción + " · "`. Sin descripción, el id es lo único
+    que distingue las opciones.
+  - **La descripción no se recorta ni se normaliza en el texto:** el `strip()` solo sirve para decidir si está vacía.
+- **Lo que no cambia:**
+  - las claves de ESQUEMAS y CONJ (`HashEsquema2` sigue incluyendo el id, que es lo que identifica la entrada);
+  - el prefijo `passage: `, la tokenización, la red y el ONNX de la torre;
+  - la consulta (`query: `) y la normalización de mayúsculas.
+- **Las torres precalculadas en ESQUEMAS** se calculan con el texto de la versión que diga META. **El runtime calcula las
+  torres al vuelo con esa misma versión.** Un `.chispa` v2 servido como v1 daría torres distintas de las de entrenamiento.
+- **Paridad:** `model/l2/tests/fixtures/texto_torre_v2.json` trae casos `{pregunta, opcion, descripcion, v1, v2}` (con
+  descripción, sin descripción, solo espacios y acentos) para los tests de Go, Kotlin y Swift.
+
 ## Claves de ESQUEMAS y CONJ: versión 2 (`HashEsquema2`)
 **Dónde viaja la versión:** en la propia sección, no en `META.version` (que sigue siendo la del META y vale 1). ESQUEMAS v2 empieza con
 la palabra `(2<<16 | dim)`; CONJ v2 con `versión = 2`. Las dos llevan claves de 16 bytes. `exportar.py` **siempre escribe ESQUEMAS v2**.
