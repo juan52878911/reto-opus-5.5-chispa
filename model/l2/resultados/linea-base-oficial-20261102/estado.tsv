@@ -9,10 +9,10 @@ orientacion_score	OK jev rho max/min/inv=-0.15/-0.61/0.15; meta rho max=0.14; el
 m6_datos	OK 4 tareas convertidas, potion 154772608 bytes
 m6_frente_l2	OK media L1/L2 k=32: 1.257 (5 tareas), cumple>=0,90: si
 m1_modelo	OK .chispa 944609506 bytes (chispa train --ckpt, perfil servidor), chispa-server -tags ort, tokenizador e5
-m1_healthz	OK {"status":"ok","capas":{"L0":false,"L1":false,"L2":true,"L3":false},"torre_al_vuelo":true}
+m1_healthz	OK {"status":"ok","capas":{"L0":false,"L1":false,"L2":true,"L3":false},"torre_al_vuelo":true,"texto_torre":"v1"}
 m1_datos	OK 5 fuentes convertidas
-m1_bateria_1	OK n=11000 exactitud=0.5718 f1_macro=0.2980 p50=4.1 ms
-m1_bateria_2	OK n=11000 exactitud=0.5718 f1_macro=0.2980 p50=5.2 ms
-m1_umbrales	OK 9 métricas, 7 conjuntos con umbral propio, 21 avisos
-m3_robustez	OK 5 tareas, peor tipo: L1 largo 69.6 %, L2 largo 53.6 %; 11 (modelo, tipo) por encima del 5 %, 11 arreglos propuestos
+m1_bateria_1	OK n=11000 exactitud=0.6436 f1_macro=0.5769 p50=21.4 ms
+m1_bateria_2	OK n=11000 exactitud=0.6436 f1_macro=0.5769 p50=22.1 ms
+m1_umbrales	OK 9 métricas, 7 conjuntos con umbral propio, 23 avisos
+m3_robustez	OK 5 tareas, peor tipo: L1 largo 69.6 %, L2 largo 53.6 %; 12 (modelo, tipo) por encima del 5 %, 10 arreglos propuestos
 m4_espanol	OK 4 pares, Δ(es−en) exactitud -3.3 pts [-6.0, -0.7], F1 -0.0 pts; brecha > 3 pts: si (plan.md); no medidos: ninguno

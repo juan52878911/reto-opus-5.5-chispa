@@ -9,23 +9,23 @@
  "umbrales": {
   "exactitud": 0.01,
   "f1_macro": 0.01,
-  "cobertura": 0.005,
-  "ece": 0.005,
-  "escalado": 0.005,
+  "cobertura": 0.01,
+  "ece": 0.01,
+  "escalado": 0.01,
   "errores": 0.0,
   "mae": 0.02,
   "p50_ms": 0.5,
   "p99_ms": 1.0,
   "por_conjunto": {
    "clinc150": {
-    "f1_macro": 0.005
+    "exactitud": 0.015,
+    "f1_macro": 0.015,
+    "cobertura": 0.015
    },
    "hatecheck": {
     "exactitud": 0.055,
     "f1_macro": 0.055,
-    "cobertura": 0.01,
-    "ece": 0.035,
-    "escalado": 0.01
+    "ece": 0.035
    },
    "herramientas": {
     "exactitud": 0.05,
@@ -50,20 +50,20 @@
    },
    "massive": {
     "exactitud": 0.02,
-    "f1_macro": 0.02,
-    "cobertura": 0.01,
-    "ece": 0.01,
-    "escalado": 0.01
+    "f1_macro": 0.02
    },
    "spam": {
     "exactitud": 0.015,
     "f1_macro": 0.015,
     "cobertura": 0.015,
-    "ece": 0.025
+    "ece": 0.025,
+    "escalado": 0.005
    }
   }
  },
  "avisos": [
+  "conjuntos/clinc150/exactitud: el IC95/ruido pide 0.015 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
+  "conjuntos/clinc150/f1_macro: el IC95/ruido pide 0.015 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
   "conjuntos/hatecheck/exactitud: el IC95/ruido pide 0.055 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
   "conjuntos/hatecheck/f1_macro: el IC95/ruido pide 0.055 y el manifiesto tiene 0.010 (una regresión de ese tamaño no se distingue del ruido)",
   "conjuntos/hatecheck/ece: el IC95/ruido pide 0.035 y el manifiesto tiene 0.020 (una regresión de ese tamaño no se distingue del ruido)",
@@ -89,53 +89,53 @@
  "detalle": {
   "global": {
    "exactitud": {
-    "corrida_1": 0.5718181818181818,
-    "corrida_2": 0.5718181818181818,
-    "media": 0.5718181818181818,
+    "corrida_1": 0.6436363636363637,
+    "corrida_2": 0.6436363636363637,
+    "media": 0.6436363636363637,
     "n": 11000,
-    "ic95_semiancho": 0.009245461499576139,
+    "ic95_semiancho": 0.00894865371027909,
     "ruido": 0.0,
     "umbral": 0.01,
     "actual": 0.01
    },
    "f1_macro": {
-    "corrida_1": 0.29800173754071935,
-    "corrida_2": 0.29800173754071935,
-    "media": 0.29800173754071935,
+    "corrida_1": 0.576912343545111,
+    "corrida_2": 0.576912343545111,
+    "media": 0.576912343545111,
     "n": 11000,
-    "ic95_semiancho": 0.00854626015492076,
+    "ic95_semiancho": 0.009231150608809814,
     "ruido": 0.0,
     "umbral": 0.01,
     "actual": 0.01
    },
    "cobertura": {
-    "corrida_1": 0.01,
-    "corrida_2": 0.01,
-    "media": 0.01,
+    "corrida_1": 0.33136363636363636,
+    "corrida_2": 0.33136363636363636,
+    "media": 0.33136363636363636,
     "n": 11000,
-    "ic95_semiancho": 0.001866948462068813,
+    "ic95_semiancho": 0.008795105557600496,
     "ruido": 0.0,
-    "umbral": 0.005,
+    "umbral": 0.01,
     "actual": 0.02
    },
    "ece": {
-    "corrida_1": 0.06470231976340143,
-    "corrida_2": 0.06470231976340143,
-    "media": 0.06470231976340143,
+    "corrida_1": 0.11278592613233283,
+    "corrida_2": 0.11278592613233283,
+    "media": 0.11278592613233283,
     "n": 11000,
-    "ic95_semiancho": 0.004598921543691472,
+    "ic95_semiancho": 0.005912064085809958,
     "ruido": 0.0,
-    "umbral": 0.005,
+    "umbral": 0.01,
     "actual": 0.02
    },
    "escalado": {
-    "corrida_1": 0.9798181818181818,
-    "corrida_2": 0.9798181818181818,
-    "media": 0.9798181818181818,
+    "corrida_1": 0.8935454545454545,
+    "corrida_2": 0.8935454545454545,
+    "media": 0.8935454545454545,
     "n": 11000,
-    "ic95_semiancho": 0.0026327984945774168,
+    "ic95_semiancho": 0.005764315379541801,
     "ruido": 0.0,
-    "umbral": 0.005,
+    "umbral": 0.01,
     "actual": 0.03
    },
    "errores": {
@@ -159,53 +159,73 @@
     "actual": 0.05
    },
    "p50_ms": {
-    "corrida_1": 4.123886999991555,
-    "corrida_2": 5.216240999970978,
-    "media": 4.6700639999812665,
+    "corrida_1": 21.396100999936607,
+    "corrida_2": 22.078576000012617,
+    "media": 21.737338499974612,
     "n": 11000,
-    "ruido_rel": 0.23390557388160094,
+    "ruido_rel": 0.03139643798051944,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 162.54756900002576,
-    "corrida_2": 149.42243699999835,
-    "media": 155.98500300001206,
+    "corrida_1": 175.9682059999932,
+    "corrida_2": 170.5557930000623,
+    "media": 173.26199950002774,
     "n": 11000,
-    "ruido_rel": 0.08414355064650922,
+    "ruido_rel": 0.03123831547338242,
     "umbral": 1.0,
     "actual": 1.0
    }
   },
   "conjuntos/clinc150": {
-   "f1_macro": {
-    "corrida_1": 0.0,
-    "corrida_2": 0.0,
-    "media": 0.0,
+   "exactitud": {
+    "corrida_1": 0.7154545454545455,
+    "corrida_2": 0.7154545454545455,
+    "media": 0.7154545454545455,
     "n": 5500,
-    "ic95_semiancho": 0.000348992601821971,
+    "ic95_semiancho": 0.011921324660161294,
     "ruido": 0.0,
-    "umbral": 0.005,
+    "umbral": 0.015,
+    "actual": 0.01
+   },
+   "f1_macro": {
+    "corrida_1": 0.7628482137736015,
+    "corrida_2": 0.7628482137736015,
+    "media": 0.7628482137736015,
+    "n": 5500,
+    "ic95_semiancho": 0.011238626793643871,
+    "ruido": 0.0,
+    "umbral": 0.015,
     "actual": 0.01
    },
    "cobertura": {
-    "corrida_1": 0.0,
-    "corrida_2": 0.0,
-    "media": 0.0,
+    "corrida_1": 0.5147272727272727,
+    "corrida_2": 0.5147272727272727,
+    "media": 0.5147272727272727,
     "n": 5500,
-    "ic95_semiancho": 0.000348992601821971,
+    "ic95_semiancho": 0.01320397738480282,
     "ruido": 0.0,
-    "umbral": 0.005,
+    "umbral": 0.015,
+    "actual": 0.02
+   },
+   "ece": {
+    "corrida_1": 0.1621401093509847,
+    "corrida_2": 0.1621401093509847,
+    "media": 0.1621401093509847,
+    "n": 5500,
+    "ic95_semiancho": 0.009740502356662545,
+    "ruido": 0.0,
+    "umbral": 0.01,
     "actual": 0.02
    },
    "escalado": {
-    "corrida_1": 1.0,
-    "corrida_2": 1.0,
-    "media": 1.0,
+    "corrida_1": 0.8274545454545454,
+    "corrida_2": 0.8274545454545454,
+    "media": 0.8274545454545454,
     "n": 5500,
-    "ic95_semiancho": 0.000348992601821971,
+    "ic95_semiancho": 0.009985291375241094,
     "ruido": 0.0,
-    "umbral": 0.005,
+    "umbral": 0.01,
     "actual": 0.03
    },
    "errores": {
@@ -219,20 +239,20 @@
     "actual": 0.0
    },
    "p50_ms": {
-    "corrida_1": 2.129160999970736,
-    "corrida_2": 2.134842000032222,
-    "media": 2.132001500001479,
+    "corrida_1": 20.690312999931848,
+    "corrida_2": 21.32773799996812,
+    "media": 21.009025499949985,
     "n": 5500,
-    "ruido_rel": 0.0026646323004378904,
+    "ruido_rel": 0.03034053150336702,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 3.436778999912349,
-    "corrida_2": 3.4478200000194192,
-    "media": 3.442299499965884,
+    "corrida_1": 29.07637499993143,
+    "corrida_2": 29.844967999906657,
+    "media": 29.460671499919044,
     "n": 5500,
-    "ruido_rel": 0.003207449005288429,
+    "ruido_rel": 0.02608878076581989,
     "umbral": 1.0,
     "actual": 1.0
    }
@@ -299,20 +319,20 @@
     "actual": 0.0
    },
    "p50_ms": {
-    "corrida_1": 23.1284809999579,
-    "corrida_2": 22.793399000079262,
-    "media": 22.96094000001858,
+    "corrida_1": 23.961634999977832,
+    "corrida_2": 22.99969199998486,
+    "media": 23.480663499981347,
     "n": 361,
-    "ruido_rel": 0.014593566285978188,
+    "ruido_rel": 0.040967453921978605,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 39.62111299995286,
-    "corrida_2": 34.37476399994921,
-    "media": 36.99793849995103,
+    "corrida_1": 39.2720399999007,
+    "corrida_2": 35.20283600005314,
+    "media": 37.23743799997692,
     "n": 361,
-    "ruido_rel": 0.1418011168381879,
+    "ruido_rel": 0.10927722792986139,
     "umbral": 1.0,
     "actual": 1.0
    }
@@ -379,20 +399,20 @@
     "actual": 0.0
    },
    "p50_ms": {
-    "corrida_1": 24.713935000022502,
-    "corrida_2": 22.103382999944188,
-    "media": 23.408658999983345,
+    "corrida_1": 26.654686999904698,
+    "corrida_2": 23.90804600008778,
+    "media": 25.28136649999624,
     "n": 368,
-    "ruido_rel": 0.11152078382961501,
+    "ruido_rel": 0.10864290107962823,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 30.623175000073388,
-    "corrida_2": 27.96095000007881,
-    "media": 29.2920625000761,
+    "corrida_1": 30.952906999914376,
+    "corrida_2": 31.25807399999303,
+    "media": 31.105490499953703,
     "n": 368,
-    "ruido_rel": 0.09088554279807581,
+    "ruido_rel": 0.009810711715962447,
     "umbral": 1.0,
     "actual": 1.0
    }
@@ -459,20 +479,20 @@
     "actual": 0.0
    },
    "p50_ms": {
-    "corrida_1": 33.4852690000389,
-    "corrida_2": 33.82377800005543,
-    "media": 33.65452350004716,
+    "corrida_1": 35.182866000013746,
+    "corrida_2": 31.05698800004575,
+    "media": 33.11992700002975,
     "n": 116,
-    "ruido_rel": 0.010058350700346561,
+    "ruido_rel": 0.12457388568411674,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 59.81035900003917,
-    "corrida_2": 80.14621299992086,
-    "media": 69.97828599998002,
+    "corrida_1": 72.7018100000123,
+    "corrida_2": 63.851664000026176,
+    "media": 68.27673700001924,
     "n": 116,
-    "ruido_rel": 0.290602344845764,
+    "ruido_rel": 0.12962168944868632,
     "umbral": 1.0,
     "actual": 1.0
    }
@@ -549,20 +569,20 @@
     "actual": 0.05
    },
    "p50_ms": {
-    "corrida_1": 97.51643899994633,
-    "corrida_2": 109.37887599993701,
-    "media": 103.44765749994167,
+    "corrida_1": 120.63411100007215,
+    "corrida_2": 99.98077600005217,
+    "media": 110.30744350006216,
     "n": 231,
-    "ruido_rel": 0.11467090977867107,
+    "ruido_rel": 0.18723428215438914,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 309.2900169999666,
-    "corrida_2": 298.35906099992826,
-    "media": 303.82453899994744,
+    "corrida_1": 297.5728929999377,
+    "corrida_2": 318.97957900002893,
+    "media": 308.2762359999833,
     "n": 231,
-    "ruido_rel": 0.03597785760168714,
+    "ruido_rel": 0.06943994865725676,
     "umbral": 1.0,
     "actual": 1.0
    }
@@ -629,20 +649,20 @@
     "actual": 0.0
    },
    "p50_ms": {
-    "corrida_1": 20.53445699993972,
-    "corrida_2": 19.503654000004644,
-    "media": 20.019055499972183,
+    "corrida_1": 20.485437999923306,
+    "corrida_2": 20.99533800003428,
+    "media": 20.740387999978793,
     "n": 2974,
-    "ruido_rel": 0.05149109057300475,
+    "ruido_rel": 0.02458488240969724,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 27.127026000016485,
-    "corrida_2": 27.06366200004595,
-    "media": 27.09534400003122,
+    "corrida_1": 26.843800999927225,
+    "corrida_2": 28.530591000048844,
+    "media": 27.687195999988035,
     "n": 2974,
-    "ruido_rel": 0.002338556763496369,
+    "ruido_rel": 0.06092310684412923,
     "umbral": 1.0,
     "actual": 1.0
    }
@@ -709,20 +729,20 @@
     "actual": 0.0
    },
    "p50_ms": {
-    "corrida_1": 30.589183999950365,
-    "corrida_2": 29.522874000008414,
-    "media": 30.05602899997939,
+    "corrida_1": 31.136682000010296,
+    "corrida_2": 30.18814699998984,
+    "media": 30.662414500000068,
     "n": 1450,
-    "ruido_rel": 0.035477407875228004,
+    "ruido_rel": 0.030934778473510432,
     "umbral": 0.5,
     "actual": 0.5
    },
    "p99_ms": {
-    "corrida_1": 39.886213000045245,
-    "corrida_2": 38.87121100001423,
-    "media": 39.378712000029736,
+    "corrida_1": 40.804490999903464,
+    "corrida_2": 41.69626399993831,
+    "media": 41.25037749992089,
     "n": 1450,
-    "ruido_rel": 0.02577539864763102,
+    "ruido_rel": 0.02161854155241503,
     "umbral": 1.0,
     "actual": 1.0
    }

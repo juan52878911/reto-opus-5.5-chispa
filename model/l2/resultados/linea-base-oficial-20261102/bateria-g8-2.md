@@ -1,35 +1,35 @@
 # Batería de regresión: bateria-chispa
 
-Fuente: `/opt/chispa/g8.chispa` · objetivo de precisión: 0,95 · 2026-11-02T18:35:36
+Fuente: `/opt/chispa/g8.chispa` · objetivo de precisión: 0,95 · 2026-11-02T19:11:12
 
 ## Global
-|  | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| global | 11000 | 0,572 | 0,919 | 0,019 | 50,0 % | 0,0 % | 48,0 % | 0,298 | 0,065 | 1,0 % | 98,0 % | 0,0 % | 5,2 | 149,4 |
+|  | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | incompletas | sin presup. torres | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| global | 11000 | 0,644 | 0,976 | 0,104 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 89,4 % | 0,577 | 0,113 | 33,1 % | 89,4 % | 0,0 % | 22,1 | 170,6 |
 
 ## Por tipo
-| tipo | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| choice | 8981 | 0,439 | 0,914 | 0,021 | 61,2 % | 0,0 % | 36,4 % | 0,263 | 0,026 | 1,2 % | 97,7 % | 0,0 % | 2,6 | 54,6 |
-| noul | 2001 | 0,807 | 1,000 | 0,006 | 0,0 % | 0,0 % | 99,4 % | 0,596 | 0,132 | 56,6 % | 99,4 % | 0,0 % | 29,0 | 183,4 |
-| score | 18 | 0,111 | sin medir | 0,000 | 0,0 % | 0,0 % | 100,0 % | 0,153 | 0,259 | 0,0 % | 100,0 % | 0,0 % | 24,1 | 212,5 |
+| tipo | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | incompletas | sin presup. torres | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| choice | 8981 | 0,608 | 0,976 | 0,126 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 87,1 % | 0,586 | 0,109 | 28,0 % | 87,1 % | 0,0 % | 21,4 | 68,4 |
+| noul | 2001 | 0,807 | 1,000 | 0,006 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 99,4 % | 0,596 | 0,132 | 56,6 % | 99,4 % | 0,0 % | 29,6 | 179,9 |
+| score | 18 | 0,111 | sin medir | 0,000 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 100,0 % | 0,153 | 0,259 | 0,0 % | 100,0 % | 0,0 % | 25,9 | 214,1 |
 
 ## Por grupo
-| grupo | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| jevbench | 231 | 0,489 | 0,900 | 0,078 | 0,0 % | 0,0 % | 91,3 % | 0,484 | 0,086 | 5,2 % | 91,3 % | 0,0 % | 109,4 | 298,4 |
-| prueba | 10769 | 0,575 | 0,921 | 0,017 | 51,1 % | 0,0 % | 47,1 % | 0,174 | 0,067 | 1,0 % | 98,1 % | 0,0 % | 3,3 | 37,0 |
+| grupo | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | incompletas | sin presup. torres | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| jevbench | 231 | 0,489 | 0,900 | 0,078 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 91,3 % | 0,484 | 0,086 | 5,2 % | 91,3 % | 0,0 % | 100,0 | 319,0 |
+| prueba | 10769 | 0,647 | 0,977 | 0,104 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 89,3 % | 0,639 | 0,115 | 34,0 % | 89,3 % | 0,0 % | 22,0 | 37,8 |
 
 ## Por conjunto
-| conjunto | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| jevbench | 231 | 0,489 | 0,900 | 0,078 | 0,0 % | 0,0 % | 91,3 % | 0,484 | 0,086 | 5,2 % | 91,3 % | 0,0 % | 109,4 | 298,4 |
-| massive | 2974 | 0,413 | 0,891 | 0,038 | 0,0 % | 0,0 % | 95,7 % | 0,344 | 0,025 | 2,1 % | 95,7 % | 0,0 % | 19,5 | 27,1 |
-| clinc150 | 5500 | sin medir | sin medir | 0,000 | 100,0 % | 0,0 % | 0,0 % | 0,000 | sin medir | 0,0 % | 100,0 % | 0,0 % | 2,1 | 3,4 |
-| hatecheck | 361 | 0,476 | sin medir | 0,000 | 0,0 % | 0,0 % | 100,0 % | 0,465 | 0,105 | 0,3 % | 100,0 % | 0,0 % | 22,8 | 34,4 |
-| spam | 1450 | 0,926 | 1,000 | 0,008 | 0,0 % | 0,0 % | 99,2 % | 0,926 | 0,222 | 93,0 % | 99,2 % | 0,0 % | 29,5 | 38,9 |
-| inyecciones | 116 | 0,491 | sin medir | 0,000 | 0,0 % | 0,0 % | 100,0 % | 0,344 | 0,201 | 18,1 % | 100,0 % | 0,0 % | 33,8 | 80,1 |
-| herramientas | 368 | 0,633 | 0,968 | 0,163 | 0,0 % | 0,0 % | 83,2 % | 0,609 | 0,099 | 24,7 % | 83,2 % | 0,0 % | 22,1 | 28,0 |
+| conjunto | n | exactitud (argmax) | exact. contestada | exact. estricta | sin probs | nadie opinó | incompletas | sin presup. torres | baja confianza | F1 macro | ECE | cobertura a 0,95 | escalado | errores | p50 ms | p99 ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| jevbench | 231 | 0,489 | 0,900 | 0,078 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 91,3 % | 0,484 | 0,086 | 5,2 % | 91,3 % | 0,0 % | 100,0 | 319,0 |
+| massive | 2974 | 0,413 | 0,891 | 0,038 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 95,7 % | 0,344 | 0,025 | 2,1 % | 95,7 % | 0,0 % | 21,0 | 28,5 |
+| clinc150 | 5500 | 0,715 | 0,989 | 0,171 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 82,7 % | 0,763 | 0,162 | 51,5 % | 82,7 % | 0,0 % | 21,3 | 29,8 |
+| hatecheck | 361 | 0,476 | sin medir | 0,000 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 100,0 % | 0,465 | 0,105 | 0,3 % | 100,0 % | 0,0 % | 23,0 | 35,2 |
+| spam | 1450 | 0,926 | 1,000 | 0,008 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 99,2 % | 0,926 | 0,222 | 93,0 % | 99,2 % | 0,0 % | 30,2 | 41,7 |
+| inyecciones | 116 | 0,491 | sin medir | 0,000 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 100,0 % | 0,344 | 0,201 | 18,1 % | 100,0 % | 0,0 % | 31,1 | 63,9 |
+| herramientas | 368 | 0,633 | 0,968 | 0,163 | 0,0 % | 0,0 % | 0,0 % | 0,0 % | 83,2 % | 0,609 | 0,099 | 24,7 % | 83,2 % | 0,0 % | 23,9 | 31,3 |
 
 MAE de score (niveles): jevbench 1,222
 
