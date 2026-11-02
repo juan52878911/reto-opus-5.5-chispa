@@ -18,3 +18,11 @@
 (`paridad_servidor diagnosticar`) sobre v2.
 
 La línea base oficial sigue siendo `linea-base-oficial-20261102` (ajuste 1).
+
+## Diagnóstico de paridad (e2e.sh con el checkpoint v2, c6a, 10 min)
+- **Sin fallo de paridad:** 0 discrepancias en 78 casos. El texto de torre, s, CALIB y la probabilidad coinciden caso a caso.
+- JevBench: servidor **0,489** frente a Python **0,502**. noul y score son idénticos (0,568 y 0,333); choice da 0,468 frente
+  a 0,489, unos 3 casos de 139 que no entraron en la muestra diagnosticada (empates o redondeo).
+- **Conclusión:** la caída de M1 con v2 (0,5836 frente a 0,6436) **es del modelo, no del runtime.** v2 gana en JevBench y en
+  robustez (renombrar 0 %), pero pierde en massive (0,353 frente a 0,413) y clinc150 (0,631 frente a 0,715), que `ajuste.sh`
+  no medía.
