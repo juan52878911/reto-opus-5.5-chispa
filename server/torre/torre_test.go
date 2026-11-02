@@ -152,3 +152,12 @@ func rutaTokPorDefecto() string {
 	}
 	return "e5.chispa-tok"
 }
+
+func TestValidarPrefijoV2(t *testing.T) {
+	if err := ValidarPrefijo(2, "passage: "); err != nil {
+		t.Fatalf("TORR v2 con el prefijo de pasaje debe valer: %v", err)
+	}
+	if err := ValidarPrefijo(2, "query: "); err == nil || !strings.Contains(err.Error(), "TORR v2: prefijo") {
+		t.Fatalf("TORR v2 con otro prefijo debe rechazarse con su versión: %v", err)
+	}
+}

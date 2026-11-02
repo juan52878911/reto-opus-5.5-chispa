@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -124,5 +127,20 @@ func TestVigilarRecogeAlLiderConNietoVivo(t *testing.T) {
 	case <-h.done:
 	case <-time.After(3 * time.Second):
 		t.Fatal("done no se cerró al soltar el nieto las tuberías")
+	}
+}
+
+// Si el detector sale antes de escuchar, el error cita la última línea de su stderr (los lectores ya vaciaron la tubería).
+func TestStartCitaUltimaLineaDeStderr(t *testing.T) {
+	exe := filepath.Join(t.TempDir(), "falso.sh")
+	script := "#!/bin/sh\nhead -c 500000 /dev/zero | tr '\\0' x >&2\necho >&2; echo ULTIMA-LINEA >&2\nexit 3\n"
+	if err := os.WriteFile(exe, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		_, err := (&procLauncher{exe: exe}).Start(context.Background(), &replica{id: "r1"})
+		if err == nil || !strings.Contains(err.Error(), "ULTIMA-LINEA") {
+			t.Fatalf("el error no cita la última línea de stderr: %v", err)
+		}
 	}
 }

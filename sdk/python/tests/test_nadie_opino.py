@@ -148,3 +148,43 @@ class TrainSinTorre(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BateriaHealthzPasajero(Base):
+    """Un /healthz que falla (una vez o siempre) no debe cambiar la semántica de un servidor nuevo."""
+
+    def parcheado(self, fallos):
+        llamadas = []
+        original = B.capacidades_servidor
+
+        def falso(url, timeout=10.0):
+            llamadas.append(1)
+            return None if len(llamadas) <= fallos else original(url, timeout)
+        B.capacidades_servidor, B.time.sleep = falso, lambda s: None
+        self.addCleanup(setattr, B, "capacidades_servidor", original)
+        self.addCleanup(setattr, B.time, "sleep", __import__("time").sleep)
+        return llamadas
+
+    def test_un_fallo_pasajero_se_reintenta(self):
+        self.srv.regla, self.srv.healthz = (lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar"}), SIN_TORRE
+        llamadas = self.parcheado(1)
+        r = self.correr()
+        self.assertEqual(len(llamadas), 2)
+        self.assertEqual(r["capacidades_servidor"], SIN_TORRE)
+        self.assertEqual(r["global"]["incompletas"], 1.0)  # semántica de servidor nuevo
+
+    def test_healthz_caido_con_escalate_reason_es_servidor_nuevo(self):
+        self.srv.regla, self.srv.healthz = (lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar", "escalate_reason": "incompleta"}), SIN_TORRE
+        llamadas = self.parcheado(99)
+        avisos = []
+        r = self.correr(aviso=avisos.append)
+        self.assertEqual(len(llamadas), 3)
+        self.assertNotIn("capacidades_servidor", r)
+        self.assertEqual((r["global"]["incompletas"], r["global"]["nadie_opino"]), (1.0, 0.0))
+        self.assertTrue(any("escalate_reason" in a for a in avisos), avisos)
+
+    def test_healthz_caido_sin_escalate_reason_sigue_siendo_antiguo(self):
+        self.srv.regla = lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar"}
+        self.parcheado(99)
+        r = self.correr()
+        self.assertEqual(r["global"]["nadie_opino"], 1.0)

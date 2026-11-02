@@ -17,6 +17,7 @@ final class NormalizarMayusculasTests: XCTestCase {
         ("CANCELAR MI TARJETA YA", "cancelar mi tarjeta ya"),
         ("¿QUÉ PASA CON MI PEDIDO? Gracias", "¿qué pasa con mi pedido? gracias"),
         ("LA CITA Nº 2ª vez", "LA CITA Nº 2ª vez"), // «ª» y «º» son letras, no mayúsculas
+        ("ⓉⓄⒹⓄ ⓂⒶⓁ ok", "ⓉⓄⒹⓄ ⓂⒶⓁ ok"), // letras en círculo: no son letras (categoría So)
     ]
 
     func testParidadConPython() {

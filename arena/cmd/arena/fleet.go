@@ -121,6 +121,9 @@ const healthTimeout = 30 * time.Second
 
 const startTimeout = 20 * time.Second
 
+// logDrainTimeout: espera máxima a que terminen de leerse las tuberías tras salir el hijo, antes de citar su log.
+const logDrainTimeout = 200 * time.Millisecond
+
 func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	// El hijo escucha en 127.0.0.1:0 y anuncia el puerto real ("LISTEN addr"):
 	// reservar un puerto y cerrarlo antes de lanzar dejaba una carrera con
@@ -165,6 +168,11 @@ func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	case addr := <-addrCh:
 		return "http://" + addr, nil
 	case <-h.salio:
+		// Los lectores de las tuberías pueden ir por detrás de la salida: espera un momento a que vuelquen la última línea.
+		select {
+		case <-h.done:
+		case <-time.After(logDrainTimeout):
+		}
 		return "", fmt.Errorf("%s: el detector salió antes de escuchar; último log: %s", r.id, h.log.tail())
 	case <-time.After(startTimeout):
 		p.Stop(r)

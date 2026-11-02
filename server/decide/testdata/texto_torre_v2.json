@@ -640,5 +640,113 @@
   "v2_sin_id": [
    "passage: Repetidas en score · alta"
   ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Espacios Unicode son espacio",
+  "opciones": [
+   {
+    "id": "a",
+    "description": " "
+   },
+   {
+    "id": "b",
+    "description": "　"
+   },
+   {
+    "id": "c",
+    "description": " "
+   },
+   {
+    "id": "d",
+    "description": ""
+   },
+   {
+    "id": "e",
+    "description": "x"
+   }
+  ],
+  "v1": [
+   "passage: Espacios Unicode son espacio · a ·  ",
+   "passage: Espacios Unicode son espacio · b · 　",
+   "passage: Espacios Unicode son espacio · c ·  ",
+   "passage: Espacios Unicode son espacio · d · ",
+   "passage: Espacios Unicode son espacio · e · x"
+  ],
+  "v2_sin_id": [
+   "passage: Espacios Unicode son espacio · a ·  ",
+   "passage: Espacios Unicode son espacio · b · 　",
+   "passage: Espacios Unicode son espacio · c ·  ",
+   "passage: Espacios Unicode son espacio · d · ",
+   "passage: Espacios Unicode son espacio · x"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "Espacios Unicode alrededor",
+  "opciones": [
+   {
+    "id": "a",
+    "description": " saldo　"
+   },
+   {
+    "id": "b",
+    "description": "saldo"
+   },
+   {
+    "id": "c",
+    "description": " saldo"
+   },
+   {
+    "id": "d",
+    "description": "otra"
+   }
+  ],
+  "v1": [
+   "passage: Espacios Unicode alrededor · a ·  saldo　",
+   "passage: Espacios Unicode alrededor · b · saldo",
+   "passage: Espacios Unicode alrededor · c ·  saldo",
+   "passage: Espacios Unicode alrededor · d · otra"
+  ],
+  "v2_sin_id": [
+   "passage: Espacios Unicode alrededor · a ·  saldo　",
+   "passage: Espacios Unicode alrededor · b · saldo",
+   "passage: Espacios Unicode alrededor · c ·  saldo",
+   "passage: Espacios Unicode alrededor · otra"
+  ]
+ },
+ {
+  "kind": "choice",
+  "pregunta": "U+200B no es espacio",
+  "opciones": [
+   {
+    "id": "a",
+    "description": "​"
+   },
+   {
+    "id": "b",
+    "description": "​"
+   },
+   {
+    "id": "c",
+    "description": "​x"
+   },
+   {
+    "id": "d",
+    "description": "x"
+   }
+  ],
+  "v1": [
+   "passage: U+200B no es espacio · a · ​",
+   "passage: U+200B no es espacio · b · ​",
+   "passage: U+200B no es espacio · c · ​x",
+   "passage: U+200B no es espacio · d · x"
+  ],
+  "v2_sin_id": [
+   "passage: U+200B no es espacio · a · ​",
+   "passage: U+200B no es espacio · b · ​",
+   "passage: U+200B no es espacio · ​x",
+   "passage: U+200B no es espacio · x"
+  ]
  }
 ]
