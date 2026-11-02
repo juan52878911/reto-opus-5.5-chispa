@@ -25,6 +25,14 @@ Aprobado el 2026-11-02, porque el id de la opción en el texto hacía que renomb
   - si está vacía, el texto v1 exacto: `"passage: " + pregunta + " · " + opción + " · "`. Sin descripción, el id es lo único
     que distingue las opciones.
   - **La descripción no se recorta ni se normaliza en el texto:** el `strip()` solo sirve para decidir si está vacía.
+  - **Descripciones repetidas** (R19-9): si dentro de una misma pregunta dos o más opciones tienen la misma descripción
+    (igualdad exacta tras `strip()`), **esas opciones usan el texto v1**, con id. Así no empatan. El resto de opciones usa v2.
+- **Sección TORR** (R19-7): un `.chispa` v2 lleva también la versión en TORR (versión 2 de la sección). Así un runtime anterior
+  rechaza la TORR y se queda sin torre al vuelo de forma explícita, en lugar de servir v2 como v1. Lo escribe quien escribe
+  TORR (`chispa train --torre`).
+- **ONNX de la torre:** la metadata `chispa.torre.texto_torre` (`"v1"` o `"v2_sin_id"`) junto a `chispa.torre.{dim,max_len,prefijo}`.
+  Es la versión del checkpoint del que se exportó; `chispa train` la compara con `META.texto_torre` del `l2.chispa` y falla si
+  no coinciden.
 - **Lo que no cambia:**
   - las claves de ESQUEMAS y CONJ (`HashEsquema2` sigue incluyendo el id, que es lo que identifica la entrada);
   - el prefijo `passage: `, la tokenización, la red y el ONNX de la torre;
