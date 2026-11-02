@@ -52,6 +52,8 @@ type CascadaDorada struct {
 	Probs    map[string]float64 `json:"probs"`
 	Layer    string             `json:"layer"`
 	Escalate bool               `json:"escalate"`
+	// Motivo: escalate_reason (vacío si no escaló).
+	Motivo string `json:"escalate_reason,omitempty"`
 }
 
 // SolDorada reúne lo esperado: por capa suelta (id de la petición) y por cascada.
@@ -304,7 +306,7 @@ func (a *armadoDorado) decidir(t testing.TB, p PeticionDorada) (EsperadoDorado, 
 func (a *armadoDorado) decidirErr(p PeticionDorada) (EsperadoDorado, CascadaDorada, error) {
 	if p.Capa == "cascada" {
 		r := a.casc.Decidir(context.Background(), p.pregunta())
-		return EsperadoDorado{}, CascadaDorada{Answer: r.Answer, Answers: r.Answers, Probs: r.Probs, Layer: r.Layer, Escalate: r.Escalate}, nil
+		return EsperadoDorado{}, CascadaDorada{Answer: r.Answer, Answers: r.Answers, Probs: r.Probs, Layer: r.Layer, Escalate: r.Escalate, Motivo: r.EscalateReason}, nil
 	}
 	r, err := a.capa(p).Decidir(context.Background(), p.pregunta())
 	if err != nil {
@@ -499,7 +501,7 @@ func nilVacio(s []string) []string {
 }
 
 func difiereCascDor(id string, g, w CascadaDorada, tol float64) string {
-	if g.Answer != w.Answer || g.Layer != w.Layer || g.Escalate != w.Escalate || !reflect.DeepEqual(nilVacio(g.Answers), nilVacio(w.Answers)) {
+	if g.Answer != w.Answer || g.Layer != w.Layer || g.Escalate != w.Escalate || g.Motivo != w.Motivo || !reflect.DeepEqual(nilVacio(g.Answers), nilVacio(w.Answers)) {
 		return id + ": " + mustJSON(g) + " ≠ " + mustJSON(w)
 	}
 	if d := comparaProbs(g.Probs, w.Probs, tol); d != "" {

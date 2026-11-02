@@ -238,6 +238,17 @@ def resolver_ruta(ruta: str, base: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------- servidor
+def _capacidades_con_reintentos(url, timeout, intentos=3, espera=0.5):
+    """`capacidades_servidor` con reintentos: un fallo pasajero de /healthz no debe hacer pasar por antiguo a un servidor nuevo."""
+    for i in range(intentos):
+        cap = capacidades_servidor(url, timeout)
+        if cap is not None:
+            return cap
+        if i + 1 < intentos:
+            time.sleep(espera)
+    return None
+
+
 @contextlib.contextmanager
 def servidor_local(modelo: str, servidor: Optional[str] = None, tok: Optional[str] = None, config: Optional[str] = None,
                    extra=(), espera: float = 60.0):
@@ -788,13 +799,17 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
         cliente = Chispa(u, timeout=timeout, reintentos=reintentos)
         tareas = [(f, None, c["nombre"]) for c, fs in cargados for f in fs]
         calib_antes = calib_servidor(u, tok, timeout)
-        cap = capacidades_servidor(u, timeout)
+        cap = _capacidades_con_reintentos(u, timeout)
         if cap is not None and not cap["torre_al_vuelo"] and not cap["capas"].get("L1"):
             aviso("el .chispa no puede opinar sobre esquemas que no estén en su ESQUEMAS: sin TORR no hay torre al vuelo en L2 y no hay L1; "
                   "los esquemas nuevos del manifiesto escalarán sin probs (no se comprueba qué esquemas trae ESQUEMAS)")
         res = (_correr_agrupado if agrupar else _correr)(cliente, tareas, concurrencia)
+        # Si /healthz sigue sin responder, un servidor nuevo se reconoce por `escalate_reason` (solo lo ponen los nuevos, y solo al escalar).
+        antiguo = cap is None and not any(r.get("escalate_reason") for r in res)
+        if cap is None and not antiguo:
+            aviso("/healthz no respondió con las capas, pero las respuestas traen escalate_reason: se trata como servidor nuevo")
         for r in res:
-            r["servidor_antiguo"] = cap is None
+            r["servidor_antiguo"] = antiguo
         por_conjunto, i = [], 0
         for c, fs in cargados:
             rs = res[i:i + len(fs)]

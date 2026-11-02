@@ -1248,7 +1248,8 @@
     "logistica": 0.6475567305641046
    },
    "layer": "escalar",
-   "escalate": true
+   "escalate": true,
+   "escalate_reason": "baja_confianza"
   },
   "cas-l1-multi-e": {
    "answer": "facturacion",
@@ -1392,7 +1393,8 @@
     "3": 0.3
    },
    "layer": "escalar",
-   "escalate": true
+   "escalate": true,
+   "escalate_reason": "baja_confianza"
   },
   "cas-l1-score-d": {
    "answer": "1",
@@ -1684,7 +1686,8 @@
     "3": 0.3
    },
    "layer": "escalar",
-   "escalate": true
+   "escalate": true,
+   "escalate_reason": "baja_confianza"
   },
   "cas-l2-score-f": {
    "answer": "1",

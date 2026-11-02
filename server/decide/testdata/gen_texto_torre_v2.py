@@ -63,6 +63,9 @@ CASOS = [
  ("noul", "¿Repetida en noul?", [("false", "no hay"), ("true", "no hay")]),
  ("noul", "¿Repetida distinta?", [("false", "otra"), ("true", "datos")]),
  ("score", "Repetidas en score", [("1", "igual"), ("2", "igual"), ("3", "alta")]),
+ ("choice", "Espacios Unicode son espacio", [("a", "\u00a0"), ("b", "\u3000"), ("c", "\u2028"), ("d", "\x85"), ("e", "x")]),
+ ("choice", "Espacios Unicode alrededor", [("a", "\u00a0saldo\u3000"), ("b", "saldo"), ("c", "\u2028saldo\x85"), ("d", "otra")]),
+ ("choice", "U+200B no es espacio", [("a", "\u200b"), ("b", "\u200b"), ("c", "\u200bx"), ("d", "x")]),
 ]
 out = []
 for kind, preg, ops in CASOS:

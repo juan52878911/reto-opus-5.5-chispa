@@ -24,6 +24,6 @@ No se intenta cubrirlas todas; cada runtime usa las clases de caracteres de su p
 
 - Minúsculas: las cuatro implementaciones (Python, Go, Kotlin y Swift) bajan carácter a carácter con el mapeo simple (Go `strings.ToLower`/Kotlin `Character.toLowerCase(cp)`/Swift primer escalar de `properties.lowercaseMapping`): «İ» → «i» y la sigma final → «σ» (no «i̇» ni «ς»). Casos 14 y 15.
 - Letras titlecase («ǅ») y letras de categorías raras: cada plataforma decide si son mayúscula; las cuatro cuentan como letra, pero pueden diferir en `isUpper`.
-- «ª» y «º» (U+00AA, U+00BA) cuentan como letras pero no como mayúsculas en todos los runtimes («LA CITA Nº 2ª vez» no se normaliza, 13.º caso). Swift cuenta por escalares Unicode (`properties.isAlphabetic` / `properties.isUppercase`); `Character.isUppercase` las daría por mayúsculas y rompería la paridad.
-- Swift cuenta por escalar Unicode, igual que Python, Go y Kotlin por code point. `isAlphabetic` incluye números romanos («Ⅻ») y letras en círculo («Ⓐ»), que `isalpha`/`IsLetter` no cuentan; raro en español.
+- «ª» y «º» (U+00AA, U+00BA) cuentan como letras pero no como mayúsculas en todos los runtimes («LA CITA Nº 2ª vez» no se normaliza, 13.º caso).
+- Swift cuenta por escalar Unicode con `generalCategory` (letra = categorías L*, mayúscula = `.uppercaseLetter`), como `isalpha`/`isupper` de Python, `unicode.IsLetter`/`IsUpper` de Go y Kotlin. Así, números romanos («Ⅻ») y letras en círculo («Ⓐ», típicas del spam) no cuentan como letras en ninguna plataforma («ⓉⓄⒹⓄ ⓂⒶⓁ ok» no se normaliza, 16.º caso).
 - Versiones de Unicode distintas entre Python, Go, la JVM y Swift pueden clasificar distinto las letras añadidas recientemente.
