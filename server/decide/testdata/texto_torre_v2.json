@@ -1,752 +1,991 @@
-[
- {
-  "kind": "choice",
-  "pregunta": "¿Qué quiere el cliente?",
-  "opciones": [
-   {
-    "id": "fraude",
-    "description": "cargo no reconocido"
-   },
-   {
-    "id": "saldo",
-    "description": ""
-   },
-   {
-    "id": "tarjeta",
-    "description": "bloqueo o reposición"
-   }
-  ],
-  "v1": [
-   "passage: ¿Qué quiere el cliente? · fraude · cargo no reconocido",
-   "passage: ¿Qué quiere el cliente? · saldo · ",
-   "passage: ¿Qué quiere el cliente? · tarjeta · bloqueo o reposición"
-  ],
-  "v2_sin_id": [
-   "passage: ¿Qué quiere el cliente? · cargo no reconocido",
-   "passage: ¿Qué quiere el cliente? · saldo · ",
-   "passage: ¿Qué quiere el cliente? · bloqueo o reposición"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Solo descripciones",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "primera"
-   },
-   {
-    "id": "b",
-    "description": "segunda"
-   }
-  ],
-  "v1": [
-   "passage: Solo descripciones · a · primera",
-   "passage: Solo descripciones · b · segunda"
-  ],
-  "v2_sin_id": [
-   "passage: Solo descripciones · primera",
-   "passage: Solo descripciones · segunda"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Sin ninguna",
-  "opciones": [
-   {
-    "id": "a",
-    "description": ""
-   },
-   {
-    "id": "b",
-    "description": ""
-   }
-  ],
-  "v1": [
-   "passage: Sin ninguna · a · ",
-   "passage: Sin ninguna · b · "
-  ],
-  "v2_sin_id": [
-   "passage: Sin ninguna · a · ",
-   "passage: Sin ninguna · b · "
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Solo espacios",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "   "
-   },
-   {
-    "id": "b",
-    "description": "\t\n"
-   },
-   {
-    "id": "c",
-    "description": "  "
-   },
-   {
-    "id": "d",
-    "description": "\u001c\u001f"
-   },
-   {
-    "id": "e",
-    "description": "x"
-   }
-  ],
-  "v1": [
-   "passage: Solo espacios · a ·    ",
-   "passage: Solo espacios · b · \t\n",
-   "passage: Solo espacios · c ·   ",
-   "passage: Solo espacios · d · \u001c\u001f",
-   "passage: Solo espacios · e · x"
-  ],
-  "v2_sin_id": [
-   "passage: Solo espacios · a ·    ",
-   "passage: Solo espacios · b · \t\n",
-   "passage: Solo espacios · c ·   ",
-   "passage: Solo espacios · d · \u001c\u001f",
-   "passage: Solo espacios · x"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Espacios alrededor",
-  "opciones": [
-   {
-    "id": "op",
-    "description": "  con espacios  "
-   },
-   {
-    "id": "otra",
-    "description": ""
-   }
-  ],
-  "v1": [
-   "passage: Espacios alrededor · op ·   con espacios  ",
-   "passage: Espacios alrededor · otra · "
-  ],
-  "v2_sin_id": [
-   "passage: Espacios alrededor ·   con espacios  ",
-   "passage: Espacios alrededor · otra · "
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Acentos y ñ: ¿qué pasó?",
-  "opciones": [
-   {
-    "id": "español",
-    "description": "señal · año nuevo"
-   },
-   {
-    "id": "sí",
-    "description": "café, ñandú"
-   },
-   {
-    "id": "日本",
-    "description": "日本語"
-   }
-  ],
-  "v1": [
-   "passage: Acentos y ñ: ¿qué pasó? · español · señal · año nuevo",
-   "passage: Acentos y ñ: ¿qué pasó? · sí · café, ñandú",
-   "passage: Acentos y ñ: ¿qué pasó? · 日本 · 日本語"
-  ],
-  "v2_sin_id": [
-   "passage: Acentos y ñ: ¿qué pasó? · señal · año nuevo",
-   "passage: Acentos y ñ: ¿qué pasó? · café, ñandú",
-   "passage: Acentos y ñ: ¿qué pasó? · 日本語"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "",
-  "opciones": [
-   {
-    "id": "x",
-    "description": "d"
-   }
-  ],
-  "v1": [
-   "passage:  · x · d"
-  ],
-  "v2_sin_id": [
-   "passage:  · d"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Salto\nde línea",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "x\ty"
-   },
-   {
-    "id": "b",
-    "description": ""
-   }
-  ],
-  "v1": [
-   "passage: Salto\nde línea · a · x\ty",
-   "passage: Salto\nde línea · b · "
-  ],
-  "v2_sin_id": [
-   "passage: Salto\nde línea · x\ty",
-   "passage: Salto\nde línea · b · "
-  ]
- },
- {
-  "kind": "multi",
-  "pregunta": "Etiquetas del ticket",
-  "opciones": [
-   {
-    "id": "pago",
-    "description": "problemas de pago"
-   },
-   {
-    "id": "envío",
-    "description": ""
-   },
-   {
-    "id": "cuenta",
-    "description": "acceso"
-   },
-   {
-    "id": "v",
-    "description": "  "
-   }
-  ],
-  "v1": [
-   "passage: Etiquetas del ticket · pago · problemas de pago",
-   "passage: Etiquetas del ticket · envío · ",
-   "passage: Etiquetas del ticket · cuenta · acceso",
-   "passage: Etiquetas del ticket · v ·   "
-  ],
-  "v2_sin_id": [
-   "passage: Etiquetas del ticket · problemas de pago",
-   "passage: Etiquetas del ticket · envío · ",
-   "passage: Etiquetas del ticket · acceso",
-   "passage: Etiquetas del ticket · v ·   "
-  ]
- },
- {
-  "kind": "noul",
-  "pregunta": "¿Contiene datos personales?",
-  "opciones": [
-   {
-    "id": "false",
-    "description": "no"
-   },
-   {
-    "id": "true",
-    "description": "nombre, cédula o teléfono"
-   }
-  ],
-  "v1": [
-   "passage: ¿Contiene datos personales? · true · nombre, cédula o teléfono"
-  ],
-  "v2_sin_id": [
-   "passage: ¿Contiene datos personales? · nombre, cédula o teléfono"
-  ]
- },
- {
-  "kind": "noul",
-  "pregunta": "¿Es urgente?",
-  "opciones": [
-   {
-    "id": "true",
-    "description": ""
-   },
-   {
-    "id": "false",
-    "description": "no"
-   }
-  ],
-  "v1": [
-   "passage: ¿Es urgente? · true · "
-  ],
-  "v2_sin_id": [
-   "passage: ¿Es urgente? · true · "
-  ]
- },
- {
-  "kind": "noul",
-  "pregunta": "¿Odio?",
-  "opciones": [
-   {
-    "id": "true",
-    "description": "   "
-   },
-   {
-    "id": "false",
-    "description": "no hay"
-   }
-  ],
-  "v1": [
-   "passage: ¿Odio? · true ·    "
-  ],
-  "v2_sin_id": [
-   "passage: ¿Odio? · true ·    "
-  ]
- },
- {
-  "kind": "score",
-  "pregunta": "Gravedad",
-  "opciones": [
-   {
-    "id": "1",
-    "description": "baja"
-   },
-   {
-    "id": "2",
-    "description": "media"
-   },
-   {
-    "id": "3",
-    "description": "alta"
-   }
-  ],
-  "v1": [
-   "passage: Gravedad · 3 · alta"
-  ],
-  "v2_sin_id": [
-   "passage: Gravedad · alta"
-  ]
- },
- {
-  "kind": "score",
-  "pregunta": "Satisfacción desordenada",
-  "opciones": [
-   {
-    "id": "5",
-    "description": "muy satisfecho"
-   },
-   {
-    "id": "4",
-    "description": ""
-   },
-   {
-    "id": "1",
-    "description": "nada"
-   },
-   {
-    "id": "3",
-    "description": ""
-   },
-   {
-    "id": "2",
-    "description": ""
-   }
-  ],
-  "v1": [
-   "passage: Satisfacción desordenada · 5 · muy satisfecho"
-  ],
-  "v2_sin_id": [
-   "passage: Satisfacción desordenada · muy satisfecho"
-  ]
- },
- {
-  "kind": "score",
-  "pregunta": "Máximo sin descripción",
-  "opciones": [
-   {
-    "id": "2",
-    "description": " "
-   },
-   {
-    "id": "1",
-    "description": "bajo"
-   }
-  ],
-  "v1": [
-   "passage: Máximo sin descripción · 2 ·  "
-  ],
-  "v2_sin_id": [
-   "passage: Máximo sin descripción · 2 ·  "
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Dos descripciones iguales",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "pedir ayuda"
-   },
-   {
-    "id": "b",
-    "description": "pedir ayuda"
-   },
-   {
-    "id": "c",
-    "description": "otra cosa"
-   }
-  ],
-  "v1": [
-   "passage: Dos descripciones iguales · a · pedir ayuda",
-   "passage: Dos descripciones iguales · b · pedir ayuda",
-   "passage: Dos descripciones iguales · c · otra cosa"
-  ],
-  "v2_sin_id": [
-   "passage: Dos descripciones iguales · a · pedir ayuda",
-   "passage: Dos descripciones iguales · b · pedir ayuda",
-   "passage: Dos descripciones iguales · otra cosa"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Iguales salvo espacios en los extremos",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "reclamo"
-   },
-   {
-    "id": "b",
-    "description": "  reclamo\t"
-   },
-   {
-    "id": "c",
-    "description": "\u001creclamo\n"
-   },
-   {
-    "id": "d",
-    "description": "recl amo"
-   }
-  ],
-  "v1": [
-   "passage: Iguales salvo espacios en los extremos · a · reclamo",
-   "passage: Iguales salvo espacios en los extremos · b ·   reclamo\t",
-   "passage: Iguales salvo espacios en los extremos · c · \u001creclamo\n",
-   "passage: Iguales salvo espacios en los extremos · d · recl amo"
-  ],
-  "v2_sin_id": [
-   "passage: Iguales salvo espacios en los extremos · a · reclamo",
-   "passage: Iguales salvo espacios en los extremos · b ·   reclamo\t",
-   "passage: Iguales salvo espacios en los extremos · c · \u001creclamo\n",
-   "passage: Iguales salvo espacios en los extremos · recl amo"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Tres con dos iguales",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "x"
-   },
-   {
-    "id": "b",
-    "description": "y"
-   },
-   {
-    "id": "c",
-    "description": "x"
-   }
-  ],
-  "v1": [
-   "passage: Tres con dos iguales · a · x",
-   "passage: Tres con dos iguales · b · y",
-   "passage: Tres con dos iguales · c · x"
-  ],
-  "v2_sin_id": [
-   "passage: Tres con dos iguales · a · x",
-   "passage: Tres con dos iguales · y",
-   "passage: Tres con dos iguales · c · x"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Tres iguales y una distinta",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "z"
-   },
-   {
-    "id": "b",
-    "description": "z"
-   },
-   {
-    "id": "c",
-    "description": "z"
-   },
-   {
-    "id": "d",
-    "description": "w"
-   }
-  ],
-  "v1": [
-   "passage: Tres iguales y una distinta · a · z",
-   "passage: Tres iguales y una distinta · b · z",
-   "passage: Tres iguales y una distinta · c · z",
-   "passage: Tres iguales y una distinta · d · w"
-  ],
-  "v2_sin_id": [
-   "passage: Tres iguales y una distinta · a · z",
-   "passage: Tres iguales y una distinta · b · z",
-   "passage: Tres iguales y una distinta · c · z",
-   "passage: Tres iguales y una distinta · w"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Vacías repetidas no cuentan",
-  "opciones": [
-   {
-    "id": "a",
-    "description": ""
-   },
-   {
-    "id": "b",
-    "description": "  "
-   },
-   {
-    "id": "c",
-    "description": "uno"
-   }
-  ],
-  "v1": [
-   "passage: Vacías repetidas no cuentan · a · ",
-   "passage: Vacías repetidas no cuentan · b ·   ",
-   "passage: Vacías repetidas no cuentan · c · uno"
-  ],
-  "v2_sin_id": [
-   "passage: Vacías repetidas no cuentan · a · ",
-   "passage: Vacías repetidas no cuentan · b ·   ",
-   "passage: Vacías repetidas no cuentan · uno"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Distintas por mayúsculas",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "Saldo"
-   },
-   {
-    "id": "b",
-    "description": "saldo"
-   }
-  ],
-  "v1": [
-   "passage: Distintas por mayúsculas · a · Saldo",
-   "passage: Distintas por mayúsculas · b · saldo"
-  ],
-  "v2_sin_id": [
-   "passage: Distintas por mayúsculas · Saldo",
-   "passage: Distintas por mayúsculas · saldo"
-  ]
- },
- {
-  "kind": "multi",
-  "pregunta": "Etiquetas repetidas",
-  "opciones": [
-   {
-    "id": "pago",
-    "description": "problema"
-   },
-   {
-    "id": "envío",
-    "description": "problema"
-   },
-   {
-    "id": "cuenta",
-    "description": "acceso"
-   },
-   {
-    "id": "v",
-    "description": "  problema "
-   }
-  ],
-  "v1": [
-   "passage: Etiquetas repetidas · pago · problema",
-   "passage: Etiquetas repetidas · envío · problema",
-   "passage: Etiquetas repetidas · cuenta · acceso",
-   "passage: Etiquetas repetidas · v ·   problema "
-  ],
-  "v2_sin_id": [
-   "passage: Etiquetas repetidas · pago · problema",
-   "passage: Etiquetas repetidas · envío · problema",
-   "passage: Etiquetas repetidas · acceso",
-   "passage: Etiquetas repetidas · v ·   problema "
-  ]
- },
- {
-  "kind": "noul",
-  "pregunta": "¿Repetida en noul?",
-  "opciones": [
-   {
-    "id": "false",
-    "description": "no hay"
-   },
-   {
-    "id": "true",
-    "description": "no hay"
-   }
-  ],
-  "v1": [
-   "passage: ¿Repetida en noul? · true · no hay"
-  ],
-  "v2_sin_id": [
-   "passage: ¿Repetida en noul? · true · no hay"
-  ]
- },
- {
-  "kind": "noul",
-  "pregunta": "¿Repetida distinta?",
-  "opciones": [
-   {
-    "id": "false",
-    "description": "otra"
-   },
-   {
-    "id": "true",
-    "description": "datos"
-   }
-  ],
-  "v1": [
-   "passage: ¿Repetida distinta? · true · datos"
-  ],
-  "v2_sin_id": [
-   "passage: ¿Repetida distinta? · datos"
-  ]
- },
- {
-  "kind": "score",
-  "pregunta": "Repetidas en score",
-  "opciones": [
-   {
-    "id": "1",
-    "description": "igual"
-   },
-   {
-    "id": "2",
-    "description": "igual"
-   },
-   {
-    "id": "3",
-    "description": "alta"
-   }
-  ],
-  "v1": [
-   "passage: Repetidas en score · 3 · alta"
-  ],
-  "v2_sin_id": [
-   "passage: Repetidas en score · alta"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Espacios Unicode son espacio",
-  "opciones": [
-   {
-    "id": "a",
-    "description": " "
-   },
-   {
-    "id": "b",
-    "description": "　"
-   },
-   {
-    "id": "c",
-    "description": " "
-   },
-   {
-    "id": "d",
-    "description": ""
-   },
-   {
-    "id": "e",
-    "description": "x"
-   }
-  ],
-  "v1": [
-   "passage: Espacios Unicode son espacio · a ·  ",
-   "passage: Espacios Unicode son espacio · b · 　",
-   "passage: Espacios Unicode son espacio · c ·  ",
-   "passage: Espacios Unicode son espacio · d · ",
-   "passage: Espacios Unicode son espacio · e · x"
-  ],
-  "v2_sin_id": [
-   "passage: Espacios Unicode son espacio · a ·  ",
-   "passage: Espacios Unicode son espacio · b · 　",
-   "passage: Espacios Unicode son espacio · c ·  ",
-   "passage: Espacios Unicode son espacio · d · ",
-   "passage: Espacios Unicode son espacio · x"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "Espacios Unicode alrededor",
-  "opciones": [
-   {
-    "id": "a",
-    "description": " saldo　"
-   },
-   {
-    "id": "b",
-    "description": "saldo"
-   },
-   {
-    "id": "c",
-    "description": " saldo"
-   },
-   {
-    "id": "d",
-    "description": "otra"
-   }
-  ],
-  "v1": [
-   "passage: Espacios Unicode alrededor · a ·  saldo　",
-   "passage: Espacios Unicode alrededor · b · saldo",
-   "passage: Espacios Unicode alrededor · c ·  saldo",
-   "passage: Espacios Unicode alrededor · d · otra"
-  ],
-  "v2_sin_id": [
-   "passage: Espacios Unicode alrededor · a ·  saldo　",
-   "passage: Espacios Unicode alrededor · b · saldo",
-   "passage: Espacios Unicode alrededor · c ·  saldo",
-   "passage: Espacios Unicode alrededor · otra"
-  ]
- },
- {
-  "kind": "choice",
-  "pregunta": "U+200B no es espacio",
-  "opciones": [
-   {
-    "id": "a",
-    "description": "​"
-   },
-   {
-    "id": "b",
-    "description": "​"
-   },
-   {
-    "id": "c",
-    "description": "​x"
-   },
-   {
-    "id": "d",
-    "description": "x"
-   }
-  ],
-  "v1": [
-   "passage: U+200B no es espacio · a · ​",
-   "passage: U+200B no es espacio · b · ​",
-   "passage: U+200B no es espacio · c · ​x",
-   "passage: U+200B no es espacio · d · x"
-  ],
-  "v2_sin_id": [
-   "passage: U+200B no es espacio · a · ​",
-   "passage: U+200B no es espacio · b · ​",
-   "passage: U+200B no es espacio · ​x",
-   "passage: U+200B no es espacio · x"
-  ]
- }
-]
+{
+ "opciones": [
+  {
+   "pregunta": "¿Qué quiere hacer el usuario con el asistente?",
+   "opcion": "alarma_poner",
+   "descripcion": "Poner una alarma a una hora concreta.",
+   "v1": "passage: ¿Qué quiere hacer el usuario con el asistente? · alarma_poner · Poner una alarma a una hora concreta.",
+   "v2": "passage: ¿Qué quiere hacer el usuario con el asistente? · Poner una alarma a una hora concreta."
+  },
+  {
+   "pregunta": "¿Es spam?",
+   "opcion": "true",
+   "descripcion": "Mensaje no deseado.",
+   "v1": "passage: ¿Es spam? · true · Mensaje no deseado.",
+   "v2": "passage: ¿Es spam? · Mensaje no deseado."
+  },
+  {
+   "pregunta": "¿Es spam?",
+   "opcion": "false",
+   "descripcion": "Mensaje legítimo.",
+   "v1": "passage: ¿Es spam? · false · Mensaje legítimo.",
+   "v2": "passage: ¿Es spam? · Mensaje legítimo."
+  },
+  {
+   "pregunta": "¿Qué acción pide la persona?",
+   "opcion": "alarma_poner",
+   "descripcion": "",
+   "v1": "passage: ¿Qué acción pide la persona? · alarma_poner · ",
+   "v2": "passage: ¿Qué acción pide la persona? · alarma_poner · "
+  },
+  {
+   "pregunta": "¿Qué acción pide la persona?",
+   "opcion": "x1",
+   "descripcion": "   ",
+   "v1": "passage: ¿Qué acción pide la persona? · x1 ·    ",
+   "v2": "passage: ¿Qué acción pide la persona? · x1 ·    "
+  },
+  {
+   "pregunta": "¿Qué acción pide la persona?",
+   "opcion": "x2",
+   "descripcion": "\t\n ",
+   "v1": "passage: ¿Qué acción pide la persona? · x2 · \t\n ",
+   "v2": "passage: ¿Qué acción pide la persona? · x2 · \t\n "
+  },
+  {
+   "pregunta": "¿Qué año es?",
+   "opcion": "anio",
+   "descripcion": "Año nuevo: ¿qué pasó? ñandú, café, 日本",
+   "v1": "passage: ¿Qué año es? · anio · Año nuevo: ¿qué pasó? ñandú, café, 日本",
+   "v2": "passage: ¿Qué año es? · Año nuevo: ¿qué pasó? ñandú, café, 日本"
+  },
+  {
+   "pregunta": "¿Cuál es la señal más ñoña?",
+   "opcion": "señal_ñ",
+   "descripcion": "Señalización española: pingüino, acción.",
+   "v1": "passage: ¿Cuál es la señal más ñoña? · señal_ñ · Señalización española: pingüino, acción.",
+   "v2": "passage: ¿Cuál es la señal más ñoña? · Señalización española: pingüino, acción."
+  },
+  {
+   "pregunta": "¿Qué etiquetas aplican al texto? (varias)",
+   "opcion": "tema_política",
+   "descripcion": "Política y gobierno, con espacios al final   ",
+   "v1": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_política · Política y gobierno, con espacios al final   ",
+   "v2": "passage: ¿Qué etiquetas aplican al texto? (varias) · Política y gobierno, con espacios al final   "
+  },
+  {
+   "pregunta": "¿Qué etiquetas aplican al texto? (varias)",
+   "opcion": "tema_deporte",
+   "descripcion": "  Deportes: fútbol, tenis",
+   "v1": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_deporte ·   Deportes: fútbol, tenis",
+   "v2": "passage: ¿Qué etiquetas aplican al texto? (varias) ·   Deportes: fútbol, tenis"
+  },
+  {
+   "pregunta": "¿Qué etiquetas aplican al texto? (varias)",
+   "opcion": "tema_otros",
+   "descripcion": "",
+   "v1": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_otros · ",
+   "v2": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_otros · "
+  },
+  {
+   "pregunta": "What does the user want?",
+   "opcion": "book_flight",
+   "descripcion": "Book a flight.",
+   "v1": "passage: What does the user want? · book_flight · Book a flight.",
+   "v2": "passage: What does the user want? · Book a flight."
+  },
+  {
+   "pregunta": "¿Cuánto es?",
+   "opcion": "3",
+   "descripcion": "Nivel 3 de 5",
+   "v1": "passage: ¿Cuánto es? · 3 · Nivel 3 de 5",
+   "v2": "passage: ¿Cuánto es? · Nivel 3 de 5"
+  }
+ ],
+ "preguntas": [
+  {
+   "kind": "choice",
+   "pregunta": "¿Qué quiere el cliente?",
+   "opciones": [
+    {
+     "id": "fraude",
+     "description": "cargo no reconocido"
+    },
+    {
+     "id": "saldo",
+     "description": ""
+    },
+    {
+     "id": "tarjeta",
+     "description": "bloqueo o reposición"
+    }
+   ],
+   "v1": [
+    "passage: ¿Qué quiere el cliente? · fraude · cargo no reconocido",
+    "passage: ¿Qué quiere el cliente? · saldo · ",
+    "passage: ¿Qué quiere el cliente? · tarjeta · bloqueo o reposición"
+   ],
+   "v2_sin_id": [
+    "passage: ¿Qué quiere el cliente? · cargo no reconocido",
+    "passage: ¿Qué quiere el cliente? · saldo · ",
+    "passage: ¿Qué quiere el cliente? · bloqueo o reposición"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Solo descripciones",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "primera"
+    },
+    {
+     "id": "b",
+     "description": "segunda"
+    }
+   ],
+   "v1": [
+    "passage: Solo descripciones · a · primera",
+    "passage: Solo descripciones · b · segunda"
+   ],
+   "v2_sin_id": [
+    "passage: Solo descripciones · primera",
+    "passage: Solo descripciones · segunda"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Sin ninguna",
+   "opciones": [
+    {
+     "id": "a",
+     "description": ""
+    },
+    {
+     "id": "b",
+     "description": ""
+    }
+   ],
+   "v1": [
+    "passage: Sin ninguna · a · ",
+    "passage: Sin ninguna · b · "
+   ],
+   "v2_sin_id": [
+    "passage: Sin ninguna · a · ",
+    "passage: Sin ninguna · b · "
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Solo espacios",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "   "
+    },
+    {
+     "id": "b",
+     "description": "\t\n"
+    },
+    {
+     "id": "c",
+     "description": "  "
+    },
+    {
+     "id": "d",
+     "description": "\u001c\u001f"
+    },
+    {
+     "id": "e",
+     "description": "x"
+    }
+   ],
+   "v1": [
+    "passage: Solo espacios · a ·    ",
+    "passage: Solo espacios · b · \t\n",
+    "passage: Solo espacios · c ·   ",
+    "passage: Solo espacios · d · \u001c\u001f",
+    "passage: Solo espacios · e · x"
+   ],
+   "v2_sin_id": [
+    "passage: Solo espacios · a ·    ",
+    "passage: Solo espacios · b · \t\n",
+    "passage: Solo espacios · c ·   ",
+    "passage: Solo espacios · d · \u001c\u001f",
+    "passage: Solo espacios · x"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Espacios alrededor",
+   "opciones": [
+    {
+     "id": "op",
+     "description": "  con espacios  "
+    },
+    {
+     "id": "otra",
+     "description": ""
+    }
+   ],
+   "v1": [
+    "passage: Espacios alrededor · op ·   con espacios  ",
+    "passage: Espacios alrededor · otra · "
+   ],
+   "v2_sin_id": [
+    "passage: Espacios alrededor ·   con espacios  ",
+    "passage: Espacios alrededor · otra · "
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Acentos y ñ: ¿qué pasó?",
+   "opciones": [
+    {
+     "id": "español",
+     "description": "señal · año nuevo"
+    },
+    {
+     "id": "sí",
+     "description": "café, ñandú"
+    },
+    {
+     "id": "日本",
+     "description": "日本語"
+    }
+   ],
+   "v1": [
+    "passage: Acentos y ñ: ¿qué pasó? · español · señal · año nuevo",
+    "passage: Acentos y ñ: ¿qué pasó? · sí · café, ñandú",
+    "passage: Acentos y ñ: ¿qué pasó? · 日本 · 日本語"
+   ],
+   "v2_sin_id": [
+    "passage: Acentos y ñ: ¿qué pasó? · señal · año nuevo",
+    "passage: Acentos y ñ: ¿qué pasó? · café, ñandú",
+    "passage: Acentos y ñ: ¿qué pasó? · 日本語"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "",
+   "opciones": [
+    {
+     "id": "x",
+     "description": "d"
+    }
+   ],
+   "v1": [
+    "passage:  · x · d"
+   ],
+   "v2_sin_id": [
+    "passage:  · d"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Salto\nde línea",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "x\ty"
+    },
+    {
+     "id": "b",
+     "description": ""
+    }
+   ],
+   "v1": [
+    "passage: Salto\nde línea · a · x\ty",
+    "passage: Salto\nde línea · b · "
+   ],
+   "v2_sin_id": [
+    "passage: Salto\nde línea · x\ty",
+    "passage: Salto\nde línea · b · "
+   ]
+  },
+  {
+   "kind": "multi",
+   "pregunta": "Etiquetas del ticket",
+   "opciones": [
+    {
+     "id": "pago",
+     "description": "problemas de pago"
+    },
+    {
+     "id": "envío",
+     "description": ""
+    },
+    {
+     "id": "cuenta",
+     "description": "acceso"
+    },
+    {
+     "id": "v",
+     "description": "  "
+    }
+   ],
+   "v1": [
+    "passage: Etiquetas del ticket · pago · problemas de pago",
+    "passage: Etiquetas del ticket · envío · ",
+    "passage: Etiquetas del ticket · cuenta · acceso",
+    "passage: Etiquetas del ticket · v ·   "
+   ],
+   "v2_sin_id": [
+    "passage: Etiquetas del ticket · problemas de pago",
+    "passage: Etiquetas del ticket · envío · ",
+    "passage: Etiquetas del ticket · acceso",
+    "passage: Etiquetas del ticket · v ·   "
+   ]
+  },
+  {
+   "kind": "noul",
+   "pregunta": "¿Contiene datos personales?",
+   "opciones": [
+    {
+     "id": "false",
+     "description": "no"
+    },
+    {
+     "id": "true",
+     "description": "nombre, cédula o teléfono"
+    }
+   ],
+   "v1": [
+    "passage: ¿Contiene datos personales? · true · nombre, cédula o teléfono"
+   ],
+   "v2_sin_id": [
+    "passage: ¿Contiene datos personales? · nombre, cédula o teléfono"
+   ]
+  },
+  {
+   "kind": "noul",
+   "pregunta": "¿Es urgente?",
+   "opciones": [
+    {
+     "id": "true",
+     "description": ""
+    },
+    {
+     "id": "false",
+     "description": "no"
+    }
+   ],
+   "v1": [
+    "passage: ¿Es urgente? · true · "
+   ],
+   "v2_sin_id": [
+    "passage: ¿Es urgente? · true · "
+   ]
+  },
+  {
+   "kind": "noul",
+   "pregunta": "¿Odio?",
+   "opciones": [
+    {
+     "id": "true",
+     "description": "   "
+    },
+    {
+     "id": "false",
+     "description": "no hay"
+    }
+   ],
+   "v1": [
+    "passage: ¿Odio? · true ·    "
+   ],
+   "v2_sin_id": [
+    "passage: ¿Odio? · true ·    "
+   ]
+  },
+  {
+   "kind": "score",
+   "pregunta": "Gravedad",
+   "opciones": [
+    {
+     "id": "1",
+     "description": "baja"
+    },
+    {
+     "id": "2",
+     "description": "media"
+    },
+    {
+     "id": "3",
+     "description": "alta"
+    }
+   ],
+   "v1": [
+    "passage: Gravedad · 3 · alta"
+   ],
+   "v2_sin_id": [
+    "passage: Gravedad · alta"
+   ]
+  },
+  {
+   "kind": "score",
+   "pregunta": "Satisfacción desordenada",
+   "opciones": [
+    {
+     "id": "5",
+     "description": "muy satisfecho"
+    },
+    {
+     "id": "4",
+     "description": ""
+    },
+    {
+     "id": "1",
+     "description": "nada"
+    },
+    {
+     "id": "3",
+     "description": ""
+    },
+    {
+     "id": "2",
+     "description": ""
+    }
+   ],
+   "v1": [
+    "passage: Satisfacción desordenada · 5 · muy satisfecho"
+   ],
+   "v2_sin_id": [
+    "passage: Satisfacción desordenada · muy satisfecho"
+   ]
+  },
+  {
+   "kind": "score",
+   "pregunta": "Máximo sin descripción",
+   "opciones": [
+    {
+     "id": "2",
+     "description": " "
+    },
+    {
+     "id": "1",
+     "description": "bajo"
+    }
+   ],
+   "v1": [
+    "passage: Máximo sin descripción · 2 ·  "
+   ],
+   "v2_sin_id": [
+    "passage: Máximo sin descripción · 2 ·  "
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Repetidas: dos iguales",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "mismo texto"
+    },
+    {
+     "id": "b",
+     "description": "mismo texto"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas: dos iguales · a · mismo texto",
+    "passage: Repetidas: dos iguales · b · mismo texto"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas: dos iguales · a · mismo texto",
+    "passage: Repetidas: dos iguales · b · mismo texto"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Repetidas: iguales salvo espacios",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "  igual  "
+    },
+    {
+     "id": "b",
+     "description": "igual\n"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas: iguales salvo espacios · a ·   igual  ",
+    "passage: Repetidas: iguales salvo espacios · b · igual\n"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas: iguales salvo espacios · a ·   igual  ",
+    "passage: Repetidas: iguales salvo espacios · b · igual\n"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Repetidas: tres opciones, dos iguales",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "común"
+    },
+    {
+     "id": "b",
+     "description": "única"
+    },
+    {
+     "id": "c",
+     "description": "común"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas: tres opciones, dos iguales · a · común",
+    "passage: Repetidas: tres opciones, dos iguales · b · única",
+    "passage: Repetidas: tres opciones, dos iguales · c · común"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas: tres opciones, dos iguales · a · común",
+    "passage: Repetidas: tres opciones, dos iguales · única",
+    "passage: Repetidas: tres opciones, dos iguales · c · común"
+   ]
+  },
+  {
+   "kind": "multi",
+   "pregunta": "Repetidas: dos iguales",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "mismo texto"
+    },
+    {
+     "id": "b",
+     "description": "mismo texto"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas: dos iguales · a · mismo texto",
+    "passage: Repetidas: dos iguales · b · mismo texto"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas: dos iguales · a · mismo texto",
+    "passage: Repetidas: dos iguales · b · mismo texto"
+   ]
+  },
+  {
+   "kind": "multi",
+   "pregunta": "Repetidas: iguales salvo espacios",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "  igual  "
+    },
+    {
+     "id": "b",
+     "description": "igual\n"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas: iguales salvo espacios · a ·   igual  ",
+    "passage: Repetidas: iguales salvo espacios · b · igual\n"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas: iguales salvo espacios · a ·   igual  ",
+    "passage: Repetidas: iguales salvo espacios · b · igual\n"
+   ]
+  },
+  {
+   "kind": "multi",
+   "pregunta": "Repetidas: tres opciones, dos iguales",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "común"
+    },
+    {
+     "id": "b",
+     "description": "única"
+    },
+    {
+     "id": "c",
+     "description": "común"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas: tres opciones, dos iguales · a · común",
+    "passage: Repetidas: tres opciones, dos iguales · b · única",
+    "passage: Repetidas: tres opciones, dos iguales · c · común"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas: tres opciones, dos iguales · a · común",
+    "passage: Repetidas: tres opciones, dos iguales · única",
+    "passage: Repetidas: tres opciones, dos iguales · c · común"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Dos descripciones iguales",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "pedir ayuda"
+    },
+    {
+     "id": "b",
+     "description": "pedir ayuda"
+    },
+    {
+     "id": "c",
+     "description": "otra cosa"
+    }
+   ],
+   "v1": [
+    "passage: Dos descripciones iguales · a · pedir ayuda",
+    "passage: Dos descripciones iguales · b · pedir ayuda",
+    "passage: Dos descripciones iguales · c · otra cosa"
+   ],
+   "v2_sin_id": [
+    "passage: Dos descripciones iguales · a · pedir ayuda",
+    "passage: Dos descripciones iguales · b · pedir ayuda",
+    "passage: Dos descripciones iguales · otra cosa"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Iguales salvo espacios en los extremos",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "reclamo"
+    },
+    {
+     "id": "b",
+     "description": "  reclamo\t"
+    },
+    {
+     "id": "c",
+     "description": "\u001creclamo\n"
+    },
+    {
+     "id": "d",
+     "description": "recl amo"
+    }
+   ],
+   "v1": [
+    "passage: Iguales salvo espacios en los extremos · a · reclamo",
+    "passage: Iguales salvo espacios en los extremos · b ·   reclamo\t",
+    "passage: Iguales salvo espacios en los extremos · c · \u001creclamo\n",
+    "passage: Iguales salvo espacios en los extremos · d · recl amo"
+   ],
+   "v2_sin_id": [
+    "passage: Iguales salvo espacios en los extremos · a · reclamo",
+    "passage: Iguales salvo espacios en los extremos · b ·   reclamo\t",
+    "passage: Iguales salvo espacios en los extremos · c · \u001creclamo\n",
+    "passage: Iguales salvo espacios en los extremos · recl amo"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Tres con dos iguales",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "x"
+    },
+    {
+     "id": "b",
+     "description": "y"
+    },
+    {
+     "id": "c",
+     "description": "x"
+    }
+   ],
+   "v1": [
+    "passage: Tres con dos iguales · a · x",
+    "passage: Tres con dos iguales · b · y",
+    "passage: Tres con dos iguales · c · x"
+   ],
+   "v2_sin_id": [
+    "passage: Tres con dos iguales · a · x",
+    "passage: Tres con dos iguales · y",
+    "passage: Tres con dos iguales · c · x"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Tres iguales y una distinta",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "z"
+    },
+    {
+     "id": "b",
+     "description": "z"
+    },
+    {
+     "id": "c",
+     "description": "z"
+    },
+    {
+     "id": "d",
+     "description": "w"
+    }
+   ],
+   "v1": [
+    "passage: Tres iguales y una distinta · a · z",
+    "passage: Tres iguales y una distinta · b · z",
+    "passage: Tres iguales y una distinta · c · z",
+    "passage: Tres iguales y una distinta · d · w"
+   ],
+   "v2_sin_id": [
+    "passage: Tres iguales y una distinta · a · z",
+    "passage: Tres iguales y una distinta · b · z",
+    "passage: Tres iguales y una distinta · c · z",
+    "passage: Tres iguales y una distinta · w"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Vacías repetidas no cuentan",
+   "opciones": [
+    {
+     "id": "a",
+     "description": ""
+    },
+    {
+     "id": "b",
+     "description": "  "
+    },
+    {
+     "id": "c",
+     "description": "uno"
+    }
+   ],
+   "v1": [
+    "passage: Vacías repetidas no cuentan · a · ",
+    "passage: Vacías repetidas no cuentan · b ·   ",
+    "passage: Vacías repetidas no cuentan · c · uno"
+   ],
+   "v2_sin_id": [
+    "passage: Vacías repetidas no cuentan · a · ",
+    "passage: Vacías repetidas no cuentan · b ·   ",
+    "passage: Vacías repetidas no cuentan · uno"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Distintas por mayúsculas",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "Saldo"
+    },
+    {
+     "id": "b",
+     "description": "saldo"
+    }
+   ],
+   "v1": [
+    "passage: Distintas por mayúsculas · a · Saldo",
+    "passage: Distintas por mayúsculas · b · saldo"
+   ],
+   "v2_sin_id": [
+    "passage: Distintas por mayúsculas · Saldo",
+    "passage: Distintas por mayúsculas · saldo"
+   ]
+  },
+  {
+   "kind": "multi",
+   "pregunta": "Etiquetas repetidas",
+   "opciones": [
+    {
+     "id": "pago",
+     "description": "problema"
+    },
+    {
+     "id": "envío",
+     "description": "problema"
+    },
+    {
+     "id": "cuenta",
+     "description": "acceso"
+    },
+    {
+     "id": "v",
+     "description": "  problema "
+    }
+   ],
+   "v1": [
+    "passage: Etiquetas repetidas · pago · problema",
+    "passage: Etiquetas repetidas · envío · problema",
+    "passage: Etiquetas repetidas · cuenta · acceso",
+    "passage: Etiquetas repetidas · v ·   problema "
+   ],
+   "v2_sin_id": [
+    "passage: Etiquetas repetidas · pago · problema",
+    "passage: Etiquetas repetidas · envío · problema",
+    "passage: Etiquetas repetidas · acceso",
+    "passage: Etiquetas repetidas · v ·   problema "
+   ]
+  },
+  {
+   "kind": "noul",
+   "pregunta": "¿Repetida en noul?",
+   "opciones": [
+    {
+     "id": "false",
+     "description": "no hay"
+    },
+    {
+     "id": "true",
+     "description": "no hay"
+    }
+   ],
+   "v1": [
+    "passage: ¿Repetida en noul? · true · no hay"
+   ],
+   "v2_sin_id": [
+    "passage: ¿Repetida en noul? · true · no hay"
+   ]
+  },
+  {
+   "kind": "noul",
+   "pregunta": "¿Repetida distinta?",
+   "opciones": [
+    {
+     "id": "false",
+     "description": "otra"
+    },
+    {
+     "id": "true",
+     "description": "datos"
+    }
+   ],
+   "v1": [
+    "passage: ¿Repetida distinta? · true · datos"
+   ],
+   "v2_sin_id": [
+    "passage: ¿Repetida distinta? · datos"
+   ]
+  },
+  {
+   "kind": "score",
+   "pregunta": "Repetidas en score",
+   "opciones": [
+    {
+     "id": "1",
+     "description": "igual"
+    },
+    {
+     "id": "2",
+     "description": "igual"
+    },
+    {
+     "id": "3",
+     "description": "alta"
+    }
+   ],
+   "v1": [
+    "passage: Repetidas en score · 3 · alta"
+   ],
+   "v2_sin_id": [
+    "passage: Repetidas en score · alta"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Espacios Unicode son espacio",
+   "opciones": [
+    {
+     "id": "a",
+     "description": " "
+    },
+    {
+     "id": "b",
+     "description": "　"
+    },
+    {
+     "id": "c",
+     "description": " "
+    },
+    {
+     "id": "d",
+     "description": ""
+    },
+    {
+     "id": "e",
+     "description": "x"
+    }
+   ],
+   "v1": [
+    "passage: Espacios Unicode son espacio · a ·  ",
+    "passage: Espacios Unicode son espacio · b · 　",
+    "passage: Espacios Unicode son espacio · c ·  ",
+    "passage: Espacios Unicode son espacio · d · ",
+    "passage: Espacios Unicode son espacio · e · x"
+   ],
+   "v2_sin_id": [
+    "passage: Espacios Unicode son espacio · a ·  ",
+    "passage: Espacios Unicode son espacio · b · 　",
+    "passage: Espacios Unicode son espacio · c ·  ",
+    "passage: Espacios Unicode son espacio · d · ",
+    "passage: Espacios Unicode son espacio · x"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "Espacios Unicode alrededor",
+   "opciones": [
+    {
+     "id": "a",
+     "description": " saldo　"
+    },
+    {
+     "id": "b",
+     "description": "saldo"
+    },
+    {
+     "id": "c",
+     "description": " saldo"
+    },
+    {
+     "id": "d",
+     "description": "otra"
+    }
+   ],
+   "v1": [
+    "passage: Espacios Unicode alrededor · a ·  saldo　",
+    "passage: Espacios Unicode alrededor · b · saldo",
+    "passage: Espacios Unicode alrededor · c ·  saldo",
+    "passage: Espacios Unicode alrededor · d · otra"
+   ],
+   "v2_sin_id": [
+    "passage: Espacios Unicode alrededor · a ·  saldo　",
+    "passage: Espacios Unicode alrededor · b · saldo",
+    "passage: Espacios Unicode alrededor · c ·  saldo",
+    "passage: Espacios Unicode alrededor · otra"
+   ]
+  },
+  {
+   "kind": "choice",
+   "pregunta": "U+200B no es espacio",
+   "opciones": [
+    {
+     "id": "a",
+     "description": "​"
+    },
+    {
+     "id": "b",
+     "description": "​"
+    },
+    {
+     "id": "c",
+     "description": "​x"
+    },
+    {
+     "id": "d",
+     "description": "x"
+    }
+   ],
+   "v1": [
+    "passage: U+200B no es espacio · a · ​",
+    "passage: U+200B no es espacio · b · ​",
+    "passage: U+200B no es espacio · c · ​x",
+    "passage: U+200B no es espacio · d · x"
+   ],
+   "v2_sin_id": [
+    "passage: U+200B no es espacio · a · ​",
+    "passage: U+200B no es espacio · b · ​",
+    "passage: U+200B no es espacio · ​x",
+    "passage: U+200B no es espacio · x"
+   ]
+  }
+ ]
+}
