@@ -159,13 +159,14 @@ Misma entrada, misma salida entre el servidor Go, `chispamovil` y Python, y con 
 El conjunto dorado común vive en [`server/decide/testdata/dorados/`](../server/decide/testdata/dorados): tres `.chispa` pequeños
 (`l0l1`: L0 + L1 diminuto; `l0tf`: L0 TF-IDF; `l2`: L2 con ONNX falso), `peticiones.json` (165: choice, noul, score y multi),
 `esperado.json` (la respuesta de cada capa y de la cascada L0→L1→L2→L3 falso), `claves.json` (claves de esquema) y `ort.json` (L2 con ORT real).
+`entorno.json` guarda dónde se generaron: `go_version`, `goarch`, modelo de CPU, si tiene FMA y `huella_math` (hash de `math.Exp/Log/Tanh/Pow/Sqrt` sobre entradas fijas).
 Lo genera el servidor amd64: `go test ./decide -run Dorados -regenerar` (desde `server/`; con `-tags ort` y `CHISPA_ORT_LIB`
 y `-run DoradosORT` regenera `ort.json`). Regenerar dos veces da los mismos bytes.
 
 | comprobación | qué compara | tolerancia | medido |
 |---|---|---|---|
-| servidor, amd64 | L0, L0TF, L1, L2 (sesión y torres falsas deterministas) y cascada, en los 4 tipos | **bit a bit** | 0 |
-| servidor, otra arquitectura (arm64) | lo mismo | 1e-9 (el compilador de Go fusiona `x*y+z` en FMA en arm64 y mueve el último bit de float64) | sin medir |
+| servidor, mismo entorno que generó los dorados (`go_version`, `goarch` y `huella_math` de `entorno.json`) | L0, L0TF, L1, L2 (sesión y torres falsas deterministas) y cascada, en los 4 tipos | **bit a bit** | 0 |
+| servidor, entorno distinto (otra versión de Go, otra arquitectura, o amd64 con otra CPU respecto a FMA) | lo mismo | **1e-12 relativo**: \|a−b\| ≤ 1e-12·max(\|a\|,\|b\|) | amd64 con `GODEBUG=cpu.fma=off`: < 1e-15 relativo; arm64 sin medir |
 | `chispamovil` (`go test -run Dorados`) | `DecidirL0`, `Decidir` (L1) y `PuntuarL2` con torres instaladas, frente al dorado | 1e-9 en probs y conf; mismas `answer`, `answers` y `opina` | 0 (bit a bit en amd64) |
 | Python (`tests/test_dorados.py`) | formato (CRC, sha256, reescritura idéntica), `hash_esquema2` y `clave_conj` frente al servidor, L0TF en numpy (n-gramas `char_wb` de sklearn) | claves: iguales; L0TF: 1e-9 | 4,4e-16 |
 | L2 con ORT real (`-tags ort`) | ONNX sintético de consulta y de torre | 1e-6 (float32 y ORT) | 0 en la misma máquina |
@@ -173,6 +174,11 @@ y `-run DoradosORT` regenera `ort.json`). Regenerar dos veces da los mismos byte
 
 - Capas: L0 (modelo de kindling), L0TF, L1, L2 y L3 falso en el servidor; en `chispamovil` las que existen allí (L0, L0TF, L1, L2 sin ONNX).
   L2c (cabeza conjunta) no está en el dorado.
+- **Regla de igualdad** (`tolDoradoServidor`): bits idénticos solo si `go_version`, `goarch` y `huella_math` coinciden con `entorno.json`; si no, 1e-12 relativo.
+  Causa medida: en amd64 `math.Exp` (`math/exp_amd64.s`) usa en tiempo de ejecución una rutina con FMA si la CPU lo tiene (`cpu.X86.HasFMA`); con otra CPU
+  (o `GODEBUG=cpu.fma=off`, mismo Go 1.27.1) el último bit de las probabilidades cambia (p. ej. `0.02128968080690917 ≠ 0.021289680806909173`). Por eso la huella mide
+  el resultado real de `math` y no solo la versión de Go; el modelo de CPU y `fma` se guardan para diagnosticar. Solo se comprobó una versión de Go (1.27.1).
+  Un cambio real de comportamiento que quede bajo 1e-12 relativo (p. ej. un redondeo distinto en el 13.º dígito de una probabilidad) no se detecta entre entornos distintos; sí en el mismo.
 - Por qué 1e-9 y no 1e-6 en lo que es solo Go: el cálculo es float64 sobre pesos int8 o float32 ya leídos; solo el FMA de arm64 puede moverlo.
   1e-6 queda para donde entra ORT o float32 de otra implementación.
 - Arm64: el nodo de pruebas no tiene `qemu-user`; `GOARCH=arm64 go test -c ./decide` compila, pero el binario **no se ha ejecutado**.

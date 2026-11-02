@@ -1,0 +1,7 @@
+{
+ "go_version": "go1.27.1",
+ "goarch": "amd64",
+ "cpu_modelo": "12th Gen Intel(R) Core(TM) i7-1255U",
+ "fma": true,
+ "huella_math": "93c1e0effdcaaefb"
+}
