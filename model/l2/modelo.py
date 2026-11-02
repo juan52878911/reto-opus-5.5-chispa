@@ -38,14 +38,21 @@ def normalizar_mayusculas(texto):
 TEXTOS_TORRE = ("v1", "v2_sin_id")
 
 
+def descripcion_repetida(fila, opcion):
+    """¿Otra opción de la misma pregunta tiene la misma descripción (igualdad exacta tras `strip()`)? Las vacías no cuentan."""
+    desc = fila["descripciones"].get(opcion, "").strip()
+    return bool(desc) and sum(fila["descripciones"].get(o, "").strip() == desc for o in fila.get("opciones", fila["descripciones"])) > 1
+
+
 def texto_opcion(fila, opcion, version="v1"):
     """Texto de torre de una opción. v1: pregunta · opción · descripción. v2_sin_id: sin la opción si su descripción (`strip()`) no
-    está vacía; el `strip()` solo decide, el texto lleva la descripción tal cual. Ver contrato-torre.md."""
-    desc = fila["descripciones"].get(opcion, "")
-    if version == "v2_sin_id" and desc.strip():
-        return "passage: %s%s%s" % (fila["pregunta"], SEP, desc)
+    está vacía y no la comparte con otra opción de la pregunta (entonces v1, con id, para que no empaten); el `strip()` solo decide,
+    el texto lleva la descripción tal cual. Ver contrato-torre.md."""
     if version not in TEXTOS_TORRE:
         raise ValueError("texto_torre desconocido: %r" % (version,))
+    desc = fila["descripciones"].get(opcion, "")
+    if version == "v2_sin_id" and desc.strip() and not descripcion_repetida(fila, opcion):
+        return "passage: %s%s%s" % (fila["pregunta"], SEP, desc)
     return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, opcion, SEP, desc)
 
 
