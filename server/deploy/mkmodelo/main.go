@@ -119,9 +119,13 @@ func main() {
 	l0p := flag.String("l0", "testdata/injection.chispa", ".chispa v2 del que sale la sección L0")
 	out := flag.String("out", "tiny.chispa", "fichero de salida")
 	unir := flag.String("unir", "", "lista separada por comas de .chispa v3 a fusionar (ignora -l0)")
+	maxFichero := flag.Int64("max-fichero", 0, "tope en bytes de cada .chispa de -unir (0 = 1 GiB, el del servidor por defecto)")
 	flag.Parse()
+	if *maxFichero < 0 {
+		log.Fatalf("-max-fichero debe ser >= 0: %d", *maxFichero)
+	}
 	if *unir != "" {
-		if err := fusionar(strings.Split(*unir, ","), *out); err != nil {
+		if err := fusionar(strings.Split(*unir, ","), *out, chispa3.Limites{MaxFichero: *maxFichero}); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -151,11 +155,11 @@ func main() {
 	}
 }
 
-func fusionar(rutas []string, out string) error {
+func fusionar(rutas []string, out string, lim chispa3.Limites) error {
 	var secs []chispa3.Seccion
 	vistas := map[chispa3.Tipo]string{}
 	for _, r := range rutas {
-		f, err := chispa3.Abrir(r)
+		f, err := chispa3.AbrirCon(r, lim)
 		if err != nil {
 			return err
 		}
@@ -176,6 +180,10 @@ func fusionar(rutas []string, out string) error {
 	}
 	var buf bytes.Buffer
 	if err := chispa3.Escribir(&buf, secs); err != nil {
+		return err
+	}
+	// el resultado también debe caber en el tope: es lo que luego abre el servidor
+	if _, err := chispa3.Desde(buf.Bytes(), lim); err != nil {
 		return err
 	}
 	return os.WriteFile(out, buf.Bytes(), 0o644)

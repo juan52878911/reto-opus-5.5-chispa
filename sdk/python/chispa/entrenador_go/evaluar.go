@@ -26,7 +26,7 @@ type InformeEval struct {
 
 // evaluar abre la salida con chispa3 (como lo hace el servidor) y mide en plan.prueba.
 func evaluar(p *Plan) (*InformeEval, error) {
-	f, err := chispa3.Abrir(p.Salida)
+	f, err := chispa3.AbrirCon(p.Salida, p.limites())
 	if err != nil {
 		return nil, err
 	}
