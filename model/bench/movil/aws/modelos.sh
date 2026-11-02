@@ -169,10 +169,11 @@ PYEOF
 
 # --- 4. por perfil: torre ONNX y chispa train ---------------------------------------------------------------------------------------
 echo "== 4. torre y chispa train $(date -u +%T)"
-declare -A PERFIL=([fp16]=movil [int8]=movil-int8)
-for v in fp16 int8; do
+declare -A PERFIL=([fp16]=movil [int8]=movil-int8 [servidor]=servidor)
+export VARIANTES=${CHISPA_VARIANTES:-fp16 int8}   # «servidor»: fp32 sin poda (perfil servidor), para chispa-server; sin --vocab-ampliar
+for v in $VARIANTES; do
   p=${PERFIL[$v]}; M=$OUT/modelo-$v.chispa; TORRE=$BASE/torre-$v.onnx
-  if reint timeout "$(tope 8)m" "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" --ckpt "$CKPT" --perfil "$p" --vocab-ampliar "$AMPLIAR" "$EJ" > "$RES/torre-$v.log" 2>&1 \
+  if reint timeout "$(tope 8)m" "$PY" -u -m model.l2.exportar --torre-onnx "$TORRE" --ckpt "$CKPT" --perfil "$p" $([ "$p" = servidor ] || echo --vocab-ampliar "$AMPLIAR" "$EJ") > "$RES/torre-$v.log" 2>&1 \
      && [ -s "$TORRE" ]; then estado "torre_$v" "OK $(stat -c %s "$TORRE") bytes (perfil $p)"
   else tail -10 "$RES/torre-$v.log"; estado "torre_$v" "FALLO ver torre-$v.log"; estado "train_$v" "FALLO sin torre"; fallo "torre $v"; continue; fi
   if reint timeout "$(tope 10)m" "$PY" -u -m chispa train --ejemplos "$EJ" --esquema "$ESQ" --salida "$M" --ckpt "$CKPT" --perfil "$p" --torre "$TORRE" \
@@ -187,13 +188,13 @@ SERV=$BASE/chispa-server ORT_LIB=$ORT_DIR/lib/libonnxruntime.so.$ORT_VERSION
 SERV_OK=0
 if [ ! -f "$ORT_LIB" ] || ! command -v gcc >/dev/null; then
   estado servidor "OMITIDO sin ORT ($ORT_LIB) o sin gcc"; [ "$LOCAL" = 1 ] || fallo "sin ORT para validar"
-  for v in fp16 int8; do estado "validacion_$v" "OMITIDO sin chispa-server"; done
+  for v in $VARIANTES; do estado "validacion_$v" "OMITIDO sin chispa-server"; done
 else
   export CGO_ENABLED=1 LD_LIBRARY_PATH=$ORT_DIR/lib CHISPA_ORT_LIB=$ORT_LIB
   if ( cd "$REPO/server" && timeout "$(tope 7)m" go build -tags ort -ldflags "-X github.com/juan52878911/chispa/server/decide.RutaORT=$ORT_LIB" -o "$SERV" ./cmd/chispa-server ) \
        > "$RES/servidor-build.log" 2>&1 && [ -x "$SERV" ]; then SERV_OK=1; estado servidor "OK chispa-server -tags ort amd64"
   else tail -8 "$RES/servidor-build.log"; estado servidor "FALLO ver servidor-build.log"; fallo "build de chispa-server"; fi
-  for v in fp16 int8; do
+  for v in $VARIANTES; do
     M=$OUT/modelo-$v.chispa
     if [ "$SERV_OK" != 1 ] || [ ! -s "$M" ]; then estado "validacion_$v" "FALLO sin servidor o sin modelo"; fallo "validación $v"; continue; fi
     "$SERV" -addr 127.0.0.1:$PUERTO -modelo "$M" -tok "$TOK" > "$RES/servidor-$v.log" 2>&1 & HP=$!
@@ -248,9 +249,9 @@ from model.l2.calibrar import cargar_modelo
 modelo, _ = cargar_modelo(ckpt, "cpu")
 texto_ckpt = getattr(modelo, "texto_torre", "v1")
 nombres = {v: k for k, v in vars(formato).items() if k in ("META", "L0", "L1", "L2", "ESQUEMAS", "CALIB", "TORR", "SOPL1") and isinstance(v, int)}
-perfiles = {"modelo-fp16.chispa": "movil", "modelo-int8.chispa": "movil-int8"}
+perfiles = {"modelo-%s.chispa" % v: {"fp16": "movil", "int8": "movil-int8", "servidor": "servidor"}[v] for v in os.environ["VARIANTES"].split()}
 man = {"checkpoint": {"s3": ckpt_s3, "sha256": sha(ckpt), "bytes": os.path.getsize(ckpt), "texto_torre": texto_ckpt}, "ficheros": {}}
-for f in ("modelo-fp16.chispa", "modelo-int8.chispa", "e5.chispa-tok", "esquema.json"):
+for f in list(perfiles) + ["e5.chispa-tok", "esquema.json"]:
     p = os.path.join(out, f); d = {"bytes": os.path.getsize(p), "sha256": sha(p)}
     if f in perfiles:
         sec = formato.leer(open(p, "rb").read())
@@ -263,9 +264,10 @@ for f in ("modelo-fp16.chispa", "modelo-int8.chispa", "e5.chispa-tok", "esquema.
 json.dump(man, open(os.path.join(out, "manifiesto.json"), "w"), indent=1)
 PYEOF
 SUBIDOS=0
-for f in modelo-fp16.chispa modelo-int8.chispa e5.chispa-tok esquema.json manifiesto.json; do
+N=0; for v in $VARIANTES; do N=$((N+1)); done; N=$((N+3))
+for f in $(for v in $VARIANTES; do echo modelo-$v.chispa; done) e5.chispa-tok esquema.json manifiesto.json; do
   s3cp "$OUT/$f" "$CHISPA_S3/movil/$f" && SUBIDOS=$((SUBIDOS+1)) || fallo "subida de $f"
 done
-[ "$SUBIDOS" = 5 ] && estado subida "OK $SUBIDOS ficheros en $CHISPA_S3/movil/" || estado subida "FALLO $SUBIDOS de 5"
+[ "$SUBIDOS" = "$N" ] && estado subida "OK $SUBIDOS ficheros en $CHISPA_S3/movil/" || estado subida "FALLO $SUBIDOS de $N"
 cp "$OUT/manifiesto.json" "$RES/" 2>/dev/null
 cierre
