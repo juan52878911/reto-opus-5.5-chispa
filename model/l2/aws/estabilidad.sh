@@ -249,10 +249,18 @@ with open(sys.argv[1], "w", encoding="utf-8") as f:
 PYEOF
   if "$PY" -I "$REPO/runtime/tok/exportar.py" "$E5" "$TOK" > "$RES/m1-build.log" 2>&1 \
      && ( cd "$REPO/server" && timeout "$(tope 7)m" go build -tags ort -ldflags "-X github.com/juan52878911/chispa/server/decide.RutaORT=$ORT_LIB" -o "$SERV" ./cmd/chispa-server ) >> "$RES/m1-build.log" 2>&1 \
+     && ( cd "$REPO" && reint timeout "$(tope 7)m" "$PY" -u -m model.l2.exportar --torre-onnx "$BASE/torre-m1.onnx" --ckpt "$CKPT" --cuant-torre ninguna \
+            $([ "$LOCAL" = 1 ] || echo --sin-poda) ) >> "$RES/m1-build.log" 2>&1 \
      && ( cd "$REPO" && reint timeout "$(tope 7)m" "$PY" -u -m chispa train --ejemplos "$BASE/ejemplos-minimo.jsonl" --esquema "$BASE/esquema-minimo.json" \
-            --salida "$M" --ckpt "$CKPT" --perfil servidor --repo "$REPO" ) >> "$RES/m1-build.log" 2>&1 \
+            --salida "$M" --ckpt "$CKPT" --perfil servidor --torre "$BASE/torre-m1.onnx" --repo "$REPO" ) >> "$RES/m1-build.log" 2>&1 \
      && [ -s "$M" ] && [ -x "$SERV" ]; then
     estado m1_modelo "OK .chispa $(stat -c %s "$M") bytes (chispa train --ckpt, perfil servidor), chispa-server -tags ort, tokenizador e5"
+    # /healthz debe anunciar las capas efectivas y torre_al_vuelo (sin torre, ningún esquema nuevo tiene opinión: M1 «sin probs», 2026-11-02)
+    "$SERV" -addr 127.0.0.1:8097 -modelo "$M" -tok "$TOK" > "$RES/m1-healthz-servidor.log" 2>&1 & HP=$!
+    for _ in $(seq 1 60); do curl -fsS http://127.0.0.1:8097/healthz > "$RES/m1-healthz.json" 2>/dev/null && break; sleep 1; done
+    kill $HP 2>/dev/null; wait $HP 2>/dev/null
+    if grep -q '"torre_al_vuelo": *true' "$RES/m1-healthz.json" 2>/dev/null; then estado m1_healthz "OK $(tr -d '\n ' < "$RES/m1-healthz.json" | cut -c1-150)"
+    else estado m1_healthz "FALLO sin torre_al_vuelo: $(tr -d '\n ' < "$RES/m1-healthz.json" 2>/dev/null | cut -c1-150)"; fi
     # datos: las fuentes que usa el manifiesto (massive, clinc150, hatecheck, spam, inyecciones; herramientas va en el repo y JevBench en $JEV)
     CONV=(--salida "$DATOS" --fuentes massive,hatecheck,clinc150,inyecciones,spam_tanaos); [ "$LOCAL" = 1 ] && CONV+=(--fixtures)
     if "$PY" -m model.datos.convertir "${CONV[@]}" > "$RES/m1-datos.log" 2>&1; then
