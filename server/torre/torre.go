@@ -19,8 +19,8 @@ const idEOS int64 = 2 // </s> de XLM-R
 // prefijoPasaje es el que antepone el tokenizador (IDsPasaje) y el que lleva el texto de torre.
 const prefijoPasaje = "passage: "
 
-// prefijoPorVersion: prefijo que exige cada versión de la sección TORR. Una versión futura añade su fila.
-var prefijoPorVersion = map[uint32]string{1: prefijoPasaje}
+// prefijoPorVersion: prefijo que exige cada versión de la sección TORR. TORR v2 solo añade la versión del texto: mismo prefijo que v1.
+var prefijoPorVersion = map[uint32]string{1: prefijoPasaje, 2: prefijoPasaje}
 
 // ValidarPrefijo rechaza una sección TORR cuyo prefijo no es el de su versión (o de versión desconocida).
 func ValidarPrefijo(version uint32, prefijo string) error {

@@ -277,12 +277,8 @@ func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTo
 	if err != nil {
 		return err
 	}
-	// torre.ValidarPrefijo solo conoce la fila de TORR v1 (server/torre queda fuera de esta zona); TORR v2 exige el mismo prefijo
-	// y solo añade la versión del texto, así que se valida con la fila v1. Una versión desconocida ya la rechazó Torre().
+	// TORR v2 exige el mismo prefijo que v1 (torre.ValidarPrefijo conoce las dos); una versión desconocida ya la rechazó Torre().
 	vTorr := binary.LittleEndian.Uint32(b)
-	if vTorr == 2 {
-		vTorr = 1
-	}
 	if err := torre.ValidarPrefijo(vTorr, t.Prefijo); err != nil {
 		return err
 	}
