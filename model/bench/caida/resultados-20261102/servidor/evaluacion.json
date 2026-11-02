@@ -1,0 +1,661 @@
+{
+  "url_zero_shot": "http://127.0.0.1:8090",
+  "url_few_shot": "http://127.0.0.1:8090",
+  "semillas": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "max_piezas": 150,
+  "agentes": {
+    "aleatorio": {
+      "resumen": {
+        "partidas": 20,
+        "piezas_media": 21.55,
+        "filas_media": 0.05,
+        "puntos_media": 236.5,
+        "game_overs": 20,
+        "decisiones": 431,
+        "coincidencia": 0.111,
+        "intervenciones_escudo": 0,
+        "tasa_escudo": null,
+        "errores_red": 0,
+        "latencia_ms_p50": 0.082,
+        "latencia_ms_p99": 0.25
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "piezas": 25,
+          "filas": 0,
+          "puntos": 250,
+          "game_over": true
+        },
+        {
+          "semilla": 2,
+          "piezas": 13,
+          "filas": 0,
+          "puntos": 130,
+          "game_over": true
+        },
+        {
+          "semilla": 3,
+          "piezas": 14,
+          "filas": 0,
+          "puntos": 140,
+          "game_over": true
+        },
+        {
+          "semilla": 4,
+          "piezas": 21,
+          "filas": 0,
+          "puntos": 210,
+          "game_over": true
+        },
+        {
+          "semilla": 5,
+          "piezas": 22,
+          "filas": 0,
+          "puntos": 220,
+          "game_over": true
+        },
+        {
+          "semilla": 6,
+          "piezas": 21,
+          "filas": 0,
+          "puntos": 210,
+          "game_over": true
+        },
+        {
+          "semilla": 7,
+          "piezas": 22,
+          "filas": 0,
+          "puntos": 220,
+          "game_over": true
+        },
+        {
+          "semilla": 8,
+          "piezas": 22,
+          "filas": 0,
+          "puntos": 220,
+          "game_over": true
+        },
+        {
+          "semilla": 9,
+          "piezas": 28,
+          "filas": 0,
+          "puntos": 280,
+          "game_over": true
+        },
+        {
+          "semilla": 10,
+          "piezas": 19,
+          "filas": 0,
+          "puntos": 190,
+          "game_over": true
+        },
+        {
+          "semilla": 11,
+          "piezas": 16,
+          "filas": 0,
+          "puntos": 160,
+          "game_over": true
+        },
+        {
+          "semilla": 12,
+          "piezas": 17,
+          "filas": 0,
+          "puntos": 170,
+          "game_over": true
+        },
+        {
+          "semilla": 13,
+          "piezas": 20,
+          "filas": 0,
+          "puntos": 200,
+          "game_over": true
+        },
+        {
+          "semilla": 14,
+          "piezas": 22,
+          "filas": 0,
+          "puntos": 220,
+          "game_over": true
+        },
+        {
+          "semilla": 15,
+          "piezas": 27,
+          "filas": 0,
+          "puntos": 270,
+          "game_over": true
+        },
+        {
+          "semilla": 16,
+          "piezas": 19,
+          "filas": 0,
+          "puntos": 190,
+          "game_over": true
+        },
+        {
+          "semilla": 17,
+          "piezas": 22,
+          "filas": 0,
+          "puntos": 220,
+          "game_over": true
+        },
+        {
+          "semilla": 18,
+          "piezas": 22,
+          "filas": 0,
+          "puntos": 220,
+          "game_over": true
+        },
+        {
+          "semilla": 19,
+          "piezas": 23,
+          "filas": 0,
+          "puntos": 230,
+          "game_over": true
+        },
+        {
+          "semilla": 20,
+          "piezas": 36,
+          "filas": 1,
+          "puntos": 780,
+          "game_over": true
+        }
+      ]
+    },
+    "profesor": {
+      "resumen": {
+        "partidas": 20,
+        "piezas_media": 117.3,
+        "filas_media": 23.4,
+        "puntos_media": 4702.5,
+        "game_overs": 13,
+        "decisiones": 2346,
+        "coincidencia": 1.0,
+        "intervenciones_escudo": 0,
+        "tasa_escudo": null,
+        "errores_red": 0,
+        "latencia_ms_p50": 0.497,
+        "latencia_ms_p99": 1.097
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "piezas": 150,
+          "filas": 33,
+          "puntos": 6140,
+          "game_over": false
+        },
+        {
+          "semilla": 2,
+          "piezas": 145,
+          "filas": 26,
+          "puntos": 5810,
+          "game_over": true
+        },
+        {
+          "semilla": 3,
+          "piezas": 150,
+          "filas": 39,
+          "puntos": 7560,
+          "game_over": false
+        },
+        {
+          "semilla": 4,
+          "piezas": 140,
+          "filas": 26,
+          "puntos": 5070,
+          "game_over": true
+        },
+        {
+          "semilla": 5,
+          "piezas": 57,
+          "filas": 5,
+          "puntos": 1630,
+          "game_over": true
+        },
+        {
+          "semilla": 6,
+          "piezas": 97,
+          "filas": 16,
+          "puntos": 3090,
+          "game_over": true
+        },
+        {
+          "semilla": 7,
+          "piezas": 150,
+          "filas": 36,
+          "puntos": 6860,
+          "game_over": false
+        },
+        {
+          "semilla": 8,
+          "piezas": 150,
+          "filas": 30,
+          "puntos": 6510,
+          "game_over": true
+        },
+        {
+          "semilla": 9,
+          "piezas": 150,
+          "filas": 35,
+          "puntos": 6630,
+          "game_over": false
+        },
+        {
+          "semilla": 10,
+          "piezas": 96,
+          "filas": 19,
+          "puntos": 3470,
+          "game_over": true
+        },
+        {
+          "semilla": 11,
+          "piezas": 150,
+          "filas": 26,
+          "puntos": 6340,
+          "game_over": false
+        },
+        {
+          "semilla": 12,
+          "piezas": 128,
+          "filas": 25,
+          "puntos": 4920,
+          "game_over": true
+        },
+        {
+          "semilla": 13,
+          "piezas": 150,
+          "filas": 40,
+          "puntos": 7310,
+          "game_over": false
+        },
+        {
+          "semilla": 14,
+          "piezas": 150,
+          "filas": 33,
+          "puntos": 6770,
+          "game_over": false
+        },
+        {
+          "semilla": 15,
+          "piezas": 81,
+          "filas": 14,
+          "puntos": 2730,
+          "game_over": true
+        },
+        {
+          "semilla": 16,
+          "piezas": 95,
+          "filas": 19,
+          "puntos": 3270,
+          "game_over": true
+        },
+        {
+          "semilla": 17,
+          "piezas": 92,
+          "filas": 15,
+          "puntos": 3110,
+          "game_over": true
+        },
+        {
+          "semilla": 18,
+          "piezas": 37,
+          "filas": 1,
+          "puntos": 530,
+          "game_over": true
+        },
+        {
+          "semilla": 19,
+          "piezas": 97,
+          "filas": 18,
+          "puntos": 3730,
+          "game_over": true
+        },
+        {
+          "semilla": 20,
+          "piezas": 81,
+          "filas": 12,
+          "puntos": 2570,
+          "game_over": true
+        }
+      ]
+    },
+    "chispa_zero_shot": {
+      "resumen": {
+        "partidas": 20,
+        "piezas_media": 117.3,
+        "filas_media": 23.4,
+        "puntos_media": 4702.5,
+        "game_overs": 13,
+        "decisiones": 2329,
+        "coincidencia": null,
+        "intervenciones_escudo": 2329,
+        "tasa_escudo": 1.0,
+        "errores_red": 0,
+        "latencia_ms_p50": 68.753,
+        "latencia_ms_p99": 269.422
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "piezas": 150,
+          "filas": 33,
+          "puntos": 6140,
+          "game_over": false
+        },
+        {
+          "semilla": 2,
+          "piezas": 145,
+          "filas": 26,
+          "puntos": 5810,
+          "game_over": true
+        },
+        {
+          "semilla": 3,
+          "piezas": 150,
+          "filas": 39,
+          "puntos": 7560,
+          "game_over": false
+        },
+        {
+          "semilla": 4,
+          "piezas": 140,
+          "filas": 26,
+          "puntos": 5070,
+          "game_over": true
+        },
+        {
+          "semilla": 5,
+          "piezas": 57,
+          "filas": 5,
+          "puntos": 1630,
+          "game_over": true
+        },
+        {
+          "semilla": 6,
+          "piezas": 97,
+          "filas": 16,
+          "puntos": 3090,
+          "game_over": true
+        },
+        {
+          "semilla": 7,
+          "piezas": 150,
+          "filas": 36,
+          "puntos": 6860,
+          "game_over": false
+        },
+        {
+          "semilla": 8,
+          "piezas": 150,
+          "filas": 30,
+          "puntos": 6510,
+          "game_over": true
+        },
+        {
+          "semilla": 9,
+          "piezas": 150,
+          "filas": 35,
+          "puntos": 6630,
+          "game_over": false
+        },
+        {
+          "semilla": 10,
+          "piezas": 96,
+          "filas": 19,
+          "puntos": 3470,
+          "game_over": true
+        },
+        {
+          "semilla": 11,
+          "piezas": 150,
+          "filas": 26,
+          "puntos": 6340,
+          "game_over": false
+        },
+        {
+          "semilla": 12,
+          "piezas": 128,
+          "filas": 25,
+          "puntos": 4920,
+          "game_over": true
+        },
+        {
+          "semilla": 13,
+          "piezas": 150,
+          "filas": 40,
+          "puntos": 7310,
+          "game_over": false
+        },
+        {
+          "semilla": 14,
+          "piezas": 150,
+          "filas": 33,
+          "puntos": 6770,
+          "game_over": false
+        },
+        {
+          "semilla": 15,
+          "piezas": 81,
+          "filas": 14,
+          "puntos": 2730,
+          "game_over": true
+        },
+        {
+          "semilla": 16,
+          "piezas": 95,
+          "filas": 19,
+          "puntos": 3270,
+          "game_over": true
+        },
+        {
+          "semilla": 17,
+          "piezas": 92,
+          "filas": 15,
+          "puntos": 3110,
+          "game_over": true
+        },
+        {
+          "semilla": 18,
+          "piezas": 37,
+          "filas": 1,
+          "puntos": 530,
+          "game_over": true
+        },
+        {
+          "semilla": 19,
+          "piezas": 97,
+          "filas": 18,
+          "puntos": 3730,
+          "game_over": true
+        },
+        {
+          "semilla": 20,
+          "piezas": 81,
+          "filas": 12,
+          "puntos": 2570,
+          "game_over": true
+        }
+      ]
+    },
+    "chispa_few_shot": {
+      "resumen": {
+        "partidas": 20,
+        "piezas_media": 117.3,
+        "filas_media": 23.4,
+        "puntos_media": 4702.5,
+        "game_overs": 13,
+        "decisiones": 2329,
+        "coincidencia": null,
+        "intervenciones_escudo": 2329,
+        "tasa_escudo": 1.0,
+        "errores_red": 0,
+        "latencia_ms_p50": 68.547,
+        "latencia_ms_p99": 85.286
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "piezas": 150,
+          "filas": 33,
+          "puntos": 6140,
+          "game_over": false
+        },
+        {
+          "semilla": 2,
+          "piezas": 145,
+          "filas": 26,
+          "puntos": 5810,
+          "game_over": true
+        },
+        {
+          "semilla": 3,
+          "piezas": 150,
+          "filas": 39,
+          "puntos": 7560,
+          "game_over": false
+        },
+        {
+          "semilla": 4,
+          "piezas": 140,
+          "filas": 26,
+          "puntos": 5070,
+          "game_over": true
+        },
+        {
+          "semilla": 5,
+          "piezas": 57,
+          "filas": 5,
+          "puntos": 1630,
+          "game_over": true
+        },
+        {
+          "semilla": 6,
+          "piezas": 97,
+          "filas": 16,
+          "puntos": 3090,
+          "game_over": true
+        },
+        {
+          "semilla": 7,
+          "piezas": 150,
+          "filas": 36,
+          "puntos": 6860,
+          "game_over": false
+        },
+        {
+          "semilla": 8,
+          "piezas": 150,
+          "filas": 30,
+          "puntos": 6510,
+          "game_over": true
+        },
+        {
+          "semilla": 9,
+          "piezas": 150,
+          "filas": 35,
+          "puntos": 6630,
+          "game_over": false
+        },
+        {
+          "semilla": 10,
+          "piezas": 96,
+          "filas": 19,
+          "puntos": 3470,
+          "game_over": true
+        },
+        {
+          "semilla": 11,
+          "piezas": 150,
+          "filas": 26,
+          "puntos": 6340,
+          "game_over": false
+        },
+        {
+          "semilla": 12,
+          "piezas": 128,
+          "filas": 25,
+          "puntos": 4920,
+          "game_over": true
+        },
+        {
+          "semilla": 13,
+          "piezas": 150,
+          "filas": 40,
+          "puntos": 7310,
+          "game_over": false
+        },
+        {
+          "semilla": 14,
+          "piezas": 150,
+          "filas": 33,
+          "puntos": 6770,
+          "game_over": false
+        },
+        {
+          "semilla": 15,
+          "piezas": 81,
+          "filas": 14,
+          "puntos": 2730,
+          "game_over": true
+        },
+        {
+          "semilla": 16,
+          "piezas": 95,
+          "filas": 19,
+          "puntos": 3270,
+          "game_over": true
+        },
+        {
+          "semilla": 17,
+          "piezas": 92,
+          "filas": 15,
+          "puntos": 3110,
+          "game_over": true
+        },
+        {
+          "semilla": 18,
+          "piezas": 37,
+          "filas": 1,
+          "puntos": 530,
+          "game_over": true
+        },
+        {
+          "semilla": 19,
+          "piezas": 97,
+          "filas": 18,
+          "puntos": 3730,
+          "game_over": true
+        },
+        {
+          "semilla": 20,
+          "piezas": 81,
+          "filas": 12,
+          "puntos": 2570,
+          "game_over": true
+        }
+      ]
+    }
+  }
+}
