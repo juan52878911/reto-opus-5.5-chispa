@@ -1,0 +1,42 @@
+{
+ "repo": "convaiinnovations/laya",
+ "checkpoints": {
+  "english": {
+   "tarjeta": "README.md",
+   "license": "apache-2.0",
+   "datasets": [],
+   "datos_entrenamiento": [
+    {
+     "seccion": "Training",
+     "texto": "**RLCD (Reinforcement Learning for Calibrated Decisions).** The policy reports a distribution; exploration adds zero-mean Gaussian noise to the logits; the reward is a strictly proper scoring rule (log + spherical, plus ranked probability score for ordinal questions). Expected reward is maximised only by reporting honest probabilities. Updates are REINFORCE with a group-mean baseline (GRPO-style). Multi-turn conversations use TD(λ=1.0) over prefix slices.\n\n---"
+    }
+   ]
+  },
+  "multilingual": {
+   "tarjeta": "README.md",
+   "license": "apache-2.0",
+   "datasets": [],
+   "datos_entrenamiento": [
+    {
+     "seccion": "Training",
+     "texto": "**RLCD (Reinforcement Learning for Calibrated Decisions).** The policy reports a distribution; exploration adds zero-mean Gaussian noise to the logits; the reward is a strictly proper scoring rule (log + spherical, plus ranked probability score for ordinal questions). Expected reward is maximised only by reporting honest probabilities. Updates are REINFORCE with a group-mean baseline (GRPO-style). Multi-turn conversations use TD(λ=1.0) over prefix slices.\n\n---"
+    }
+   ]
+  },
+  "typed-decisions": {
+   "tarjeta": "README.md",
+   "license": "apache-2.0",
+   "datasets": [],
+   "datos_entrenamiento": [
+    {
+     "seccion": "Training",
+     "texto": "**RLCD (Reinforcement Learning for Calibrated Decisions).** The policy reports a distribution; exploration adds zero-mean Gaussian noise to the logits; the reward is a strictly proper scoring rule (log + spherical, plus ranked probability score for ordinal questions). Expected reward is maximised only by reporting honest probabilities. Updates are REINFORCE with a group-mean baseline (GRPO-style). Multi-turn conversations use TD(λ=1.0) over prefix slices.\n\n---"
+    }
+   ]
+  }
+ },
+ "paquete": {
+  "version": "0.4.21",
+  "license": "Apache-2.0"
+ }
+}

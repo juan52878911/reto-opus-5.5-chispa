@@ -1,0 +1,10 @@
+entorno	OK 8 vCPU, laya 0.4.21
+paquete	OK
+lineas_base	OK ajuste 1 y v2
+jevbench	OK 231 casos (609a664e81f4)
+datos	OK 5 fuentes convertidas
+velocidad	OK 0.28 s/pregunta; recortada a 750 filas por conjunto (submuestra regular y determinista); proyección 61 min
+bateria	OK tope=750 errores={'multilingual': 0, 'typed-decisions': 0}
+m4	OK M4 typed-decisions {'massive': 0.265, 'mmmlu': 0.295}
+licencia	OK english=apache-2.0, multilingual=apache-2.0, typed-decisions=apache-2.0
+tabla	OK laya-frente-chispa.md
