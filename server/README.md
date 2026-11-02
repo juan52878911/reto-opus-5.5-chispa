@@ -94,7 +94,7 @@ p si está activa o 1 − p si no); si no, pasa a la siguiente y al final escala
   sección `TORR`). Prioridad: la config > `tau_l2_esquema_nuevo` de `CALIB` (cuenta aunque haya `-config`) > 0,846 por defecto (precisión ≈ 0,95 con ≈ 97 % de escalado en tareas
   no vistas). `"tau_l2_esquema_nuevo_apagado": true` vuelve al τ normal de L2 (junto a un valor, error). Métricas: `chispa_esquema_nuevo_preguntas_total`,
   `chispa_esquema_nuevo_decididas_total`. Las torres al vuelo se cachean (`cache_torres`, por defecto 16384) y una petición calcula como mucho
-  `max_torres_nuevas` (por defecto 64) sin cachear; por encima L2 no opina (`chispa_torres_*`).
+  `max_torres_nuevas` (por defecto 256) sin cachear; si el tope corta, cachea las que caben y escala con `sin_presupuesto_torres` (`chispa_torres_*`).
 - **λ** (`l1_shrinkage_lambda`, `l2_shrinkage_lambda`): encogimiento del soporte few-shot (sección `SOPL1`): w = k/(k+λ) mezcla la media de los k ejemplos con el
   prototipo de la descripción. L1: por defecto 4; `"l1_shrinkage_apagado": true` lo apaga. L2: sin valor, no hay mezcla (λ = ∞). Sin `SOPL1` en el `.chispa` no tiene efecto.
   Un λ negativo es error de config. Con `-config` hay que repetir los de `CALIB` que se quieran conservar.
