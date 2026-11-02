@@ -103,6 +103,12 @@ func cuantizarTorre(h []float32) torreL2 {
 	return torreL2{v, e}
 }
 
+// claveTorre es la clave de la torre instalada de la opción o: sale del texto efectivo (torre.ClaveTexto), que en v2 depende
+// de las demás opciones de la pregunta; así dos preguntas con la misma opción y textos distintos no se pisan.
+func (c *Chispa) claveTorre(p pregunta, o torre.Opcion) string {
+	return torre.ClaveTexto(torre.TextoOpcion(c.textoTorre, p.Texto, o, aTorre(p).Opciones))
+}
+
 // torresNuevas son las torres que instaló la app para este esquema; error si falta alguna.
 func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	c.mu.Lock()
@@ -113,7 +119,7 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	}
 	ts := make([]torreL2, len(ops))
 	for i, o := range ops {
-		k := torre.Clave(p.Texto, o)
+		k := c.claveTorre(p, o)
 		t, ok := c.dyn[k]
 		if !ok {
 			return nil, errors.New("sin torres para este esquema")
@@ -179,7 +185,7 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 	claves := make(map[string]bool, n)
 	nuevasReales := 0
 	for _, o := range ops {
-		k := torre.Clave(p.Texto, o)
+		k := c.claveTorre(p, o)
 		if !claves[k] {
 			claves[k] = true
 			if _, ya := c.dyn[k]; !ya {
@@ -209,7 +215,7 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 		delete(c.dynUso, viejo)
 	}
 	for i, o := range ops {
-		k := torre.Clave(p.Texto, o)
+		k := c.claveTorre(p, o)
 		c.dynTic++
 		c.dyn[k], c.dynUso[k] = nuevas[i], c.dynTic
 	}

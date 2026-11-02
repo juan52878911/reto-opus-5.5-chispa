@@ -138,6 +138,18 @@ func (c Config) Validar() error {
 	if c.CacheTorres < 0 || c.MaxTorresNuevas < 0 {
 		return fmt.Errorf("config: cache_torres y max_torres_nuevas no pueden ser negativos")
 	}
+	// El cacheo parcial solo avanza si la caché cabe la pregunta más grande que una petición puede pedir calcular: con
+	// cache_torres < max_torres_nuevas cada petición desaloja lo que cacheó la anterior. Se valida con los valores efectivos.
+	cacheT, maxT := c.CacheTorres, c.MaxTorresNuevas
+	if cacheT == 0 {
+		cacheT = CacheTorresPorDefecto
+	}
+	if maxT == 0 {
+		maxT = MaxTorresNuevasPorDefecto
+	}
+	if cacheT < maxT {
+		return fmt.Errorf("config: cache_torres (%d) debe ser >= max_torres_nuevas (%d)", cacheT, maxT)
+	}
 	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
 		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)
 	}

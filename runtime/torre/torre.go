@@ -4,6 +4,7 @@
 package torre
 
 import (
+	"crypto/sha256"
 	"math"
 	"strconv"
 	"strings"
@@ -116,6 +117,14 @@ func Textos(version string, p Pregunta) []string {
 // criptográfico, ordena las opciones y mete Kind) no sirve para esto.
 func Clave(pregunta string, o Opcion) string {
 	h := chispa3.HashEsquema(pregunta, []string{o.ID, o.Description})
+	return string(h[:])
+}
+
+// ClaveTexto es la clave de caché de una torre a partir de su texto efectivo (TextoOpcion): dos opciones con el mismo texto
+// tienen la misma torre y dos con textos distintos no comparten clave aunque coincidan pregunta, id y descripción (la regla de
+// descripciones repetidas de v2 hace que el texto dependa de las demás opciones). Es lo que usan el servidor y el motor móvil.
+func ClaveTexto(texto string) string {
+	h := sha256.Sum256([]byte(texto))
 	return string(h[:])
 }
 

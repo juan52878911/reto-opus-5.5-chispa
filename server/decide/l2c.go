@@ -157,7 +157,7 @@ func (l *L2c) torreDe(p Pregunta, o Opcion) (vec []byte, escala float32, ok bool
 		return v, esc, true
 	}
 	if l.cache != nil {
-		if t, ok := l.cache.Get(claveTorre(p.Texto, o)); ok {
+		if t, ok := l.cache.Get(claveTorre(l.textoTorre, p, o)); ok {
 			return t.v, t.e, true
 		}
 	}

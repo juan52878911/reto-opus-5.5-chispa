@@ -139,7 +139,7 @@ func TestTorreCacheIndependienteDelOrden(t *testing.T) {
 		t.Fatalf("%+v %+v hits=%d", r1, r2, l.Hits.Load())
 	}
 	// Misma pregunta y opciones con otra descripción: otra torre (HashEsquema de ESQUEMAS no distingue descripciones).
-	if claveTorre("q", Opcion{ID: "a", Description: "x"}) == claveTorre("q", Opcion{ID: "a", Description: "y"}) {
+	if claveTorre("", Pregunta{Texto: "q"}, Opcion{ID: "a", Description: "x"}) == claveTorre("", Pregunta{Texto: "q"}, Opcion{ID: "a", Description: "y"}) {
 		t.Fatal("la clave ignora la descripción")
 	}
 }
