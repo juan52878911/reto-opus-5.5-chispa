@@ -33,6 +33,35 @@ func TestDrainLinesVaciaTuberiaTrasLineaEnorme(t *testing.T) {
 	cmd.Wait()
 }
 
+func TestDrainLinesSigueTrasLineaDeDosMiB(t *testing.T) {
+	var got []string
+	in := "a\n" + strings.Repeat("x", 2<<20) + "\nLISTEN 127.0.0.1:1\nb\n"
+	drainLines(strings.NewReader(in), func(s string) { got = append(got, s) })
+	if len(got) != 4 || got[0] != "a" || len(got[1]) != 1<<20 || got[2] != "LISTEN 127.0.0.1:1" || got[3] != "b" {
+		t.Fatalf("líneas tras la larga perdidas: %d", len(got))
+	}
+}
+
+func TestStopNoMataTrasRecoger(t *testing.T) {
+	// Tras reap() el líder está recogido: Stop no debe enviar señales al pgid.
+	cmd := exec.Command("true")
+	cmd.SysProcAttr = sysProcAttr()
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	h := &procHandle{cmd: cmd, log: &procLog{}, done: make(chan struct{})}
+	h.reap()
+	if !h.reaped {
+		t.Fatal("reap no marcó reaped")
+	}
+	// done sin cerrar: solo el indicador bajo cerrojo impide el Kill (si matara, esperaría 2 s).
+	start := time.Now()
+	(&procLauncher{}).Stop(&replica{handle: h})
+	if time.Since(start) > time.Second {
+		t.Fatal("Stop intentó matar un hijo ya recogido")
+	}
+}
+
 func TestStopNoMataSiYaTermino(t *testing.T) {
 	// Un sleep en su propio grupo; marcamos done sin matarlo: Stop no debe tocarlo.
 	cmd := exec.Command("sleep", "30")
@@ -45,6 +74,7 @@ func TestStopNoMataSiYaTermino(t *testing.T) {
 	defer func() { cmd.Process.Kill(); <-exited }()
 	h := &procHandle{cmd: cmd, log: &procLog{}, done: make(chan struct{})}
 	close(h.done)
+	h.reaped = true
 	if err := (&procLauncher{}).Stop(&replica{handle: h}); err != nil {
 		t.Fatal(err)
 	}

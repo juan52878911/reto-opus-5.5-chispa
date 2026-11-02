@@ -145,6 +145,54 @@ class TestAgrupar(Base):
         self.assertEqual(sorted(len(p["questions"]) for p in s.pedidos), [1, 2])
         self.assertEqual(len({q["id"] for q in s.pedidos[0]["questions"]}), len(s.pedidos[0]["questions"]))
 
+    def _filas(self):
+        return B.cargar_filas(os.path.join(self.d.name, "largos.jsonl"))
+
+    def test_mas_de_256_filas_sobre_un_texto_se_trocean(self):
+        s = self.servidor(max_preguntas=256)
+        f = self._filas()[0]
+        res = B._correr_agrupado(B.Chispa(s.url), [(f, None, "c")] * 300, 2)
+        self.assertEqual(len(res), 300)
+        self.assertFalse([r for r in res if r["error"]])
+        self.assertEqual(sorted(len(p["questions"]) for p in s.pedidos), [44, 256])
+
+    def test_se_corta_por_tamano_de_cuerpo(self):
+        s = self.servidor()
+        f = self._filas()[0]
+        una = len(json.dumps(f.q.a_json()).encode())
+        tope = len(json.dumps({"state": f.texto}).encode()) + int(2.5 * (una + 64))  # caben 2 preguntas, no 3
+        res = B._correr_agrupado(B.Chispa(s.url), [(f, None, "c")] * 10, 1, max_cuerpo=tope)
+        self.assertFalse([r for r in res if r["error"]])
+        self.assertEqual(sorted(len(p["questions"]) for p in s.pedidos), [2] * 5)
+        for p in s.pedidos:
+            self.assertLess(len(json.dumps(p).encode()), tope)
+
+    def test_conjuntos_distintos_con_el_mismo_texto_no_comparten_peticion(self):
+        s = self.servidor()
+        f = self._filas()[0]
+        B._correr_agrupado(B.Chispa(s.url), [(f, None, "a"), (f, None, "b"), (f, None, "a")], 1)
+        self.assertEqual(sorted(len(p["questions"]) for p in s.pedidos), [1, 2])
+
+    def test_n_latencia_cuenta_peticiones(self):
+        s = self.servidor()
+        f = self._filas()[0]
+        res = B._correr_agrupado(B.Chispa(s.url), [(f, None, "c")] * 40, 1)
+        m = B.agregar(res)
+        self.assertEqual((m["n"], m["n_latencia"]), (40, 1))
+
+    def test_linea_base_guarda_agrupado_y_no_compara_latencia_si_el_modo_difiere(self):
+        s = self.servidor()
+        rep = B.bateria(self.man, url=s.url, concurrencia=1, agrupar=True)
+        self.assertTrue(B.linea_base(rep)["agrupado"])
+        m = lambda p99: {"n": 100, "n_latencia": 100, "p50_ms": p99, "p99_ms": p99}
+        base = {"global": m(10.0), "agrupado": False}
+        act = {"global": m(500.0), "agrupado": True}
+        c = B.comparar(act, base, {"p99_ms": 0.1, "p50_ms": 0.1})
+        self.assertTrue(c["ok"], c["fallos"])
+        self.assertTrue(any("modo de envío distinto" in a for a in c["avisos"]))
+        act["agrupado"] = False  # mismo modo: sí se compara
+        self.assertFalse(B.comparar(act, base, {"p99_ms": 0.1, "p50_ms": 0.1})["ok"])
+
     def test_cli_agrupar(self):
         s = self.servidor()
         with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
