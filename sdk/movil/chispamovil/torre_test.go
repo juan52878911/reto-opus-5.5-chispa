@@ -86,7 +86,7 @@ var preguntasTorre = []string{
 	`{"question":"¿Cuál es el motivo?","kind":"choice","options":[{"id":"queja","description":"se queja del cobro"},{"id":"duda"},{"id":"baja","description":"quiere irse"}]}`,
 	`{"question":"¿Es urgente?","kind":"noul","options":[{"id":"false"},{"id":"true","description":"urgente ya"}]}`,
 	`{"question":"Gravedad","kind":"score","options":[{"id":"1"},{"id":"2","description":"media"},{"id":"3","description":"alta"}]}`,
-	`{"question":"Gravedad","kind":"score","options":[{"id":"bajo"},{"id":"medio"},{"id":"alto"}]}`,
+	`{"question":"Gravedad","kind":"score","options":[{"id":"3"},{"id":"1"},{"id":"2"}]}`,
 }
 
 func torresBytes(textos []string) []byte {

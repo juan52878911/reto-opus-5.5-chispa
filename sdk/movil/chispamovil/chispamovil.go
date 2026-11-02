@@ -72,6 +72,8 @@ type respuesta struct {
 	Conf   float64            `json:"conf"`
 	Probs  map[string]float64 `json:"probs"`
 	Error  string             `json:"error,omitempty"`
+	// EscalateReason: por qué esta capa no opina cuando se sabe («score_ids_no_validos»: ids de score fuera de 1..K); vacío si opina.
+	EscalateReason string `json:"escalate_reason,omitempty"`
 	// EsquemaNuevo: las torres de la pregunta no están en ESQUEMAS (salieron al vuelo); como Respuesta.EsquemaNuevo del servidor.
 	EsquemaNuevo bool `json:"esquema_nuevo,omitempty"`
 	// Multi: la respuesta es de una pregunta multi; entonces «answers» sale siempre (las opciones activas, [] si ninguna).
@@ -589,8 +591,8 @@ func idsOrdenados(p pregunta) []string {
 	if p.Kind != "score" {
 		return idsDe(p)
 	}
-	ops, _ := ordenNivel(p.Opciones)
-	return idsDe(pregunta{Opciones: ops})
+	ids, _ := nivelesScore(idsDe(p)) // nil si no son 1..K: la capa ya no opinó
+	return ids
 }
 
 func (c *Chispa) torres(p pregunta) [][]float32 {
@@ -638,6 +640,9 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 	if c.e == nil {
 		return fallo(errors.New("el fichero no trae la sección L1"))
 	}
+	if scoreInvalido(p) {
+		return salida(sinOpinionScore())
+	}
 	msgs := c.ventanasMsg(texto)
 	if len(msgs) == 0 {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
@@ -682,6 +687,9 @@ func (c *Chispa) Decidir(texto, preguntaJSON string) string {
 // agregarVentanas reúne las respuestas de las ventanas de un texto largo (tok.AgregarProbs, la misma que el servidor). Una sola, o
 // una sin opinión, se devuelve tal cual.
 func agregarVentanas(p pregunta, rs []respuesta, agg string, theta float64) respuesta {
+	if scoreInvalido(p) {
+		return sinOpinionScore()
+	}
 	if len(rs) == 1 || !rs[0].Opina || rs[0].Probs == nil {
 		return rs[0]
 	}
@@ -754,9 +762,12 @@ func (c *Chispa) tScore() float64 {
 // puntuarNiveles: softmax sobre los niveles en el orden de la pregunta; answer es la mediana
 // (primer nivel con masa acumulada ≥ 0,5) y conf su probabilidad (como server/decide/l1.go).
 func puntuarNiveles(p pregunta, sims []float64, T float64) respuesta {
+	ops, ok := ordenNivel(p.Opciones)
+	if !ok {
+		return sinOpinionScore()
+	}
 	r := softmax(p, sims, T)
 	var acc float64
-	ops, _ := ordenNivel(p.Opciones)
 	for _, o := range ops {
 		acc += r.Probs[o.ID]
 		if acc >= 0.5 {
@@ -971,6 +982,9 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 	if err != nil {
 		return fallo(err)
 	}
+	if scoreInvalido(p) {
+		return salida(sinOpinionScore())
+	}
 	if p.Kind == "multi" { // L0 es multiclase (probs que suman 1): no da una p por opción, no opina en multi
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
 	}
@@ -998,11 +1012,20 @@ func (c *Chispa) DecidirL0(texto, preguntaJSON string) string {
 
 // ordinal: en score la respuesta de L0 es la mediana de la distribución (como L1, L2 y server/decide/l0.go), no el argmax.
 func ordinal(p pregunta, r respuesta) respuesta {
-	if p.Kind != "score" || r.Conf == 0 {
+	if p.Kind != "score" {
 		return r
 	}
+	if scoreInvalido(p) {
+		return sinOpinionScore()
+	}
+	if r.Conf == 0 {
+		return r
+	}
+	ops, ok := ordenNivel(p.Opciones)
+	if !ok {
+		return sinOpinionScore()
+	}
 	var acc float64
-	ops, _ := ordenNivel(p.Opciones)
 	for _, o := range ops {
 		if acc += r.Probs[o.ID]; acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
@@ -1130,7 +1153,7 @@ func idsABytes(ids []int32) []byte {
 // TorresL2 dice si hay torres de ESQUEMAS para la pregunta; la cascada lo consulta antes de tokenizar y llamar a ORT.
 func (c *Chispa) TorresL2(preguntaJSON string) bool {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 || c.sinOpinionMulti(p, true) {
+	if err != nil || !c.tieneL2 || scoreInvalido(p) || c.sinOpinionMulti(p, true) {
 		return false
 	}
 	_, err = c.torresL2(p)
@@ -1217,28 +1240,85 @@ func (c *Chispa) EsquemaEnEsquemas(preguntaJSON string) bool {
 	return err == nil && c.tieneL2 && !c.esquemaNuevo(p)
 }
 
-// ordenNivel ordena las opciones de un score por nivel: por id numérico ("2" < "10") si todos son enteros; si alguno no lo es,
-// conserva el orden declarado (nunca lexicográfico). El bool dice si todos eran numéricos.
-func ordenNivel(ops []opcion) ([]opcion, bool) {
-	out := append([]opcion(nil), ops...)
-	for _, o := range out {
-		if n, err := strconv.Atoi(o.ID); err != nil || strconv.Itoa(n) != o.ID {
-			return out, false
+// nivelesScore devuelve los ids de un score por nivel (1, 2, …, K) si son exactamente 1..K: enteros canónicos
+// (strconv.Itoa(n)==id), sin huecos ni repetidos, en cualquier orden. Con otros ids (bajo/medio/alto, 0..K-1, «01», «+1», huecos) devuelve
+// false y la capa no opina (como server/decide scoreValido y model/datos/comun.py niveles_score).
+func nivelesScore(ids []string) ([]string, bool) {
+	k := len(ids)
+	out := make([]string, k)
+	visto := make([]bool, k)
+	for _, id := range ids {
+		n, err := strconv.Atoi(id)
+		if err != nil || strconv.Itoa(n) != id || n < 1 || n > k || visto[n-1] {
+			return nil, false
 		}
+		visto[n-1] = true
+		out[n-1] = id
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, _ := strconv.Atoi(out[i].ID)
-		b, _ := strconv.Atoi(out[j].ID)
-		return a < b
-	})
+	return out, k > 0
+}
+
+// ordenNivel ordena las opciones de un score por nivel (con sus descripciones); false si los ids no son 1..K.
+func ordenNivel(ops []opcion) ([]opcion, bool) {
+	ids := make([]string, len(ops))
+	for i, o := range ops {
+		ids[i] = o.ID
+	}
+	if _, ok := nivelesScore(ids); !ok {
+		return nil, false
+	}
+	out := make([]opcion, len(ops))
+	for _, o := range ops {
+		n, _ := strconv.Atoi(o.ID)
+		out[n-1] = o
+	}
 	return out, true
+}
+
+// scoreInvalido: pregunta score cuyos ids no son 1..K; toda capa no opina.
+func scoreInvalido(p pregunta) bool {
+	if p.Kind != "score" {
+		return false
+	}
+	_, ok := nivelesScore(idsDe(p))
+	return !ok
+}
+
+// Valores de «escalate_reason», los mismos que server/decide (MotivoSinOpinion, MotivoBajaConfianza, MotivoScoreIdsNoValidos).
+const (
+	motivoSinOpinion    = "sin_opinion"
+	motivoBajaConfianza = "baja_confianza"
+	motivoScoreIdsNoVal = "score_ids_no_validos"
+)
+
+// sinOpinionScore: la respuesta de una capa que no opina porque los ids del score no son 1..K; lleva escalate_reason.
+func sinOpinionScore() respuesta {
+	return respuesta{Ok: true, Probs: map[string]float64{}, EscalateReason: motivoScoreIdsNoVal}
+}
+
+// MotivoEscalada es el «escalate_reason» de una petición que escaló, como server/decide/cascada.go: baja_confianza si alguna capa
+// opinó (mejorConf > 0); si ninguna opinó (sin error): score_ids_no_validos si los ids del score no son 1..K y sin_opinion en
+// otro caso. "" si no hay motivo (una capa falló: ninguna == false y nadie opinó). El cliente (Kotlin, Swift) lo llama o lo replica.
+func MotivoEscalada(preguntaJSON string, mejorConf float64, ninguna bool) string {
+	switch {
+	case mejorConf > 0:
+		return motivoBajaConfianza
+	case ninguna:
+		if p, err := leerPregunta(preguntaJSON); err == nil && scoreInvalido(p) {
+			return motivoScoreIdsNoVal
+		}
+		return motivoSinOpinion
+	}
+	return ""
 }
 
 // opcionesUnica son las opciones de la única torre de noul (false y true con la descripción de la pregunta) y de score (todas).
 func opcionesUnica(p pregunta) []opcion {
 	if p.Kind == "score" {
-		ops, _ := ordenNivel(p.Opciones)
-		return ops
+		if ops, ok := ordenNivel(p.Opciones); ok {
+			return ops
+		}
+		return p.Opciones // ids no 1..K: ninguna capa llega aquí (no opinan antes)
 	}
 	if p.Kind != "noul" {
 		return p.Opciones
@@ -1321,6 +1401,9 @@ func (c *Chispa) puntuarL2(preguntaJSON string, ranuras []byte, ks []int) string
 	if !c.tieneL2 {
 		return fallo(errors.New("el fichero no trae las secciones L2 y ESQUEMAS"))
 	}
+	if scoreInvalido(p) {
+		return salida(sinOpinionScore())
+	}
 	if c.sinOpinionMulti(p, false) {
 		return salida(respuesta{Ok: true, Probs: map[string]float64{}})
 	}
@@ -1388,21 +1471,10 @@ func ventanasRanuras(b []byte, ks []int, d int) ([][][]float32, error) {
 func (c *Chispa) score(p pregunta, s float64) respuesta {
 	vacia := respuesta{Ok: true, Probs: map[string]float64{}}
 	K := len(p.Opciones)
-	// El orden de los niveles es el del id numérico (como el servidor y model/l2/modelo.py): el orden de la petición no cambia la
-	// respuesta. Si ningún id es entero se conserva el orden declarado (Python rechaza esos casos); una mezcla no opina.
-	ops, numerico := ordenNivel(p.Opciones)
-	if !numerico {
-		for _, o := range ops {
-			if _, err := strconv.Atoi(o.ID); err == nil {
-				return vacia // mezcla de ids enteros y no enteros: el nivel sería ambiguo
-			}
-		}
-	} else {
-		for i, o := range ops {
-			if o.ID != strconv.Itoa(i+1) {
-				return vacia // las cabezas de score numéricas van sobre 1..K
-			}
-		}
+	// Los niveles son 1..K por valor numérico (el orden de la petición no cambia la respuesta); con otros ids no opina.
+	ops, ok := ordenNivel(p.Opciones)
+	if !ok {
+		return sinOpinionScore()
 	}
 	clave := "score" + strconv.Itoa(K)
 	base, ok := c.calib.ParaL2().Tipos[clave]

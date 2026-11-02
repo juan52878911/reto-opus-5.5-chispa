@@ -260,6 +260,7 @@ struct CapaL2: Capa {
     }
 
     func decidir(_ texto: String, _ pregunta: Pregunta, previas: [String: SalidaCapa]) throws -> SalidaCapa {
+        if !pregunta.scoreIdsValidos { return .sinOpinion } // score con ids que no son 1..K: no opina, sin tokenizar ni ONNX
         let pj = pregunta.json()
         // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
         if !motor.torresL2(pj) {

@@ -255,6 +255,7 @@ class CapaL2(
         decidir(texto, pregunta, emptyMap())
 
     override fun decidir(texto: String, pregunta: Pregunta, previas: Map<String, SalidaCapa>): SalidaCapa {
+        if (!scoreIdsValidos(pregunta)) return SalidaCapa.SIN_OPINION // score con ids que no son 1..K: no opina, sin tokenizar ni ONNX
         val pj = pregunta.toJson()
         // «Esquema nuevo» lo dice el motor en su respuesta (`esquema_nuevo`: ESQUEMAS no trae las torres), no esta capa.
         if (!motor.torresL2(pj) && !torresAlVuelo(pj)) return SalidaCapa.SIN_OPINION
