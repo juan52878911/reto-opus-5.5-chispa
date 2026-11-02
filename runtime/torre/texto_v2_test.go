@@ -19,7 +19,7 @@ type casoV2 struct {
 func TestParidadTextoV2(t *testing.T) {
 	var cs []casoV2
 	leerJSON(t, "../../server/decide/testdata/texto_torre_v2.json", &cs)
-	if len(cs) < 15 {
+	if len(cs) < 25 {
 		t.Fatalf("solo %d casos", len(cs))
 	}
 	for i, c := range cs {
@@ -69,5 +69,35 @@ func leerJSON(t testing.TB, ruta string, dst any) {
 	}
 	if err := json.Unmarshal(b, dst); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Descripciones repetidas: en v2 solo esas opciones usan el texto v1 (con id); la comparación es tras strip de Python.
+func TestTextoOpcionDescripcionesRepetidas(t *testing.T) {
+	ops := []Opcion{{"a", "igual"}, {"b", " \tigual\x1c"}, {"c", "otra"}, {"d", "  "}, {"e", ""}}
+	want := []string{"passage: q · a · igual", "passage: q · b ·  \tigual\x1c", "passage: q · otra", "passage: q · d ·   ", "passage: q · e · "}
+	got := Textos("v2_sin_id", Pregunta{Texto: "q", Kind: KindChoice, Opciones: ops})
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("v2: %q, quería %q", got, want)
+	}
+	if v1 := Textos("v1", Pregunta{Texto: "q", Kind: KindChoice, Opciones: ops}); v1[2] != "passage: q · c · otra" || v1[0] != want[0] {
+		t.Errorf("v1 no cambia: %q", v1)
+	}
+	if ids := DescripcionesRepetidas(ops); !reflect.DeepEqual(ids, []string{"a", "b"}) {
+		t.Errorf("repetidas %q", ids)
+	}
+	// Tres con dos iguales: la tercera no se toca. Mayúsculas distintas no son repetidas. Vacías repetidas no cuentan.
+	if ids := DescripcionesRepetidas([]Opcion{{"a", "x"}, {"b", "y"}, {"c", "x"}}); !reflect.DeepEqual(ids, []string{"a", "c"}) {
+		t.Errorf("tres: %q", ids)
+	}
+	if ids := DescripcionesRepetidas([]Opcion{{"a", "Saldo"}, {"b", "saldo"}, {"c", ""}, {"d", " "}}); len(ids) != 0 {
+		t.Errorf("sin repetidas: %q", ids)
+	}
+	// noul y score: la opción de consulta se compara con el resto de la pregunta.
+	if got := Textos("v2_sin_id", Pregunta{Texto: "q", Kind: KindNoul, Opciones: []Opcion{{"false", "no hay"}, {"true", "no hay"}}}); got[0] != "passage: q · true · no hay" {
+		t.Errorf("noul: %q", got)
+	}
+	if got := Textos("v2_sin_id", Pregunta{Texto: "q", Kind: KindScore, Opciones: []Opcion{{"1", "igual"}, {"2", "igual"}, {"3", "alta"}}}); got[0] != "passage: q · alta" {
+		t.Errorf("score: %q", got)
 	}
 }

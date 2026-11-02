@@ -3,7 +3,8 @@ Uso: python gen_texto_torre_v2.py <raíz del repo> > texto_torre_v2.json
 
 v1 es texto_opcion/texto_consulta de model/l2/modelo.py. Esa referencia aún no tiene v2, y aquí se implementa la regla
 del contrato (model/l2/contrato-torre.md, «Texto de torre versión 2») en este generador: si strip(descripción) no está
-vacía, «passage: » + pregunta + « · » + descripción (la descripción tal cual); si está vacía, el texto v1 exacto.
+vacía, «passage: » + pregunta + « · » + descripción (la descripción tal cual); si está vacía, el texto v1 exacto. Excepción:
+las opciones de la misma pregunta cuya descripción (igualdad exacta tras strip(), no vacía; dos o más) se repite usan el texto v1.
 modelo.py importa torch: si se puede importar se comprueba que su v1 coincide con la copia local; si no, se usa la copia."""
 import json, sys
 
@@ -12,9 +13,13 @@ SEP = " · "
 def v1(fila, op):  # copia literal de modelo.texto_opcion
     return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, op, SEP, fila["descripciones"].get(op, ""))
 
+def repetida(fila, op):
+    d = fila["descripciones"].get(op, "").strip()
+    return bool(d) and sum(1 for o in fila["opciones"] if fila["descripciones"].get(o, "").strip() == d) >= 2
+
 def v2(fila, op):
     d = fila["descripciones"].get(op, "")
-    if d.strip():
+    if d.strip() and not repetida(fila, op):
         return "passage: %s%s%s" % (fila["pregunta"], SEP, d)
     return v1(fila, op)
 
@@ -48,6 +53,16 @@ CASOS = [
  ("score", "Gravedad", [("1", "baja"), ("2", "media"), ("3", "alta")]),
  ("score", "Satisfacción desordenada", [("5", "muy satisfecho"), ("4", ""), ("1", "nada"), ("3", ""), ("2", "")]),
  ("score", "Máximo sin descripción", [("2", " "), ("1", "bajo")]),
+ ("choice", "Dos descripciones iguales", [("a", "pedir ayuda"), ("b", "pedir ayuda"), ("c", "otra cosa")]),
+ ("choice", "Iguales salvo espacios en los extremos", [("a", "reclamo"), ("b", "  reclamo\t"), ("c", "\x1creclamo\n"), ("d", "recl amo")]),
+ ("choice", "Tres con dos iguales", [("a", "x"), ("b", "y"), ("c", "x")]),
+ ("choice", "Tres iguales y una distinta", [("a", "z"), ("b", "z"), ("c", "z"), ("d", "w")]),
+ ("choice", "Vacías repetidas no cuentan", [("a", ""), ("b", "  "), ("c", "uno")]),
+ ("choice", "Distintas por mayúsculas", [("a", "Saldo"), ("b", "saldo")]),
+ ("multi", "Etiquetas repetidas", [("pago", "problema"), ("envío", "problema"), ("cuenta", "acceso"), ("v", "  problema ")]),
+ ("noul", "¿Repetida en noul?", [("false", "no hay"), ("true", "no hay")]),
+ ("noul", "¿Repetida distinta?", [("false", "otra"), ("true", "datos")]),
+ ("score", "Repetidas en score", [("1", "igual"), ("2", "igual"), ("3", "alta")]),
 ]
 out = []
 for kind, preg, ops in CASOS:

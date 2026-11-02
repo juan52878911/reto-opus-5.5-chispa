@@ -439,7 +439,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         from .multi import entrenar_multi
         inf = entrenar_multi(ejemplos, q_tipo, extra_tipo, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, shrinkage_lambda=shrinkage_lambda,
                              sin_soporte=sin_soporte, embeber=embeber, perfil=perfil, log=log)
-        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre)
+        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre, q_tipo.options)
     lam = LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda
     con_soporte = not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos))
     inf = _entrenar(ejemplos, esquema, salida, lambda_l1=lam if con_soporte and l1 and ejemplos and lam != float("inf") else None, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
@@ -451,10 +451,10 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         q, _ = cargar_esquema(esquema, pregunta)
         anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, lam,
                      inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
-    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre)
+    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre, q_tipo.options)
 
 
-def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre=None) -> dict:
+def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre=None, opciones=None) -> dict:
     """Lo que `entrenar` añade al fichero ya escrito: `texto_torre` de META, τ de L2 para esquemas nuevos y la sección TORR."""
     from .torre import fijar_texto_torre, resolver_texto_torre
     try:  # versión del l2.chispa (ausente = v1), del ONNX de la torre y de --texto-torre: si hay varias, coinciden
@@ -464,12 +464,15 @@ def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, t
         raise
     fijar_texto_torre(salida, version)
     inf["texto_torre"] = version
+    if opciones is not None:
+        from .torre import avisar_descripciones_repetidas
+        avisar_descripciones_repetidas(opciones, version, log)
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
         log(f"τ de L2 para esquemas nuevos {tau_l2_esquema_nuevo:g} en CALIB (tau_l2_esquema_nuevo)")
     if torre:
         from .torre import anadir_torr
-        anadir_torr(salida, torre, inf)
+        anadir_torr(salida, torre, inf, version)  # TORR v2 si el texto es v2, v1 si es v1
         log(f"TORR: dim {torre['dim']}, max_len {torre['max_len']}, prefijo {torre['prefijo']!r}, {len(torre['onnx'])} bytes de ONNX")
     resumen_capas(salida, log, sin_torre)
     return inf

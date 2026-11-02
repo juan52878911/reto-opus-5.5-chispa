@@ -26,7 +26,7 @@ func TestTextosTorreParidadV2(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cs []casoTextoV2
-	if err := json.Unmarshal(b, &cs); err != nil || len(cs) < 15 {
+	if err := json.Unmarshal(b, &cs); err != nil || len(cs) < 25 {
 		t.Fatalf("%d casos, %v", len(cs), err)
 	}
 	for i, c := range cs {
@@ -48,13 +48,18 @@ func conTextoTorre(t *testing.T, version string) *chispa3.Fichero {
 	}
 	f := conTorreSeccion(t)
 	secs := []chispa3.Seccion{{Tipo: chispa3.META, Datos: meta}}
-	for _, tp := range []chispa3.Tipo{chispa3.L2, chispa3.ESQUEMAS, chispa3.TORR} {
+	for _, tp := range []chispa3.Tipo{chispa3.L2, chispa3.ESQUEMAS} {
 		b, err := f.Bytes(tp)
 		if err != nil {
 			t.Fatal(err)
 		}
 		secs = append(secs, chispa3.Seccion{Tipo: tp, Datos: b})
 	}
+	tr, err := chispa3.CodificarTORR(chispa3.Torre{Dim: 2, MaxLen: 128, Prefijo: "passage: ", TextoTorre: version, ONNX: []byte("onnx-torre")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secs = append(secs, chispa3.Seccion{Tipo: chispa3.TORR, Datos: tr})
 	return v3Tiny(t, calibTiny(), secs...)
 }
 
@@ -114,5 +119,57 @@ func TestArmarDesdeTextoTorreDesconocido(t *testing.T) {
 	_, err := ArmarDesde(v3Tiny(t, calibTiny(), secs...), NuevoL0(8), &Config{}, false, tokFalso{}, ConSesionS(sesionFalsa{[][]float32{{3, 0}}}))
 	if err == nil || !strings.Contains(err.Error(), "texto_torre") || !strings.Contains(err.Error(), "v9") {
 		t.Fatalf("error %v", err)
+	}
+}
+
+// La versión efectiva sale de TORR: META sin texto_torre con TORR v2 monta v2; META y TORR discrepantes son un error de carga
+// claro (en los dos sentidos), no un texto elegido en silencio.
+func TestArmarDesdeTextoTorreSaleDeTORR(t *testing.T) {
+	armar := func(meta, texto string) (Montaje, error) {
+		f := conTorreSeccion(t)
+		secs := []chispa3.Seccion{{Tipo: chispa3.META, Datos: []byte(meta)}}
+		for _, tp := range []chispa3.Tipo{chispa3.L2, chispa3.ESQUEMAS} {
+			d, _ := f.Bytes(tp)
+			secs = append(secs, chispa3.Seccion{Tipo: tp, Datos: d})
+		}
+		tr, err := chispa3.CodificarTORR(chispa3.Torre{Dim: 2, MaxLen: 128, Prefijo: "passage: ", TextoTorre: texto, ONNX: []byte("onnx-torre")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		secs = append(secs, chispa3.Seccion{Tipo: chispa3.TORR, Datos: tr})
+		return ArmarDesde(v3Tiny(t, calibTiny(), secs...), NuevoL0(8), &Config{CacheEsquemas: 64}, false, tokFalso{}, ConSesionS(sesionFalsa{[][]float32{{3, 0}}}), ConCodificadorTorre(&codificadorPorTexto{clave: "x"}))
+	}
+	mt, err := armar(`{"version":1}`, chispa3.TextoTorreV2SinID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := mt.L2.(*L2).VersionTextoTorre(); v != chispa3.TextoTorreV2SinID {
+		t.Errorf("versión efectiva %q, quería v2_sin_id (de TORR)", v)
+	}
+	for _, c := range []struct{ meta, texto string }{
+		{`{"version":1,"texto_torre":"v2_sin_id"}`, chispa3.TextoTorreV1},
+		{`{"version":1,"texto_torre":"v1"}`, chispa3.TextoTorreV2SinID},
+	} {
+		if _, err := armar(c.meta, c.texto); err == nil || !strings.Contains(err.Error(), "no coinciden") {
+			t.Errorf("%s con TORR %q: error %v", c.meta, c.texto, err)
+		}
+	}
+}
+
+// Descripciones repetidas en v2: solo esas opciones llevan id, en las torres al vuelo del servidor (choice y multi).
+func TestTextosTorreDescripcionesRepetidas(t *testing.T) {
+	for _, kind := range []string{KindChoice, KindMulti} {
+		p := Pregunta{Texto: "q", Kind: kind, Opciones: []Opcion{{ID: "a", Description: "igual"}, {ID: "b", Description: " igual\t"},
+			{ID: "c", Description: "otra"}, {ID: "d"}}}
+		want := []string{"passage: q · a · igual", "passage: q · b ·  igual\t", "passage: q · otra", "passage: q · d · "}
+		if got := TextosTorre(chispa3.TextoTorreV2SinID, p); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: %q, quería %q", kind, got, want)
+		}
+		// La firma por opción (la que usa L2) ve toda la pregunta y da lo mismo que la lista.
+		for i, o := range OpcionesConsulta(p) {
+			if got := TextoTorre(chispa3.TextoTorreV2SinID, p, o); got != want[i] {
+				t.Errorf("%s opción %s: %q, quería %q", kind, o.ID, got, want[i])
+			}
+		}
 	}
 }

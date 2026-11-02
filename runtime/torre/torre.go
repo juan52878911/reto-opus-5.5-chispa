@@ -37,7 +37,9 @@ const sepTorre = " · "
 //   - v2_sin_id: si strip(descripción) no está vacía, «passage: pregunta · descripción» (la descripción tal cual); si lo
 //     está, el texto v1 exacto.
 //
-// strip solo decide si la descripción está vacía (espacios Unicode, como str.strip de Python). La usan el servidor y el motor móvil.
+// strip solo decide si la descripción está vacía (espacios Unicode, como str.strip de Python). Esta función no ve el resto de
+// opciones: la regla de descripciones repetidas (v2 con id si dos o más opciones de la pregunta comparten descripción) la
+// aplica TextoOpcion, que es la que usan el servidor y el motor móvil.
 func TextoTorre(version, pregunta, id, descripcion string) string {
 	if version == chispa3.TextoTorreV2SinID && !vacia(descripcion) {
 		return "passage: " + pregunta + sepTorre + descripcion
@@ -45,19 +47,56 @@ func TextoTorre(version, pregunta, id, descripcion string) string {
 	return strings.Join([]string{"passage: " + pregunta, id, descripcion}, sepTorre)
 }
 
-// vacia dice si strip(s) == "" con la definición de espacio de Python (unicode.IsSpace más U+001C..U+001F).
-func vacia(s string) bool {
-	for _, r := range s {
-		if !unicode.IsSpace(r) && !(r >= 0x1c && r <= 0x1f) {
-			return false
-		}
+// esEspacioPy es la definición de espacio de str.strip de Python (unicode.IsSpace más U+001C..U+001F).
+func esEspacioPy(r rune) bool { return unicode.IsSpace(r) || (r >= 0x1c && r <= 0x1f) }
+
+// strip es str.strip() de Python.
+func strip(s string) string { return strings.TrimFunc(s, esEspacioPy) }
+
+// vacia dice si strip(s) == "".
+func vacia(s string) bool { return strip(s) == "" }
+
+// TextoOpcion es el texto de torre de la opción o de una pregunta cuyas opciones son todas (las de la pregunta, no solo las
+// que llevan torre). En v2_sin_id, las opciones cuya descripción (tras strip, no vacía) se repite en dos o más opciones de la
+// pregunta usan el texto v1 (con id): sin id las torres de esas opciones serían iguales; solo esas.
+func TextoOpcion(version, pregunta string, o Opcion, todas []Opcion) string {
+	if version == chispa3.TextoTorreV2SinID && descripcionRepetida(o, todas) {
+		version = chispa3.TextoTorreV1
 	}
-	return true
+	return TextoTorre(version, pregunta, o.ID, o.Description)
 }
 
-// Texto es TextoTorre de una opción.
-func Texto(version, pregunta string, o Opcion) string {
-	return TextoTorre(version, pregunta, o.ID, o.Description)
+// descripcionRepetida dice si la descripción de o (tras strip, no vacía) la tiene otra opción de todas además de la propia.
+// Se cuenta por posición, no por id: dos opciones con el mismo id y la misma descripción también cuentan como repetidas.
+func descripcionRepetida(o Opcion, todas []Opcion) bool {
+	d := strip(o.Description)
+	if d == "" {
+		return false
+	}
+	n := 0
+	for _, x := range todas {
+		if strip(x.Description) == d {
+			n++
+		}
+	}
+	return n >= 2
+}
+
+// DescripcionesRepetidas devuelve los ids de las opciones de la pregunta cuya descripción (tras strip, no vacía) se repite, en
+// el orden de las opciones. Sirve para avisar al entrenar y para tests.
+func DescripcionesRepetidas(opciones []Opcion) []string {
+	var ids []string
+	for _, o := range opciones {
+		if descripcionRepetida(o, opciones) {
+			ids = append(ids, o.ID)
+		}
+	}
+	return ids
+}
+
+// Texto es el texto de torre de la opción o de la pregunta p (ver TextoOpcion).
+func Texto(version string, p Pregunta, o Opcion) string {
+	return TextoOpcion(version, p.Texto, o, p.Opciones)
 }
 
 // Textos son los textos de torre de una pregunta, en el orden de OpcionesConsulta.
@@ -65,7 +104,7 @@ func Textos(version string, p Pregunta) []string {
 	ops := OpcionesConsulta(p)
 	out := make([]string, len(ops))
 	for i, o := range ops {
-		out[i] = Texto(version, p.Texto, o)
+		out[i] = Texto(version, p, o)
 	}
 	return out
 }

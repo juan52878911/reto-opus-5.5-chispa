@@ -19,10 +19,27 @@ class TestTORR(unittest.TestCase):
         self.assertEqual(b[:16].hex(), "01000000" "00010000" "80000000" "09000000")
         self.assertEqual(b[16:], b"passage: " + ONNX)
 
+    def test_layout_v2(self):
+        # misma cabecera que format/chispa3 (TestTORRV2Layout): versión 2 y u32 con el texto (2 = v2_sin_id) tras len_prefijo
+        b = formato.torr(ONNX, texto_torre="v2_sin_id")
+        self.assertEqual(b[:20].hex(), "02000000" "00010000" "80000000" "09000000" "02000000")
+        self.assertEqual(b[20:], b"passage: " + ONNX)
+        self.assertEqual(formato.leer_torr(b), {"dim": 256, "max_len": 128, "prefijo": "passage: ", "texto_torre": "v2_sin_id", "onnx": ONNX})
+        self.assertEqual(formato.torr(ONNX, texto_torre="v1"), formato.torr(ONNX))  # v1 sigue siendo TORR v1
+
+    def test_v2_rechazos(self):
+        with self.assertRaisesRegex(ValueError, "texto_torre.*v9"):
+            formato.torr(ONNX, texto_torre="v9")
+        b = formato.torr(ONNX, texto_torre="v2_sin_id")
+        for malo, msg in ((struct.pack("<I", 3) + b[4:], "versión desconocida"), (b[:16] + struct.pack("<I", 7) + b[20:], "texto de torre"),
+                          (b[:18], "truncada")):
+            with self.assertRaisesRegex(ValueError, msg):
+                formato.leer_torr(malo)
+
     def test_ida_y_vuelta(self):
         sec = formato.leer(fichero())
         self.assertEqual(formato.leer_torr(sec[formato.TORR]),
-                         {"dim": 256, "max_len": 128, "prefijo": "passage: ", "onnx": ONNX})
+                         {"dim": 256, "max_len": 128, "prefijo": "passage: ", "texto_torre": "v1", "onnx": ONNX})
 
     def test_max_len_menor_de_3_se_rechaza(self):
         for ml in (-1, 0, 1, 2):

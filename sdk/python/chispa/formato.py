@@ -245,8 +245,10 @@ def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
 
 
 # --- TORR (ver format/chispa3/torr.go para la disposición) ---
-TORR_VERSION = 1
-TORR_PREFIJO_POR_VERSION = {1: "passage: "}  # regla por versión: una versión futura añade su fila
+TORR_VERSION = 1   # texto de torre v1 (sin el campo de versión del texto)
+TORR_VERSION2 = 2  # añade u32 con la versión del texto de torre: 2 = «v2_sin_id»
+TORR_TEXTO_V2_SIN_ID = 2
+TORR_PREFIJO_POR_VERSION = {1: "passage: ", 2: "passage: "}  # regla por versión: una versión futura añade su fila
 TORR_MAX_LEN_MIN = 3  # `chispa3.MaxLenMin`: <s>, al menos un token y </s>
 TORR_MAX_LEN_TOPE = 512  # `chispa3.MaxLenTope` / `runtime/tok.TopeMaxLen`: e5-small tiene 512 posiciones; por encima, error
 
@@ -260,22 +262,36 @@ def validar_prefijo_torr(version: int, prefijo: str) -> None:
         raise ValueError(f"TORR v{version}: prefijo {prefijo!r} no válido; se espera {esperado!r}")
 
 
-def torr(onnx: bytes, dim: int = 256, max_len: int = 128, prefijo: str = "passage: ") -> bytes:
-    """Sección TORR: u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX (`chispa3.CodificarTORR`)."""
+def torr(onnx: bytes, dim: int = 256, max_len: int = 128, prefijo: str = "passage: ", texto_torre: str = "v1") -> bytes:
+    """Sección TORR (`chispa3.CodificarTORR`). Con texto v1: u32 versión(1) · u32 dim · u32 max_len · u32 len_prefijo · prefijo UTF-8 · ONNX.
+    Con texto «v2_sin_id»: versión 2 y un u32 más tras len_prefijo (2 = «v2_sin_id»), para que ningún runtime calcule en silencio
+    las torres con un texto distinto al entrenado; un runtime que solo conoce TORR v1 la rechaza."""
     p = prefijo.encode("utf-8")
+    validar_texto_torre(texto_torre, "TORR texto_torre")
     if not 0 < dim <= 4096 or not TORR_MAX_LEN_MIN <= max_len <= TORR_MAX_LEN_TOPE or len(p) > 256 or not onnx:
         raise ValueError(f"TORR mal formada (dim={dim}, max_len={max_len}: se exige {TORR_MAX_LEN_MIN}..{TORR_MAX_LEN_TOPE})")
-    return struct.pack("<IIII", TORR_VERSION, dim, max_len, len(p)) + p + onnx
+    if texto_torre == "v1":
+        return struct.pack("<IIII", TORR_VERSION, dim, max_len, len(p)) + p + onnx
+    return struct.pack("<IIIII", TORR_VERSION2, dim, max_len, len(p), TORR_TEXTO_V2_SIN_ID) + p + onnx
 
 
 def leer_torr(b: bytes) -> dict:
-    """Inversa de `torr` (`chispa3.DecodificarTORR`): {dim, max_len, prefijo, onnx}."""
+    """Inversa de `torr` (`chispa3.DecodificarTORR`): {dim, max_len, prefijo, texto_torre, onnx}."""
     if len(b) < 16:
         raise ValueError("TORR truncada")
     ver, dim, ml, n = struct.unpack("<IIII", b[:16])
-    if ver != TORR_VERSION or not 0 < dim <= 4096 or not TORR_MAX_LEN_MIN <= ml <= TORR_MAX_LEN_TOPE or n > 256 or len(b) <= 16 + n:
+    if ver not in (TORR_VERSION, TORR_VERSION2):
+        raise ValueError(f"TORR v{ver}: versión desconocida (se lee la 1 y la 2)")
+    cab, texto = 16, "v1"
+    if ver == TORR_VERSION2:
+        if len(b) < 20:
+            raise ValueError("TORR truncada")
+        if struct.unpack("<I", b[16:20])[0] != TORR_TEXTO_V2_SIN_ID:
+            raise ValueError("TORR: texto de torre desconocido")
+        cab, texto = 20, "v2_sin_id"
+    if not 0 < dim <= 4096 or not TORR_MAX_LEN_MIN <= ml <= TORR_MAX_LEN_TOPE or n > 256 or len(b) <= cab + n:
         raise ValueError("TORR inválida")
-    return {"dim": dim, "max_len": ml, "prefijo": b[16:16 + n].decode("utf-8"), "onnx": b[16 + n:]}
+    return {"dim": dim, "max_len": ml, "prefijo": b[cab:cab + n].decode("utf-8"), "texto_torre": texto, "onnx": b[cab + n:]}
 
 
 # --- SOPL1 (ver format/chispa3/sopl1.go para la disposición) ---
