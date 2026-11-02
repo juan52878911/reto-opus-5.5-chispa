@@ -47,6 +47,17 @@ class Reanudar(unittest.TestCase):
         for k, v in a["modelo"].items():
             self.assertTrue(torch.allclose(v, b["modelo"][k], atol=1e-6), k)
 
+    def test_desde_un_checkpoint_sin_la_cabeza_score_de_los_datos_nuevos(self):
+        """Clandestino trae score 1..5: un checkpoint de partida sin `score5` no debe romper `--desde`, la cabeza nueva arranca con su init."""
+        self.assertEqual(self.correr("base"), 0)
+        ck = torch.load(self.dir / "base" / "mejor.pt", weights_only=False)
+        self.assertEqual(ck["cabezas"], ["score4"])
+        escribir(self.dir / "d.jsonl", [fila(i, "choice", 4, "a") for i in range(30)] + [fila(200 + i, "score", tarea="c", k=5) for i in range(10)])
+        self.assertEqual(self.correr("nuevo", extra=["--desde", str(self.dir / "base" / "mejor.pt")]), 0)
+        nuevo = torch.load(self.dir / "nuevo" / "mejor.pt", weights_only=False)
+        self.assertEqual(nuevo["cabezas"], ["score4", "score5"])
+        self.assertIn("coral.score5.w", nuevo["modelo"])
+
     def test_s3_local(self):
         self.assertEqual(self.correr("a", extra=["--s3", str(self.dir / "nube")]), 0)
         self.assertTrue((self.dir / "nube" / "ultimo.pt").exists())

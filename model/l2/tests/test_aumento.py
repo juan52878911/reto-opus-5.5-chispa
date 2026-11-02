@@ -1,3 +1,4 @@
+import difflib
 import io
 import re
 import tarfile
@@ -194,6 +195,73 @@ class EmpaquetadoM5(unittest.TestCase):
         self.assertIn("model/meta/resultados/conversion-20261027.json", nombres)
         otros = [n for n in nombres if "/resultados" in n and not n.endswith("/") and n != "model/meta/resultados/conversion-20261027.json"]
         self.assertEqual(otros, [])
+
+
+class AumentoV3(unittest.TestCase):
+    def test_fracciones_por_defecto_de_v3(self):
+        self.assertEqual({k: A.FRACCIONES[k] for k in ("parafrasis", "erratas", "ingles")}, {"parafrasis": 0.4, "erratas": 0.3, "ingles": 0.1})
+        self.assertEqual({k: v for k, v in A.FRACCIONES.items() if k not in ("parafrasis", "erratas", "ingles")},
+                         {k: v for k, v in A.FRACCIONES_V2.items() if k not in ("parafrasis", "erratas", "ingles")})   # el resto, igual que v2
+
+    def test_plantillas_en_espanol_sin_solape_con_la_evaluacion(self):
+        nuevas = [t for t in A.PLANTILLAS_PREGUNTA_ENT if t != "{p}"]
+        self.assertGreaterEqual(len(nuevas), 20)
+        for t in nuevas:
+            self.assertTrue("{p}" in t or "{p_min}" in t, t)
+        med = set(A.E2.PLANTILLAS_PREGUNTA) | set(A.E2.PLANTILLAS_PREGUNTA_EN)
+        self.assertEqual(sorted(set(nuevas) & med), [])
+        # ni siquiera una vez aplicadas a las preguntas con las que M3 mide
+        for p in list(R.PREGUNTAS_EN) + ["¿Qué necesita el cliente del banco?", "¿De qué tema trata el texto?"]:
+            ent = {t.format(p=p, p_min=p[0].lower() + p[1:]) for t in nuevas}
+            ev = {t.format(p=p, p_min=p[0].lower() + p[1:]) for t in med if t != "{p}"}
+            self.assertEqual(ent & ev, set())
+
+    def test_parafrasis_usa_solo_plantillas_de_entrenamiento(self):
+        vistas = set()
+        for i in range(300):
+            g = A.aumentar_fila(fila(i), 0, 0, {"parafrasis": 1.0})
+            vistas.add(g["pregunta"])
+            self.assertNotIn(g["pregunta"], {t.format(p=fila(i)["pregunta"], p_min="¿" + fila(i)["pregunta"][1].lower() + fila(i)["pregunta"][2:]) for t in A.E2.PLANTILLAS_PREGUNTA})
+        self.assertGreaterEqual(len(vistas), 15)
+
+    def test_errata_es_cada_operacion(self):
+        import random
+        ops = set()
+        for i in range(300):
+            r = random.Random(i)
+            for w in ("canción", "ñoño", "información", "llamada", "contraseña"):
+                o = A._errata_es(w, r)
+                if o == A.sin_tildes(w) and o != w:
+                    ops.add("tilde" if "ñ" not in w else "eñe")
+                elif len(o) == len(w) + 1:
+                    ops.add("doblar")
+                elif len(o) == len(w) - 1:
+                    ops.add("omitir")
+                elif sorted(o) == sorted(w) and o != w:
+                    ops.add("transponer")
+        self.assertEqual(ops, {"tilde", "eñe", "doblar", "omitir", "transponer"})
+        self.assertEqual(A.sin_tildes("Añoranza fácil, pingüino y ÁRBOL"), "Anoranza facil, pinguino y ARBOL")
+        self.assertEqual(A._errata_es("sol", random.Random(0)), "sol")   # sin tilde y corta: no hay errata posible
+
+    def test_erratas_en_mensaje_en_espanol(self):
+        f = fila(1, texto="¿Podrían enviarme la información del préstamo? Estoy en España y necesito la contraseña")
+        sin = cambiadas = 0
+        for i in range(200):
+            g = A.aumentar_fila({**f, "id": "t:train:%d" % i}, 0, 0, {"erratas": 1.0})
+            self.assertNotEqual(g["texto"], f["texto"])
+            self.assertEqual(g["etiqueta"], f["etiqueta"])
+            if g["texto"] == A.sin_tildes(f["texto"]):
+                sin += 1
+            else:
+                cambiadas += 1
+                self.assertGreater(difflib.SequenceMatcher(None, g["texto"], f["texto"]).ratio(), 0.9)   # sigue siendo el mismo mensaje
+        self.assertGreater(sin, 20)        # el mensaje entero sin tildes ocurre
+        self.assertGreater(cambiadas, 100)  # y sobre todo erratas sueltas
+
+    def test_ingles_sigue_disponible_pero_con_menos_peso(self):
+        f = fila(2)
+        n = sum(A.aumentar_fila({**f, "id": "t:train:%d" % i}, 0, 0, {"ingles": A.FRACCIONES["ingles"]})["pregunta"] != f["pregunta"] for i in range(2000))
+        self.assertAlmostEqual(n / 2000, 0.10, delta=0.03)
 
 
 if __name__ == "__main__":

@@ -3,15 +3,16 @@
 Cada fila de un lote se transforma, con una probabilidad por transformación (`FRACCIONES`, cambiables con `--aumento-fracs`):
   ids         ids de opción opacos (`op_3f2a`) en filas `choice`, con las descripciones intactas; etiqueta, `blanda` y `origen` se mapean
   mayusculas  texto en MAYÚSCULAS, minúsculas o alternado
-  erratas     1-3 erratas en el texto
-  parafrasis  la pregunta, envuelta en una plantilla en español
+  erratas     1-3 erratas en el texto, a la española (tildes quitadas, ñ→n, letra doblada, dos letras intercambiadas, letra omitida) o, a veces, el
+              mensaje entero sin tildes
+  parafrasis  la pregunta, envuelta en una plantilla en español (v3: 25 plantillas propias)
   ingles      pregunta (y descripciones, si hay traducción) en inglés; `pregunta_en`/`descripciones_en` de la fila si las trae
   relleno     2-4 frases neutras antes y/o después del texto, sin pasar de `max_tok` (cuenta estimada: `tokens_aprox`)
 La decisión es determinista por (semilla, paso, id de fila, transformación): reanudar reproduce el mismo lote, igual que `--renombrar`.
 
 Las transformaciones salen de `chispa.variantes` (E2), el generador que usa M3: `renombrar`, `parafrasear`, `largo`, `mayusculas` y el
-`_errata` de una palabra. Se llaman con un adaptador fila <-> caso (el de `robustez.py`). Dos cosas no las trae E2 y se añaden aquí:
-el número de erratas por texto (1-3 palabras, no el 15 % de todas) y ids con forma `op_xxxx`.
+`_errata` de una palabra. Se llaman con un adaptador fila <-> caso (el de `robustez.py`). Tres cosas no las trae E2 y se añaden aquí:
+el número de erratas por texto (1-3 palabras, no el 15 % de todas), las erratas a la española (`_errata_es`) y ids con forma `op_xxxx`.
 
 Separación entrenamiento / medida: M3 usa las listas de `chispa.variantes` y `robustez.py` (plantillas de pregunta, relleno, preguntas y
 descripciones en inglés, ids `x###`) con la semilla `"<semilla>:<tipo>:<crc>"`. Aquí todas esas listas son otras (`*_ENT`), los ids tienen
@@ -33,7 +34,9 @@ except ImportError:   # sdk/python no está en PYTHONPATH
 
 from . import robustez as R
 
-FRACCIONES = {"ids": 0.30, "mayusculas": 0.15, "erratas": 0.20, "parafrasis": 0.30, "ingles": 0.20, "relleno": 0.15}
+FRACCIONES_V2 = {"ids": 0.30, "mayusculas": 0.15, "erratas": 0.20, "parafrasis": 0.30, "ingles": 0.20, "relleno": 0.15}
+# v3 (W9): el ajuste se centra en paráfrasis y erratas en español; la pregunta en inglés baja de prioridad. Lo demás igual que v2.
+FRACCIONES = {**FRACCIONES_V2, "parafrasis": 0.40, "erratas": 0.30, "ingles": 0.10}
 
 PLANTILLAS_PREGUNTA_ENT = (
     "{p}",
@@ -42,6 +45,26 @@ PLANTILLAS_PREGUNTA_ENT = (
     "Una consulta sobre el contenido: {p}",
     "Teniendo en cuenta el texto, {p_min}",
     "A partir del mensaje de arriba, {p_min}",
+    # v3: más variedad, tuteo, ustedeo y registro de chat; ninguna está en `chispa.variantes` (hay un test)
+    "Ayúdame con esto, por favor: {p}",
+    "Léete el mensaje y dime: {p}",
+    "Mira el texto y contesta. {p}",
+    "Necesito tu criterio sobre el mensaje. {p}",
+    "Pregunta rápida: {p}",
+    "Una duda sobre lo anterior: {p}",
+    "Revisando el mensaje, {p_min}",
+    "Según lo que escribió la persona, {p_min}",
+    "Analiza el texto anterior y responde: {p}",
+    "Cuéntame, {p_min}",
+    "Lo que quiero saber es lo siguiente. {p}",
+    "Piensa en el mensaje recibido: {p}",
+    "Si lees con atención lo anterior, {p_min}",
+    "Respóndeme con una de las opciones. {p}",
+    "Oye, {p_min}",
+    "Dada la comunicación de arriba, {p_min}",
+    "Ante el texto que sigue, {p_min}",
+    "Te consulto algo sobre el contenido: {p}",
+    "Dime según el mensaje: {p}",
 )
 RELLENO_ENT = (
     "Texto recibido por el canal habitual.",
@@ -78,7 +101,7 @@ def listas_solapadas():
     ent = set(PLANTILLAS_PREGUNTA_ENT) | set(RELLENO_ENT) | set(PREGUNTAS_EN_ENT.values()) | set(PREFIJOS_EN_ENT)
     for d in DESCRIPCIONES_EN_ENT.values():
         ent |= set(d.values())
-    med = set(E2.PLANTILLAS_PREGUNTA) | set(E2.RELLENO) | set(R.PREGUNTAS_EN.values())
+    med = set(E2.PLANTILLAS_PREGUNTA) | set(E2.PLANTILLAS_PREGUNTA_EN) | set(E2.RELLENO) | set(R.PREGUNTAS_EN.values())
     for d in R.ESQUEMA_EN.values():
         med |= set(d.values())
     return sorted((ent & med) - {"{p}"})   # «{p}» es la identidad, no un texto
@@ -145,14 +168,47 @@ def _renombrar_opaco(f, rng):
     return g
 
 
+_SIN_TILDE = str.maketrans("áéíóúüÁÉÍÓÚÜ", "aeiouuAEIOUU")
+_SIN_TILDE_N = {**_SIN_TILDE, ord("ñ"): "n", ord("Ñ"): "N"}
+_CON_TILDE = set("áéíóúüÁÉÍÓÚÜñÑ")
+P_SIN_TILDES_TODO = 0.25   # de las filas con errata, las que pierden todas las tildes y las eñes (se escribe así por el móvil)
+
+
+def sin_tildes(texto):
+    """Quita las tildes, la diéresis y la eñe (ñ→n)."""
+    return texto.translate(_SIN_TILDE_N)
+
+
+def _errata_es(palabra, rng):
+    """Una errata de teclado en español: tilde quitada, ñ→n, letra doblada, dos letras contiguas intercambiadas o letra omitida."""
+    ops = []
+    if any(c in _CON_TILDE for c in palabra):
+        ops += ["tilde", "tilde"]   # lo más común en español: pesa doble
+    if len(palabra) >= 4:
+        ops += ["doblar", "transponer", "omitir"]
+    if not ops:
+        return palabra
+    op = rng.choice(ops)
+    if op == "tilde":
+        return sin_tildes(palabra)
+    i = rng.randrange(1, len(palabra) - 1)
+    if op == "doblar":
+        return palabra[:i + 1] + palabra[i] + palabra[i + 1:]
+    if op == "transponer" and palabra[i] != palabra[i + 1]:
+        return palabra[:i] + palabra[i + 1] + palabra[i] + palabra[i + 2:]
+    return palabra[:i] + palabra[i + 1:]
+
+
 def _errata_texto(f, rng):
+    if sin_tildes(f["texto"]) != f["texto"] and rng.random() < P_SIN_TILDES_TODO:
+        return {**f, "texto": sin_tildes(f["texto"])}
     partes = re.split(r"(\W+)", f["texto"])
-    idx = [i for i, t in enumerate(partes) if t.isalpha() and len(t) >= 4]
+    idx = [i for i, t in enumerate(partes) if t.isalpha() and (len(t) >= 4 or any(c in _CON_TILDE for c in t))]
     if not idx:
         return f
     g = dict(f)
     for i in rng.sample(idx, min(rng.randint(1, 3), len(idx))):
-        partes[i] = E2._errata(partes[i], rng)
+        partes[i] = _errata_es(partes[i], rng)
     g["texto"] = "".join(partes)
     return g
 

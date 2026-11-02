@@ -3,7 +3,7 @@
     python -m model.l2.entrenar --salida DIR --datos DIR_CONVERTIDOS [--herramientas] [--meta DIR] [--blandas DIR ...]
         [--max-filas 600000] [--epocas 1] [--minutos M] [--s3 s3://bucket/prefijo] [--dev-max 4000]
         [--descongelar N] [--renombrar P] [--maestro-extra DIR --peso-extra W] [--inicial|--desde CKPT]
-        [--aumento [--aumento-fracs ids=0.3,mayusculas=0.15,erratas=0.2,parafrasis=0.3,ingles=0.2,relleno=0.15]]
+        [--aumento [--aumento-fracs ids=0.3,mayusculas=0.15,erratas=0.3,parafrasis=0.4,ingles=0.1,relleno=0.15]]   (los valores por defecto, los de v3)
         [--episodios [--k-min 4 --k-max 32 --vias 16 --frac-meta 0.5 --frac-zeroshot 0.25]]
 
 AdamW (3e-4 ranuras y cabezas, 1e-4 torre), warmup 5 % y coseno, lotes de 64 mensajes con muestreo por tarea (n^0,5).
@@ -277,7 +277,14 @@ def main(argv=None):
         ck = torch.load(a.inicial, map_location=a.device, weights_only=False)
         for k in ck.get("cabezas", []):
             modelo.asegurar_cabeza(k, a.device)
-        modelo.load_state_dict(ck["modelo"])
+        estado_ini = dict(ck["modelo"])
+        nuevas = sorted(k for k in claves if k not in ck.get("cabezas", []))
+        for n, v in modelo.state_dict().items():   # una cabeza score de una K que el checkpoint no tenía (p. ej. score5 de Clandestino) arranca con su init
+            if n not in estado_ini and n.startswith("coral.") and n.split(".")[1] in nuevas:
+                estado_ini[n] = v
+        if nuevas:
+            print("cabezas nuevas sin pesos iniciales (init por defecto): %s" % nuevas, flush=True)
+        modelo.load_state_dict(estado_ini)
         modelo.texto_torre = a.texto_torre or ck.get("texto_torre", "v1")
         enc.cargar_enc(ck.get("enc"))
         opt = nuevo_opt()

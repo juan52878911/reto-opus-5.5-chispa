@@ -88,3 +88,9 @@ Opciones comunes: `peticion, queja, reclamo, sugerencia, denuncia, felicitacion`
 - **Atribución obligatoria** (CC-BY-4.0): Opus-MT, Tiedemann y Thottingal (2020), Universidad de Helsinki; los datos se transformaron (traducidos automáticamente). Va con cualquier redistribución de `tsjev-es` y de los pesos entrenados con ellos.
 - **NLLB no** (no comercial). MADLAD-400 (`google/madlad400-3b-mt`, Apache-2.0) solo si Opus-MT no valiera.
 - Cada fila lleva `traducida: {modelo, revision, de}`; las filas con traductor `FALSO:*` son de prueba y no se usan.
+
+## Clandestino (W9, ajuste v3)
+
+| Fuente | Licencia | De dónde sale | uso_comercial | Splits |
+|---|---|---|---|---|
+| Clandestino (`microsoft/Clandestino`), solo filas con `Is AI Generated == false` | MIT, **con la condición de uso de Microsoft: no dañar, no vigilancia**; aceptada por Juan, 2026-11-02 | la tarjeta del snapshot (`license: mit`); si no la confirma, «sin verificar», `uso_comercial: false` y solo `test` | true solo si la tarjeta lo confirma | train/dev/test por plantilla (80/10/10), sin fugas. Opcional en `model.datos.convertir` (`--con-opcionales`): solo se mide con ella en el ajuste v3 (`ajuste.sh` con `CHISPA_V3=1`). Las columnas son una hipótesis hasta leer la tarjeta real (ver el docstring de `clandestino.py`) |
