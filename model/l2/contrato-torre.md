@@ -31,7 +31,7 @@ Aprobado el 2026-11-02, porque el id de la opción en el texto hacía que renomb
   rechaza la TORR y se queda sin torre al vuelo de forma explícita, en lugar de servir v2 como v1. Lo escribe quien escribe
   TORR (`chispa train --torre`).
 - **ONNX de la torre:** la metadata `chispa.torre.texto_torre` (`"v1"` o `"v2_sin_id"`) junto a `chispa.torre.{dim,max_len,prefijo}`.
-  Es la versión del checkpoint del que se exportó; `chispa train` la compara con `META.texto_torre` del `l2.chispa` y falla si
+  Es la versión del checkpoint del que se exportó (`--torre-onnx` la escribe siempre, también `"v1"`); `chispa train` la compara con `META.texto_torre` del `l2.chispa` y falla si
   no coinciden.
 - **Lo que no cambia:**
   - las claves de ESQUEMAS y CONJ (`HashEsquema2` sigue incluyendo el id, que es lo que identifica la entrada);
@@ -39,7 +39,7 @@ Aprobado el 2026-11-02, porque el id de la opción en el texto hacía que renomb
   - la consulta (`query: `) y la normalización de mayúsculas.
 - **Las torres precalculadas en ESQUEMAS** se calculan con el texto de la versión que diga META. **El runtime calcula las
   torres al vuelo con esa misma versión.** Un `.chispa` v2 servido como v1 daría torres distintas de las de entrenamiento.
-- **Paridad:** `model/l2/tests/fixtures/texto_torre_v2.json` trae casos `{pregunta, opcion, descripcion, v1, v2}` (con
+- **Paridad:** `model/l2/tests/fixtures/texto_torre_v2.json` trae `opciones` (casos `{pregunta, opcion, descripcion, v1, v2}`) y `preguntas` (formato del runtime, con descripciones repetidas) (con
   descripción, sin descripción, solo espacios y acentos) para los tests de Go, Kotlin y Swift.
 
 ## Claves de ESQUEMAS y CONJ: versión 2 (`HashEsquema2`)

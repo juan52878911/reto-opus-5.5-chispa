@@ -44,7 +44,7 @@ def renombrar(f):
 
 class Paridad(unittest.TestCase):
     def test_fixture(self):
-        casos = json.loads(FIX.read_text(encoding="utf-8"))
+        casos = json.loads(FIX.read_text(encoding="utf-8"))["opciones"]
         self.assertGreaterEqual(len(casos), 10)
         self.assertTrue(any(not c["descripcion"] for c in casos))
         self.assertTrue(any(c["descripcion"] and not c["descripcion"].strip() for c in casos))
@@ -54,6 +54,26 @@ class Paridad(unittest.TestCase):
             self.assertEqual(texto_opcion(f, c["opcion"]), c["v1"], c)
             self.assertEqual(texto_opcion(f, c["opcion"], "v1"), c["v1"], c)
             self.assertEqual(texto_opcion(f, c["opcion"], "v2_sin_id"), c["v2"], c)
+
+    def test_preguntas(self):
+        """Los 15 casos del runtime (server/decide/testdata) y los de descripciones repetidas, contra texto_opcion / texto_consulta."""
+        casos = json.loads(FIX.read_text(encoding="utf-8"))["preguntas"]
+        rt = json.loads((Path(__file__).parents[3] / "server" / "decide" / "testdata" / "texto_torre_v2.json").read_text(encoding="utf-8"))
+        self.assertEqual(casos[:len(rt)], rt)
+        self.assertGreaterEqual(len(casos), len(rt) + 6)
+        for c in casos:
+            tipo = "choice" if c["kind"] == "multi" else c["kind"]
+            f = {"pregunta": c["pregunta"], "tipo": tipo, "opciones": [o["id"] for o in c["opciones"]],
+                 "descripciones": {o["id"]: o["description"] for o in c["opciones"] if o["description"]}}
+            for ver, esperado in (("v1", c["v1"]), ("v2_sin_id", c["v2_sin_id"])):
+                got = [texto_opcion(f, o, ver) for o in f["opciones"]] if tipo == "choice" else [texto_consulta(f, ver)]
+                self.assertEqual(got, esperado, (c["kind"], c["pregunta"], ver))
+
+    def test_descripciones_repetidas(self):
+        f = {"pregunta": "p", "opciones": ["a", "b", "c", "d"], "descripciones": {"a": "x", "b": " x ", "c": "y", "d": "x"}}
+        self.assertEqual([texto_opcion(f, o, "v2_sin_id") for o in f["opciones"]],
+                         ["passage: p · a · x", "passage: p · b ·  x ", "passage: p · y", "passage: p · d · x"])
+        self.assertEqual([texto_opcion(f, o, "v1") for o in f["opciones"]], [texto_opcion(f, o) for o in f["opciones"]])
 
     def test_version_desconocida(self):
         with self.assertRaises(ValueError):

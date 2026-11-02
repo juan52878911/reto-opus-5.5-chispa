@@ -78,11 +78,16 @@ def reescribir(a):
 
 
 # ------------------------------------------------------------------ lo que hace el servidor
-def textos_servidor(fila):
-    """Textos de torre que arma el servidor con la petición de `cuerpo_decide` (runtime/torre: Texto, OpcionesConsulta)."""
+def textos_servidor(fila, version="v1"):
+    """Textos de torre que arma el servidor con la petición de `cuerpo_decide` (runtime/torre: Texto, OpcionesConsulta).
+    `version` es el `META.texto_torre` del .chispa; la regla v2 (contrato-torre.md) se reimplementa aquí, no se importa."""
     q = cuerpo_decide(fila)["questions"][0]
     ops = [(o["id"], o.get("description", "")) for o in q.get("options", [])]
-    texto = lambda i, d: "passage: " + q["question"] + SEP + i + SEP + d
+    cuenta = {}
+    for _, d in ops:
+        cuenta[d.strip()] = cuenta.get(d.strip(), 0) + 1
+    v2 = lambda d: version == "v2_sin_id" and d.strip() and cuenta[d.strip()] == 1
+    texto = lambda i, d: "passage: " + q["question"] + SEP + d if v2(d) else "passage: " + q["question"] + SEP + i + SEP + d
     if q["kind"] == "choice":
         return [texto(i, d) for i, d in ops]
     if q["kind"] == "noul":
@@ -91,8 +96,8 @@ def textos_servidor(fila):
     return [texto(*max(num)[1])] if num else ([texto(*ops[-1])] if ops else [])
 
 
-def textos_python(fila):
-    return [texto_opcion(fila, o) for o in fila["opciones"]] if fila["tipo"] == "choice" else [texto_consulta(fila)]
+def textos_python(fila, version="v1"):
+    return [texto_opcion(fila, o, version) for o in fila["opciones"]] if fila["tipo"] == "choice" else [texto_consulta(fila, version)]
 
 
 def cuantizar_go(h):
@@ -218,7 +223,7 @@ def diagnosticar(a):
         filas_out = []
         for r in casos:
             ops, K, tipo = r["opciones"], len(r["opciones"]), r["tipo"]
-            ts_srv, ts_py = textos_servidor(r), textos_python(r)
+            ts_srv, ts_py = textos_servidor(r, modelo.texto_torre), textos_python(r, modelo.texto_torre)
             ids_py = tok(["query: " + r["texto"]], truncation=True, max_length=max_tok)["input_ids"][0]
             ids_srv = srv.ids_q(r["texto"], srv.max_len_q)
             n_sin_truncar = len(tok(["query: " + r["texto"]], truncation=True, max_length=512)["input_ids"][0])

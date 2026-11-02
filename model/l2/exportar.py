@@ -371,9 +371,10 @@ def poner_meta(ruta, props):
     onnx.save(m, str(ruta))
 
 
-def meta_torre(ruta, dim, max_len=MAX_TOK):
-    """Escribe en `metadata_props` lo que lee `chispa train --torre`: dimensión de h, truncado y prefijo del texto."""
-    poner_meta(ruta, {"chispa.torre.dim": dim, "chispa.torre.max_len": max_len, "chispa.torre.prefijo": PREFIJO_PASAJE})
+def meta_torre(ruta, dim, max_len=MAX_TOK, texto_torre="v1"):
+    """Escribe en `metadata_props` lo que lee `chispa train --torre`: dimensión de h, truncado, prefijo y versión del texto de torre."""
+    poner_meta(ruta, {"chispa.torre.dim": dim, "chispa.torre.max_len": max_len, "chispa.torre.prefijo": PREFIJO_PASAJE,
+                      "chispa.torre.texto_torre": texto_torre})
 
 
 def meta_consulta(ruta, max_len=MAX_TOK):
@@ -433,7 +434,7 @@ def ids_calib_consulta(enc, filas, n=500, semilla=0, version="v1"):
 
 
 def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinamico", per_channel=True, max_len=MAX_TOK, ids_calib=None,
-                   metodo_calib="minmax"):
+                   metodo_calib="minmax", texto_torre="v1"):
     """ONNX de la torre: (input_ids, attention_mask) → h. `cuant`: ninguna (fp32), dinamico (int8 dinámico por canal; también
     «codificador»/«todo» de `--cuant`) estatico (QDQ calibrado con `ids_calib`), ffn-estatico (QDQ solo en las FFN y la tabla de embeddings) o fp16. Devuelve {mb, fp32_mb, vocab_n}. Con `vocab`
     comparte la tabla podada de la consulta (los ids de entrada siguen siendo los del tokenizador original)."""
@@ -449,7 +450,7 @@ def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinami
         cuantizar_estatico(fp32, ruta_int8, ids_calib, per_channel, metodo_calib)
     else:
         cuantizar(fp32, ruta_int8, "codificador" if cuant == "dinamico" else cuant, per_channel, PREFIJO_TORRE, ids_calib, metodo_calib)
-    meta_torre(ruta_int8, int(torre.mlp[-1].out_features), max_len)
+    meta_torre(ruta_int8, int(torre.mlp[-1].out_features), max_len, texto_torre)
     return {"mb": Path(ruta_int8).stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "vocab_n": n_vocab}
 
 
@@ -753,7 +754,8 @@ def main_torre(a, modelo, enc, encoder, vocab, ampl=None):
         ids_calib = ids_torre(enc, tx_c)
         ids_calib_q = ids_calib_consulta(enc, filas_c, a.n_calib, version=modelo.texto_torre)
         print("calibración estática: %d textos de torre y %d de consulta de %d filas" % (len(ids_calib), len(ids_calib_q), len(filas_c)), file=sys.stderr)
-    kw = dict(cuant=a.cuant_torre, per_channel=a.per_channel, max_len=enc.max_tok, ids_calib=ids_calib, metodo_calib=a.metodo_calib)
+    kw = dict(cuant=a.cuant_torre, per_channel=a.per_channel, max_len=enc.max_tok, ids_calib=ids_calib, metodo_calib=a.metodo_calib,
+              texto_torre=modelo.texto_torre)
     with tempfile.TemporaryDirectory() as t:
         import gc
         inf = {"max_len": enc.max_tok, "n_calib": len(ids_calib or []), "perfil": a.perfil, "vocab_ampliado": ampl}

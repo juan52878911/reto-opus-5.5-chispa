@@ -44,6 +44,7 @@ class TorreOnnx(unittest.TestCase):
         self.assertEqual(props["chispa.torre.dim"], "256")
         self.assertEqual(props["chispa.torre.max_len"], "128")
         self.assertEqual(props["chispa.torre.prefijo"], "passage: ")
+        self.assertEqual(props["chispa.torre.texto_torre"], "v1")
         self.assertEqual(texto_opcion({"pregunta": "p", "descripciones": {}}, "o")[:len(props["chispa.torre.prefijo"])], props["chispa.torre.prefijo"])
 
     def test_gelu_exacta_y_torre_en_fp32(self):
@@ -88,6 +89,13 @@ class TorreOnnx(unittest.TestCase):
         enc = type("E", (), {"tok": Tok()})()
         E.ids_torre(enc, ["x"])
         self.assertEqual(enc.tok.max_length, 128)
+
+    def test_texto_torre_del_checkpoint_en_el_onnx(self):
+        m2 = ModeloL2(texto_torre="v2_sin_id").eval()
+        out = self.d / "t_v2.onnx"
+        E.exportar_torre(encoder_diminuto(), m2.torre, out, self.d / "v2", texto_torre=m2.texto_torre)
+        props = {p.key: p.value for p in onnx.load(str(out), load_external_data=False).metadata_props}
+        self.assertEqual(props["chispa.torre.texto_torre"], "v2_sin_id")
 
     def test_max_len_configurable(self):
         out = self.d / "t256.onnx"
