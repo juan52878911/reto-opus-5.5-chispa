@@ -376,7 +376,10 @@ def _por_descripcion(state, q):
     if q["kind"] == "multi":
         act = [o["id"] for o in ops if o.get("description") in ("def a", "def b")]
         return {"answer": act[0], "answers": act, "probs": {o["id"]: (0.9 if o["id"] in act else 0.1) for o in ops}}
-    ans = next((o["id"] for o in ops if o.get("description") == "def a"), ops[0]["id"])
+    if q["kind"] == "score":  # como el runtime: el nivel es el valor del id, no la posición
+        ans = min((o["id"] for o in ops), key=int)
+    else:
+        ans = next((o["id"] for o in ops if o.get("description") == "def a"), ops[0]["id"])
     return {"answer": ans, "probs": probs(q, ans, 0.9)}
 
 
@@ -417,12 +420,12 @@ class TestRobustez(Base):
             self.assertIn(t, r["conjuntos"]["choice"]["transformaciones"])
         self.assertIn("Robustez por transformación", r["informe"])
 
-    def test_renombrar_y_permutar_solo_en_choice_y_multi(self):
+    def test_renombrar_solo_en_choice_y_multi_y_permutar_tambien_en_score(self):
         r = self.correr_con(_por_descripcion)
+        self.assertNotIn("permutar", r["conjuntos"]["noul"]["transformaciones"])
         for n in ("noul", "score"):
-            ts = r["conjuntos"][n]["transformaciones"]
-            self.assertNotIn("permutar", ts)
-            self.assertNotIn("renombrar", ts)
+            self.assertNotIn("renombrar", r["conjuntos"][n]["transformaciones"])
+        self.assertIn("permutar", r["conjuntos"]["score"]["transformaciones"])  # ids 1..K: permutar es segura
         self.assertIn("renombrar", r["conjuntos"]["multi"]["transformaciones"])
         self.assertEqual(r["conjuntos"]["multi"]["estabilidad"], 1.0)  # el conjunto activo se compara con los ids traducidos
 

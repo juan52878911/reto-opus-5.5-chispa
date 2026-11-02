@@ -1,38 +1,22 @@
 package tok
 
-import (
-	"sort"
-	"strconv"
-)
+import "strconv"
 
-// EnteroCanonico devuelve el entero de id si está en forma canónica (strconv.Itoa(n) == id: sin «01» ni «+1»).
-func EnteroCanonico(id string) (int, bool) {
-	n, err := strconv.Atoi(id)
-	return n, err == nil && strconv.Itoa(n) == id
-}
-
-// IdsEnteros dice si todos los ids son enteros canónicos (y hay al menos uno).
-func IdsEnteros(ids []string) bool {
+// NivelesScore devuelve los ids de un score ordenados por nivel ("1".."K") y ok=true solo si son exactamente 1..K: enteros
+// canónicos (strconv.Itoa(n) == id: sin «01» ni «+1»), sin huecos ni repetidos, en cualquier orden. Con cualquier otro conjunto
+// devuelve nil, false: la capa no opina y la cascada escala. No modifica ids.
+func NivelesScore(ids []string) ([]string, bool) {
+	k := len(ids)
+	if k == 0 {
+		return nil, false
+	}
+	out := make([]string, k)
 	for _, id := range ids {
-		if _, ok := EnteroCanonico(id); !ok {
-			return false
+		n, err := strconv.Atoi(id)
+		if err != nil || strconv.Itoa(n) != id || n < 1 || n > k || out[n-1] != "" {
+			return nil, false
 		}
+		out[n-1] = id
 	}
-	return len(ids) > 0
-}
-
-// OrdenNivel devuelve los ids de un score ordenados por nivel: numérico y estable ("2" < "10") si todos son enteros; si alguno no
-// lo es, el orden declarado sin tocarlo (nunca lexicográfico). No modifica ids.
-func OrdenNivel(ids []string) []string {
-	out := make([]string, len(ids))
-	copy(out, ids)
-	if !IdsEnteros(out) {
-		return out
-	}
-	sort.SliceStable(out, func(i, j int) bool {
-		a, _ := strconv.Atoi(out[i])
-		b, _ := strconv.Atoi(out[j])
-		return a < b
-	})
-	return out
+	return out, true
 }

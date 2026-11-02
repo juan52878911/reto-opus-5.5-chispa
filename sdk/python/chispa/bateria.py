@@ -469,7 +469,8 @@ def agregar(rs: List[dict], objetivo: float = OBJETIVO) -> dict:
 
 
 # ---------------------------------------------------------------- robustez
-TRANSFORMACIONES_CON_IDS = ("permutar", "renombrar")  # solo en choice y multi: los ids de noul (false/true) y de score (niveles) llevan significado
+TRANSFORMACIONES_CON_IDS = ("renombrar",)  # solo en choice y multi: los ids de noul (false/true) y de score (niveles 1..K) llevan significado
+TRANSFORMACIONES_SIN_NOUL = ("permutar",)  # permutar no se aplica a noul (false/true), pero sí a score: con ids 1..K es segura
 
 
 def cargar_variantes():
@@ -511,7 +512,7 @@ def _fila_variante(f: Fila, v: dict) -> Fila:
 
 
 def _tipos_aplicables(tipo: str, tipos) -> tuple:
-    return tuple(t for t in tipos if tipo in ("choice", "multi") or t not in TRANSFORMACIONES_CON_IDS)
+    return tuple(t for t in tipos if tipo in ("choice", "multi") or (t not in TRANSFORMACIONES_CON_IDS and (tipo == "score" or t not in TRANSFORMACIONES_SIN_NOUL)))
 
 
 def _prediccion_id(r: dict, inverso: Optional[dict] = None) -> str:

@@ -525,35 +525,41 @@ func clavesDe(ops []Opcion) []chispa3.OpcionClave {
 	return out
 }
 
-// ordenNivel ordena las opciones de un score por nivel con tok.OrdenNivel: por id numérico ("2" < "10") si todos son enteros; si
-// alguno no lo es, el orden declarado sin tocarlo (nunca lexicográfico). El bool dice si todos eran numéricos. No modifica ops.
-func ordenNivel(ops []Opcion) ([]Opcion, bool) {
+// opcionesNiveles ordena las opciones de un score por nivel (ids "1".."K", ver tok.NivelesScore). El bool es false si los ids no son
+// exactamente 1..K: la capa no opina. No modifica ops.
+func opcionesNiveles(ops []Opcion) ([]Opcion, bool) {
 	ids := make([]string, len(ops))
 	pos := make(map[string]int, len(ops))
 	for i, o := range ops {
 		ids[i] = o.ID
-		if _, ok := pos[o.ID]; !ok {
-			pos[o.ID] = i
-		}
+		pos[o.ID] = i
+	}
+	niveles, ok := tok.NivelesScore(ids)
+	if !ok {
+		return nil, false
 	}
 	out := make([]Opcion, len(ops))
-	for i, id := range tok.OrdenNivel(ids) {
+	for i, id := range niveles {
 		out[i] = ops[pos[id]]
 	}
-	return out, tok.IdsEnteros(ids)
+	return out, true
 }
 
-// opcionesPorNivel es ordenNivel sin el bool.
-func opcionesPorNivel(ops []Opcion) []Opcion {
-	out, _ := ordenNivel(ops)
-	return out
+// scoreValido dice si p es un score con ids 1..K (o no es un score): con otros ids ninguna capa opina.
+func scoreValido(p Pregunta) bool {
+	if p.Kind != KindScore {
+		return true
+	}
+	_, ok := opcionesNiveles(p.Opciones)
+	return ok
 }
 
 // opcionesUnica son las opciones de la única torre de noul (false y true, con la descripción de la petición si la trae) y
 // score (todas).
 func opcionesUnica(p Pregunta) []Opcion {
 	if p.Kind == KindScore {
-		return opcionesPorNivel(p.Opciones)
+		out, _ := opcionesNiveles(p.Opciones) // L2 solo llega aquí con ids 1..K
+		return out
 	}
 	if p.Kind != KindNoul {
 		return p.Opciones
@@ -589,8 +595,8 @@ func (l *L2) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 }
 
 func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
-	if len(p.Opciones) == 0 {
-		return Respuesta{}, nil
+	if len(p.Opciones) == 0 || !scoreValido(p) {
+		return Respuesta{}, nil // score con ids que no son 1..K: no opina (ni se gastan torres)
 	}
 	var esqMulti string
 	if p.Kind == KindMulti { // sin multi_l2 no opinará: no se gastan torres (ni presupuesto de la petición) en calcularlas
@@ -632,30 +638,15 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 			rs[i] = r
 		}
 	}
-	if p.Kind == KindScore {
-		p.Opciones = opcionesPorNivel(p.Opciones) // la mediana de la agregación recorre los niveles, no el orden de la petición
-	}
 	return agregarRespuestas(p, rs, agg, theta), nil
 }
 
 // score: CORAL, P(y>j) = σ(a·s − b_j); b_1 = b de «scoreK» y b_j = b_{j−1} + a de «scoreK#j» (j = 1..K−2, como a_calib_chispa).
 func (l *L2) score(p Pregunta, s float64) (Respuesta, error) {
 	K := len(p.Opciones)
-	// El orden de los niveles es el del id numérico (como model/l2/modelo.py): el orden de la petición no cambia la respuesta.
-	// Si ningún id es entero se conserva el orden declarado (Python rechaza esos casos); una mezcla no opina.
-	ops, numerico := ordenNivel(p.Opciones)
-	if !numerico {
-		for _, o := range ops {
-			if _, err := strconv.Atoi(o.ID); err == nil {
-				return Respuesta{}, nil // mezcla de ids enteros y no enteros: el nivel sería ambiguo
-			}
-		}
-	} else {
-		for i, o := range ops {
-			if o.ID != strconv.Itoa(i+1) {
-				return Respuesta{}, nil // las cabezas de score numéricas van sobre 1..K
-			}
-		}
+	ops, ok := opcionesNiveles(p.Opciones) // el nivel es el valor del id: el orden de la petición no cambia la respuesta
+	if !ok {
+		return Respuesta{}, nil
 	}
 	clave := "score" + strconv.Itoa(K)
 	base, ok := l.calib.Tipos[clave]

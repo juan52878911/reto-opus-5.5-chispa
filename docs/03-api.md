@@ -20,7 +20,7 @@ Ejemplo real: [`choice.req.json`](../server/decide/testdata/choice.req.json).
 | `questions[].id` | obligatorio; único en la petición |
 | `questions[].question` | obligatorio |
 | `questions[].kind` | `choice`, `score`, `noul` o `multi` |
-| `questions[].options` | `choice`: ≥ 2 y ≤ 256, con `id` único y `description` opcional. `score`: ≥ 2; el servidor no exige ids concretos: L0 y L1 aceptan ids libres, y la cabeza CORAL de L2 solo opina si los ids son `"1"` … `"K"` en orden. `multi`: ≥ 2 y ≤ 256, con `id` único y `description` opcional; cada opción es una etiqueta que puede estar activa o no. `noul`: opcional; si va, solo `"false"` y `"true"` |
+| `questions[].options` | `choice`: ≥ 2 y ≤ 256, con `id` único y `description` opcional. `score`: ≥ 2; los ids deben ser exactamente `"1"` … `"K"` (enteros canónicos, sin huecos ni repetidos, en cualquier orden en la petición; `"1"` es el nivel más bajo y `"K"` el más alto). Con otros ids («bajo», «0»…«K-1», «01», «+1», huecos) la petición es válida pero ninguna capa opina y la cascada escala (ver «Niveles de score»). `multi`: ≥ 2 y ≤ 256, con `id` único y `description` opcional; cada opción es una etiqueta que puede estar activa o no. `noul`: opcional; si va, solo `"false"` y `"true"` |
 | `questions[].nonce` | opcional; clave de idempotencia |
 
 Los campos desconocidos dan 400.
@@ -70,52 +70,19 @@ En `score`, `answer` depende de la capa que respondió:
 - **L0:** el clasificador entrenado con los ejemplos; `probs` es su distribución sobre los niveles y `answer` la **mediana**, como en L1 y L2.
 - **L3:** `answer` es la mediana de las `probs` normalizadas.
 
-**Orden de los niveles.** En todas las capas (L0, L1, L2, L3) y al agregar las ventanas de un texto largo, la mediana recorre los
-niveles por id numérico ("2" < "10"), no en el orden en que se declaran las opciones: permutar `options` no cambia `answer`
-(`tok.OrdenNivel`, `runtime/tok/orden.go`). Si algún id no es entero, el orden ordinal es el **declarado** (nunca lexicográfico):
-con ids como `["bajo","medio","alto"]` L2 sigue opinando, con los niveles en ese orden y la torre de consulta de la última
-opción. Es una diferencia con el entrenamiento en Python (`model/l2/modelo.py`, `exportar.py`), que solo admite niveles enteros
-y rechaza esos ids. En ese caso el orden de `options` **es** el orden ordinal y permutarlo cambia el significado de la pregunta
-(y la respuesta); con ids enteros no.
-
-En todos los casos, la confianza que se compara con τ es la probabilidad de `answer` en `probs`.
-
-### Un ejemplo por tipo
-Petición y respuesta de cada `kind` (la de `multi` está también en [`openapi.yaml`](../server/api/openapi.yaml), validada contra su esquema por `server/decide/contrato_test.go`):
-
-```json
-{"id":"u1","kind":"choice","answer":"alta","probs":{"alta":0.9,"baja":0.1},"layer":"L1","escalate":false,"ms":0.3}
-{"id":"n1","kind":"noul","answer":"true","probs":{"false":0.1,"true":0.9},"layer":"L1","escalate":false,"ms":0.2}
-{"id":"s1","kind":"score","answer":"2","probs":{"1":0.1,"2":0.6,"3":0.3},"layer":"L1","escalate":false,"ms":0.3}
-{"id":"t1","kind":"multi","answer":"cobro","answers":["cobro","atencion"],"probs":{"cobro":0.93,"atencion":0.81,"fraude":0.07},"layer":"L1","escalate":false,"ms":0.5}
-```
-
-La petición de `multi` es la de `choice` con `"kind": "multi"`:
-
-```json
-{"state":"Me cobraron dos veces y nadie contesta el telefono","questions":[{"id":"t1","question":"Que temas toca el mensaje?","kind":"multi",
-  "options":[{"id":"cobro","description":"Habla de un cobro"},{"id":"atencion","description":"Se queja de la atencion"},{"id":"fraude","description":"Sospecha de fraude"}]}]}
-```
-
-### `multi`: varias etiquetas a la vez
-Cada opción es un sí/no **independiente** sobre «pregunta · opción · descripción».
-
-- **Cómo puntúa:** L1 usa el coseno entre el mensaje y la opción; L2, el MaxSim contra la torre de **esa** opción (una por opción, como en `choice`, y al vuelo con `TORR`). Cada una pasa por su sigmoide σ(a·s + b) con θ propio: `probs[id]` es esa p y la opción está activa si p ≥ θ.
-- **Calibración:** `CALIB.tipos["multi@<hash>"]` trae (a, b, θ) de todas las opciones del esquema (`<hash>` = HashEsquema2 de pregunta, kind y opciones con descripción, en hex); `multi@<hash>#<id>` los de una opción (θ por opción). Los ficheros antiguos sin claves con `@` siguen usando `multi` y `multi#<id>`. Si L1 no encuentra ninguna, usa la calibración de `noul` como aproximación y, sin ninguna, la de por defecto (a = 4, b = −2, θ = 0,5). Zero-shot va, pues, sin calibrar para `multi` hasta que `chispa train` con ejemplos ajuste `multi@…`.
-- **L2 en `multi` solo opina con `multi_l2@<hash>`** (y `multi_l2@<hash>#<id>`) en `CALIB` (en `tipos_l2` si el fichero lo trae, si no en `tipos`): el MaxSim de L2 tiene otra escala que el coseno de L1 y con la calibración de `noul` marcaría activas casi todas las opciones. Sin esas claves L2 **no opina** (confianza 0, aviso en el log) y la cascada escala. **`chispa train` hoy no calibra `multi_l2@…`** (no tiene tokenizador ni ONNX de L2): solo lo escribe un exportador de modelos que calibre L2 (o `multi.escribir_calib` con `maxsim_l2`), y va a `tipos_l2`. Con un `.chispa` entrenado por `chispa train`, en `multi` decide L1 (o L3, si está) y, si L1 no llega a τ, escala. Recomendación: fija en `multi` un τ de L1 propio (la `CALIB` de `multi@…` o `-config`) en vez de uno conservador pensado para `choice`; si no, casi toda pregunta `multi` escalará.
-- **Servidor mínimo:** los ficheros con claves `multi@…` o `multi_l2@…` piden un servidor con la CALIB por esquema (commit `5b00084` o posterior). Uno anterior abre el fichero, **ignora en silencio** esas claves (solo busca `multi#<id>` y `multi`) y multi cae a la calibración de `noul`; no hay error. Ver [04](04-formato-chispa.md#claves-de-calib).
-- **Confianza (la que se compara con τ):** la de la opción más dudosa, el mínimo de p (si está activa) o 1 − p (si no). Una capa solo acepta la respuesta si **todas** sus decisiones superan τ; si no, se pasa a la siguiente y, al final, escala.
-- **Ninguna activa** es una respuesta válida: `answers: []`, `answer: ""` y `escalate: false`. Lo que sí es «sin respuesta» es `escalate: true` con `probs: {}`, y solo ocurre si ninguna capa opinó. Si alguna opinó pero ninguna llegó a su τ, `escalate: true` lleva la mejor pista: `answers` y `probs` (una p por opción) de la capa de mayor confianza, como en `choice`.
-- **L0 no opina en `multi`**: el L0 entrenado es multiclase (probabilidades que suman 1) y no da una p por opción. Aunque haya un modelo con las mismas etiquetas, el servidor no lo usa para `multi`.
-
-### Qué devuelve cada capa
-Probabilidades en `probs` y respuesta por tipo y capa. «Zero-shot» es un esquema que solo llega en la petición; «few-shot» es un `.chispa` entrenado con pocos ejemplos (`chispa train --ejemplos`).
+**Niveles de score.** Una pregunta `score` solo es válida para una capa si sus ids son exactamente `"1"` … `"K"` (enteros
+canónicos, `strconv.Itoa(n) == id`; sin huecos ni repetidos), en cualquier orden en la petición. Los niveles se leen por su valor
+numérico ("2" < "10"): en L0, L1, L2, L3 y al agregar las ventanas de un texto largo, permutar `options` no cambia `answer` ni `probs`
+(`tok.NivelesScore`, `runtime/tok/orden.go`). Es el mismo contrato que el entrenamiento (`chispa train` rechaza otros ids y dice cómo
+mapearlos, p. ej. bajo→1, medio→2, alto→3). Con cualquier otro conjunto de ids **ninguna capa opina** (L3 ni siquiera llama al LLM ni gasta
+presupuesto) y la cascada escala (`layer: "escalar"`, `escalate: true`, `answer` vacío). La respuesta no lleva campo de motivo: se cuenta
+en `chispa_score_ids_no_validos_total{capa}` (una por cada capa que no opinó por esto).
 
 | Tipo | L0 | L1 (zero-shot y few-shot) | L2 / L2c | L3 (opcional) |
 |---|---|---|---|---|
 | `choice` | few-shot (≥ 10 por opción): softmax del modelo, suma 1. Zero-shot: no opina | softmax(cos / T), suma 1 | softmax(MaxSim / T), suma 1; con `CONJ` (L2c) la cabeza conjunta, suma 1 | normalizada, suma 1 |
 | `noul` | few-shot: modelo `false`/`true`, suma 1. Zero-shot: no opina | σ(a·cos + b) con θ; `true` y `false` suman 1 | σ(a·MaxSim + b) con θ, suma 1 | normalizada, suma 1 |
-| `score` | few-shot: distribución del modelo sobre los niveles, suma 1; `answer` = mediana. Zero-shot: no opina | softmax sobre los niveles en el orden de la pregunta, suma 1; `answer` = mediana | CORAL, solo con ids `"1"`…`"K"` en orden y `scoreK` en `CALIB`; si no, no opina. Suma 1 (se normaliza); `answer` = mediana | normalizada; `answer` = mediana |
+| `score` | few-shot: distribución del modelo sobre los niveles, suma 1; `answer` = mediana. Zero-shot: no opina | softmax sobre los niveles 1..K, suma 1; `answer` = mediana | CORAL, solo con ids `"1"`…`"K"` (en cualquier orden) y `scoreK` en `CALIB`; si no, no opina. Suma 1 (se normaliza); `answer` = mediana | normalizada; `answer` = mediana |
 | `multi` | **no opina** (el L0 es multiclase) | σ(a·cos + b) por opción con θ por opción; una p en [0,1] por opción | **solo con `multi_l2@<hash>` en `CALIB`** (σ(a·MaxSim + b) por opción, torre por opción); sin ella no opina y `chispa train` no la escribe | p por opción, sin normalizar |
 
 «No opina» significa confianza 0: la cascada pasa a la siguiente capa. Con `SOPL1` (few-shot), L1 mezcla el prototipo de cada opción con la media de sus ejemplos en `choice`, `noul` y `score`. **En `multi` se ignora por defecto**: `chispa train` quita `l1_lambda_calib` de la CALIB de multi (se calibró con los prototipos de la descripción, sin encogimiento) y el servidor avisa de ello.
@@ -257,6 +224,7 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_calib_tau{capa,clave,origen}` | gauge: τ de la CALIB en servicio (`tau_escalate`, y en L2 también `tau_l2c` y `tau_l2_esquema_nuevo` si el `.chispa` los trae); `tau_escalate` de L2 es `tau_escalate_l2` si existe |
 
 Contrato de τ publicados (igual en el servidor y en `chispamovil`, `CalibJSON`): son los **efectivos** (config > CALIB > default), cada uno con su `origen` (`config`, `calib` o `default`). Claves por capa: `tau_escalate` (L1 y L2; en L2 con CONJ y `tau_l2c` es el τ de respaldo de las respuestas de L2 base, el de `tau_escalate_l2`), `tau_l2c` (solo L2 y solo con CONJ y `tau_l2c` en CALIB; es el τ de la cabeza conjunta) y `tau_l2_esquema_nuevo` (solo L2). Sin CONJ no hay `tau_l2c`. En el servidor, las series de CALIB y τ de un modelo se publican cuando ya está en servicio: una recarga rechazada o fallida no las cambia.
+| `chispa_score_ids_no_validos_total{capa}` | preguntas `score` cuyos ids no son exactamente 1..K, por cada capa que no opinó por eso (la cascada escala) |
 | `chispa_calib_sin_tipo{capa,tipo}` | gauge 1 por cada tipo base (`choice`, `noul`, `score`, `multi`) sin ninguna clave en la CALIB de la capa |
 | `chispa_calib_defecto_total{capa,tipo}` | decisiones que usaron los parámetros por defecto de `choice`/`noul` (o `score` en L1 sin `score` ni `choice`) por falta de CALIB. En `score` y `multi` L2 no usa defecto: no opina (`chispa_multi_l2_sin_calib_total`, `chispa_multi_calib_ausente_total`) |
 

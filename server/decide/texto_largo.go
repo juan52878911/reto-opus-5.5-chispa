@@ -18,6 +18,9 @@ func agregarSims(sims [][]float64, agg string) []float64 { return tok.AgregarSim
 // compartida con chispamovil). Una sola ventana, o una sin opinión (Conf 0), devuelve la primera tal cual. En multi no se usa:
 // se agregan las similitudes.
 func agregarRespuestas(p Pregunta, rs []Respuesta, agg string, theta float64) Respuesta {
+	if !scoreValido(p) {
+		return Respuesta{} // score con ids que no son 1..K: sin escala, no opina
+	}
 	if len(rs) == 1 || rs[0].Conf == 0 || rs[0].Probs == nil {
 		return rs[0]
 	}
