@@ -87,7 +87,6 @@ func NuevaCascadaConTauNuevo(cfg []Capa, ds []Decisor, met *Metricas, tauNuevo *
 	}
 	c := &Cascada{met: met, tauNuevo: tauNuevo}
 	// Las vistas de CALIB se preparan aparte: /metrics sigue mostrando las del modelo en servicio hasta PublicaCalib.
-	met.FijaTorreMotivo("") // lo repone L2.UsaMetricas si este modelo trae la torre al vuelo desactivada
 	met.iniciaPrepCalib()
 	cerrada := false
 	defer func() {
@@ -187,6 +186,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	for _, l := range c.capas {
 		if ctx.Err() != nil {
 			res.Incompleto = true
+			otraFalla = true // el plazo venció antes de correr esta capa: es incompleta, no sin_presupuesto_torres
 			break
 		}
 		t := time.Now()

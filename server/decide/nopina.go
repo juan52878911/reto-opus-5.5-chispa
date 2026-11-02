@@ -118,6 +118,16 @@ func activaCapa(d Decisor) bool {
 	return !stub
 }
 
+// cuboTorres es el cubo global de torres por segundo del L2 de la cascada (nil si no hay); la recarga hereda sus fichas.
+func (c *Cascada) cuboTorres() *cuboTorres {
+	for _, k := range c.capas {
+		if t, ok := k.d.(interface{ cuboGlobalTorres() *cuboTorres }); ok && t.cuboGlobalTorres() != nil {
+			return t.cuboGlobalTorres()
+		}
+	}
+	return nil
+}
+
 // Capacidades de la cascada armada; /healthz las publica.
 func (c *Cascada) Capacidades() Capacidades {
 	cp := Capacidades{Capas: map[string]bool{}}

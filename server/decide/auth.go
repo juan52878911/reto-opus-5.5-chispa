@@ -21,6 +21,9 @@ type ClaveAPI struct {
 	HashSHA256 string  `json:"hash_sha256"` // sha256(clave) en hex (64 caracteres); lo imprime `chispa-server -hash-clave`
 	RPS        float64 `json:"rps"`         // peticiones por segundo sostenidas (> 0)
 	Rafaga     int     `json:"rafaga"`      // capacidad del cubo (0 = ceil(rps), mínimo 1)
+	// TorresPorSegundo es un tope opcional de torres al vuelo por segundo para esta clave, cobrado además del global
+	// (torres_por_segundo de la config); 0 o ausente = solo el global. Si no es 0, debe ser >= 1.
+	TorresPorSegundo float64 `json:"torres_por_segundo,omitempty"`
 }
 
 // HashClave devuelve el SHA-256 en hex de una clave en claro.
@@ -66,6 +69,9 @@ func validarClaves(ks []ClaveAPI) error {
 		}
 		if k.Rafaga < 0 {
 			return fmt.Errorf("config: api_keys[%d] (%s): rafaga no puede ser negativa", i, k.ID)
+		}
+		if t := k.TorresPorSegundo; math.IsNaN(t) || math.IsInf(t, 0) || t < 0 || (t > 0 && t < 1) {
+			return fmt.Errorf("config: api_keys[%d] (%s): torres_por_segundo debe ser 0 (solo el tope global) o >= 1: %v", i, k.ID, t)
 		}
 	}
 	return nil
@@ -150,9 +156,10 @@ func (c *cobroClave) id() string {
 }
 
 type claveViva struct {
-	id   string
-	hash [sha256.Size]byte
-	cubo *cubo
+	id     string
+	hash   [sha256.Size]byte
+	cubo   *cubo
+	torres *cuboTorres // tope propio de torres al vuelo por segundo; nil = solo el global
 }
 
 // autenticador valida Authorization: Bearer <clave> contra las claves de la config y aplica el cubo de cada una.
@@ -195,12 +202,28 @@ func nuevoAutenticadorDe(ks []ClaveAPI, ahora func() time.Time, prev *autenticad
 				}
 			}
 		}
+		if k.TorresPorSegundo > 0 {
+			cv.torres = nuevoCuboTorres(k.TorresPorSegundo)
+			for _, p := range prev.clavesOrNil() { // la recarga no rellena el cubo de torres de la clave que sigue
+				if p.id == cv.id && p.hash == cv.hash && p.torres != nil {
+					cv.torres.hereda(p.torres)
+					break
+				}
+			}
+		}
 		if cv.cubo == nil {
 			cv.cubo = &cubo{tokens: float64(raf), cap: float64(raf), rps: k.RPS, ultimo: ahora()}
 		}
 		a.claves = append(a.claves, cv)
 	}
 	return a
+}
+
+func (a *autenticador) clavesOrNil() []claveViva {
+	if a == nil {
+		return nil
+	}
+	return a.claves
 }
 
 // busca devuelve la clave cuyo hash coincide con el de la presentada. Recorre todas con comparación en tiempo constante.

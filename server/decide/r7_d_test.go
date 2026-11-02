@@ -62,13 +62,18 @@ func TestL2PasaCtxALasRanuras(t *testing.T) {
 func TestL2PresupuestoTorresPorSegundo(t *testing.T) {
 	enc := &codificadorContador{}
 	l, m := l2Met(t, enc)
-	l.ConTorresPorSegundo(5)
-	r, err := l.Decidir(context.Background(), preguntaConOpciones(20))
+	l.ConMaxTorresNuevas(30).ConTorresPorSegundo(5) // ráfaga max(5, 30, 1) = 30: una pregunta de 20 cabe, la segunda no
+	if r, err := l.Decidir(context.Background(), preguntaConOpciones(20)); err != nil || r.Conf == 0 {
+		t.Fatalf("la ráfaga debía cubrir una pregunta completa: %+v %v", r, err)
+	}
+	p2 := preguntaConOpciones(20)
+	p2.Texto = "¿otra?"
+	r, err := l.Decidir(context.Background(), p2)
 	if err != nil || r.Conf != 0 {
 		t.Fatalf("debía no opinar: %+v %v", r, err)
 	}
-	if n := enc.n.Load(); n > 5 {
-		t.Fatalf("calculó %d torres con presupuesto 5/s", n)
+	if n := enc.n.Load(); n > 30 {
+		t.Fatalf("calculó %d torres con ráfaga 30", n)
 	}
 	if m.PresupuestoAgotado.Load() == 0 {
 		t.Fatal("PresupuestoAgotado sin contar")

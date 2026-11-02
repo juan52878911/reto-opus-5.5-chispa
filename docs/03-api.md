@@ -160,7 +160,7 @@ Defaults y cómo cambiarlos: sección `limites` del JSON de `-config` (un campo 
 | `max_texto` | 4096 | bytes de `question` y de cada `description` |
 | `max_id` | 256 | bytes de cada `id` y del `nonce` |
 | `max_torres_nuevas` (config) | 256 | torres de esquemas nuevos que calcula una **petición** entera (todas sus preguntas); el defecto cubre una pregunta completa (`max_opciones`). Agotado, L2 no opina (`escalate_reason: "sin_presupuesto_torres"`), pero las torres calculadas antes del corte se guardan en la caché y la siguiente petición continúa. Va aparte del tope global por segundo (`torres_por_segundo`): se aplican los dos |
-| `torres_por_segundo` (config) | 400 | tope **global** de torres al vuelo por segundo, de todas las peticiones (cubo de fichas con ráfaga igual al valor; ≥ 0, **0 = sin tope global**). Agotado, L2 no opina (`escalate_reason: "sin_presupuesto_torres"`). Defecto: e5-small int8 tarda del orden de 4–8 ms por pasaje corto en un núcleo (estimación, sin medir en esta máquina) y las pasadas de ORT se serializan, así que el servidor aguanta ~150–250 torres/s sostenidas; 400/s deja pasar una pregunta completa (`max_opciones` = 256 caben en la ráfaga) y corta un flujo sostenido de textos únicos cerca de la saturación. Con un valor menor que `max_torres_nuevas`, una pregunta de más opciones que la ráfaga nunca se completa de golpe (avanza por la caché en peticiones sucesivas) |
+| `torres_por_segundo` (config) | 400 | tope **global** de torres al vuelo por segundo, de todas las peticiones (cubo de fichas con ráfaga `max(valor, max_torres_nuevas, 1)`; **0 = sin tope global, si no ≥ 1**: entre 0 y 1 es un error de config). Agotado, L2 no opina (`escalate_reason: "sin_presupuesto_torres"`). Defecto: e5-small int8 tarda del orden de 4–8 ms por pasaje corto en un núcleo (estimación, sin medir en esta máquina) y las pasadas de ORT se serializan, así que el servidor aguanta ~150–250 torres/s sostenidas; 400/s deja pasar una pregunta completa (`max_opciones` = 256 caben en la ráfaga) y corta un flujo sostenido de textos únicos cerca de la saturación. Con un valor menor que `max_torres_nuevas` la ráfaga se sube a `max_torres_nuevas` (una pregunta completa cabe), pero el ritmo sostenido es menor: la config lo avisa en el log. `cache_torres` debe ser ≥ ceil(1,5 · `max_opciones`) ([06](06-despliegue.md)). Cada clave de `api_keys` puede llevar su propio `torres_por_segundo` (ver abajo) |
 
 Las longitudes son bytes UTF-8, no caracteres (en el OpenAPI, `x-max-bytes`; `maxLength` contaría caracteres).
 
@@ -267,7 +267,7 @@ Tras una petición válida y una rota, el test de métricas
 ```
 El servidor valida la config al arrancar: una clave desconocida o mal escrita (también dentro de `limites`) es un error que nombra la clave, no se ignora.
 
-`api_keys` (opcional): lista de claves de API de `/v1/decide`. Cada una es `{"id","hash_sha256","rps","rafaga"}`:
+`api_keys` (opcional): lista de claves de API de `/v1/decide`. Cada una es `{"id","hash_sha256","rps","rafaga"}` y, opcional, `"torres_por_segundo"` (tope propio de torres al vuelo de esa clave, 0 o ≥ 1; ausente = solo el global; se cobra además del global y, agotado, solo esa clave escala con `sin_presupuesto_torres`):
 
 ```json
 "api_keys": [{"id": "piloto-banco", "hash_sha256": "<64 hex>", "rps": 20, "rafaga": 40}]

@@ -294,7 +294,7 @@ components:
         escalate_reason:
           type: string
           enum: [sin_opinion, score_ids_no_validos, baja_confianza, incompleta, sin_presupuesto_torres]
-          description: "Solo cuando escalate es true. sin_opinion: ninguna capa opino (probs vacias; el modelo no puede decidir ese esquema: sin torre, tipo no soportado...). score_ids_no_validos: sin opinion porque los ids de un score no son 1..K. baja_confianza: alguna capa opino pero ninguna llego a su tau. incompleta: alguna capa fallo o se quedo sin plazo/presupuesto. sin_presupuesto_torres: ninguna capa opino y L2 agoto el presupuesto de torres nuevas (max_torres_nuevas por peticion o torres por segundo); metrica chispa_capa_no_opina_total{capa=\"L2\",causa=\"presupuesto_torres\"}. Ausente si no escalo."
+          description: "Solo cuando escalate es true. sin_opinion: ninguna capa opino (probs vacias; el modelo no puede decidir ese esquema: sin torre, tipo no soportado...). score_ids_no_validos: sin opinion porque los ids de un score no son 1..K. baja_confianza: alguna capa opino pero ninguna llego a su tau. incompleta: alguna capa fallo o se quedo sin plazo/presupuesto. sin_presupuesto_torres: ninguna capa opino y L2 agoto el presupuesto de torres nuevas (max_torres_nuevas por peticion, torres_por_segundo global o el torres_por_segundo propio de la clave de API); metrica chispa_capa_no_opina_total{capa=\"L2\",causa=\"presupuesto_torres\"}. Ausente si no escalo."
         ms:
           type: number
         nonce:

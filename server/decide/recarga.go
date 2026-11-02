@@ -316,7 +316,9 @@ func (s *Servidor) Recargar() error {
 		}
 	}
 	nv := s.nuevoVivo(a, old.gen+1, old.auth)
+	a.Cascada.cuboTorres().hereda(old.casc.cuboTorres()) // recargar no devuelve la ráfaga entera del tope de torres por segundo
 	s.cur.Store(nv)
+	s.Met.FijaTorreMotivo(nv.casc.Capacidades().TorreAlVueloMotivo) // el gauge sigue al modelo en servicio, no al que se armó
 	a.Cascada.PublicaCalib()
 	old.retirar()
 	s.Met.Recarga("ok")
@@ -338,6 +340,7 @@ func (s *Servidor) nuevoVivo(a *Armado, gen uint64, prev *autenticador) *vivo {
 	}
 	s.Met.FijaTauNuevo(a.Cascada.tauNuevo)
 	if gen == 1 { // arranque: no hay modelo anterior al que mentir; las recargas publican tras sustituirlo (Recargar)
+		s.Met.FijaTorreMotivo(a.Cascada.Capacidades().TorreAlVueloMotivo)
 		a.Cascada.PublicaCalib()
 	}
 	return &vivo{casc: a.Cascada, nonces: nuevosNonces(n, a.BytesNonces), lim: normalizaLimites(a.Limites), auth: nuevoAutenticadorDe(a.APIKeys, nil, prev), gen: gen, cerrar: a.Cerrar}

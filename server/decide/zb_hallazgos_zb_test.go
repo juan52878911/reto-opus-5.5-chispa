@@ -63,24 +63,30 @@ func armarTorreZB(t *testing.T, meta, texto string, cfg Config) Montaje {
 
 // ZB-3: al montar las torres se aplica cfg.TorresPorSegundo y el tope corta con sin_presupuesto_torres.
 func TestZBArranqueAplicaTorresPorSegundo(t *testing.T) {
-	mt := armarTorreZB(t, `{"version":1}`, chispa3.TextoTorreV1, Config{CacheEsquemas: 64, TorresPorSegundo: 2})
+	// max_torres_nuevas 8: la ráfaga es max(2, 8, 1) = 8: una pregunta de 6 torres cabe, y la segunda (otras 6) corta el cubo.
+	mt := armarTorreZB(t, `{"version":1}`, chispa3.TextoTorreV1, Config{CacheEsquemas: 64, TorresPorSegundo: 2, MaxTorresNuevas: 8})
 	l2 := mt.L2.(*L2)
-	if l2.cuboTasa != 2 {
-		t.Fatalf("cuboTasa %v, quería 2", l2.cuboTasa)
+	if l2.cubo == nil || l2.cubo.tasa != 2 {
+		t.Fatalf("cubo %+v, quería tasa 2", l2.cubo)
 	}
 	m := NuevasMetricas()
 	c, err := NuevaCascada([]Capa{{Nombre: "L2", Tau: 0.0001}}, []Decisor{mt.L2}, m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := c.Decidir(context.Background(), preguntaConOpciones(6))
+	if r := c.Decidir(context.Background(), preguntaConOpciones(6)); r.Incompleto || len(r.Probs) == 0 {
+		t.Fatalf("la ráfaga debía cubrir una pregunta completa: %+v", r)
+	}
+	p2 := preguntaConOpciones(6)
+	p2.Texto = "¿otra?"
+	r := c.Decidir(context.Background(), p2)
 	if !r.Escalate || r.EscalateReason != MotivoSinPresupuestoTorres {
 		t.Fatalf("el tope no cortó: %+v", r)
 	}
 	// Sin tope (0) la misma pregunta opina.
 	mt0 := armarTorreZB(t, `{"version":1}`, chispa3.TextoTorreV1, Config{CacheEsquemas: 64})
-	if mt0.L2.(*L2).cuboTasa != 0 {
-		t.Fatalf("cuboTasa %v, quería 0", mt0.L2.(*L2).cuboTasa)
+	if mt0.L2.(*L2).cubo != nil {
+		t.Fatalf("cubo %+v, quería ninguno", mt0.L2.(*L2).cubo)
 	}
 	c0, _ := NuevaCascada([]Capa{{Nombre: "L2", Tau: 0.0001}}, []Decisor{mt0.L2}, NuevasMetricas())
 	if r := c0.Decidir(context.Background(), preguntaConOpciones(6)); r.Incompleto || len(r.Probs) == 0 {
@@ -115,6 +121,7 @@ func TestZBCargaDegradadaHealthzMetricaLog(t *testing.T) {
 	// Un modelo coherente apaga el gauge y no trae motivo.
 	ok := armarTorreZB(t, `{"version":1}`, chispa3.TextoTorreV1, Config{CacheEsquemas: 64})
 	c2, _ := NuevaCascada([]Capa{{Nombre: "L2", Tau: 0.5}}, []Decisor{ok.L2}, met)
+	NuevoServidor(c2, met, 8) // el gauge lo publica el servidor al poner el modelo en servicio, no NuevaCascada
 	sb.Reset()
 	met.Escribe(&sb)
 	if !strings.Contains(sb.String(), `chispa_torre_al_vuelo_desactivada{motivo="texto_torre_inconsistente"} 0`) || c2.Capacidades().TorreAlVueloMotivo != "" || !c2.Capacidades().TorreAlVuelo {

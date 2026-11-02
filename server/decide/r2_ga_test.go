@@ -69,10 +69,10 @@ func TestSingleflightPanicoLiberaLaClave(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	// El líder entra en pánico: recibe el error (no una torre vacía) y la clave queda libre.
-	if _, err := l2.torreUnica(ctx, "k", "texto"); err == nil || !strings.Contains(err.Error(), "pánico") {
+	if _, _, err := l2.torreUnica(ctx, "k", "texto"); err == nil || !strings.Contains(err.Error(), "pánico") {
 		t.Fatalf("el líder debía recibir el error de pánico: %v", err)
 	}
-	if _, err := l2.torreUnica(ctx, "k", "texto"); err != nil {
+	if _, _, err := l2.torreUnica(ctx, "k", "texto"); err != nil {
 		t.Fatalf("la clave quedó en vuelo: %v", err)
 	}
 	if enc.veces != 2 {
@@ -89,7 +89,7 @@ func TestSingleflightPanicoDespiertaEsperas(t *testing.T) {
 	go func() { defer func() { recover() }(); l2.torreUnica(ctx, "k", "t") }()
 	<-entra
 	res := make(chan error, 1)
-	go func() { _, err := l2.torreUnica(ctx, "k", "t"); res <- err }()
+	go func() { _, _, err := l2.torreUnica(ctx, "k", "t"); res <- err }()
 	time.Sleep(50 * time.Millisecond)
 	close(suelta)
 	if err := <-res; err == nil || !strings.Contains(err.Error(), "pánico") {
