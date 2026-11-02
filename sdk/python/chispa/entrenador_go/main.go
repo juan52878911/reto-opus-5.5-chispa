@@ -13,6 +13,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "-h" || os.Args[1] == "--help" || os.Args[1] == "help") {
+		fmt.Println("uso: entrenador entrenar|evaluar plan.json")
+		return
+	}
 	if len(os.Args) != 3 {
 		fmt.Fprintln(os.Stderr, "uso: entrenador entrenar|evaluar plan.json")
 		os.Exit(2)
