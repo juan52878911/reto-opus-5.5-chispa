@@ -109,7 +109,7 @@ type Capacidades struct {
 	// y TORR no coinciden; el modelo cargó degradado). Vacío = sin motivo anotado.
 	TorreAlVueloMotivo string `json:"torre_al_vuelo_motivo,omitempty"`
 	// CacheTorresEfectiva es el tamaño de la caché de torres en servicio (con torre al vuelo); puede ser mayor que el cache_torres de la
-	// config si hubo que subirlo a ceil(1,5·max_opciones). CacheTorresAviso lo explica (vacío = sin ajuste).
+	// config si hubo que subirlo a 16·max_opciones. CacheTorresAviso lo explica (vacío = sin ajuste).
 	CacheTorresEfectiva int    `json:"cache_torres_efectiva,omitempty"`
 	CacheTorresAviso    string `json:"cache_torres_aviso,omitempty"`
 }
@@ -132,6 +132,16 @@ func (c *Cascada) cuboTorres() *cuboTorres {
 	return nil
 }
 
+// adoptaCuboTorres hace que el L2 de c use el cubo global de torres de la cascada anterior (ver L2.adoptaCubo).
+func (c *Cascada) adoptaCuboTorres(old *Cascada) {
+	o := old.cuboTorres()
+	for _, k := range c.capas {
+		if l, ok := k.d.(interface{ adoptaCubo(*cuboTorres) }); ok {
+			l.adoptaCubo(o)
+		}
+	}
+}
+
 // Capacidades de la cascada armada; /healthz las publica.
 func (c *Cascada) Capacidades() Capacidades {
 	cp := Capacidades{Capas: map[string]bool{}}
@@ -147,7 +157,7 @@ func (c *Cascada) Capacidades() Capacidades {
 			if ef, pe := t.CacheTorresEfectiva(); ef > 0 {
 				cp.CacheTorresEfectiva = ef
 				if pe > 0 {
-					cp.CacheTorresAviso = fmt.Sprintf("cache_torres (%d) subido a %d (1,5 × max_opciones)", pe, ef)
+					cp.CacheTorresAviso = fmt.Sprintf("cache_torres (%d) subido a %d (16 × max_opciones)", pe, ef)
 				}
 			}
 		}

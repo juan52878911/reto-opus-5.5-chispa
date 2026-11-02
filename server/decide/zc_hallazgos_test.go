@@ -78,7 +78,7 @@ func TestZC3CacheTorresValidacion(t *testing.T) {
 			t.Errorf("cache=%d max=%d debía ser válida: %v", k[0], k[1], err)
 		}
 	}
-	if av := caso(1024, 2048).Avisos(); len(av) != 2 || !strings.Contains(av[0], "cache_torres") {
+	if av := caso(1024, 2048).Avisos(); len(av) != 1 || strings.Contains(av[0], "cache_torres") {
 		t.Errorf("1024/2048 debía avisar: %q", av)
 	}
 	if av := caso(0, 0).Avisos(); len(av) != 0 {
@@ -90,7 +90,7 @@ func TestZC3CacheTorresValidacion(t *testing.T) {
 	if err := c.Validar(); err != nil {
 		t.Errorf("Validar no conoce el modelo y no exige mínimo: %v", err)
 	}
-	if c.cacheTorresMinima() != 3000 {
+	if c.cacheTorresMinima() != 32000 {
 		t.Errorf("la mínima sigue a los límites efectivos: %d", c.cacheTorresMinima())
 	}
 }

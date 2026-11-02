@@ -316,7 +316,7 @@ func (s *Servidor) Recargar() error {
 		}
 	}
 	nv := s.nuevoVivo(a, old.gen+1, old.auth)
-	a.Cascada.cuboTorres().hereda(old.casc.cuboTorres()) // recargar no devuelve la ráfaga entera del tope de torres por segundo
+	a.Cascada.adoptaCuboTorres(old.casc) // recargar no devuelve la ráfaga entera del tope de torres por segundo
 	s.cur.Store(nv)
 	cp := nv.casc.Capacidades()
 	s.Met.FijaTorreMotivo(cp.TorreAlVueloMotivo) // el gauge sigue al modelo en servicio, no al que se armó

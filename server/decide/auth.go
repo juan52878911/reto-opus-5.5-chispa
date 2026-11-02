@@ -203,10 +203,14 @@ func nuevoAutenticadorDe(ks []ClaveAPI, ahora func() time.Time, prev *autenticad
 			}
 		}
 		if k.TorresPorSegundo > 0 {
-			cv.torres = nuevoCuboTorres(k.TorresPorSegundo)
+			cv.torres = nuevoCuboTorresReloj(k.TorresPorSegundo, ahora)
 			for _, p := range prev.clavesOrNil() { // la recarga no rellena el cubo de torres de la clave que sigue
 				if p.id == cv.id && p.hash == cv.hash && p.torres != nil {
-					cv.torres.hereda(p.torres)
+					if p.torres.tasa == k.TorresPorSegundo {
+						cv.torres = p.torres // misma tasa: las peticiones en vuelo y las nuevas gastan de la misma cuenta
+					} else {
+						cv.torres.hereda(p.torres)
+					}
 					break
 				}
 			}

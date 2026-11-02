@@ -67,10 +67,24 @@ type cuboTorres struct {
 	tasa   float64
 	fichas float64
 	t      time.Time
-	lleno  bool // aún no se ha tocado: la primera toma lo llena con su ráfaga
+	lleno  bool             // aún no se ha tocado: la primera toma lo llena con su ráfaga
+	reloj  func() time.Time // nil = time.Now; los tests y el autenticador inyectan el suyo
 }
 
-func nuevoCuboTorres(tasa float64) *cuboTorres { return &cuboTorres{tasa: tasa, t: time.Now()} }
+func nuevoCuboTorres(tasa float64) *cuboTorres { return nuevoCuboTorresReloj(tasa, nil) }
+
+func nuevoCuboTorresReloj(tasa float64, reloj func() time.Time) *cuboTorres {
+	c := &cuboTorres{tasa: tasa, reloj: reloj}
+	c.t = c.now()
+	return c
+}
+
+func (c *cuboTorres) now() time.Time {
+	if c.reloj != nil {
+		return c.reloj()
+	}
+	return time.Now()
+}
 
 func rafagaTorres(tasa float64, maxNuevas int) float64 {
 	return math.Max(math.Max(tasa, float64(maxNuevas)), 1)
@@ -80,7 +94,7 @@ func rafagaTorres(tasa float64, maxNuevas int) float64 {
 func (c *cuboTorres) toma(rafaga float64) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	ahora := time.Now()
+	ahora := c.now()
 	if !c.lleno {
 		c.lleno, c.fichas = true, rafaga
 	} else {
@@ -108,14 +122,14 @@ func (c *cuboTorres) hereda(o *cuboTorres) {
 		return
 	}
 	o.mu.Lock()
-	fichas := o.fichas + time.Since(o.t).Seconds()*o.tasa
+	fichas := o.fichas + o.now().Sub(o.t).Seconds()*o.tasa
 	lleno := o.lleno
 	o.mu.Unlock()
 	if !lleno {
 		return
 	}
 	c.mu.Lock()
-	c.fichas, c.t, c.lleno = fichas, time.Now(), true
+	c.fichas, c.t, c.lleno = fichas, c.now(), true
 	c.mu.Unlock()
 }
 
@@ -156,23 +170,49 @@ func (l *L2) cuboGlobalTorres() *cuboTorres {
 }
 
 // tomaFichaTorre cobra una torre al cubo de la clave de la petición, si lo tiene, y al global. Con la clave agotada no se toca
-// el global: las demás claves no se ven afectadas.
-func (l *L2) tomaFichaTorre(ctx context.Context) bool {
+// el global: las demás claves no se ven afectadas. Devuelve además la función que deshace el cobro, para cuando el cálculo no
+// llega a ejecutarse (ctx vencido esperando turno de ORT): sin ella, el cubo se vaciaría al ritmo de los timeouts y no de los cálculos.
+func (l *L2) tomaFichaTorre(ctx context.Context) (deshace func(), ok bool) {
 	var ck *cuboTorres
 	var rk float64
 	if c := cobroDe(ctx); c != nil && c.k.torres != nil {
 		ck, rk = c.k.torres, rafagaTorres(c.k.torres.tasa, l.maxNuevas)
 		if !ck.toma(rk) {
-			return false
+			return nil, false
 		}
 	}
-	if l.cubo != nil && !l.cubo.toma(rafagaTorres(l.cubo.tasa, l.maxNuevas)) {
+	var cg *cuboTorres
+	var rg float64
+	if l.cubo != nil {
+		cg, rg = l.cubo, rafagaTorres(l.cubo.tasa, l.maxNuevas)
+		if !cg.toma(rg) {
+			if ck != nil {
+				ck.devuelve(rk)
+			}
+			return nil, false
+		}
+	}
+	return func() {
 		if ck != nil {
 			ck.devuelve(rk)
 		}
-		return false
+		if cg != nil {
+			cg.devuelve(rg)
+		}
+	}, true
+}
+
+// adoptaCubo hace que el cubo global de l sea el de la recarga anterior (o) si la tasa no cambió: las peticiones en vuelo, que
+// siguen cobrando de o, y las nuevas gastan de la misma cuenta. Con otra tasa, hereda las fichas en un cubo nuevo.
+func (l *L2) adoptaCubo(o *cuboTorres) {
+	if l == nil || l.cubo == nil || o == nil {
+		return
 	}
-	return true
+	if o.tasa == l.cubo.tasa {
+		l.cubo = o
+		return
+	}
+	l.cubo.hereda(o)
 }
 
 // UsaMetricas conecta L2 con /metrics (lo hace NuevaCascada).
@@ -216,11 +256,15 @@ type torreDin struct {
 // total de la petición (todas sus preguntas comparten el tope) y, por segundo, sobre ConTorresPorSegundo.
 const MaxTorresNuevasPorDefecto = MaxOpciones
 
+// costeTorreAprox son los bytes que cuenta el LRU por torre (dim ≤ 768, clave y sobre-entrada), por exceso.
+const costeTorreAprox = 1024
+
 // ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheTorres torres
 // (capacidad aproximada: el LRU se reparte en fragmentos).
 func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 	l.torres = c
-	l.cache = newLRU[torreDin](cacheTorres, BytesCacheTorresDefecto, func(t torreDin) int { return len(t.v) + 4 + 24 })
+	bytes := max(BytesCacheTorresDefecto, cacheTorres*costeTorreAprox) // una caché mayor que el tope por defecto lleva su propio tope de bytes
+	l.cache = newLRU[torreDin](cacheTorres, bytes, func(t torreDin) int { return len(t.v) + 4 + 24 })
 	l.vuelo = map[string]*llamadaTorre{}
 	if l.maxNuevas == 0 {
 		l.maxNuevas = MaxTorresNuevasPorDefecto
@@ -313,8 +357,10 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, calcu
 		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresEsperas })
 		select {
 		case <-c.done:
-			if (errors.Is(c.err, context.Canceled) || errors.Is(c.err, context.DeadlineExceeded)) && ctx.Err() == nil {
-				continue // el líder se canceló, no yo: reintento (y paso a líder si nadie más lo ha hecho)
+			if (errors.Is(c.err, context.Canceled) || errors.Is(c.err, context.DeadlineExceeded) || errors.Is(c.err, ErrPresupuestoTorres)) && ctx.Err() == nil {
+				// El líder se canceló, o se quedó sin SU presupuesto (otra clave): no es mi error. Reintento y paso a líder
+				// (cobrando a mi propia clave) si nadie más lo ha hecho.
+				continue
 			}
 			return c.t, false, c.err
 		case <-ctx.Done():
@@ -336,7 +382,8 @@ func (l *L2) calculaTorre(ctx context.Context, c *llamadaTorre, k, texto string)
 		l.muVuelo.Unlock()
 		close(c.done)
 	}()
-	if !l.tomaFichaTorre(ctx) {
+	deshace, ok := l.tomaFichaTorre(ctx)
+	if !ok {
 		c.err = ErrPresupuestoTorres
 		return torreDin{}, c.err
 	}
@@ -346,6 +393,10 @@ func (l *L2) calculaTorre(ctx context.Context, c *llamadaTorre, k, texto string)
 		h, err = tc.TorreCtx(ctx, texto)
 	} else {
 		h, err = l.torres.Torre(texto)
+	}
+	if err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) && ctx.Err() != nil {
+		// El ctx venció antes (o mientras) de esperar turno de ORT: no hubo cálculo que cobrar.
+		deshace()
 	}
 	l.met.ObservaTorre(time.Since(t0), err)
 	if err == nil {

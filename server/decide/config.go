@@ -143,9 +143,12 @@ func (c Config) cacheTorresEfectiva() int {
 	return c.CacheTorres
 }
 
-// cacheTorresMinima es ceil(1,5 · max_opciones): lo que debe caber en la caché de torres para que la pregunta más grande progrese
-// (por los fragmentos del LRU). No lo valida Validar (no sabe si el .chispa trae TORR): ArmarDesde sube el valor efectivo si hay TORR.
-func (c Config) cacheTorresMinima() int { return (3*c.maxOpcionesEfectivo() + 1) / 2 }
+// cacheTorresMinima es 16 · max_opciones: el LRU reparte las torres en 16 fragmentos de capacidad fija (ceil(max/16) cada uno) y una
+// pregunta de max_opciones opciones puede caer entera en uno solo, así que cada fragmento debe admitir max_opciones torres para que la
+// pregunta más grande progrese a lo largo de varias peticiones aunque max_torres_nuevas sea menor. No lo valida Validar (no sabe si el
+// .chispa trae TORR): ArmarDesde sube el valor efectivo si hay TORR. La caché no depende de la memoria por petición: el avance entre
+// peticiones solo puede vivir en ella.
+func (c Config) cacheTorresMinima() int { return fragmentos * c.maxOpcionesEfectivo() }
 
 // Avisos son las combinaciones válidas pero dudosas de la config; CargarConfig las registra.
 func (c Config) Avisos() []string {
@@ -153,9 +156,6 @@ func (c Config) Avisos() []string {
 	maxT := c.MaxTorresNuevas
 	if maxT == 0 {
 		maxT = MaxTorresNuevasPorDefecto
-	}
-	if c.CacheTorres != 0 && c.CacheTorres < maxT {
-		av = append(av, fmt.Sprintf("config: cache_torres (%d) < max_torres_nuevas (%d): una petición no puede tener todas sus torres nuevas en caché a la vez", c.CacheTorres, maxT))
 	}
 	if t := c.TorresPorSegundo; t > 0 && t < float64(maxT) {
 		av = append(av, fmt.Sprintf("config: torres_por_segundo (%v) < max_torres_nuevas (%d): la ráfaga se sube a %d para que una pregunta completa quepa, pero el ritmo sostenido es menor", t, maxT, maxT))
