@@ -54,10 +54,67 @@ type L2 struct {
 	met          *Metricas  // nil = sin contadores en /metrics
 	largo        TextoLargo // estrategia para consultas que pasan de max_len; cero = cabeza
 
-	// Presupuesto global de torres por segundo (ConTorresPorSegundo); tasa 0 = sin tope.
-	cuboMu               sync.Mutex
-	cuboTasa, cuboFichas float64
-	cuboT                time.Time
+	// Presupuesto global de torres por segundo (ConTorresPorSegundo); nil = sin tope.
+	cubo *cuboTorres
+}
+
+// cuboTorres es un cubo de fichas de torres por segundo: recarga `tasa` fichas/s y su capacidad (ráfaga) la fija quien lo usa, de
+// modo que una pregunta completa de opciones nuevas siempre cabe (max(tasa, max_torres_nuevas, 1)). Nace lleno.
+type cuboTorres struct {
+	mu     sync.Mutex
+	tasa   float64
+	fichas float64
+	t      time.Time
+	lleno  bool // aún no se ha tocado: la primera toma lo llena con su ráfaga
+}
+
+func nuevoCuboTorres(tasa float64) *cuboTorres { return &cuboTorres{tasa: tasa, t: time.Now()} }
+
+func rafagaTorres(tasa float64, maxNuevas int) float64 {
+	return math.Max(math.Max(tasa, float64(maxNuevas)), 1)
+}
+
+// toma coge una ficha; false si no queda (con ráfaga de rafaga fichas como máximo).
+func (c *cuboTorres) toma(rafaga float64) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ahora := time.Now()
+	if !c.lleno {
+		c.lleno, c.fichas = true, rafaga
+	} else {
+		c.fichas = math.Min(rafaga, c.fichas+ahora.Sub(c.t).Seconds()*c.tasa)
+	}
+	c.t = ahora
+	if c.fichas < 1 {
+		return false
+	}
+	c.fichas--
+	return true
+}
+
+// devuelve repone una ficha tomada que no se llegó a gastar.
+func (c *cuboTorres) devuelve(rafaga float64) {
+	c.mu.Lock()
+	c.fichas = math.Min(rafaga, c.fichas+1)
+	c.mu.Unlock()
+}
+
+// hereda pasa a c las fichas de o (el cubo de la recarga anterior) para que recargar no devuelva la ráfaga entera; con
+// distinta tasa se conserva lo que había; la ráfaga lo acota en la siguiente toma.
+func (c *cuboTorres) hereda(o *cuboTorres) {
+	if c == nil || o == nil || c == o {
+		return
+	}
+	o.mu.Lock()
+	fichas := o.fichas + time.Since(o.t).Seconds()*o.tasa
+	lleno := o.lleno
+	o.mu.Unlock()
+	if !lleno {
+		return
+	}
+	c.mu.Lock()
+	c.fichas, c.t, c.lleno = fichas, time.Now(), true
+	c.mu.Unlock()
 }
 
 // SesionSCtx es SesionS que espera su turno de ORT respetando el ctx; L2 la usa si la sesión la implementa.
@@ -77,35 +134,48 @@ var ErrPresupuestoTorres = errors.New("L2: presupuesto de torres por segundo ago
 // para que la escalada no se cachee bajo el nonce.
 var errSinPresupuestoTorres = errors.New("L2: presupuesto de torres nuevas de la petición agotado")
 
-// ConTorresPorSegundo fija un tope global de torres calculadas por segundo (cubo con ráfaga de igual tamaño); n <= 0 lo
-// quita. Por encima, L2 no opina (como con el tope por petición) en vez de saturar el único ORT con textos únicos.
+// ConTorresPorSegundo fija un tope global de torres calculadas por segundo (cubo con ráfaga max(n, max_torres_nuevas, 1), que cubre
+// una pregunta completa); n <= 0 lo quita. Por encima, L2 no opina (como con el tope por petición) en vez de saturar el único
+// ORT con textos únicos.
 func (l *L2) ConTorresPorSegundo(n float64) *L2 {
-	l.cuboMu.Lock()
-	l.cuboTasa, l.cuboFichas, l.cuboT = n, n, time.Now()
-	l.cuboMu.Unlock()
+	if n <= 0 {
+		l.cubo = nil
+	} else {
+		l.cubo = nuevoCuboTorres(n)
+	}
 	return l
 }
 
-func (l *L2) tomaFichaTorre() bool {
-	l.cuboMu.Lock()
-	defer l.cuboMu.Unlock()
-	if l.cuboTasa <= 0 {
-		return true
+func (l *L2) cuboGlobalTorres() *cuboTorres {
+	if l == nil {
+		return nil
 	}
-	ahora := time.Now()
-	l.cuboFichas = math.Min(l.cuboTasa, l.cuboFichas+ahora.Sub(l.cuboT).Seconds()*l.cuboTasa)
-	l.cuboT = ahora
-	if l.cuboFichas < 1 {
+	return l.cubo
+}
+
+// tomaFichaTorre cobra una torre al cubo de la clave de la petición, si lo tiene, y al global. Con la clave agotada no se toca
+// el global: las demás claves no se ven afectadas.
+func (l *L2) tomaFichaTorre(ctx context.Context) bool {
+	var ck *cuboTorres
+	var rk float64
+	if c := cobroDe(ctx); c != nil && c.k.torres != nil {
+		ck, rk = c.k.torres, rafagaTorres(c.k.torres.tasa, l.maxNuevas)
+		if !ck.toma(rk) {
+			return false
+		}
+	}
+	if l.cubo != nil && !l.cubo.toma(rafagaTorres(l.cubo.tasa, l.maxNuevas)) {
+		if ck != nil {
+			ck.devuelve(rk)
+		}
 		return false
 	}
-	l.cuboFichas--
 	return true
 }
 
 // UsaMetricas conecta L2 con /metrics (lo hace NuevaCascada).
 func (l *L2) UsaMetricas(m *Metricas) {
 	l.met = m
-	m.FijaTorreMotivo(l.motivoSinTorre)
 	if m != nil {
 		or := l.origenCalib
 		if or == "" {
@@ -198,31 +268,47 @@ func (l *L2) ConMaxTorresNuevas(n int) *L2 {
 }
 
 // torreUnica devuelve la torre de k: de la caché, o calculándola una sola vez aunque la pidan varias goroutines a la vez.
-func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, err error) {
-	if t, ok := l.cache.Get(k); ok {
-		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
-		return t, nil
-	}
-	l.muVuelo.Lock()
-	if t, ok := l.cache.Get(k); ok { // otra la acaba de terminar
-		l.muVuelo.Unlock()
-		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
-		return t, nil
-	}
-	if c, ok := l.vuelo[k]; ok {
+// calculada es true solo si esta llamada la calculó ella misma (líder y con éxito): es lo que cobra el cupo de la petición.
+//
+// Si el líder se cancela (su cliente corta o se queda sin plazo), los que esperaban con el ctx vivo no heredan ese error:
+// reintentan y uno pasa a ser el nuevo líder. Se prefiere esto a un ctx desligado del líder porque así un cálculo que nadie
+// espera ya no gasta ORT, y cada cálculo sigue atado al plazo de la petición que lo paga.
+func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, calculada bool, err error) {
+	for {
+		if t, ok := l.cache.Get(k); ok {
+			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
+			return t, false, nil
+		}
+		l.muVuelo.Lock()
+		if t, ok := l.cache.Get(k); ok { // otra la acaba de terminar
+			l.muVuelo.Unlock()
+			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresCacheAciertos })
+			return t, false, nil
+		}
+		c, ok := l.vuelo[k]
+		if !ok {
+			c = &llamadaTorre{done: make(chan struct{})}
+			l.vuelo[k] = c
+			l.muVuelo.Unlock()
+			t, err = l.calculaTorre(ctx, c, k, texto)
+			return t, err == nil, err
+		}
 		l.muVuelo.Unlock()
 		l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.TorresEsperas })
 		select {
 		case <-c.done:
-			return c.t, c.err
+			if (errors.Is(c.err, context.Canceled) || errors.Is(c.err, context.DeadlineExceeded)) && ctx.Err() == nil {
+				continue // el líder se canceló, no yo: reintento (y paso a líder si nadie más lo ha hecho)
+			}
+			return c.t, false, c.err
 		case <-ctx.Done():
-			return torreDin{}, ctx.Err()
+			return torreDin{}, false, ctx.Err()
 		}
 	}
-	c := &llamadaTorre{done: make(chan struct{})}
-	l.vuelo[k] = c
-	l.muVuelo.Unlock()
+}
 
+// calculaTorre es el cálculo del líder del singleflight: c ya está en l.vuelo[k].
+func (l *L2) calculaTorre(ctx context.Context, c *llamadaTorre, k, texto string) (t torreDin, err error) {
 	// Aunque Torre entre en pánico, la clave se libera y los que esperan despiertan con error.
 	defer func() {
 		if r := recover(); r != nil {
@@ -234,7 +320,7 @@ func (l *L2) torreUnica(ctx context.Context, k, texto string) (t torreDin, err e
 		l.muVuelo.Unlock()
 		close(c.done)
 	}()
-	if !l.tomaFichaTorre() {
+	if !l.tomaFichaTorre(ctx) {
 		c.err = ErrPresupuestoTorres
 		return torreDin{}, c.err
 	}
@@ -345,10 +431,13 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 				if _, hit := l.cache.Get(claves[i]); hit {
 					continue
 				}
-				if _, err := l.torreUnica(ctx, claves[i], textos[i]); err != nil {
+				_, calc, err := l.torreUnica(ctx, claves[i], textos[i])
+				if err != nil {
 					break
 				}
-				cupo--
+				if calc { // solo se cobra lo que esta petición calculó, no lo que esperó a otro líder
+					cupo--
+				}
 			}
 			pr.usadas.Add(-int64(cupo)) // lo reservado y no gastado vuelve a la petición
 			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
@@ -369,14 +458,15 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
-		if out[i], err = l.torreUnica(ctx, claves[i], textos[i]); err != nil {
+		var calc bool
+		if out[i], calc, err = l.torreUnica(ctx, claves[i], textos[i]); err != nil {
 			if errors.Is(err, ErrPresupuestoTorres) {
 				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 				return nil, false, errSinPresupuestoTorres
 			}
 			return nil, false, err
 		}
-		calculada[i] = true
+		calculada[i] = calc
 	}
 	if faltan == 0 {
 		l.Hits.Add(1)

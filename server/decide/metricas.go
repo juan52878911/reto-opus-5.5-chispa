@@ -150,7 +150,7 @@ func (m *Metricas) FijaTauNuevo(tau *float64) {
 }
 
 // FijaTorreMotivo fija el motivo del gauge chispa_torre_al_vuelo_desactivada ("" = torre al vuelo sin desactivar); lo llama
-// NuevaCascada (reinicia) y L2.UsaMetricas. nil-safe.
+// el servidor al poner un modelo en servicio (nuevoVivo en el arranque, Recargar tras sustituirlo). nil-safe.
 func (m *Metricas) FijaTorreMotivo(motivo string) {
 	if m == nil {
 		return

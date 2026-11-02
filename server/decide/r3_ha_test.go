@@ -85,7 +85,7 @@ func TestR3SingleflightPanicoLiderRecibeError(t *testing.T) {
 	)
 	func() {
 		defer func() { pan = recover() }()
-		t0, err = l2.torreUnica(ctx, "k", "texto")
+		t0, _, err = l2.torreUnica(ctx, "k", "texto")
 	}()
 	if pan != nil {
 		t.Fatalf("el pánico no debe escapar: %v", pan)

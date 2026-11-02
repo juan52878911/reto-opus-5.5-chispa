@@ -122,15 +122,15 @@ func TestR20ConfigCacheTorresMenorQueMax(t *testing.T) {
 	}
 	cfg.CacheTorres, cfg.MaxTorresNuevas = 128, 256
 	if err := cfg.Validar(); err == nil || !strings.Contains(err.Error(), "cache_torres") {
-		t.Fatalf("esperaba error de cache_torres < max_torres_nuevas: %v", err)
+		t.Fatalf("esperaba error de cache_torres < 1,5 × max_opciones: %v", err)
 	}
 	cfg.CacheTorres, cfg.MaxTorresNuevas = 128, 0 // max efectivo = defecto
 	if err := cfg.Validar(); err == nil {
 		t.Fatal("cache_torres 128 con el max por defecto debe fallar")
 	}
-	cfg.CacheTorres, cfg.MaxTorresNuevas = 256, 256
+	cfg.CacheTorres, cfg.MaxTorresNuevas = 384, 256 // ZC-3: lo que cuenta es 1,5 × max_opciones, no max_torres_nuevas
 	if err := cfg.Validar(); err != nil {
-		t.Fatalf("igual es válido: %v", err)
+		t.Fatalf("384 = 1,5 × 256 es válido: %v", err)
 	}
 	cfg.CacheTorres, cfg.MaxTorresNuevas = 0, 64
 	if err := cfg.Validar(); err != nil {

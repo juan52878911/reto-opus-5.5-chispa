@@ -32,8 +32,8 @@ func TestCargarConfigRechazaClavesDesconocidas(t *testing.T) {
 }
 
 func TestCargarConfigValidaSigueAceptada(t *testing.T) {
-	c, err := CargarConfig(escribirConfig(t, `{"cache_torres":300,"limites":{"max_estado":10},"tau_l2_esquema_nuevo":0.9}`))
-	if err != nil || c.CacheTorres != 300 || c.Limites.MaxEstado != 10 || c.TauL2EsquemaNuevo == nil {
+	c, err := CargarConfig(escribirConfig(t, `{"cache_torres":400,"limites":{"max_estado":10},"tau_l2_esquema_nuevo":0.9}`))
+	if err != nil || c.CacheTorres != 400 || c.Limites.MaxEstado != 10 || c.TauL2EsquemaNuevo == nil {
 		t.Fatalf("c=%+v err=%v", c, err)
 	}
 }
