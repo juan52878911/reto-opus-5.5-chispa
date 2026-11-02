@@ -50,10 +50,11 @@ const CapaEscalar = "escalar"
 // 1..K. baja_confianza: alguna capa opinó pero ninguna llegó a su τ.
 // incompleta: ninguna capa opinó y alguna falló o se quedó sin presupuesto (no se sabe si habría opinado).
 const (
-	MotivoSinOpinion        = "sin_opinion"
-	MotivoIncompleta        = "incompleta" // una capa falló o se quedó sin presupuesto y ninguna otra opinó: no es «nadie opinó»
-	MotivoScoreIdsNoValidos = "score_ids_no_validos"
-	MotivoBajaConfianza     = "baja_confianza"
+	MotivoSinOpinion           = "sin_opinion"
+	MotivoSinPresupuestoTorres = "sin_presupuesto_torres" // ninguna capa opinó y L2 agotó el presupuesto de torres nuevas
+	MotivoIncompleta           = "incompleta"             // una capa falló o se quedó sin presupuesto y ninguna otra opinó: no es «nadie opinó»
+	MotivoScoreIdsNoValidos    = "score_ids_no_validos"
+	MotivoBajaConfianza        = "baja_confianza"
 )
 
 type capa struct {
@@ -178,6 +179,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	res := Resultado{ID: p.ID, Kind: p.Kind, Nonce: p.Nonce, Probs: map[string]float64{}}
 	var mejor Respuesta
 	ninguna := len(c.capas) > 0 // sigue true mientras todas las capas vistas devuelvan «sin opinión» limpia (sin error ni Incompleto)
+	sinPres := false            // alguna capa quedó sin presupuesto de torres nuevas
 	previas := Previas{}
 	ctx = conPresupuesto(ctx)
 	for _, l := range c.capas {
@@ -203,6 +205,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 		}
 		if r.Incompleto {
 			res.Incompleto = true
+			sinPres = sinPres || r.SinPresupuestoTorres
 		}
 		previas[l.d.Nombre()] = r
 		if r.Conf == 0 && !scoreValido(p) {
@@ -210,6 +213,9 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 		}
 		if r.Conf == 0 && err == nil && !r.Incompleto && ctx.Err() == nil {
 			c.met.CapaNoOpina(l.d.Nombre(), causaNoOpina(l.d, p))
+		} else if r.Incompleto && r.SinPresupuestoTorres {
+			c.met.CapaNoOpina(l.d.Nombre(), CausaPresupuestoTorres)
+			ninguna = false
 		} else {
 			ninguna = false
 		}
@@ -250,6 +256,8 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			res.EscalateReason = MotivoScoreIdsNoValidos
 		}
 		c.met.NingunaCapaOpina()
+	case sinPres:
+		res.EscalateReason = MotivoSinPresupuestoTorres
 	case res.Incompleto:
 		res.EscalateReason = MotivoIncompleta
 	}

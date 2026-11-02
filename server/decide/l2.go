@@ -135,8 +135,10 @@ type torreDin struct {
 	e float32
 }
 
-// MaxTorresNuevasPorDefecto es el tope de torres que una petición puede obligar a calcular.
-const MaxTorresNuevasPorDefecto = 64
+// MaxTorresNuevasPorDefecto es el tope de torres que una petición puede obligar a calcular. Cubre al menos una pregunta completa
+// (MaxOpciones): una pregunta válida nunca queda sin respuesta para siempre por este tope. La protección anti-DoS sigue sobre el
+// total de la petición (todas sus preguntas comparten el tope) y, por segundo, sobre ConTorresPorSegundo.
+const MaxTorresNuevasPorDefecto = MaxOpciones
 
 // ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheTorres torres
 // (capacidad aproximada: el LRU se reparte en fragmentos).
@@ -305,8 +307,24 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 	}
 	if faltan > 0 {
 		pr := presupuestoDe(ctx)
-		if pr.usadas.Add(int64(faltan)) > int64(l.maxNuevas) {
-			pr.usadas.Add(-int64(faltan))
+		if tras := pr.usadas.Add(int64(faltan)); tras > int64(l.maxNuevas) {
+			// Cupo que aún quedaba: esas torres se calculan y se guardan en la caché aunque la pregunta no opine, para que la
+			// siguiente petición avance (con un tope menor que las opciones, la pregunta acaba respondiendo).
+			cupo := max(0, l.maxNuevas-int(tras-int64(faltan)))
+			pr.usadas.Add(-int64(faltan - cupo))
+			for _, o := range ops {
+				if cupo == 0 || ctx.Err() != nil {
+					break
+				}
+				k := ClaveTorre(p.Texto, o)
+				if _, hit := l.cache.Get(k); hit {
+					continue
+				}
+				if _, err := l.torreUnica(ctx, k, TextoTorre(l.textoTorre, p.Texto, o)); err != nil {
+					break
+				}
+				cupo--
+			}
 			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 			return nil, false, errSinPresupuestoTorres
 		}
@@ -626,7 +644,7 @@ func (l *L2) decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	}
 	vs, _, ok, err := l.similitudesVentanas(ctx, p)
 	if errors.Is(err, errSinPresupuestoTorres) {
-		return Respuesta{Incompleto: true}, nil
+		return Respuesta{Incompleto: true, SinPresupuestoTorres: true}, nil
 	}
 	if err != nil || !ok {
 		return Respuesta{}, err

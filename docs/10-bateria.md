@@ -40,7 +40,8 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 | `exactitud_contestada` | **(2)** acierto de la respuesta sobre lo que la cascada contestó (sin escalar); vacía si todo escaló. Puerta de regresión |
 | `exactitud_estricta` | **(4)** sobre todas las filas, con lo escalado y los errores como fallo. Informativa: no es puerta (un `tau_escalate_l2` alto la hunde sin que el modelo empeore) |
 | `sin_probs` | fracción de filas sin error y sin `probs` (no se puede medir el argmax); si es alta, `exactitud` no representa al conjunto |
-| `incompletas` | fracción de filas que escalaron porque una capa falló o se quedó sin presupuesto y ninguna otra opinó (`escalate_reason` `incompleta`; con un servidor que expone `capas` en `/healthz`, escalar sin motivo también cuenta aquí). No es «nadie opinó» y no dispara la alerta de torre |
+| `incompletas` | fracción de filas que escalaron porque una capa falló o se quedó sin presupuesto y ninguna otra opinó (`escalate_reason` `incompleta` o `sin_presupuesto_torres`; con un servidor que expone `capas` en `/healthz`, escalar sin motivo también cuenta aquí). No es «nadie opinó» y no dispara la alerta de torre; sí la de incompletas (abajo) |
+| `sin_presupuesto_torres` | subconjunto de `incompletas`: filas con `escalate_reason` `sin_presupuesto_torres` (L2 agotó `max_torres_nuevas` o `torres_por_segundo`) |
 | `nadie_opino` | fracción de filas que escalaron porque **ninguna capa opinó** (`escalate_reason` `sin_opinion` o `score_ids_no_validos`; solo con un servidor antiguo —sin `capas` en `/healthz`— y sin `escalate_reason`, escalar sin probs). No es «confianza baja»: es que el modelo no puede decidir ese esquema |
 | `baja_confianza` | fracción de filas que escalaron con alguna capa opinando pero sin llegar a su τ (traen probs y entran en `exactitud`) |
 | `f1_macro` | F1 macro sobre las clases `(esquema, opción)` con soporte; en `multi`, cada opción es una clase |
@@ -76,6 +77,10 @@ Se pisan en el manifiesto (`umbrales`) y con `--umbrales FICHERO.json` (misma fo
 El informe da, por conjunto, tipo, grupo y global, `estabilidad` (% de decisiones que no cambian), `delta_conf` (media de \|confianza variante − original\|) y `delta_conf_p95`; y una tabla «Robustez por transformación» (global y por conjunto). Se perturban hasta `--robustez-max` filas por conjunto (200, a paso fijo). Si el módulo no existe, avisa por stderr y sigue sin esas métricas.
 
 **Mínimo de estabilidad (opcional).** Una línea base puede traer `estabilidad_min` (fracción, p. ej. `0.9`): arriba del todo vale para `global` y cada conjunto, y dentro de una entrada (`global`, un conjunto, tipo o grupo) vale solo para ella. Si la estabilidad medida baja de ese mínimo, o falta, la puerta falla, aunque la línea base no haya empeorado. Se añade a mano al JSON de la línea base y `--guardar-linea-base` lo conserva al regenerarla.
+
+## Incompletas: alerta
+
+Si `incompletas` supera el 20 % (global o por conjunto; `UMBRAL_INCOMPLETAS` en `bateria.py`) el informe añade una alerta en «Alertas» (y en `alertas` del JSON) con la causa probable: presupuesto de torres agotado si hay filas `sin_presupuesto_torres` (preguntas con más opciones nuevas que `max_torres_nuevas`, o `torres_por_segundo` bajo) o, si no, fallo/plazo de una capa. Mira `chispa_torres_presupuesto_agotado_total` y `chispa_capa_no_opina_total{capa,causa}` en `/metrics`. Como el servidor cachea las torres calculadas antes del corte, repetir la corrida suele avanzar. No cambia `ok`.
 
 ## «Nadie opinó»: aviso y alerta
 Un `.chispa` construido sin `--torre` (y sin L0 ni L1) escala todo sin probs ante esquemas que no trae, y `exactitud` ignora esas filas (solo salen en `sin_probs`). Para que no pase en silencio:

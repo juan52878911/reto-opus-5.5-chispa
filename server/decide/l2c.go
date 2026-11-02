@@ -127,7 +127,7 @@ func (l *L2c) decidirCon(ctx context.Context, p Pregunta, previas Previas) (Resp
 		S, sims, ok, err = l.sim.Similitudes(ctx, p)
 	}
 	if errors.Is(err, errSinPresupuestoTorres) { // como en L2.decidir: falta de presupuesto es Incompleto, no error de capa
-		return Respuesta{Incompleto: true}, false, nil
+		return Respuesta{Incompleto: true, SinPresupuestoTorres: true}, false, nil
 	}
 	if err != nil || !ok {
 		return Respuesta{}, false, err
