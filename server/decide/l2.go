@@ -69,6 +69,9 @@ type cuboTorres struct {
 	t      time.Time
 	lleno  bool             // aún no se ha tocado: la primera toma lo llena con su ráfaga
 	reloj  func() time.Time // nil = time.Now; los tests y el autenticador inyectan el suyo
+	// sucesor es el cubo que lo reemplazó en una recarga con otra tasa: toma y devuelve siguen la cadena, de modo que las
+	// peticiones en vuelo gastan de la misma cuenta que las nuevas (sin ráfaga doble).
+	sucesor *cuboTorres
 }
 
 func nuevoCuboTorres(tasa float64) *cuboTorres { return nuevoCuboTorresReloj(tasa, nil) }
@@ -93,6 +96,10 @@ func rafagaTorres(tasa float64, maxNuevas int) float64 {
 // toma coge una ficha; false si no queda (con ráfaga de rafaga fichas como máximo).
 func (c *cuboTorres) toma(rafaga float64) bool {
 	c.mu.Lock()
+	if s := c.sucesor; s != nil {
+		c.mu.Unlock()
+		return s.toma(rafaga)
+	}
 	defer c.mu.Unlock()
 	ahora := c.now()
 	if !c.lleno {
@@ -111,6 +118,11 @@ func (c *cuboTorres) toma(rafaga float64) bool {
 // devuelve repone una ficha tomada que no se llegó a gastar.
 func (c *cuboTorres) devuelve(rafaga float64) {
 	c.mu.Lock()
+	if s := c.sucesor; s != nil {
+		c.mu.Unlock()
+		s.devuelve(rafaga)
+		return
+	}
 	c.fichas = math.Min(rafaga, c.fichas+1)
 	c.mu.Unlock()
 }
@@ -121,15 +133,14 @@ func (c *cuboTorres) hereda(o *cuboTorres) {
 	if c == nil || o == nil || c == o {
 		return
 	}
-	o.mu.Lock()
-	fichas := o.fichas + o.now().Sub(o.t).Seconds()*o.tasa
-	lleno := o.lleno
-	o.mu.Unlock()
-	if !lleno {
-		return
-	}
+	// c se bloquea antes que o: así ninguna toma se cuela entre copiar las fichas y fijar el sucesor.
 	c.mu.Lock()
-	c.fichas, c.t, c.lleno = fichas, c.now(), true
+	o.mu.Lock()
+	if o.lleno {
+		c.fichas, c.t, c.lleno = o.fichas+o.now().Sub(o.t).Seconds()*o.tasa, c.now(), true
+	}
+	o.sucesor = c
+	o.mu.Unlock()
 	c.mu.Unlock()
 }
 
@@ -256,14 +267,21 @@ type torreDin struct {
 // total de la petición (todas sus preguntas comparten el tope) y, por segundo, sobre ConTorresPorSegundo.
 const MaxTorresNuevasPorDefecto = MaxOpciones
 
-// costeTorreAprox son los bytes que cuenta el LRU por torre (dim ≤ 768, clave y sobre-entrada), por exceso.
+// costeTorreAprox es el coste mínimo por torre en el tope de bytes (dim ≤ 768); ConTorres usa el de la dimensión real si es mayor.
 const costeTorreAprox = 1024
+
+// costeTorreEntrada son los bytes que cuenta el LRU por torre de dimensión dim: valor (dim+4+24), clave (32) y sobreEntrada.
+func costeTorreEntrada(dim int) int { return dim + 4 + 24 + 32 + sobreEntrada }
 
 // ConTorres activa el cálculo al vuelo de torres para esquemas nuevos, cacheadas en un LRU de cacheTorres torres
 // (capacidad aproximada: el LRU se reparte en fragmentos).
 func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 	l.torres = c
-	bytes := max(BytesCacheTorresDefecto, cacheTorres*costeTorreAprox) // una caché mayor que el tope por defecto lleva su propio tope de bytes
+	coste := costeTorreAprox
+	if l.esq != nil {
+		coste = max(coste, costeTorreEntrada(l.esq.Dim()))
+	}
+	bytes := max(BytesCacheTorresDefecto, cacheTorres*coste) // una caché mayor que el tope por defecto lleva su propio tope de bytes
 	l.cache = newLRU[torreDin](cacheTorres, bytes, func(t torreDin) int { return len(t.v) + 4 + 24 })
 	l.vuelo = map[string]*llamadaTorre{}
 	if l.maxNuevas == 0 {

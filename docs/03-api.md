@@ -155,7 +155,7 @@ Defaults y cómo cambiarlos: sección `limites` del JSON de `-config` (un campo 
 |---|---|---|
 | `max_cuerpo` | 1 MiB | bytes del cuerpo HTTP (413) |
 | `max_preguntas` | 256 | preguntas por petición |
-| `max_opciones` | 256 | opciones por pregunta |
+| `max_opciones` | 256 | opciones por pregunta; con `TORR` el mínimo de `cache_torres` es 16 × `max_opciones`; por encima de 4096 la torre al vuelo se desactiva con aviso (`torre_al_vuelo_motivo: max_opciones_excesivo`), sin fallar el arranque; negativo = error de arranque |
 | `max_estado` | 256 KiB | bytes de `state` |
 | `max_texto` | 4096 | bytes de `question` y de cada `description` |
 | `max_id` | 256 | bytes de cada `id` y del `nonce` |
