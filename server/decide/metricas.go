@@ -361,7 +361,7 @@ func (m *Metricas) Escribe(w io.Writer) {
 	for _, c := range claves(&m.mu, m.scoreIds) {
 		fmt.Fprintf(w, "chispa_score_ids_no_validos_total{capa=%q} %d\n", c, contador(&m.mu, m.scoreIds, c).Load())
 	}
-	fmt.Fprintln(w, "# HELP chispa_capa_no_opina_total Veces que una capa devolvió «sin opinión» (sin error), por causa: sin_torre, tipo_no_soportado, score_ids_no_validos, sin_modelo, esquema_no_entrenado, sin_opinion.")
+	fmt.Fprintln(w, "# HELP chispa_capa_no_opina_total Veces que una capa devolvió «sin opinión» (sin error), por causa: sin_torre, tipo_no_soportado, score_ids_no_validos, sin_modelo, esquema_no_entrenado, presupuesto_torres, sin_opinion.")
 	fmt.Fprintln(w, "# TYPE chispa_capa_no_opina_total counter")
 	m.mu.Lock()
 	kn := make([][2]string, 0, len(m.noOpina))

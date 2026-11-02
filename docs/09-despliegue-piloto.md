@@ -59,7 +59,7 @@ Lo que no escribas queda en el valor por defecto de `ConfigPorDefecto()`. Sin co
   "limites": {"max_cuerpo": 1048576, "max_preguntas": 256, "max_opciones": 256, "max_estado": 262144, "max_texto": 4096, "max_id": 256},
   "cache_esquemas": 1024, "cache_respuestas": 4096,
   "cache_esquemas_mb": 64, "cache_respuestas_mb": 48,
-  "cache_torres": 16384, "max_torres_nuevas": 64,
+  "cache_torres": 16384, "max_torres_nuevas": 256,
   "tau_l2_esquema_nuevo": 0.846,
   "l1_shrinkage_lambda": 4,
   "api_keys": [
@@ -75,7 +75,7 @@ Lo que no escribas queda en el valor por defecto de `ConfigPorDefecto()`. Sin co
 | `capas[].tau` | En [0,1], nombres únicos. **Con `-config`, estos τ pisan los de `CALIB` del `.chispa`**; sin `-config`, L1 y L2 usan `CALIB`. Si solo quieres fijar límites o claves, mantén los valores por defecto de arriba o acepta que `CALIB` deja de aplicar a L0–L2 |
 | `limites.*` | Bytes UTF-8; negativo = error de arranque. Los valores del ejemplo son los por defecto |
 | `cache_esquemas`, `cache_respuestas` | ≥ 1. `cache_*_mb`: 0 = 64 y 48 MiB; máximo 1 048 576 |
-| `cache_torres`, `max_torres_nuevas` | 0 = 16 384 y 64; ≥ 0. Por encima del tope por petición, L2 no opina |
+| `cache_torres`, `max_torres_nuevas` | 0 = 16 384 y 256; ≥ 0. Si se pasa el tope por petición, L2 cachea las torres que caben y escala con `sin_presupuesto_torres` |
 | `tau_l2_esquema_nuevo` | Por defecto 0,846 (prioridad config > `CALIB` > 0,846). Es prudente: precisión 0,95 con ~97 % de escalado en tareas no vistas ([06](06-despliegue.md)). `"tau_l2_esquema_nuevo_apagado": true` lo quita; **no puede ir junto a un τ** |
 | `l1_shrinkage_lambda` | Ausente = 4. `"l1_shrinkage_apagado": true` lo apaga (no junto a un λ). `l2_shrinkage_lambda` ausente = sin mezcla. Solo tiene efecto si el `.chispa` trae `SOPL1` |
 | `api_keys` | `rps` > 0; `rafaga` 0 = ceil(rps); `id` y hash únicos. Se relee en cada recarga |

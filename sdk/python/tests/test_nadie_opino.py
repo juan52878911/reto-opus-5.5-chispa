@@ -64,12 +64,28 @@ class BateriaNadieOpino(Base):
         r = self.correr()
         g = r["global"]
         self.assertEqual((g["nadie_opino"], g["incompletas"], g["baja_confianza"]), (0.0, 1.0, 0.0))
-        self.assertEqual(r["alertas"], [])
+        self.assertFalse(any("nadie opinó" in a for a in r["alertas"]), r["alertas"])  # no es la alerta de torre; sí la de incompletas
+        self.assertTrue(any("escaladas incompletas" in a for a in r["alertas"]), r["alertas"])
 
     def test_servidor_nuevo_motivo_incompleta(self):
         self.srv.regla, self.srv.healthz = (lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar", "escalate_reason": "incompleta"}), CON_TORRE
         g = self.correr()["global"]
         self.assertEqual((g["nadie_opino"], g["incompletas"]), (0.0, 1.0))
+
+    def test_sin_presupuesto_torres_es_incompleta_y_alerta(self):
+        self.srv.regla, self.srv.healthz = (lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar", "escalate_reason": "sin_presupuesto_torres"}), CON_TORRE
+        r = self.correr()
+        g = r["global"]
+        self.assertEqual((g["nadie_opino"], g["incompletas"], g["sin_presupuesto_torres"]), (0.0, 1.0, 1.0))
+        self.assertTrue(any("escaladas incompletas" in a and "presupuesto de torres" in a and "/metrics" in a for a in r["alertas"]), r["alertas"])
+        self.assertIn("sin presup. torres", r["informe"])
+        self.assertIn("incompletas", r["informe"])
+
+    def test_pocas_incompletas_no_alertan(self):
+        rep = {"global": {"incompletas": 0.2}, "conjuntos": {}}
+        self.assertEqual(B.alertas_incompletas(rep), [])
+        rep["global"]["incompletas"] = 0.21
+        self.assertEqual(len(B.alertas_incompletas(rep)), 1)
 
     def test_sin_opinion_atajo_solo_con_servidor_antiguo(self):
         fila = {"error": "", "escalate": True, "escalate_reason": "", "probs": {}}

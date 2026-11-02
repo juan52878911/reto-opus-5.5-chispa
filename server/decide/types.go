@@ -44,6 +44,8 @@ type Respuesta struct {
 	EsquemaNuevo bool
 	// Incompleto: la capa no opinó por una causa pasajera (p. ej. presupuesto de L3 agotado); la cascada no cachea esa escalada.
 	Incompleto bool
+	// SinPresupuestoTorres: Incompleto por agotar el presupuesto de torres nuevas (de la petición o por segundo). Interno.
+	SinPresupuestoTorres bool
 }
 
 // Decisor es una capa de la cascada.

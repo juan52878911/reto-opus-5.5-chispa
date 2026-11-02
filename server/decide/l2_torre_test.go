@@ -200,15 +200,16 @@ func TestL2CtxCanceladoNoCalculaTorres(t *testing.T) {
 	}
 }
 
-// Hallazgo 5: por encima del tope de torres nuevas L2 no opina y no calcula nada.
+// Hallazgo 5 (ZY): por encima del tope de torres nuevas L2 no opina, pero las torres que cabían quedan en la caché y la siguiente
+// petición avanza.
 func TestL2TopeTorresNuevas(t *testing.T) {
 	enc := &codificadorContador{}
 	l := l2Torres(t, enc, 1024).ConMaxTorresNuevas(8)
 	r, err := l.Decidir(context.Background(), preguntaConOpciones(9))
-	if err != nil || r.Conf != 0 || enc.n.Load() != 0 {
+	if err != nil || r.Conf != 0 || !r.SinPresupuestoTorres || enc.n.Load() != 8 {
 		t.Fatalf("%+v %v torres=%d", r, err, enc.n.Load())
 	}
-	if r, err = l.Decidir(context.Background(), preguntaConOpciones(8)); err != nil || r.Answer == "" || enc.n.Load() != 8 {
+	if r, err = l.Decidir(context.Background(), preguntaConOpciones(9)); err != nil || r.Answer == "" || enc.n.Load() != 9 {
 		t.Fatalf("%+v %v torres=%d", r, err, enc.n.Load())
 	}
 }
@@ -264,7 +265,7 @@ func TestArmarDesdeTorrePrefijoInvalido(t *testing.T) {
 // Hallazgo 13: cache_torres independiente de cache_esquemas (2000 torres caben con cache_esquemas=1024).
 func TestCacheTorresPropia(t *testing.T) {
 	c := ConfigPorDefecto()
-	if c.CacheTorres < 16384 || c.MaxTorresNuevas != 64 {
+	if c.CacheTorres < 16384 || c.MaxTorresNuevas != MaxOpciones {
 		t.Fatalf("%+v", c)
 	}
 	enc := &codificadorContador{}
