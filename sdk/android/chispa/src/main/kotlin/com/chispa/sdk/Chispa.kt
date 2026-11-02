@@ -30,6 +30,15 @@ class Chispa private constructor(
     /** Capas que han quedado montadas, en orden. */
     val capas: List<String> get() = motor.capas().filter { it != "L2" || sesion != null }
 
+    /**
+     * Por qué el modelo cargó degradado, o "" si no: «texto_torre_inconsistente» = el `.chispa` trae TORR pero su META.texto_torre
+     * no coincide; no hay torres al vuelo y L2 solo decide los esquemas de ESQUEMAS (reentrenar con `chispa train`).
+     */
+    fun torreAlVueloMotivo(): String = motor.torreAlVueloMotivo()
+
+    /** Avisos no fatales de la apertura del modelo, uno por línea ("" si no hubo). */
+    fun avisos(): String = motor.avisos()
+
     /** Decide cada pregunta para el [texto] (en orden). Sin conexión: todo ocurre en el dispositivo. */
     fun decidir(texto: String, preguntas: List<Pregunta>): List<Respuesta> =
         preguntas.map { cascada.decidir(texto, it) }

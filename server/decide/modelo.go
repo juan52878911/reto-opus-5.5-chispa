@@ -234,8 +234,20 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			base.ConMotivoSinTorre(motivoSinTorre)
 			if f.Tiene(chispa3.TORR) && motivoSinTorre == "" {
 				base.ConTextoTorre(textoTorre)
-				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas, cfg.TorresPorSegundo); err != nil {
+				// Con TORR, la caché debe caber la pregunta más grande con margen por los fragmentos del LRU (1,5 × max_opciones):
+				// si la config pide menos, se sube el valor efectivo en vez de fallar (sin TORR no se exige nada).
+				cacheT, pedida := cfg.cacheTorresEfectiva(), 0
+				if min := cfg.cacheTorresMinima(); cacheT < min {
+					aviso := fmt.Sprintf("AVISO: cache_torres (%d) < %d (1,5 × max_opciones=%d, por los fragmentos del LRU): se sube a %d para que las preguntas de esquema nuevo con torres al vuelo progresen",
+						cacheT, min, cfg.maxOpcionesEfectivo(), min)
+					mt.Avisos = append(mt.Avisos, aviso)
+					log.Print(aviso)
+					cacheT, pedida = min, cfg.cacheTorresEfectiva()
+				}
+				if err := montarTorres(f, base, tok, op.torres, cacheT, cfg.MaxTorresNuevas, cfg.TorresPorSegundo); err != nil {
 					mt.Avisos = append(mt.Avisos, "sin torres al vuelo: "+err.Error())
+				} else {
+					base.ConCacheTorresEfectiva(cacheT, pedida)
 				}
 			}
 			cerrables = append(cerrables, base.torres)

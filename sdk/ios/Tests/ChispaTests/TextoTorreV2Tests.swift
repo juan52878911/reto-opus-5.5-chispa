@@ -27,6 +27,29 @@ final class TextoTorreV2Tests: XCTestCase {
         XCTAssertEqual(m.textoTorre(), "v2_sin_id")
     }
 
+    // Un motor degradado de verdad devuelve vacío en textosTorreL2; el falso sigue dando textos para comprobar que el SDK no los usa.
+    func testMotorDegradadoNoCalculaTorresConElCodificadorDeLaApp() {
+        let m = MotorFalso()
+        m.torres = false
+        m.motivoTorre = "texto_torre_inconsistente"
+        m.textosTorre = v2
+        m.l2 = { json("fraude", 0.9, ["fraude": 0.9]) }
+        let enc = Codificador()
+        let c = CapaL2(motor: m, sesion: SesionFalsa(), tokenizador: TokenizadorFalso(devuelve: [0, 7, 2]), codificador: enc, ahora: { 0 })
+        _ = try? c.decidir("no reconozco un cargo", preguntaNueva)
+        XCTAssertEqual(enc.pedidos, [])
+        XCTAssertFalse(m.llamadas.contains("TORRES"))
+    }
+
+    func testElMotorExponeMotivoYAvisos() {
+        let m = MotorFalso()
+        XCTAssertEqual(m.torreAlVueloMotivo(), "")
+        m.motivoTorre = "texto_torre_inconsistente"
+        m.avisosApertura = "AVISO: torre al vuelo desactivada"
+        XCTAssertEqual(m.torreAlVueloMotivo(), "texto_torre_inconsistente")
+        XCTAssertEqual(m.avisos(), "AVISO: torre al vuelo desactivada")
+    }
+
     func testSinElCampoLaVersionEsV1() {
         XCTAssertEqual(MotorFalso().textoTorre(), "v1")
     }

@@ -108,6 +108,10 @@ type Capacidades struct {
 	// TorreAlVueloMotivo es por qué el .chispa trae TORR y aun así no hay torre al vuelo: «texto_torre_inconsistente» (META.texto_torre
 	// y TORR no coinciden; el modelo cargó degradado). Vacío = sin motivo anotado.
 	TorreAlVueloMotivo string `json:"torre_al_vuelo_motivo,omitempty"`
+	// CacheTorresEfectiva es el tamaño de la caché de torres en servicio (con torre al vuelo); puede ser mayor que el cache_torres de la
+	// config si hubo que subirlo a ceil(1,5·max_opciones). CacheTorresAviso lo explica (vacío = sin ajuste).
+	CacheTorresEfectiva int    `json:"cache_torres_efectiva,omitempty"`
+	CacheTorresAviso    string `json:"cache_torres_aviso,omitempty"`
 }
 
 func activaCapa(d Decisor) bool {
@@ -116,6 +120,16 @@ func activaCapa(d Decisor) bool {
 	}
 	_, stub := d.(Stub)
 	return !stub
+}
+
+// cuboTorres es el cubo global de torres por segundo del L2 de la cascada (nil si no hay); la recarga hereda sus fichas.
+func (c *Cascada) cuboTorres() *cuboTorres {
+	for _, k := range c.capas {
+		if t, ok := k.d.(interface{ cuboGlobalTorres() *cuboTorres }); ok && t.cuboGlobalTorres() != nil {
+			return t.cuboGlobalTorres()
+		}
+	}
+	return nil
 }
 
 // Capacidades de la cascada armada; /healthz las publica.
@@ -128,6 +142,14 @@ func (c *Cascada) Capacidades() Capacidades {
 		}
 		if t, ok := k.d.(interface{ MotivoSinTorre() string }); ok && t.MotivoSinTorre() != "" {
 			cp.TorreAlVueloMotivo = t.MotivoSinTorre()
+		}
+		if t, ok := k.d.(interface{ CacheTorresEfectiva() (int, int) }); ok {
+			if ef, pe := t.CacheTorresEfectiva(); ef > 0 {
+				cp.CacheTorresEfectiva = ef
+				if pe > 0 {
+					cp.CacheTorresAviso = fmt.Sprintf("cache_torres (%d) subido a %d (1,5 × max_opciones)", pe, ef)
+				}
+			}
 		}
 		if t, ok := k.d.(interface{ VersionTextoTorre() string }); ok && t.VersionTextoTorre() != "" {
 			cp.TextoTorre = t.VersionTextoTorre()

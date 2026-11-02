@@ -115,6 +115,13 @@ public final class Chispa {
         return Chispa(motor: motor, cascada: try Cascada.armar(motor: motor, l2: l2, alErrorCapa: alErrorCapa), sesion: sesion, torreMotor: torreMotor)
     }
 
+    /// Por qué el modelo cargó degradado, o "" si no: «texto_torre_inconsistente» = el `.chispa` trae TORR pero su META.texto_torre
+    /// no coincide; no hay torres al vuelo y L2 solo decide los esquemas de ESQUEMAS (reentrenar con `chispa train`).
+    public func torreAlVueloMotivo() -> String { motor.torreAlVueloMotivo() }
+
+    /// Avisos no fatales de la apertura del modelo, uno por línea ("" si no hubo).
+    public func avisos() -> String { motor.avisos() }
+
     /// Decide cada pregunta para el `texto` (en orden). Sin conexión: todo ocurre en el dispositivo.
     public func decidir(_ texto: String, _ preguntas: [Pregunta]) -> [Respuesta] {
         preguntas.map { cascada.decidir(texto, $0) }

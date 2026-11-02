@@ -31,7 +31,7 @@ type Config struct {
 	CacheRespuestas int      `json:"cache_respuestas"`  // entradas del LRU de nonces
 	CacheTorres     int      `json:"cache_torres"`      // torres de L2 al vuelo en caché (aproximado; 0 = 16384)
 	MaxTorresNuevas int      `json:"max_torres_nuevas"` // torres sin cachear que una petición puede calcular (0 = 256); por encima L2 no opina
-	// Tope global de torres al vuelo por segundo (cubo con ráfaga igual); 0 = sin tope global. Por defecto TorresPorSegundoPorDefecto.
+	// Tope global de torres al vuelo por segundo (cubo con ráfaga max(tasa, max_torres_nuevas, 1)); 0 = sin tope global, si no >= 1. Por defecto TorresPorSegundoPorDefecto.
 	TorresPorSegundo float64    `json:"torres_por_segundo"`
 	Limites          Limites    `json:"limites"`                      // topes de entrada de /v1/decide
 	APIKeys          []ClaveAPI `json:"api_keys"`                     // si no está vacío, /v1/decide exige Authorization: Bearer <clave> y limita por clave
@@ -120,10 +120,52 @@ func CargarConfig(path string) (Config, error) {
 	if err := c.Validar(); err != nil {
 		return c, err
 	}
+	for _, a := range c.Avisos() {
+		log.Printf("AVISO: %s", a)
+	}
 	if c.AdminToken != "" {
 		log.Printf("AVISO: config %s: admin_token va en claro; pase a admin_token_sha256 (chispa-server -hash-clave)", path)
 	}
 	return c, nil
+}
+
+func (c Config) maxOpcionesEfectivo() int {
+	if c.Limites.MaxOpciones > 0 {
+		return c.Limites.MaxOpciones
+	}
+	return MaxOpciones
+}
+
+func (c Config) cacheTorresEfectiva() int {
+	if c.CacheTorres == 0 {
+		return CacheTorresPorDefecto
+	}
+	return c.CacheTorres
+}
+
+// cacheTorresMinima es ceil(1,5 · max_opciones): lo que debe caber en la caché de torres para que la pregunta más grande progrese
+// (por los fragmentos del LRU). No lo valida Validar (no sabe si el .chispa trae TORR): ArmarDesde sube el valor efectivo si hay TORR.
+func (c Config) cacheTorresMinima() int { return (3*c.maxOpcionesEfectivo() + 1) / 2 }
+
+// Avisos son las combinaciones válidas pero dudosas de la config; CargarConfig las registra.
+func (c Config) Avisos() []string {
+	var av []string
+	maxT := c.MaxTorresNuevas
+	if maxT == 0 {
+		maxT = MaxTorresNuevasPorDefecto
+	}
+	if c.CacheTorres != 0 && c.CacheTorres < maxT {
+		av = append(av, fmt.Sprintf("config: cache_torres (%d) < max_torres_nuevas (%d): una petición no puede tener todas sus torres nuevas en caché a la vez", c.CacheTorres, maxT))
+	}
+	if t := c.TorresPorSegundo; t > 0 && t < float64(maxT) {
+		av = append(av, fmt.Sprintf("config: torres_por_segundo (%v) < max_torres_nuevas (%d): la ráfaga se sube a %d para que una pregunta completa quepa, pero el ritmo sostenido es menor", t, maxT, maxT))
+	}
+	for _, k := range c.APIKeys {
+		if t := k.TorresPorSegundo; t > 0 && t < float64(maxT) {
+			av = append(av, fmt.Sprintf("config: api_keys[%s]: torres_por_segundo (%v) < max_torres_nuevas (%d): la ráfaga de la clave se sube a %d, pero el ritmo sostenido es menor", k.ID, t, maxT, maxT))
+		}
+	}
+	return av
 }
 
 func (c Config) Validar() error {
@@ -149,17 +191,10 @@ func (c Config) Validar() error {
 	if c.TorresPorSegundo < 0 || math.IsNaN(c.TorresPorSegundo) || math.IsInf(c.TorresPorSegundo, 0) {
 		return fmt.Errorf("config: torres_por_segundo debe ser un número >= 0 (0 = sin tope global): %v", c.TorresPorSegundo)
 	}
-	// El cacheo parcial solo avanza si la caché cabe la pregunta más grande que una petición puede pedir calcular: con
-	// cache_torres < max_torres_nuevas cada petición desaloja lo que cacheó la anterior. Se valida con los valores efectivos.
-	cacheT, maxT := c.CacheTorres, c.MaxTorresNuevas
-	if cacheT == 0 {
-		cacheT = CacheTorresPorDefecto
-	}
-	if maxT == 0 {
-		maxT = MaxTorresNuevasPorDefecto
-	}
-	if cacheT < maxT {
-		return fmt.Errorf("config: cache_torres (%d) debe ser >= max_torres_nuevas (%d)", cacheT, maxT)
+	if c.TorresPorSegundo > 0 && c.TorresPorSegundo < 1 {
+		// Con ráfaga 1 y menos de una ficha por segundo, la torre al vuelo se apagaba sin avisar; el cubo ya no baja de 1, pero
+		// una tasa fraccionaria no tiene sentido: 0 (sin tope) o >= 1.
+		return fmt.Errorf("config: torres_por_segundo debe ser 0 (sin tope global) o >= 1: %v", c.TorresPorSegundo)
 	}
 	if v := c.TauL2EsquemaNuevo; v != nil && !(*v >= 0 && *v <= 1) {
 		return fmt.Errorf("config: tau_l2_esquema_nuevo fuera de [0,1]: %v", *v)

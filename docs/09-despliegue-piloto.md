@@ -63,7 +63,7 @@ Lo que no escribas queda en el valor por defecto de `ConfigPorDefecto()`. Sin co
   "tau_l2_esquema_nuevo": 0.846,
   "l1_shrinkage_lambda": 4,
   "api_keys": [
-    {"id": "piloto-app",  "hash_sha256": "<64 hex de -hash-clave>", "rps": 20, "rafaga": 40},
+    {"id": "piloto-app",  "hash_sha256": "<64 hex de -hash-clave>", "rps": 20, "rafaga": 40, "torres_por_segundo": 100},
     {"id": "piloto-back", "hash_sha256": "<64 hex de -hash-clave>", "rps": 5}
   ],
   "admin_token_sha256": "<64 hex de -hash-clave sobre el token de admin>"
@@ -75,10 +75,12 @@ Lo que no escribas queda en el valor por defecto de `ConfigPorDefecto()`. Sin co
 | `capas[].tau` | En [0,1], nombres únicos. **Con `-config`, estos τ pisan los de `CALIB` del `.chispa`**; sin `-config`, L1 y L2 usan `CALIB`. Si solo quieres fijar límites o claves, mantén los valores por defecto de arriba o acepta que `CALIB` deja de aplicar a L0–L2 |
 | `limites.*` | Bytes UTF-8; negativo = error de arranque. Los valores del ejemplo son los por defecto |
 | `cache_esquemas`, `cache_respuestas` | ≥ 1. `cache_*_mb`: 0 = 64 y 48 MiB; máximo 1 048 576 |
-| `cache_torres`, `max_torres_nuevas`, `torres_por_segundo` | 0 = 16 384 y 256 (`torres_por_segundo`: por defecto 400, 0 = sin tope global); ≥ 0. Si se pasa el tope por petición, L2 cachea las torres que caben y escala con `sin_presupuesto_torres` |
+| `cache_torres`, `max_torres_nuevas`, `torres_por_segundo` | 0 = 16 384 y 256 (`torres_por_segundo`: por defecto 400, 0 = sin tope global, si no ≥ 1). Con `TORR`, un `cache_torres` < 384 (ceil(1,5 × `max_opciones`)) se sube a 384 con `AVISO` (log, `cache_torres_efectiva` en `/healthz`, gauges `chispa_cache_torres_efectiva` y `chispa_cache_torres_ajustada`); no falla, y sin `TORR` no se exige nada. Si se pasa el tope por petición, L2 cachea las torres que caben y escala con `sin_presupuesto_torres` |
 | `tau_l2_esquema_nuevo` | Por defecto 0,846 (prioridad config > `CALIB` > 0,846). Es prudente: precisión 0,95 con ~97 % de escalado en tareas no vistas ([06](06-despliegue.md)). `"tau_l2_esquema_nuevo_apagado": true` lo quita; **no puede ir junto a un τ** |
 | `l1_shrinkage_lambda` | Ausente = 4. `"l1_shrinkage_apagado": true` lo apaga (no junto a un λ). `l2_shrinkage_lambda` ausente = sin mezcla. Solo tiene efecto si el `.chispa` trae `SOPL1` |
-| `api_keys` | `rps` > 0; `rafaga` 0 = ceil(rps); `id` y hash únicos. Se relee en cada recarga |
+| `api_keys` | `rps` > 0; `rafaga` 0 = ceil(rps); `id` y hash únicos; `torres_por_segundo` opcional (0 o ≥ 1) es un tope de torres al vuelo propio de la clave, además del global. Se relee en cada recarga |
+
+Ejemplo: en el bloque de arriba, `piloto-app` tiene `"torres_por_segundo": 100` y `piloto-back` no tiene tope propio (solo el global de 400). Si `piloto-app` manda preguntas de esquemas nuevos con textos únicos a más de ~100 torres/s sostenidas (ráfaga: `max(100, max_torres_nuevas, 1)` = 256), al agotar su cubo sus esquemas nuevos escalan con `escalate_reason: "sin_presupuesto_torres"` (HTTP 200, no 429) hasta que el cubo se rellene; los esquemas ya cacheados o de `ESQUEMAS` siguen respondiendo, y `piloto-back` no nota nada (a `piloto-app` no se le gastan fichas del global cuando su propio cubo lo rechaza). Se ve en `chispa_torres_presupuesto_agotado_total` y en la proporción de `sin_presupuesto_torres`. La suma de los topes por clave puede pasar del global: manda el que se agote primero.
 | `admin_token_sha256` | Hash de un token ≥ 32 bytes; abre `POST /v1/admin/recargar`. No pongas `admin_token` en claro (da `AVISO`; no pueden ir los dos) |
 | `api_keys_abierto` | Solo si una recarga debe poder dejar el servicio sin claves. Una recarga sin `api_keys` sobre un servidor que las tenía **se rechaza** si falta esto |
 
@@ -227,7 +229,7 @@ No hace falta reiniciar. Lo que solo se lee al arrancar: `-addr`, `-admin-addr`,
 6. Marcha atrás: `mv` del `.chispa` anterior sobre `modelo.chispa` y recarga.
 
 La recarga relee también `-config` y `-tok`, así que rotar claves o el token de admin es editar `config.json` y recargar. Una config nueva sin `api_keys` se rechaza si
-antes había (a menos que traiga `api_keys_abierto`). Las cachés son del modelo: el nuevo empieza vacío y la primera tanda de esquemas nuevos recalcula torres. Los contadores no se reinician.
+antes había (a menos que traiga `api_keys_abierto`). Las cachés son del modelo: el nuevo empieza vacío (salvo las fichas de los cubos de torres por segundo, que se heredan) y la primera tanda de esquemas nuevos recalcula torres. Los contadores no se reinician.
 
 ## 10. Apagado ordenado
 `docker stop chispa` (o `kill -TERM`): el servidor pone `/healthz` en 503 `shutting_down`, espera `-pre-drenaje` (si lo hay), deja de aceptar, espera las peticiones en vuelo hasta `-apagado`

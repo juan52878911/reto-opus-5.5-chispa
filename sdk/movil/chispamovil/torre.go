@@ -131,8 +131,12 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	return ts, nil
 }
 
-// TextoTorre es la versión del texto de torre del fichero (META.texto_torre): «v1» (sin el campo) o «v2_sin_id».
+// TextoTorre es la versión efectiva del texto de torre del fichero (la de TORR): «v1» o «v2_sin_id». Vacío si el motor está
+// degradado (TorreAlVueloMotivo() != ""): no hay versión efectiva fiable y no se calculan torres al vuelo.
 func (c *Chispa) TextoTorre() string {
+	if c != nil && c.torreMotivo != "" {
+		return ""
+	}
 	if c == nil || c.textoTorre == "" {
 		return chispa3.TextoTorreV1
 	}
@@ -141,10 +145,11 @@ func (c *Chispa) TextoTorre() string {
 
 // TextosTorreL2 da los textos de torre de la pregunta («passage: pregunta · opción · descripción» en v1; «passage: pregunta ·
 // descripción» en v2_sin_id si la opción la tiene, ver TextoTorre; JSON []string), en
-// el orden de InstalarTorresL2. "[]" si ya hay torres (ESQUEMAS o instaladas), si el fichero no trae L2 o si la pregunta no vale.
+// el orden de InstalarTorresL2. "[]" si ya hay torres (ESQUEMAS o instaladas), si el fichero no trae L2, si la pregunta no vale o
+// si el motor está degradado (TorreAlVueloMotivo() != "": el texto de torre del fichero es inconsistente).
 func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 || scoreInvalido(p) || c.sinOpinionMulti(p, false) || c.TorresL2(preguntaJSON) {
+	if err != nil || !c.tieneL2 || c.torreMotivo != "" || scoreInvalido(p) || c.sinOpinionMulti(p, false) || c.TorresL2(preguntaJSON) {
 		return "[]"
 	}
 	b, _ := json.Marshal(torre.Textos(c.textoTorre, aTorre(p)))
@@ -152,10 +157,10 @@ func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 }
 
 // InstalarTorresL2 recibe las n torres (n·d float32 little endian, una por texto de TextosTorreL2), las cuantiza y las
-// cachea con claveTorre; false si no cuadran (n, d, valores no finitos) o no hay L2.
+// cachea con claveTorre; false si no cuadran (n, d, valores no finitos), no hay L2 o el motor está degradado (TorreAlVueloMotivo() != "").
 func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) bool {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 || scoreInvalido(p) {
+	if err != nil || !c.tieneL2 || c.torreMotivo != "" || scoreInvalido(p) {
 		return false
 	}
 	ops := opcionesConsulta(p)

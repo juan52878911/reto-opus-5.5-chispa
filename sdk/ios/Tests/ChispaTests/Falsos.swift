@@ -45,6 +45,10 @@ final class MotorFalso: Motor {
     var textosTorre: [String] = []
     var versionTorre = "v1"
     func textoTorre() -> String { versionTorre }
+    var motivoTorre = ""
+    var avisosApertura = ""
+    func torreAlVueloMotivo() -> String { motivoTorre }
+    func avisos() -> String { avisosApertura }
     var torresInstaladas: Data?
     var nInstaladas = 0
     /// false = `instalarTorresL2` rechaza las torres (y no las cachea).

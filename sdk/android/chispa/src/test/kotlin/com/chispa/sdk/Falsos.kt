@@ -80,7 +80,12 @@ class MotorFalso(
     }
 
     override fun torresL2(preguntaJson: String) = torres
+    // Un motor degradado de verdad devuelve vacío; el falso sigue dando textos para comprobar que el SDK no los usa.
     override fun textosTorreL2(preguntaJson: String): List<String> = if (torres) emptyList() else textosTorre
+    var motivoTorre = ""
+    var avisosApertura = ""
+    override fun torreAlVueloMotivo(): String = motivoTorre
+    override fun avisos(): String = avisosApertura
     var versionTorre = "v1"
     override fun textoTorre(): String = versionTorre
     override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean {
