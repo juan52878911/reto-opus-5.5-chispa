@@ -293,8 +293,8 @@ components:
           type: boolean
         escalate_reason:
           type: string
-          enum: [sin_opinion, score_ids_no_validos, baja_confianza]
-          description: "Solo cuando escalate es true. sin_opinion: ninguna capa opino (probs vacias; el modelo no puede decidir ese esquema: sin torre, tipo no soportado...). score_ids_no_validos: sin opinion porque los ids de un score no son 1..K. baja_confianza: alguna capa opino pero ninguna llego a su tau. Ausente si no escalo, o si escalo por un fallo/presupuesto de una capa."
+          enum: [sin_opinion, score_ids_no_validos, baja_confianza, incompleta]
+          description: "Solo cuando escalate es true. sin_opinion: ninguna capa opino (probs vacias; el modelo no puede decidir ese esquema: sin torre, tipo no soportado...). score_ids_no_validos: sin opinion porque los ids de un score no son 1..K. baja_confianza: alguna capa opino pero ninguna llego a su tau. incompleta: alguna capa fallo o se quedo sin plazo/presupuesto. Ausente si no escalo."
         ms:
           type: number
         nonce:
