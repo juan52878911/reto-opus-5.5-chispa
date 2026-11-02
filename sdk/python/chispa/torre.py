@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import json
 import os
 import struct
 from pathlib import Path
@@ -105,7 +106,10 @@ def validar_torre(ruta, dim=None, max_len=None, prefijo=None, log: Callable[[str
     except ValueError:
         raise ChispaError(f"--torre: parámetros fuera de rango (dim {d}, max_len {ml}, prefijo de {len(pf.encode())} bytes)")
     _probar(datos, d, log)
-    return {"dim": d, "max_len": ml, "prefijo": pf, "onnx": datos}
+    tt = props.get("chispa.torre.texto_torre")  # ausente = v1
+    if tt is not None and tt not in formato.TEXTOS_TORRE:
+        raise ChispaError(f"--torre: chispa.torre.texto_torre {tt!r} del ONNX desconocido (se esperaba {' o '.join(map(repr, formato.TEXTOS_TORRE))})")
+    return {"dim": d, "max_len": ml, "prefijo": pf, "onnx": datos, "texto_torre": tt or "v1"}
 
 
 def _probar(datos: bytes, dim: int, log) -> None:
@@ -163,3 +167,50 @@ def anadir_torr(salida, torre: dict, inf: dict) -> None:
     if "TORR" not in inf.get("secciones", []):
         inf.setdefault("secciones", []).append("TORR")
     inf["torre"] = {k: torre[k] for k in ("dim", "max_len", "prefijo")}
+
+
+def texto_torre_de(secs: dict) -> str:
+    """Versión del texto de torre de la META de un `.chispa` (`formato.leer`): ausente (o sin META) = v1; valor desconocido, ChispaError."""
+    if formato.META not in secs:
+        return "v1"
+    try:
+        v = json.loads(secs[formato.META]).get("texto_torre")
+    except (ValueError, AttributeError) as e:
+        raise ChispaError(f"el .chispa trae una META ilegible: {e}")
+    if v is None:
+        return "v1"
+    if v not in formato.TEXTOS_TORRE:
+        raise ChispaError(f"META.texto_torre {v!r} desconocido (se esperaba {' o '.join(map(repr, formato.TEXTOS_TORRE))})")
+    return v
+
+
+def resolver_texto_torre(l2=None, torre=None, flag=None, origen_l2="el l2.chispa") -> str:
+    """Versión del texto de torre del `.chispa` final. `l2` y `torre` son las versiones de sus fuentes (None = no hay esa fuente); `flag` es
+    `--texto-torre`. Si hay varias fuentes, deben coincidir (el servidor calcularía las torres con un texto distinto al que entrenó L2). Sin
+    ninguna fuente que mande, `flag` o v1."""
+    if flag is not None and flag not in formato.TEXTOS_TORRE:
+        raise ChispaError(f"--texto-torre {flag!r} desconocido (se esperaba {' o '.join(map(repr, formato.TEXTOS_TORRE))})")
+    fuentes = [(n, v) for n, v in ((origen_l2, l2), ("el ONNX de --torre (chispa.torre.texto_torre; ausente = v1)", torre),
+                                   ("--texto-torre", flag)) if v is not None]
+    if len({v for _, v in fuentes}) > 1:
+        raise ChispaError("texto_torre no coincide: " + "; ".join(f"{n} dice {v}" for n, v in fuentes))
+    return fuentes[0][1] if fuentes else "v1"
+
+
+def fijar_texto_torre(salida, version: str) -> None:
+    """Reescribe META de `salida` con `texto_torre` (solo si no es v1; si es v1 lo quita) y deja las demás secciones y campos intactos."""
+    salida = Path(salida)
+    secs = formato.leer(salida.read_bytes())
+    d = json.loads(secs.get(formato.META, b"{}")) if formato.META in secs else {}
+    if (d.get("texto_torre") or "v1") == version:
+        return
+    d.pop("texto_torre", None)
+    if version != "v1":
+        d["texto_torre"] = version
+    secs[formato.META] = json.dumps(d).encode()
+    tmp = salida.with_name(salida.name + ".tmp")
+    try:
+        tmp.write_bytes(formato.escribir(secs))
+        os.replace(tmp, salida)
+    finally:
+        tmp.unlink(missing_ok=True)

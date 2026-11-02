@@ -221,12 +221,12 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
-	if f.Tiene(chispa3.META) {
-		m, err := f.MetaTexto()
+	if f.Tiene(chispa3.TORR) { // solo con TORR importa; META se lee tolerante (solo texto_torre)
+		v, err := f.VersionTextoTorre()
 		if err != nil {
 			return fmt.Errorf("sección META: %w", err)
 		}
-		c.textoTorre = m.VersionTextoTorre()
+		c.textoTorre = v
 	}
 	if f.Tiene(chispa3.CALIB) {
 		var err error
