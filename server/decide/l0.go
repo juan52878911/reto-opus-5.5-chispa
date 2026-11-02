@@ -108,6 +108,9 @@ func (l *L0) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
 	if p.Kind == KindMulti {
 		return Respuesta{}, nil // el L0 entrenado es multiclase (probs que suman 1): no da una p por opción, no opina en multi
 	}
+	if !scoreValido(p) {
+		return Respuesta{}, nil // score con ids que no son 1..K: no opina
+	}
 	m := l.buscar(p)
 	if m == nil {
 		return Respuesta{}, nil
@@ -129,7 +132,8 @@ func ordinal(p Pregunta, r Respuesta) Respuesta {
 		return r
 	}
 	var acc float64
-	for _, o := range opcionesPorNivel(p.Opciones) {
+	niveles, _ := opcionesNiveles(p.Opciones) // Decidir ya comprobó 1..K
+	for _, o := range niveles {
 		if acc += r.Probs[o.ID]; acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]
 			break

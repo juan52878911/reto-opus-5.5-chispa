@@ -125,9 +125,24 @@ def cargar_esquema(ruta, pregunta_id: Optional[str] = None) -> Tuple[Pregunta, d
         raise ChispaError("esquema: ≥ 2 opciones con id único")
     if kind == "multi" and any(SEP_MULTI in i for i in ids):
         raise ChispaError(f"esquema: en multi los ids no pueden llevar «{SEP_MULTI}» (separa las etiquetas de los ejemplos)")
+    if kind == "score":
+        niveles_score(ids)
     if kind == "noul" and sorted(ids) != ["false", "true"]:
         raise ChispaError("esquema: noul solo admite las opciones false y true")
     return Pregunta(str(d["id"]), str(d["pregunta"]), kind, tuple(lista)), extra
+
+
+def niveles_score(ids):
+    """Los ids de un score deben ser exactamente 1..K (enteros canónicos, sin huecos ni repetidos): el servidor lee los niveles por
+    su valor y con otros ids ninguna capa opina. Devuelve los ids ordenados por nivel o lanza ChispaError diciendo cómo mapearlos."""
+    ids = [str(i) for i in ids]
+    k = len(ids)
+    esperados = [str(n) for n in range(1, k + 1)]
+    if sorted(ids, key=lambda i: (len(i), i)) == esperados and len(set(ids)) == k:
+        return sorted(ids, key=int)
+    mapa = ", ".join(f"{i}→{n}" for i, n in zip(ids, esperados))
+    raise ChispaError(f"esquema: un score usa los ids 1..K (1 = el nivel más bajo, K = el más alto), sin ceros a la izquierda, signos ni huecos; "
+                      f"tienes {ids}. Mapea tus niveles de menor a mayor a 1..K (p. ej. {mapa}) en el esquema y en las etiquetas de los datos")
 
 
 def validar(ejemplos, q: Pregunta) -> Counter:

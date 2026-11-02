@@ -62,6 +62,23 @@ class TestDatos(unittest.TestCase):
                 with self.assertRaisesRegex(ChispaError, "U\\+001D–U\\+001F"):
                     cargar_esquema(self.esq(d))
 
+    def test_score_solo_ids_uno_a_k(self):
+        SC = dict(ESQ, tipo="score")
+        for ops in (3, ["1", "2", "3"], ["3", "1", "2"], {"2": "m", "1": "b", "3": "a"}, [str(i) for i in (10, 2, 1, 3, 4, 5, 6, 7, 8, 9)]):
+            q, _ = cargar_esquema(self.esq(dict(SC, opciones=ops)))
+            self.assertEqual(len(q.options), len(ops) if not isinstance(ops, int) else ops)
+        for ops in (["bajo", "medio", "alto"], ["0", "1", "2"], ["1", "2", "4"], ["01", "2", "3"], ["+1", "2", "3"], ["2", "3"]):
+            with self.assertRaisesRegex(ChispaError, "ids 1\\.\\.K"):
+                cargar_esquema(self.esq(dict(SC, opciones=ops)))
+        with self.assertRaisesRegex(ChispaError, "bajo→1, medio→2, alto→3"):
+            cargar_esquema(self.esq(dict(SC, opciones=["bajo", "medio", "alto"])))
+
+    def test_train_score_ids_no_uno_a_k_falla_con_el_mapa(self):
+        e = self.esq(dict(ESQ, tipo="score", opciones=["bajo", "medio", "alto"]))
+        with self.assertRaisesRegex(ChispaError, "bajo→1, medio→2, alto→3"):
+            entrenar(None, e, self.d / "o.chispa", log=lambda m: None)
+        self.assertFalse((self.d / "o.chispa").exists())
+
     def test_esquema_invalido(self):
         for d, msg in [(dict(ESQ, tipo="raro"), "tipo"), (dict(ESQ, opciones=["a"]), "≥ 2"), ({"id": "x"}, "pregunta"),
                        (dict(ESQ, tipo="noul", opciones=["a", "b"]), "false y true"),

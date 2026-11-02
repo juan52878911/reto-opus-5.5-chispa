@@ -8,9 +8,10 @@ comparar una respuesta de la variante con la del original, tradúcela con ``mapa
 
 Transformaciones (``TIPOS``): permutar, renombrar, parafrasear, erratas, mayusculas,
 mezcla, largo. Seguras (``SEGURAS``, no cambian la respuesta correcta): permutar (también
-en noul y score: solo cambia el orden, los ids se conservan; en score mide justo el
-invariante de que el runtime ordena las opciones por id antes de decidir, así que una
-inestabilidad bajo ``permutar`` en score es un fallo del runtime, no de la transformación), renombrar (solo en choice y
+en noul y score: solo cambia el orden, los ids se conservan; en score, con ids 1..K, mide justo el
+invariante de que el runtime lee los niveles por el valor del id, así que una inestabilidad bajo
+``permutar`` en score es un fallo del runtime, no de la transformación; con ids que no son 1..K el runtime
+no opina y ``permutar`` es la identidad), renombrar (solo en choice y
 multi; en noul/score es la identidad porque sus ids no son opacos), parafrasear (plantilla
 en el idioma de la pregunta) y mayusculas. Con riesgo (``RIESGOS``; la variante lleva la
 nota en ``riesgo``): erratas (rompe preguntas por palabras clave), mezcla (traducir
@@ -26,7 +27,13 @@ import random
 import re
 import zlib
 
-_ENTERO_CANONICO = re.compile(r"0|-?[1-9][0-9]*")  # como tok.EnteroCanonico del runtime
+_ENTERO_CANONICO = re.compile(r"[1-9][0-9]*")  # entero canónico positivo, como strconv.Itoa en tok.NivelesScore del runtime
+
+
+def _ids_uno_a_k(opciones):
+    """True si los ids son exactamente 1..K (enteros canónicos, sin huecos ni repetidos, en cualquier orden)."""
+    ids = [str(o["id"]) for o in opciones]
+    return bool(ids) and all(_ENTERO_CANONICO.fullmatch(i) for i in ids) and sorted(int(i) for i in ids) == list(range(1, len(ids) + 1))
 
 TIPOS = ("permutar", "renombrar", "parafrasear", "erratas", "mayusculas", "mezcla", "largo")
 
@@ -99,13 +106,13 @@ def _traducir_etiqueta(caso, mapa):
 def permutar(caso, rng):
     """Reordena las opciones (en todos los kinds, también noul y score). Los ids no cambian, así que la etiqueta tampoco.
 
-    En score mide el invariante «el runtime ordena las opciones por id»: si la decisión
-    depende del orden de entrada, el runtime está mal. Si algún id de un score no es un entero canónico
-    («01», «+1», «alto»), el runtime toma el orden declarado como escala: ahí es la identidad.
+    En score siempre es segura con ids 1..K: el runtime lee los niveles por el valor del id, así que si la decisión
+    depende del orden de entrada, el runtime está mal. Si los ids de un score no son exactamente 1..K («alto», «0..K-1», «01», huecos),
+    el runtime no opina con ninguna capa (es lo esperado) y la variante no aplica: es la identidad.
     """
     v = _copia(caso, "permutar")
-    if caso.get("kind") == "score" and not all(_ENTERO_CANONICO.fullmatch(str(o["id"])) for o in v["opciones"]):
-        return v  # el runtime usa aquí el orden declarado como escala: reordenar cambiaría la pregunta
+    if caso.get("kind") == "score" and not _ids_uno_a_k(v["opciones"]):
+        return v
     rng.shuffle(v["opciones"])
     return v
 

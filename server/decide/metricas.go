@@ -89,6 +89,7 @@ type Metricas struct {
 	calibDefecto map[[2]string]*atomic.Uint64 // chispa_calib_defecto_total{capa,tipo}, bajo mu
 
 	l3Llamadas map[string]*atomic.Uint64 // chispa_l3_llamadas_total{resultado}, bajo mu
+	scoreIds   map[string]*atomic.Uint64 // chispa_score_ids_no_validos_total{capa}, bajo mu
 	l3Lat      histo                     // latencia de cada llamada al LLM de L3
 
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
@@ -150,7 +151,7 @@ func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resul
 
 func NuevasMetricas() *Metricas {
 	return &Metricas{clavesN: map[[2]string]*atomic.Uint64{}, recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
-		decididas: map[string]*atomic.Uint64{}, calibDefecto: map[[2]string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}}
+		decididas: map[string]*atomic.Uint64{}, calibDefecto: map[[2]string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}, scoreIds: map[string]*atomic.Uint64{}}
 }
 
 // l3Cuenta cuenta una llamada de L3 por resultado: ok, invalida (respuesta que no sirve), error, timeout o presupuesto (tope por
@@ -158,6 +159,13 @@ func NuevasMetricas() *Metricas {
 func (m *Metricas) l3Cuenta(resultado string) {
 	if m != nil {
 		contador(&m.mu, m.l3Llamadas, resultado).Add(1)
+	}
+}
+
+// ScoreIdsNoValidos cuenta una pregunta score cuyos ids no son 1..K en la capa que no opinó por eso. nil-safe.
+func (m *Metricas) ScoreIdsNoValidos(capa string) {
+	if m != nil {
+		contador(&m.mu, m.scoreIds, capa).Add(1)
 	}
 }
 
@@ -331,6 +339,11 @@ func (m *Metricas) Escribe(w io.Writer) {
 	fmt.Fprintln(w, "# TYPE chispa_l3_llamadas_total counter")
 	for _, r := range []string{"ok", "invalida", "error", "timeout", "presupuesto"} {
 		fmt.Fprintf(w, "chispa_l3_llamadas_total{resultado=%q} %d\n", r, contador(&m.mu, m.l3Llamadas, r).Load())
+	}
+	fmt.Fprintln(w, "# HELP chispa_score_ids_no_validos_total Preguntas score cuyos ids no son 1..K, por capa que no opinó (la cascada escala).")
+	fmt.Fprintln(w, "# TYPE chispa_score_ids_no_validos_total counter")
+	for _, c := range claves(&m.mu, m.scoreIds) {
+		fmt.Fprintf(w, "chispa_score_ids_no_validos_total{capa=%q} %d\n", c, contador(&m.mu, m.scoreIds, c).Load())
 	}
 	fmt.Fprintln(w, "# HELP chispa_l3_latencia_segundos Latencia de cada llamada de L3 al LLM.")
 	fmt.Fprintln(w, "# TYPE chispa_l3_latencia_segundos histogram")

@@ -25,7 +25,7 @@ func TestTextosYOpciones(t *testing.T) {
 		t.Fatalf("score numérico: %v", got)
 	}
 	sc = Pregunta{Kind: KindScore, Opciones: []Opcion{{ID: "bajo"}, {ID: "alto"}}}
-	if got := OpcionesConsulta(sc); !reflect.DeepEqual(got, []Opcion{{ID: "alto"}}) {
+	if got := OpcionesConsulta(sc); got != nil {
 		t.Fatalf("score no numérico: %v", got)
 	}
 	if OpcionesConsulta(Pregunta{Kind: KindScore}) != nil {

@@ -16,8 +16,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"chispa/runtime/tok"
 )
 
 // Valores por defecto de los límites (ver Limites).
@@ -319,9 +317,6 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		if p.Nonce != "" {
 			h := sha256.Sum256([]byte(p.Estado))
 			ck = idClave + "|" + p.Nonce + "|" + hex.EncodeToString(h[:8]) + "|" + ClaveEsquema(p) + "|" + p.ID
-			if p.Kind == KindScore && !tok.IdsEnteros(idsDe(p.Opciones)) {
-				ck += "|" + strings.Join(idsDe(p.Opciones), "\x00") // en score no numérico el orden declarado es la escala
-			}
 			if b, ok := v.nonces.Get(ck); ok {
 				s.Met.NonceHits.Add(1)
 				out.Results[i] = b

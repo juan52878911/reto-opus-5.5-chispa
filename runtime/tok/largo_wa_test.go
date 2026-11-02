@@ -13,9 +13,21 @@ func TestWAAgregarProbsScorePermutacion(t *testing.T) {
 			}
 		}
 	}
-	// ids no numéricos: se conserva el orden declarado
-	q := map[string]float64{"bajo": 0.6, "medio": 0.3, "alto": 0.1}
-	if _, ans, _, _ := AgregarProbs("score", []string{"bajo", "medio", "alto"}, []map[string]float64{q}, AggMedia, 0.5); ans != "bajo" {
-		t.Fatalf("declarado: %q", ans)
+	// ids que no son 1..K: sin escala, no hay respuesta
+	for _, c := range []struct {
+		ids []string
+		p   map[string]float64
+	}{
+		{[]string{"bajo", "medio", "alto"}, map[string]float64{"bajo": 0.6, "medio": 0.3, "alto": 0.1}},
+		{[]string{"0", "1", "2"}, map[string]float64{"0": 0.6, "1": 0.3, "2": 0.1}},
+		{[]string{"1", "2", "4"}, map[string]float64{"1": 0.6, "2": 0.3, "4": 0.1}},
+		{[]string{"01", "2", "3"}, map[string]float64{"01": 0.6, "2": 0.3, "3": 0.1}},
+	} {
+		for _, n := range []int{1, 2} {
+			ps := []map[string]float64{c.p, c.p}[:n]
+			if _, ans, conf, ok := AgregarProbs("score", c.ids, ps, AggMedia, 0.5); ok || ans != "" || conf != 0 {
+				t.Fatalf("%v (%d ventanas): %q %v ok=%v, esperaba que no opinara", c.ids, n, ans, conf, ok)
+			}
+		}
 	}
 }

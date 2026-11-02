@@ -191,6 +191,9 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			res.Incompleto = true
 		}
 		previas[l.d.Nombre()] = r
+		if r.Conf == 0 && !scoreValido(p) {
+			c.met.ScoreIdsNoValidos(l.d.Nombre())
+		}
 		if r.Conf > mejor.Conf {
 			mejor = r
 		}
