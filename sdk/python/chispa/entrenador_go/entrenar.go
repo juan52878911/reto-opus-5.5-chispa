@@ -150,7 +150,7 @@ func entrenar(p *Plan) (*Informe, error) {
 		inf.Omitidas["L2"] = "sin checkpoint de L2 (--l2): solo L0 y L1"
 		inf.Omitidas["ESQUEMAS"] = "sin checkpoint de L2"
 	} else {
-		f, err := chispa3.Abrir(p.L2Chispa)
+		f, err := chispa3.AbrirCon(p.L2Chispa, p.limites())
 		if err != nil {
 			return nil, fmt.Errorf("--l2: %w", err)
 		}

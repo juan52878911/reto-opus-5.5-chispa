@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"chispa/format/chispa3"
 	"github.com/juan52878911/kindling/pkg/chispa"
 )
 
@@ -158,3 +159,6 @@ func bucketsParaL0(clases int, maxMB float64) int {
 	}
 	return b
 }
+
+// limites son los de chispa3 para abrir el .chispa de salida y el de --l2: el tope de --max-fichero (0 = 1 GiB).
+func (p *Plan) limites() chispa3.Limites { return chispa3.Limites{MaxFichero: p.MaxFichero} }
