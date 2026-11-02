@@ -360,8 +360,8 @@ func interpretarL3(contenido string, p Pregunta) (Respuesta, bool) {
 		return Respuesta{}, false
 	}
 	var suma float64
-	for _, v := range out.Probs {
-		suma += v
+	for _, o := range p.Opciones { // orden de las opciones: la suma no depende del orden de un map
+		suma += out.Probs[o.ID]
 	}
 	if math.Abs(suma-1) > 0.05 {
 		return Respuesta{}, false
