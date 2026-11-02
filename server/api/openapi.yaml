@@ -340,8 +340,8 @@ components:
           description: "L2 puede calcular la torre de un esquema nuevo (el .chispa trae TORR y estan -tok y ONNX Runtime). Con false y sin L1, un esquema que el .chispa no trae escala con escalate_reason sin_opinion."
         torre_al_vuelo_motivo:
           type: string
-          enum: [texto_torre_inconsistente]
-          description: "Solo aparece si el .chispa trae TORR pero el modelo cargo sin torre al vuelo por una incoherencia: texto_torre_inconsistente = META.texto_torre y TORR no coinciden (el modelo carga degradado: L0, L1 y L2 con ESQUEMAS siguen; el servidor lo avisa en el log al arrancar y al recargar y publica el gauge chispa_torre_al_vuelo_desactivada{motivo})."
+          enum: [texto_torre_inconsistente, max_opciones_excesivo]
+          description: "Solo aparece si el .chispa trae TORR pero el modelo cargo sin torre al vuelo por una incoherencia: texto_torre_inconsistente = META.texto_torre y TORR no coinciden; max_opciones_excesivo = limites.max_opciones pasa de 4096 y la cache de torres (16 x max_opciones) no se monta (el modelo carga degradado: L0, L1 y L2 con ESQUEMAS siguen; el servidor lo avisa en el log al arrancar y al recargar y publica el gauge chispa_torre_al_vuelo_desactivada{motivo})."
         cache_torres_efectiva:
           type: integer
           description: "Tamano efectivo de la cache de torres al vuelo. Solo aparece con torre_al_vuelo; puede ser mayor que cache_torres de la config: con TORR se sube a 16 x max_opciones en vez de fallar (gauge chispa_cache_torres_efectiva)."

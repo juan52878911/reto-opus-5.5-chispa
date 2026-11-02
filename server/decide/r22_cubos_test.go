@@ -36,7 +36,7 @@ func TestR22CubosReutilizadosYRelojInyectado(t *testing.T) {
 	}
 }
 
-// R22-2: limites.max_opciones tiene máximo (la caché de torres guarda 16 × max_opciones).
+// R22-2 (ZG-2): el máximo de max_opciones ya no está en la config (ver TestZGMaxOpcionesExcesivoDesactivaTorre): nada válido deja de arrancar.
 func TestR22MaxOpcionesAcotado(t *testing.T) {
 	c := ConfigPorDefecto()
 	c.Limites.MaxOpciones = MaxOpcionesTope
@@ -44,7 +44,7 @@ func TestR22MaxOpcionesAcotado(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.Limites.MaxOpciones = MaxOpcionesTope + 1
-	if c.Validar() == nil {
-		t.Fatal("max_opciones sin máximo")
+	if err := c.Validar(); err != nil {
+		t.Fatalf("por encima del máximo solo se desactiva la torre al vuelo: %v", err)
 	}
 }
