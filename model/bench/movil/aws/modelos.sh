@@ -177,7 +177,7 @@ for v in $VARIANTES; do
      && [ -s "$TORRE" ]; then estado "torre_$v" "OK $(stat -c %s "$TORRE") bytes (perfil $p)"
   else tail -10 "$RES/torre-$v.log"; estado "torre_$v" "FALLO ver torre-$v.log"; estado "train_$v" "FALLO sin torre"; fallo "torre $v"; continue; fi
   if reint timeout "$(tope 10)m" "$PY" -u -m chispa train --ejemplos "$EJ" --esquema "$ESQ" --salida "$M" --ckpt "$CKPT" --perfil "$p" --torre "$TORRE" \
-       --l1 "$POTION" --repo "$REPO" > "$RES/train-$v.log" 2>&1 && [ -s "$M" ]; then
+       $([ "$p" = servidor ] || echo --l1 "$POTION") --repo "$REPO" > "$RES/train-$v.log" 2>&1 && [ -s "$M" ]; then   # servidor sin L1: con potion pasa del tope de format/chispa3
     estado "train_$v" "OK $(stat -c %s "$M") bytes"
   else tail -10 "$RES/train-$v.log"; estado "train_$v" "FALLO ver train-$v.log"; fallo "train $v"; fi
 done
@@ -200,11 +200,11 @@ else
     "$SERV" -addr 127.0.0.1:$PUERTO -modelo "$M" -tok "$TOK" > "$RES/servidor-$v.log" 2>&1 & HP=$!
     for _ in $(seq 1 90); do curl -fsS http://127.0.0.1:$PUERTO/healthz > "$RES/healthz-$v.json" 2>/dev/null && break; sleep 1; done
     # una decisión por escenario de Medir: pregunta de esquema.json (L0/L1, y L2 con la torre en caché) y Medidor.ZERO_SHOT (L2 con esquema nuevo)
-    if "$PY" -I - "$RES/healthz-$v.json" "http://127.0.0.1:$PUERTO" "$ESQ" "$REPO/sdk/android/demo/src/main/kotlin/com/chispa/demo/Medidor.kt" "$RES/decisiones-$v.json" > "$RES/validacion-$v.txt" 2>&1 <<'PYEOF'
-import json, re, sys, urllib.request
+    if VARIANTE=$v "$PY" -I - "$RES/healthz-$v.json" "http://127.0.0.1:$PUERTO" "$ESQ" "$REPO/sdk/android/demo/src/main/kotlin/com/chispa/demo/Medidor.kt" "$RES/decisiones-$v.json" > "$RES/validacion-$v.txt" 2>&1 <<'PYEOF'
+import json, os, re, sys, urllib.request
 hz, url, esq, kt, salida = sys.argv[1:6]
 h = json.load(open(hz)); capas = h.get("capas") or {}
-faltan = [c for c in ("L0", "L1", "L2") if not capas.get(c)] + ([] if h.get("torre_al_vuelo") is True else ["torre_al_vuelo"])
+faltan = [c for c in (("L0", "L2") if os.environ.get("VARIANTE") == "servidor" else ("L0", "L1", "L2")) if not capas.get(c)] + ([] if h.get("torre_al_vuelo") is True else ["torre_al_vuelo"])
 if faltan:
     sys.exit("/healthz sin %s: %s" % (", ".join(faltan), json.dumps(h)[:300]))
 e = json.load(open(esq, encoding="utf-8"))
