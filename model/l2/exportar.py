@@ -674,7 +674,7 @@ def calib_completa(modelo, chispa):
     θ = 0,5), igual que en `jevbench_l2`; las que trae (de `calibrar` sobre el dev) no se tocan. Así un esquema nuevo de cualquier tipo
     usa en el servidor los parámetros del checkpoint y no los valores por defecto."""
     faltan = {}
-    for clave in CABEZAS_L2:
+    for clave in (*CABEZAS_L2, *sorted(k for k in modelo.coral if k not in CABEZAS_L2)):  # todas las score del checkpoint
         if clave not in chispa["tipos"]:
             modelo.asegurar_cabeza(clave)
             p = C.cabeza_inicial(modelo, clave)

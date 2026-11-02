@@ -52,6 +52,14 @@
   {
    "entrada": "LA CITA Nº 2ª vez",
    "salida": "LA CITA Nº 2ª vez"
+  },
+  {
+   "entrada": "İSTANBUL ŞEHİR",
+   "salida": "istanbul şehir"
+  },
+  {
+   "entrada": "ΟΔΟΣ ΑΘΗΝΩΝ",
+   "salida": "οδοσ αθηνων"
   }
  ]
 }

@@ -28,10 +28,10 @@ TIPOS_BETA = ("choice", "noul", "score")
 
 
 def normalizar_mayusculas(texto):
-    """Texto del mensaje: con ≥ 8 letras y más del 70 % en mayúsculas, `texto.lower()`; si no, igual. Ver contrato-normalizacion.md."""
+    """Texto del mensaje: con ≥ 8 letras y más del 70 % en mayúsculas, minúsculas carácter a carácter (primer punto de código de `c.lower()`, como `strings.ToLower`); si no, igual. Ver contrato-normalizacion.md."""
     letras = [c for c in texto if c.isalpha()]
     if len(letras) >= 8 and sum(c.isupper() for c in letras) * 10 > 7 * len(letras):
-        return texto.lower()
+        return "".join(c.lower()[0] if c.lower() else c for c in texto)  # como strings.ToLower de Go: «İ» → «i», sigma final → «σ»
     return texto
 
 
@@ -417,6 +417,8 @@ class ModeloL2(nn.Module):
                 ce = -torch.log(p[y].clamp(min=1e-7))
             else:
                 # CORAL se indexa por el nivel (orden por int), no por la posición declarada; se devuelve en el orden de `opciones`
+                if sp is not None:  # el soporte llega en el orden declarado; el linspace de `_ajuste` va por nivel
+                    sp = sp[torch.tensor([ops.index(n) for n in niv], device=sp.device)]
                 pn = self.coral["score%d" % len(ops)](s[:1] + self._ajuste(sp, "score"))[0]
                 ce = -torch.log(pn[niv.index(r["etiqueta"])].clamp(min=1e-7))
                 p = pn[torch.tensor([niv.index(o) for o in ops], device=pn.device)]
