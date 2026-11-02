@@ -1,3 +1,6 @@
+# AVISO: este script ya NO es la fuente de texto_torre_v2.json. Ese fichero lo genera model/ (el entrenamiento) y aquí se
+# copia tal cual; no se regenera desde este repositorio. Se conserva solo como referencia histórica del formato antiguo
+# (lista plana de casos, no el dict {opciones, preguntas} actual).
 """Genera texto_torre_v2.json: textos de torre v1 y v2 (META.texto_torre «v1» / «v2_sin_id») por caso.
 Uso: python gen_texto_torre_v2.py <raíz del repo> > texto_torre_v2.json
 

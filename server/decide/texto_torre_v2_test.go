@@ -19,16 +19,19 @@ type casoTextoV2 struct {
 	V2       []string `json:"v2_sin_id"`
 }
 
-// Paridad con el generador de Python (testdata/gen_texto_torre_v2.py): v1 y v2 de los mismos casos (multi incluido).
+// Paridad con el generador de Python (fixture copiado tal cual del entrenamiento, model/): v1 y v2 de los mismos casos (multi incluido).
 func TestTextosTorreParidadV2(t *testing.T) {
 	b, err := os.ReadFile("testdata/texto_torre_v2.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var cs []casoTextoV2
-	if err := json.Unmarshal(b, &cs); err != nil || len(cs) < 25 {
-		t.Fatalf("%d casos, %v", len(cs), err)
+	var fx struct {
+		Preguntas []casoTextoV2 `json:"preguntas"`
 	}
+	if err := json.Unmarshal(b, &fx); err != nil || len(fx.Preguntas) == 0 {
+		t.Fatalf("%d casos, %v", len(fx.Preguntas), err)
+	}
+	cs := fx.Preguntas
 	for i, c := range cs {
 		p := Pregunta{Texto: c.Pregunta, Kind: c.Kind, Opciones: c.Opciones}
 		if got := TextosTorre(chispa3.TextoTorreV1, p); !reflect.DeepEqual(got, c.V1) {

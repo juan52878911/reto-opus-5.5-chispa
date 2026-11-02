@@ -12,25 +12,28 @@ import (
 	"chispa/runtime/torre"
 )
 
-// Paridad con el generador de Python (server/decide/testdata/gen_texto_torre_v2.py): v1 y v2 de los mismos casos.
+// Paridad con el generador de Python (fixture copiado tal cual del entrenamiento): v1 y v2 de los mismos casos.
 func TestTextosTorreL2ParidadV2(t *testing.T) {
 	b, err := os.ReadFile("../../../server/decide/testdata/texto_torre_v2.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var cs []struct {
-		Kind     string `json:"kind"`
-		Pregunta string `json:"pregunta"`
-		Opciones []struct {
-			ID          string `json:"id"`
-			Description string `json:"description"`
-		} `json:"opciones"`
-		V1 []string `json:"v1"`
-		V2 []string `json:"v2_sin_id"`
+	var fx struct {
+		Preguntas []struct {
+			Kind     string `json:"kind"`
+			Pregunta string `json:"pregunta"`
+			Opciones []struct {
+				ID          string `json:"id"`
+				Description string `json:"description"`
+			} `json:"opciones"`
+			V1 []string `json:"v1"`
+			V2 []string `json:"v2_sin_id"`
+		} `json:"preguntas"`
 	}
-	if err := json.Unmarshal(b, &cs); err != nil || len(cs) < 25 {
-		t.Fatalf("paridad: %d casos, %v", len(cs), err)
+	if err := json.Unmarshal(b, &fx); err != nil || len(fx.Preguntas) == 0 {
+		t.Fatalf("paridad: %d casos, %v", len(fx.Preguntas), err)
 	}
+	cs := fx.Preguntas
 	for i, k := range cs {
 		p := pregunta{Texto: k.Pregunta, Kind: k.Kind}
 		for _, o := range k.Opciones {

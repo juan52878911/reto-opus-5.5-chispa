@@ -12,6 +12,7 @@ import (
 
 	"chispa/format/chispa3"
 	"chispa/runtime/tok"
+	"chispa/runtime/torre"
 )
 
 // Tokenizador convierte un texto en ids del tokenizador original de e5 (con «query: »
@@ -299,9 +300,16 @@ func presupuestoDe(ctx context.Context) *presupuestoTorres {
 // errSinPresupuestoTorres si a la petición (todas sus preguntas juntas, ver conPresupuesto) ya no le quedan torres nuevas por calcular: L2 no opina.
 func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bool, err error) {
 	ops := OpcionesConsulta(p)
+	claves := make([]string, len(ops))
+	textos := make([]string, len(ops))
+	falta := make([]bool, len(ops))
+	calculada := make([]bool, len(ops))
 	faltan := 0
-	for _, o := range ops {
-		if _, hit := l.cache.Get(ClaveTorre(p.Texto, o)); !hit {
+	for i, o := range ops {
+		textos[i] = TextoTorre(l.textoTorre, p, o)
+		claves[i] = torre.ClaveTexto(textos[i]) // clave del texto efectivo: depende de las demás opciones en v2
+		if _, hit := l.cache.Get(claves[i]); !hit {
+			falta[i] = true
 			faltan++
 		}
 	}
@@ -312,35 +320,45 @@ func (l *L2) torresNuevas(ctx context.Context, p Pregunta) (ts []torreDin, ok bo
 			// siguiente petición avance (con un tope menor que las opciones, la pregunta acaba respondiendo).
 			cupo := max(0, l.maxNuevas-int(tras-int64(faltan)))
 			pr.usadas.Add(-int64(faltan - cupo))
-			for _, o := range ops {
+			for i := range ops {
 				if cupo == 0 || ctx.Err() != nil {
 					break
 				}
-				k := ClaveTorre(p.Texto, o)
-				if _, hit := l.cache.Get(k); hit {
+				if _, hit := l.cache.Get(claves[i]); hit {
 					continue
 				}
-				if _, err := l.torreUnica(ctx, k, TextoTorre(l.textoTorre, p, o)); err != nil {
+				if _, err := l.torreUnica(ctx, claves[i], textos[i]); err != nil {
 					break
 				}
 				cupo--
 			}
+			pr.usadas.Add(-int64(cupo)) // lo reservado y no gastado vuelve a la petición
 			l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 			return nil, false, errSinPresupuestoTorres
 		}
+		defer func() { // al salir (error, ctx cancelado) se devuelve el cupo reservado y no gastado
+			gastadas := 0
+			for i := range falta {
+				if falta[i] && calculada[i] {
+					gastadas++
+				}
+			}
+			pr.usadas.Add(-int64(faltan - gastadas))
+		}()
 	}
 	out := make([]torreDin, len(ops))
-	for i, o := range ops {
+	for i := range ops {
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
-		if out[i], err = l.torreUnica(ctx, ClaveTorre(p.Texto, o), TextoTorre(l.textoTorre, p, o)); err != nil {
+		if out[i], err = l.torreUnica(ctx, claves[i], textos[i]); err != nil {
 			if errors.Is(err, ErrPresupuestoTorres) {
 				l.met.sube(func(m *Metricas) *atomic.Uint64 { return &m.PresupuestoAgotado })
 				return nil, false, errSinPresupuestoTorres
 			}
 			return nil, false, err
 		}
+		calculada[i] = true
 	}
 	if faltan == 0 {
 		l.Hits.Add(1)

@@ -41,8 +41,10 @@ func deOpcionesTorre(os []torre.Opcion) []Opcion {
 // TextosTorre son los textos de torre de una pregunta en la versión dada, en el orden de OpcionesConsulta.
 func TextosTorre(version string, p Pregunta) []string { return torre.Textos(version, aTorre(p)) }
 
-// ClaveTorre es la clave de caché de una torre (ver torre.Clave).
-func ClaveTorre(pregunta string, o Opcion) string { return torre.Clave(pregunta, torre.Opcion(o)) }
+// ClaveTorre es la clave de caché de la torre de la opción o de p: sale del texto efectivo (ver torre.ClaveTexto).
+func ClaveTorre(version string, p Pregunta, o Opcion) string {
+	return torre.ClaveTexto(TextoTorre(version, p, o))
+}
 
 // OpcionesConsulta son las opciones que llevan torre (ver torre.OpcionesConsulta).
 func OpcionesConsulta(p Pregunta) []Opcion { return deOpcionesTorre(torre.OpcionesConsulta(aTorre(p))) }
@@ -56,4 +58,4 @@ func cuantizarTorre(h []float32) torreDin {
 }
 
 // Alias internos para el resto del paquete (l2c.go y los tests).
-func claveTorre(pregunta string, o Opcion) string { return ClaveTorre(pregunta, o) }
+func claveTorre(version string, p Pregunta, o Opcion) string { return ClaveTorre(version, p, o) }
