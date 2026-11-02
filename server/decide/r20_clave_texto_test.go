@@ -114,7 +114,7 @@ func TestR20CupoDevueltoCaminoParcial(t *testing.T) {
 	}
 }
 
-// R20 #6 / ZE: Validar acepta cualquier cache_torres >= 0 (el mínimo 1,5 × max_opciones se aplica al montar el modelo con TORR);
+// R20 #6 / ZE: Validar acepta cualquier cache_torres >= 0 (el mínimo 16 × max_opciones se aplica al montar el modelo con TORR);
 // el aviso de cache_torres < max_torres_nuevas sigue.
 func TestR20ConfigCacheTorresMenorQueMax(t *testing.T) {
 	cfg := ConfigPorDefecto()
@@ -128,8 +128,10 @@ func TestR20ConfigCacheTorresMenorQueMax(t *testing.T) {
 		}
 	}
 	cfg.CacheTorres, cfg.MaxTorresNuevas = 128, 256
-	if av := cfg.Avisos(); len(av) == 0 || !strings.Contains(av[0], "cache_torres") {
-		t.Fatalf("cache_torres < max_torres_nuevas debe avisar: %q", av)
+	for _, a := range cfg.Avisos() { // R22-7: ArmarDesde sube la caché al mínimo; Config.Avisos ya no compara con el valor pedido
+		if strings.Contains(a, "cache_torres") {
+			t.Fatalf("cache_torres < max_torres_nuevas ya no avisa desde la config: %q", a)
+		}
 	}
 	cfg.CacheTorres = -1
 	if err := cfg.Validar(); err == nil {
