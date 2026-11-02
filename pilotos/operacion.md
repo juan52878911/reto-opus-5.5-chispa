@@ -68,7 +68,7 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 {
   "capas": [{"nombre":"L0","tau":0.8},{"nombre":"L1","tau":0.8},{"nombre":"L2","tau":0.7},{"nombre":"L3","tau":0.6}],
   "cache_esquemas": 1024, "cache_respuestas": 4096,
-  "cache_torres": 16384, "max_torres_nuevas": 64,
+  "cache_torres": 16384, "max_torres_nuevas": 256, "torres_por_segundo": 400,
   "limites": {"max_cuerpo": 1048576, "max_preguntas": 256, "max_opciones": 256, "max_estado": 262144, "max_texto": 4096, "max_id": 256},
   "l1_shrinkage_lambda": 4.0,
   "tau_l2_esquema_nuevo": 0.7,
@@ -82,7 +82,7 @@ JSON; lo que no pone, queda en el valor por defecto (`decide/config.go`). Refere
 | `capas[].tau` | τ por capa: se pasa a la siguiente si la confianza top-1 < τ. Subir τ → más escalado y más precisión de lo aceptado; bajarlo, al revés | Debe estar en [0,1]; nombres únicos. Con `-modelo` **y sin** `-config`, τ de L1 y L2 sale de `CALIB`; **con** `-config` manda la config (y pisa el `CALIB` calibrado en el entrenamiento) |
 | `limites.*` | Topes de entrada. 0 u omitido = por defecto; negativo = error de arranque. Son bytes UTF-8 | Pasarse da 400 (`too_many_questions`, `state_too_long`…) o 413 |
 | `cache_esquemas`, `cache_respuestas` | LRU de esquemas y de nonces (≥ 1) | Fragmentados en 16: tamaño aproximado |
-| `cache_torres`, `max_torres_nuevas` | Torres al vuelo de L2 (0 = por defecto 16 384 / 64); por encima del tope por petición, L2 no opina | Solo con `-tags ort`, `-tok` y sección `TORR` |
+| `cache_torres`, `max_torres_nuevas`, `torres_por_segundo` | Torres al vuelo de L2 (0 = por defecto 16 384 / 256; `torres_por_segundo` ≥ 0, por defecto 400, 0 = sin tope global); por encima del tope por petición o del global por segundo, L2 no opina (`sin_presupuesto_torres`) | Solo con `-tags ort`, `-tok` y sección `TORR` |
 | `l1_shrinkage_lambda`, `l2_shrinkage_lambda` | λ ≥ 0 del encogimiento del soporte (sección `SOPL1`). L1: **ausente = 4**; apagarlo: `"l1_shrinkage_apagado": true`. L2: ausente = apagado | Solo few-shot con `SOPL1`. Un λ inválido es error de arranque; apagado + λ a la vez también. Medido con λ = 4 (`model/l2/resultados/barrido-20261029/LEEME.md` (rama de modelos; G.8b, checkpoint de G.8)): con `l1_shrinkage_lambda` = 4 frente a sin soporte: massive 0,395 frente a 0,266, inyecciones 0,740 frente a 0,326, hatecheck 0,492 frente a 0,224; en JevBench cuesta 2 puntos (0,379 frente a 0,398) |
 | `api_keys` | Claves de API de `/v1/decide` con límite de tasa por clave (`rps`, `rafaga`). Ausente = abierto. Solo el hash SHA-256 en el fichero: `printf '%s' "$CLAVE" \| chispa-server -hash-clave` ([`docs/06`](../docs/06-despliegue.md#claves-de-api)) | **Recomendada en el piloto.** `/healthz` y `/metrics` nunca piden clave: no los exponga fuera de la red de operación. Se relee al recargar (rotación sin reinicio); `id` único; una clave en claro o un hash mal formado falla la config |
 | `l3` | **Apagada si falta.** Escala lo que L0–L2 no resuelven a un LLM compatible con OpenAI (`url`, `modelo`, `api_key_env`, `timeout`, `max_por_peticion`, `tau`); p. ej. Ollama local `http://127.0.0.1:11434/v1` con `qwen3:4b-instruct`. Ver [`docs/06`](../docs/06-despliegue.md#l3-ollama-local-o-un-llm-remoto) | **Privacidad:** el texto del cliente sale del servidor hacia ese endpoint; con uno remoto, avíselo al cliente y al DPO antes de activarla. Las probabilidades del LLM no están calibradas: ajuste `tau` con tráfico del piloto. Requiere la capa `"L3"` en `capas`. Sin probar contra un LLM real |

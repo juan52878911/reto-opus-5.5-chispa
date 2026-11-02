@@ -125,8 +125,8 @@ func TestArmarDesdeTextoTorreDesconocido(t *testing.T) {
 	}
 }
 
-// La versión efectiva sale de TORR: META sin texto_torre con TORR v2 monta v2; META y TORR discrepantes son un error de carga
-// claro (en los dos sentidos), no un texto elegido en silencio.
+// La versión efectiva sale de TORR: META sin texto_torre con TORR v2 monta v2; META y TORR discrepantes cargan degradado (en los
+// dos sentidos): sin torre al vuelo y con aviso y motivo, no un texto elegido en silencio ni un modelo que no carga.
 func TestArmarDesdeTextoTorreSaleDeTORR(t *testing.T) {
 	armar := func(meta, texto string) (Montaje, error) {
 		f := conTorreSeccion(t)
@@ -153,8 +153,17 @@ func TestArmarDesdeTextoTorreSaleDeTORR(t *testing.T) {
 		{`{"version":1,"texto_torre":"v2_sin_id"}`, chispa3.TextoTorreV1},
 		{`{"version":1,"texto_torre":"v1"}`, chispa3.TextoTorreV2SinID},
 	} {
-		if _, err := armar(c.meta, c.texto); err == nil || !strings.Contains(err.Error(), "no coinciden") {
-			t.Errorf("%s con TORR %q: error %v", c.meta, c.texto, err)
+		mt, err := armar(c.meta, c.texto)
+		if err != nil {
+			t.Errorf("%s con TORR %q: debe cargar degradado, error %v", c.meta, c.texto, err)
+			continue
+		}
+		l2 := mt.L2.(*L2)
+		if l2.TorreAlVuelo() || l2.MotivoSinTorre() != chispa3.MotivoTextoTorreInconsistente {
+			t.Errorf("%s con TORR %q: torre al vuelo %v, motivo %q", c.meta, c.texto, l2.TorreAlVuelo(), l2.MotivoSinTorre())
+		}
+		if !strings.Contains(strings.Join(mt.Avisos, "\n"), "no coinciden") || !strings.Contains(strings.Join(mt.Avisos, "\n"), "texto_torre_inconsistente") {
+			t.Errorf("%s con TORR %q: avisos %q", c.meta, c.texto, mt.Avisos)
 		}
 	}
 }

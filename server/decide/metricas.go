@@ -73,6 +73,7 @@ type Metricas struct {
 	// Esquema nuevo: preguntas puntuadas por L2 con torres al vuelo.
 	EsquemaNuevoPreguntas atomic.Uint64
 	EsquemaNuevoDecididas atomic.Uint64 // las que L2 resolvió con su τ de esquema nuevo (el resto subió o escaló)
+	torreMotivo           string        // motivo de torre al vuelo desactivada del modelo en servicio ("" = ninguno)
 	tauEsquemaNuevo       *float64      // τ propio de L2 para esquemas nuevos, si la cascada lo tiene
 
 	// Totales de los L0 retirados por recargas: la caché de esquemas se muestra acumulada, sin bajar.
@@ -145,6 +146,17 @@ func (m *Metricas) FijaEsquemas(hits, misses func() uint64) {
 func (m *Metricas) FijaTauNuevo(tau *float64) {
 	m.mu.Lock()
 	m.tauEsquemaNuevo = tau
+	m.mu.Unlock()
+}
+
+// FijaTorreMotivo fija el motivo del gauge chispa_torre_al_vuelo_desactivada ("" = torre al vuelo sin desactivar); lo llama
+// NuevaCascada (reinicia) y L2.UsaMetricas. nil-safe.
+func (m *Metricas) FijaTorreMotivo(motivo string) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.torreMotivo = motivo
 	m.mu.Unlock()
 }
 
@@ -301,6 +313,18 @@ func (m *Metricas) Escribe(w io.Writer) {
 	if hits != nil {
 		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"acierto\"} %d\n", baseH+hits())
 		fmt.Fprintf(w, "chispa_cache_esquemas_total{resultado=\"fallo\"} %d\n", baseM+misses())
+	}
+	m.mu.Lock()
+	motivoTorre := m.torreMotivo
+	m.mu.Unlock()
+	fmt.Fprintln(w, "# HELP chispa_torre_al_vuelo_desactivada 1 si el modelo en servicio trae TORR pero L2 no calcula torres al vuelo, con el motivo (texto_torre_inconsistente: META.texto_torre y TORR no coinciden).")
+	fmt.Fprintln(w, "# TYPE chispa_torre_al_vuelo_desactivada gauge")
+	for _, mo := range []string{"texto_torre_inconsistente"} {
+		v := 0
+		if motivoTorre == mo {
+			v = 1
+		}
+		fmt.Fprintf(w, "chispa_torre_al_vuelo_desactivada{motivo=%q} %d\n", mo, v)
 	}
 	fmt.Fprintln(w, "# HELP chispa_recargas_total Recargas en caliente del .chispa por resultado (ok, error).")
 	fmt.Fprintln(w, "# TYPE chispa_recargas_total counter")

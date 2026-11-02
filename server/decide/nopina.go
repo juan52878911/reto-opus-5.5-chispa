@@ -105,6 +105,9 @@ type Capacidades struct {
 	TorreAlVuelo bool            `json:"torre_al_vuelo"`
 	// TextoTorre es META.texto_torre con que L2 arma el texto de torre al vuelo («v1» / «v2_sin_id»); vacío sin torre al vuelo.
 	TextoTorre string `json:"texto_torre,omitempty"`
+	// TorreAlVueloMotivo es por qué el .chispa trae TORR y aun así no hay torre al vuelo: «texto_torre_inconsistente» (META.texto_torre
+	// y TORR no coinciden; el modelo cargó degradado). Vacío = sin motivo anotado.
+	TorreAlVueloMotivo string `json:"torre_al_vuelo_motivo,omitempty"`
 }
 
 func activaCapa(d Decisor) bool {
@@ -122,6 +125,9 @@ func (c *Cascada) Capacidades() Capacidades {
 		cp.Capas[k.d.Nombre()] = activaCapa(k.d)
 		if t, ok := k.d.(interface{ TorreAlVuelo() bool }); ok && t.TorreAlVuelo() {
 			cp.TorreAlVuelo = true
+		}
+		if t, ok := k.d.(interface{ MotivoSinTorre() string }); ok && t.MotivoSinTorre() != "" {
+			cp.TorreAlVueloMotivo = t.MotivoSinTorre()
 		}
 		if t, ok := k.d.(interface{ VersionTextoTorre() string }); ok && t.VersionTextoTorre() != "" {
 			cp.TextoTorre = t.VersionTextoTorre()

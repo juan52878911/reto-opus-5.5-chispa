@@ -44,6 +44,8 @@ type L2 struct {
 	maxNuevas int
 	// textoTorre es META.texto_torre del .chispa («v1» / «v2_sin_id»); vacío = v1.
 	textoTorre string
+	// motivoSinTorre: por qué no hay torre al vuelo pese a traer TORR (texto_torre_inconsistente); "" = ninguno.
+	motivoSinTorre string
 	// vuelo agrupa los cálculos en curso por ClaveTorre (singleflight): N peticiones simultáneas de la misma torre la calculan una vez.
 	muVuelo sync.Mutex
 	vuelo   map[string]*llamadaTorre
@@ -103,6 +105,7 @@ func (l *L2) tomaFichaTorre() bool {
 // UsaMetricas conecta L2 con /metrics (lo hace NuevaCascada).
 func (l *L2) UsaMetricas(m *Metricas) {
 	l.met = m
+	m.FijaTorreMotivo(l.motivoSinTorre)
 	if m != nil {
 		or := l.origenCalib
 		if or == "" {
@@ -151,6 +154,21 @@ func (l *L2) ConTorres(c CodificadorTorre, cacheTorres int) *L2 {
 		l.maxNuevas = MaxTorresNuevasPorDefecto
 	}
 	return l
+}
+
+// ConMotivoSinTorre anota por qué L2 no calcula torres al vuelo aunque el .chispa traiga TORR (p. ej. texto_torre_inconsistente);
+// /healthz lo publica en torre_al_vuelo_motivo y /metrics en chispa_torre_al_vuelo_desactivada.
+func (l *L2) ConMotivoSinTorre(m string) *L2 {
+	l.motivoSinTorre = m
+	return l
+}
+
+// MotivoSinTorre es el motivo anotado con ConMotivoSinTorre ("" = ninguno).
+func (l *L2) MotivoSinTorre() string {
+	if l == nil {
+		return ""
+	}
+	return l.motivoSinTorre
 }
 
 // ConTextoTorre fija la versión del texto de torre (META.texto_torre); vacío = v1.

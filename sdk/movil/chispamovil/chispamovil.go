@@ -111,6 +111,7 @@ type Chispa struct {
 	conj        *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
 	tok         *tok.Tokenizador   // tokenizador de e5, o nil
 	torre       *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
+	torreMotivo string             // por qué hay TORR pero no torre al vuelo (chispa3.MotivoTextoTorreInconsistente); vacío = ninguno
 	textoTorre  string             // META.texto_torre («v1» / «v2_sin_id»); vacío = v1
 	dyn         map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
 	dynUso      map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
@@ -221,12 +222,20 @@ func lambdaDe(x float64) *float64 {
 
 func (c *Chispa) montar() error {
 	f := c.f
-	if f.Tiene(chispa3.TORR) { // la versión efectiva sale de TORR; si META trae texto_torre y discrepa, error de carga
+	hayTorre := f.Tiene(chispa3.TORR)
+	if hayTorre { // la versión efectiva sale de TORR; si META trae texto_torre y discrepa, se carga sin torre al vuelo
 		v, err := f.TextoTorreEfectivo()
-		if err != nil {
+		switch {
+		case errors.Is(err, chispa3.ErrTextoTorreInconsistente):
+			c.torreMotivo = chispa3.MotivoTextoTorreInconsistente
+			c.avisos = append(c.avisos, "AVISO: torre al vuelo desactivada ("+c.torreMotivo+"): "+err.Error()+
+				"; L2 decide solo los esquemas de ESQUEMAS. Reentrene con `chispa train`")
+			hayTorre = false
+		case err != nil:
 			return err
+		default:
+			c.textoTorre = v
 		}
-		c.textoTorre = v
 	}
 	if f.Tiene(chispa3.CALIB) {
 		var err error
@@ -281,7 +290,7 @@ func (c *Chispa) montar() error {
 		}
 		c.e = m
 	}
-	if f.Tiene(chispa3.TORR) {
+	if hayTorre {
 		t, err := f.Torre()
 		if err != nil {
 			return fmt.Errorf("sección TORR: %w", err)
@@ -323,6 +332,10 @@ func (c *Chispa) montar() error {
 // Cerrar libera el fichero. Tras Cerrar no se puede llamar a nada más.
 // Avisos son los problemas no fatales de la apertura, uno por línea ("" si no hubo).
 func (c *Chispa) Avisos() string { return strings.Join(c.avisos, "\n") }
+
+// TorreAlVueloMotivo es por qué el fichero trae TORR y aun así no hay torre al vuelo: «texto_torre_inconsistente» (META.texto_torre
+// y TORR no coinciden; Abrir no falla, L0/L1/L2 con ESQUEMAS siguen y Avisos lo cuenta). "" si no hay motivo.
+func (c *Chispa) TorreAlVueloMotivo() string { return c.torreMotivo }
 
 func (c *Chispa) Cerrar() error { return c.f.Close() }
 

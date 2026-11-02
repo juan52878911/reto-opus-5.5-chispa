@@ -104,12 +104,21 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 	}
 	textoTorre := chispa3.TextoTorreV1
-	if f.Tiene(chispa3.TORR) { // la versión efectiva sale de TORR; si META trae texto_torre y discrepa, error de carga
+	motivoSinTorre := ""       // META.texto_torre y TORR discrepan: el modelo carga sin torre al vuelo, con aviso (L0/L1/L2 con ESQUEMAS siguen)
+	if f.Tiene(chispa3.TORR) { // la versión efectiva sale de TORR; si META trae texto_torre y discrepa, se degrada
 		v, err := f.TextoTorreEfectivo()
-		if err != nil {
+		switch {
+		case errors.Is(err, chispa3.ErrTextoTorreInconsistente):
+			motivoSinTorre = chispa3.MotivoTextoTorreInconsistente
+			aviso := "AVISO: torre al vuelo desactivada (" + motivoSinTorre + "): " + err.Error() +
+				"; L2 decide solo los esquemas de ESQUEMAS. Reentrene con `chispa train` (escribe META y TORR coherentes)"
+			mt.Avisos = append(mt.Avisos, aviso)
+			log.Print(aviso)
+		case err != nil:
 			return mt, err
+		default:
+			textoTorre = v
 		}
-		textoTorre = v
 	}
 	var calib chispa3.Calib
 	if f.Tiene(chispa3.CALIB) {
@@ -222,9 +231,10 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			base.origenCalib = or
 			mt.avisarCalib(VistaCalibCapa("L2", calib.ParaL2(), or, !base.sinCalibFichero))
 			cerrables := []any{base.ses}
-			if f.Tiene(chispa3.TORR) {
+			base.ConMotivoSinTorre(motivoSinTorre)
+			if f.Tiene(chispa3.TORR) && motivoSinTorre == "" {
 				base.ConTextoTorre(textoTorre)
-				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas); err != nil {
+				if err := montarTorres(f, base, tok, op.torres, cfg.CacheTorres, cfg.MaxTorresNuevas, cfg.TorresPorSegundo); err != nil {
 					mt.Avisos = append(mt.Avisos, "sin torres al vuelo: "+err.Error())
 				}
 			}
@@ -265,7 +275,7 @@ func montarL2(onnx []byte, esq *chispa3.Esquemas, calib chispa3.Calib, tok Token
 }
 
 // montarTorres lee la sección TORR y activa las torres al vuelo en l2; enc, si no es nil, sustituye al ONNX.
-func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTorre, cache, maxNuevas int) error {
+func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTorre, cache, maxNuevas int, torresPorSeg float64) error {
 	t, err := f.Torre()
 	if err != nil {
 		return fmt.Errorf("sección TORR: %w", err)
@@ -294,7 +304,7 @@ func montarTorres(f *chispa3.Fichero, l2 *L2, tok Tokenizador, enc CodificadorTo
 	if cache <= 0 {
 		cache = CacheTorresPorDefecto
 	}
-	l2.ConTorres(enc, cache).ConMaxTorresNuevas(maxNuevas)
+	l2.ConTorres(enc, cache).ConMaxTorresNuevas(maxNuevas).ConTorresPorSegundo(torresPorSeg)
 	return nil
 }
 

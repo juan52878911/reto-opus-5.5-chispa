@@ -719,6 +719,9 @@ def causa_sin_opinion(cap: Optional[dict]) -> str:
     """Causa probable de «nadie opinó» según lo que dice /healthz del servidor."""
     if cap is None:
         return "el servidor no expone sus capas (anterior a /healthz con capas): mira chispa_capa_no_opina_total en /metrics"
+    if cap.get("torre_al_vuelo_motivo"):
+        return (f"torre al vuelo desactivada ({cap['torre_al_vuelo_motivo']}): META.texto_torre y TORR del .chispa no coinciden y el servidor cargó el modelo "
+                "degradado; reconstruye con `chispa train`")
     if not cap["torre_al_vuelo"]:
         return ("falta de torre: el .chispa no trae TORR (o falta -tok u ONNX Runtime), así que L2 solo decide los esquemas de ESQUEMAS"
                 + ("" if cap["capas"].get("L1") or cap["capas"].get("L0") else " y no hay L0 ni L1 que cubran el resto") + "; reconstruye con `chispa train --torre`")
@@ -726,6 +729,14 @@ def causa_sin_opinion(cap: Optional[dict]) -> str:
     if sin:
         return "capas sin modelo: " + ", ".join(sin)
     return "tipo no soportado o ids de score distintos de 1..K: mira chispa_capa_no_opina_total{causa} en /metrics"
+
+
+def alerta_torre_desactivada(cap: Optional[dict]) -> List[str]:
+    """Alerta si /healthz dice que el modelo cargó sin torre al vuelo por un motivo (`torre_al_vuelo_motivo`, p. ej. texto_torre_inconsistente)."""
+    if not cap or not cap.get("torre_al_vuelo_motivo"):
+        return []
+    return [f"ALERTA: el servidor desactivó la torre al vuelo ({cap['torre_al_vuelo_motivo']}): el .chispa trae META.texto_torre y TORR distintos y cargó "
+            "degradado; L2 solo decide los esquemas de ESQUEMAS y los esquemas nuevos del manifiesto pueden escalar. Reconstruye con `chispa train`"]
 
 
 def alertas_sin_opinion(rep: dict, cap: Optional[dict], umbral: float = UMBRAL_SIN_OPINION) -> List[str]:
@@ -847,7 +858,7 @@ def bateria(manifiesto: str, *, url: Optional[str] = None, modelo: Optional[str]
     rep["ok"] = rep.get("comparacion", {"ok": True})["ok"]
     if cap is not None:
         rep["capacidades_servidor"] = cap
-    rep["alertas"] = alertas_sin_opinion(rep, cap) + alertas_incompletas(rep)
+    rep["alertas"] = alerta_torre_desactivada(cap) + alertas_sin_opinion(rep, cap) + alertas_incompletas(rep)
     for a in rep["alertas"]:
         aviso(a)
     if filas:

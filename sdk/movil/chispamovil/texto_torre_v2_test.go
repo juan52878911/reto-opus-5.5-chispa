@@ -107,7 +107,7 @@ func abrirConMetaYTorr(t *testing.T, meta, texto string) (*Chispa, error) {
 	return Abrir(escribirV3(t, secs))
 }
 
-// La versión efectiva sale de TORR; META que la trae y discrepa es un error de carga claro (en los dos sentidos).
+// La versión efectiva sale de TORR; META que la trae y discrepa carga sin torre al vuelo, con aviso y motivo (en los dos sentidos).
 func TestAbrirTextoTorreSaleDeTORR(t *testing.T) {
 	c, err := abrirConMetaYTorr(t, `{"version":1}`, chispa3.TextoTorreV2SinID)
 	if err != nil || c.TextoTorre() != "v2_sin_id" {
@@ -118,9 +118,15 @@ func TestAbrirTextoTorreSaleDeTORR(t *testing.T) {
 		{`{"version":1,"texto_torre":"v2_sin_id"}`, chispa3.TextoTorreV1},
 		{`{"version":1,"texto_torre":"v1"}`, chispa3.TextoTorreV2SinID},
 	} {
-		if _, err := abrirConMetaYTorr(t, meta.meta, meta.texto); err == nil || !strings.Contains(err.Error(), "no coinciden") {
-			t.Errorf("%s con TORR %q: error %v", meta.meta, meta.texto, err)
+		c, err := abrirConMetaYTorr(t, meta.meta, meta.texto)
+		if err != nil {
+			t.Errorf("%s con TORR %q: Abrir no debe fallar: %v", meta.meta, meta.texto, err)
+			continue
 		}
+		if c.TieneTorre() || c.TorreAlVueloMotivo() != "texto_torre_inconsistente" || !strings.Contains(c.Avisos(), "no coinciden") {
+			t.Errorf("%s con TORR %q: torre %v, motivo %q, avisos %q", meta.meta, meta.texto, c.TieneTorre(), c.TorreAlVueloMotivo(), c.Avisos())
+		}
+		c.Cerrar()
 	}
 }
 
