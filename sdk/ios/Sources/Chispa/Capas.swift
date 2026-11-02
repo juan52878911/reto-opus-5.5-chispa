@@ -48,6 +48,12 @@ public protocol Motor: AnyObject {
     /// Versión del texto de torre del `.chispa` (META.texto_torre): «v1» (campo ausente) o «v2_sin_id». El motor (`chispamovil`)
     /// es el único que construye los textos de `textosTorreL2`; el SDK los pasa tal cual al codificador, sin reconstruirlos.
     func textoTorre() -> String
+    /// Por qué el fichero trae TORR y aun así no hay torre al vuelo («texto_torre_inconsistente»: META.texto_torre y TORR no
+    /// coinciden), o "" si no pasa nada. Con motivo, el motor no pide ni acepta torres (`textosTorreL2` vacío, `instalarTorresL2`
+    /// false) y `textoTorre` va vacío: L2 solo decide los esquemas de ESQUEMAS.
+    func torreAlVueloMotivo() -> String
+    /// Problemas no fatales de la apertura del fichero, uno por línea ("" si no hubo).
+    func avisos() -> String
     /// Entrega al motor las torres de `preguntaJson` (`n` vectores de d float32 little endian, uno por texto de
     /// `textosTorreL2`); el motor las cuantiza y las cachea, así que la siguiente `torresL2` de ese esquema da true sin
     /// volver a calcular. false si no las acepta.
@@ -81,6 +87,8 @@ public extension Motor {
     }
     func textosTorreL2(_ preguntaJson: String) -> [String] { [] }
     func textoTorre() -> String { "v1" }
+    func torreAlVueloMotivo() -> String { "" }
+    func avisos() -> String { "" }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool { false }
     func tieneTorre() -> Bool { false }
     func onnxTorre() -> Data? { nil }
@@ -326,6 +334,7 @@ struct CapaL2: Capa {
 
     private func torresAlVuelo(_ preguntaJson: String) throws -> Bool {
         guard let enc = codificador else { return false }
+        if !motor.torreAlVueloMotivo().isEmpty { return false } // motor degradado: sin torres con un texto que no es el entrenado
         let textos = motor.textosTorreL2(preguntaJson)
         if textos.isEmpty { return false }
         if let hasta = fallosTorre.hasta(preguntaJson) {

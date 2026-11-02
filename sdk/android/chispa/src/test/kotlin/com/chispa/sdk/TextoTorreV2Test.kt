@@ -31,6 +31,32 @@ class TextoTorreV2Test {
     }
 
     @Test
+    fun motorDegradadoNoCalculaTorresConElCodificadorDeLaApp() {
+        val m = MotorFalso(torres = false, l2 = { json("fraude", 0.9, "fraude" to 0.9) })
+        m.motivoTorre = "texto_torre_inconsistente"
+        m.textosTorre = v2
+        val enc = Codificador()
+        val c = CapaL2(m, SesionFalsa(), { longArrayOf(0, 7, 2) }, enc, { 0L })
+        try {
+            c.decidir("no reconozco un cargo", PREGUNTA_NUEVA)
+        } catch (e: Exception) {
+            // sin torres el esquema nuevo no se puede puntuar; lo que importa es lo de abajo
+        }
+        assertEquals(emptyList<String>(), enc.pedidos)
+        assertEquals(false, m.llamadas.contains("TORRES"))
+    }
+
+    @Test
+    fun elMotorExponeMotivoYAvisos() {
+        val m = MotorFalso()
+        assertEquals("", m.torreAlVueloMotivo())
+        m.motivoTorre = "texto_torre_inconsistente"
+        m.avisosApertura = "AVISO: torre al vuelo desactivada"
+        assertEquals("texto_torre_inconsistente", m.torreAlVueloMotivo())
+        assertEquals("AVISO: torre al vuelo desactivada", m.avisos())
+    }
+
+    @Test
     fun sinElCampoLaVersionEsV1() {
         assertEquals("v1", MotorFalso().textoTorre())
     }

@@ -52,6 +52,16 @@ interface Motor : AutoCloseable {
     fun textoTorre(): String = "v1"
 
     /**
+     * Por qué el fichero trae TORR y aun así no hay torre al vuelo («texto_torre_inconsistente»: META.texto_torre y TORR no
+     * coinciden), o "" si no pasa nada. Con motivo, el motor no pide ni acepta torres ([textosTorreL2] vacío,
+     * [instalarTorresL2] false) y [textoTorre] va vacío: L2 solo decide los esquemas de ESQUEMAS.
+     */
+    fun torreAlVueloMotivo(): String = ""
+
+    /** Problemas no fatales de la apertura del fichero, uno por línea ("" si no hubo). */
+    fun avisos(): String = ""
+
+    /**
      * Entrega al motor las torres de [preguntaJson] ([n] vectores de d float32 little endian, uno por texto de
      * [textosTorreL2]); el motor las cuantiza y las cachea, así que la siguiente [torresL2] de ese esquema da true sin
      * volver a calcular. false si no las acepta.
@@ -313,6 +323,7 @@ class CapaL2(
 
     private fun torresAlVuelo(preguntaJson: String): Boolean {
         val enc = codificador ?: return false
+        if (motor.torreAlVueloMotivo().isNotEmpty()) return false // motor degradado: sin torres con un texto que no es el entrenado
         val textos = motor.textosTorreL2(preguntaJson)
         if (textos.isEmpty()) return false
         synchronized(fallosTorre) {
