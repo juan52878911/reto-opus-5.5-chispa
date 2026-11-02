@@ -5,7 +5,7 @@ CHISPA_S3=__CHISPA_S3__
 # (max_tok 256 dentro del checkpoint). El orquestador sustituye __CHISPA_S3__ y sube UN paquete (esperado hasta 45 min tras lanzar):
 #   $CHISPA_S3/codigo.tgz    bash model/l2/aws/empaquetar_estabilidad.sh <sha> > codigo.tgz
 # Pasos (6-8, W2, más abajo): 1 entorno (Go, Python, torch CPU) · 2 código, checkpoint, e5, potion, datasets de L1 y JevBench · 3 M2 `model.l2.largos` (5 estrategias de
-# textos largos, IC95) · 4 M5 `model.l2.diag_score` (ranking, cabeza y datos de score; el meta de tsjev de S3) · 5 M6 `model.l1.frente_l2`
+# textos largos, IC95) · 4 M5 `model.l2.diag_score` (ranking, cabeza y datos de score; el meta de tsjev de S3) · 4b W4 `model.l2.orientacion_score` (ρ de s con el nivel de oro con la torre máxima, la mínima y −s, en JevBench y en el dev de score del meta; ≤ 10 min) · 5 M6 `model.l1.frente_l2`
 # (macro-F1 L1/L2 por tarea; potion exportado con runtime/l1) · 6 empaqueta. Cada paso deja OK/FALLO en estado.tsv; al salir (trap) sube
 # resultados.tgz, estado.tsv y log.txt y apaga. Apagado forzoso a los 90 min (shutdown -h +90).
 # W2 añade al final (pasos 6-8): M1 línea base oficial de la batería de regresión (`chispa train --ckpt` perfil servidor, `chispa-server -tags ort`,
@@ -175,6 +175,12 @@ with gzip.open(sys.argv[1] + "/tsjev/train-00000.jsonl.gz", "wt", encoding="utf-
     for tarea, tipo, n, k in (("demo/s5", "score", 30, 5), ("demo/s3", "score", 12, 3), ("demo/c", "choice", 50, 3)):
         for i in range(n):
             f.write(json.dumps({"id": "tsjev:train:%s-%d" % (tarea[-2:], i), "split": "train", "tarea": tarea, "tipo": tipo, "opciones": [str(j + 1) for j in range(k)]}) + "\n")
+with gzip.open(sys.argv[1] + "/tsjev/validation-00000.jsonl.gz", "wt", encoding="utf-8") as f:   # dev de score con texto, para orientacion_score
+    for tarea, k, n in (("demo/s5", 5, 30), ("demo/s3", 3, 12)):
+        for i in range(n):
+            ops = [str(j + 1) for j in range(k)]
+            f.write(json.dumps({"id": "tsjev:dev:%s-%d" % (tarea[-2:], i), "split": "dev", "tarea": tarea, "tipo": "score", "pregunta": "¿Qué gravedad tiene?",
+                                "texto": "mensaje inventado %d" % i, "opciones": ops, "descripciones": {o: "nivel " + o for o in ops}, "etiqueta": ops[i % k]}) + "\n")
 PYEOF
 elif [ "${CHISPA_SIN_META:-0}" = 1 ]; then estado m5_meta "OMITIDO CHISPA_SIN_META=1 (censo de conversion-20261027.json)"
 else   # solo los ficheros de tsjev del meta de G.8 (los de synzs pesan y no tienen score)
@@ -193,6 +199,13 @@ if reint timeout "$(tope 12)m" "$PY" -u -m model.l2.diag_score --ckpt "$CKPT" --
    && [ -f "$RES/m5/diag_score.json" ]; then
   estado m5_score "OK $("$PY" -I -c "import json,sys; d=json.load(open(sys.argv[1])); g=d['casos']['global']; print('n=%d ckpt=%.3f reajuste=%.3f oraculo=%.3f; arreglo: %s' % (g['n'], g['ckpt'], g['loso'], g['oraculo'], d['arreglo']['donde']))" "$RES/m5/diag_score.json")"
 else tail -15 "$RES/m5.log"; estado m5_score "FALLO ver m5.log"; fallo "M5 score"; fi
+
+# --- 4b. orientación de score (W4 a): ρ de s con el nivel de oro, torre máxima/mínima y s invertida, en JevBench y en el dev del meta --------
+echo "== 4b. orientacion_score $(date -u +%T)"
+if reint timeout "$(tope 10)m" "$PY" -u -m model.l2.orientacion_score --ckpt "$CKPT" --jevbench "$JEV" --salida "$RES/orientacion" "${META_ARG[@]}" "${MAXTOK[@]}" > "$RES/orientacion.log" 2>&1 \
+   && [ -f "$RES/orientacion/orientacion_score.json" ]; then
+  estado orientacion_score "OK $("$PY" -I -c "import json,sys; d=json.load(open(sys.argv[1])); j=d['jevbench']['global']; m=(d['meta'] or {}).get('global') or {}; print('jev rho max/min/inv=%.2f/%.2f/%.2f; meta rho max=%s; %s' % (j['rho_max'], j['rho_min'], j['rho_invertida'], ('%.2f' % m['rho_max']) if m else 'sin meta', d['veredicto']))" "$RES/orientacion/orientacion_score.json")"
+else tail -15 "$RES/orientacion.log"; estado orientacion_score "FALLO ver orientacion.log"; fallo "orientacion_score"; fi
 
 # --- 5. M6 L1 frente a L2 ----------------------------------------------------------------------------------------------------------------
 echo "== 5. M6 L1 frente a L2 $(date -u +%T)"
@@ -247,10 +260,11 @@ PYEOF
     else tail -8 "$RES/m1-datos.log"; estado m1_datos "FALLO ver m1-datos.log"; fallo "M1 datos"; fi
   else tail -12 "$RES/m1-build.log"; estado m1_modelo "FALLO ver m1-build.log"; estado m1_bateria_1 "FALLO sin modelo"; estado m1_bateria_2 "FALLO sin modelo"; fallo "M1 modelo, servidor o tokenizador"; fi
 fi
+LB_ARG=(--guardar-linea-base "$RES/linea-base-g8.json"); [ "$LOCAL" = 1 ] && LB_ARG=()   # en seco la corrida es parcial (fixtures) y chispa no guarda su línea base (código 2)
 bateria() {   # n: una corrida de la batería; el código de salida manda (0 bien, 1 regresión, 2 configuración mal)
   ( cd "$REPO" && JEVBENCH_DIR=$JEV/datasets/public CHISPA_DATOS=$DATOS CHISPA_REPO=$REPO PYTHONPATH=$REPO/sdk/python \
       timeout "$(tope 8)m" "$PY" -u -m chispa evaluar --bateria sdk/python/ejemplos/bateria.json --modelo "$M" --tok "$TOK" --servidor "$SERV" \
-        --salida "$RES/bateria-g8-$1" --guardar-linea-base "$RES/linea-base-g8.json" ) > "$RES/bateria-$1.log" 2>&1
+        --salida "$RES/bateria-g8-$1" "${LB_ARG[@]}" ) > "$RES/bateria-$1.log" 2>&1
   local rc=$?
   case $rc in
     0) estado "m1_bateria_$1" "OK $("$PY" -I -c "import json,sys; g=json.load(open(sys.argv[1]))['global']; print('n=%d exactitud=%.4f f1_macro=%.4f p50=%.1f ms' % (g['n'], g['exactitud'], g['f1_macro'], g['p50_ms']))" "$RES/bateria-g8-$1.json")";;
@@ -300,5 +314,5 @@ else tail -15 "$RES/m4.log"; estado m4_espanol "FALLO ver m4.log"; fallo "M4 esp
 
 # --- 9. cierre ---------------------------------------------------------------------------------------------------------------------------
 echo "== 9. cierre $(date -u +%T)"
-cat "$RES"/m2/largos.md "$RES"/m5/diag_score.md "$RES"/m6/frente_l2.md "$RES"/bateria-g8-1.md "$RES"/m3/robustez.md "$RES"/m4/espanol.md "$RES"/m4/plan.md > "$RES/informe.md" 2>/dev/null
+cat "$RES"/m2/largos.md "$RES"/m5/diag_score.md "$RES"/orientacion/orientacion_score.md "$RES"/m6/frente_l2.md "$RES"/bateria-g8-1.md "$RES"/m3/robustez.md "$RES"/m4/espanol.md "$RES"/m4/plan.md > "$RES/informe.md" 2>/dev/null
 cierre
