@@ -134,6 +134,14 @@ paso meta "$([ "$NF" -gt 0 ] && echo fallo || echo ok)" "$t" "$NM ficheros, $NF 
 t=$(date +%s)
 if [ "$LOCAL" = 1 ]; then MIN=5; TRAD=auto; else MIN=$(( $(quedan) - 15 )); [ "$MIN" -lt 5 ] && MIN=5; TRAD=opus; fi
 echo "== traducir $(date -u +%T): tope de $MIN min, traductor $TRAD"
+# prueba corta antes del total: 20 filas de 2 tareas; si falla o no escribe nada, se aborta aquí (un fallo cuesta minutos, no la corrida)
+P=$BASE/prueba-traduccion; rm -rf "$P"
+"$PY" -u -m model.meta.traducir "$META" "$P" --traductor "$TRAD" --max-por-tarea 10 --max-filas 20 --minutos 5 \
+  || { fallo "prueba de traducción"; paso prueba fallo "$t"; cierre; }
+NP=$("$PY" -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["filas_escritas"])' "$P/resumen.json" 2>/dev/null || echo 0)
+mkdir -p "$SALIDA/prueba" && cp "$P"/muestra-revision.md "$P"/resumen.json "$SALIDA/prueba/" 2>/dev/null
+if [ "${NP:-0}" -lt 1 ]; then fallo "prueba de traducción sin filas"; paso prueba fallo "$t" "0 filas"; cierre; fi
+paso prueba ok "$t" "$NP filas (muestra en prueba/)"
 "$PY" -u -m model.meta.traducir "$META" "$SALIDA" --traductor "$TRAD" --max-por-tarea 300 --max-filas "$MAX_FILAS" --minutos "$MIN" \
   || { fallo "traducir"; paso traducir fallo "$t"; cierre; }
 DET=$("$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print("%d filas, %d descartadas, %s %s" % (r["filas_escritas"], r["descartadas_total"], r["traductor"]["modelo"], r["traductor"]["revision"]))' "$SALIDA/resumen.json" 2>/dev/null)
