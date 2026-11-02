@@ -1,0 +1,16 @@
+entorno	OK torch 2.10.0+cu130 cuda True dispositivo cuda, go version go1.27.1 linux/amd64
+paquete	OK
+g8	OK 4113441 bytes de s3://chispa-pruebas-879381269751/general-20261029b/ckpt/mejor.pt
+jevbench	OK 231 casos
+datos	OK 16 fuentes convertidas (sib200 pawsx odio_alia toxicidad_protestas toxicidad_constitucion )
+meta	OK 14 ficheros de tsjev
+orden_score	OK score 51729, no ascendente 0, fuera de 1..K 0 (descartadas al cargar)
+ajuste	OK 2215 pasos, 128828 filas, mejor dev 0.3803 en el paso 1659, 711 s
+potion	OK 154772608 bytes
+jev_nuevo	OK L2 k=0: exactitud 0.5022, macro-F1 0.3410
+m3_nuevo	OK L2 cambia > 5 %: 6 de 9 tipos
+m4_nuevo	OK Δ(es−en) exactitud -2.6 pts
+jev_g8	OK L2 k=0: exactitud 0.4805, macro-F1 0.3008
+m3_g8	OK L2 cambia > 5 %: 8 de 9 tipos
+m4_g8	OK Δ(es−en) exactitud -3.3 pts
+comparacion	OK comparacion.md
