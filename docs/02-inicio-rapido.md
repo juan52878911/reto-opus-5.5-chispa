@@ -178,3 +178,5 @@ cd server && go run ./cmd/carga -url http://127.0.0.1:8090/v1/decide -textos car
 
 `carga/textos-es-co.txt` trae 2 400 mensajes inventados en español de Colombia. El arnés completo (`carga/correr.sh`) está en
 [06-despliegue.md](06-despliegue.md#carga).
+
+**Tamaño del `.chispa`.** `chispa train` calcula el tamaño de la salida antes de dejarla: si supera 1 GiB (el tope por defecto de `chispa-server`) o el `--max-fichero BYTES` que pases, falla **sin escribir nada** y da el tamaño por sección. Un `.chispa` de servidor completo (`--ckpt --perfil servidor --torre --l1`, ≈ 1,1 GB) pide subir el tope en los dos lados: `chispa train … --max-fichero 1200000000` y `"max_fichero": 1200000000` en la config de `chispa-server` (si no, el servidor no lo carga); o quitar `--l1`. El motor móvil no tiene este ajuste (carga con el tope por defecto).
