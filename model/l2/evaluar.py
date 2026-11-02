@@ -68,7 +68,7 @@ def macro_f1_medio(filas, preds):
 
 def cargar_modelo(ruta, device="cpu"):
     ck = torch.load(ruta, map_location=device, weights_only=False)
-    m = ModeloL2().to(device)
+    m = ModeloL2(texto_torre=ck.get("texto_torre", "v1")).to(device)
     for k in ck.get("cabezas", []):
         m.asegurar_cabeza(k, device)
     m.load_state_dict(ck["modelo"])

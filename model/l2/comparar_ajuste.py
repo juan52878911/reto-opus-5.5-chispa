@@ -4,6 +4,8 @@ import json
 import re
 import sys
 
+from .robustez import ETIQUETA, SIN_CRITERIO
+
 
 def _json(ruta):
     try:
@@ -30,7 +32,7 @@ def comparacion(r):
     L2 = lambda d: d["global"]["L2"] if d else {}
     out += ["", "## M3: % de decisiones de L2 que cambian (umbral 5 %)", "", "| variante | nuevo | G.8 |", "|---|---|---|"]
     for t in sorted(set(L2(n3)) | set(L2(g3))):
-        out.append("| %s | %s | %s |" % (t, *("%.1f %%" % (100 * L2(d)[t]["pct_cambia"]) if t in L2(d) else "—" for d in (n3, g3))))
+        out.append("| %s | %s | %s |" % (ETIQUETA.get(t, t) + (" (sin criterio)" if t in SIN_CRITERIO else ""), *("%.1f %%" % (100 * L2(d)[t]["pct_cambia"]) if t in L2(d) else "—" for d in (n3, g3))))
     n4, g4 = _json("%s/nuevo/m4/espanol.json" % r), _json("%s/g8/m4/espanol.json" % r)
     T = lambda d: d["tareas"] if d else {}
     out += ["", "## M4: exactitud es − en (puntos)", "", "| par | nuevo | G.8 |", "|---|---|---|"]
@@ -46,7 +48,7 @@ def una(que, ruta):
         return "%d pasos, %d filas, mejor dev %.4f en el paso %d, %.0f s" % (d["pasos"], d["filas"], d["mejor"]["f1"], d["mejor"]["paso"], d["segundos"])
     if que == "m3":
         g = d["global"]["L2"]
-        return "L2 cambia > 5 %%: %d de %d tipos" % (sum(1 for r in g.values() if r["pct_cambia"] > d["umbral_cambio"]), len(g))
+        return "L2 cambia > 5 %%: %d de %d tipos" % (sum(1 for t, r in g.items() if r["pct_cambia"] > d["umbral_cambio"] and t not in SIN_CRITERIO), len([t for t in g if t not in SIN_CRITERIO]))
     return "Δ(es−en) exactitud %+.1f pts" % (100 * d["tareas"]["__media__"]["d_acc"])
 
 

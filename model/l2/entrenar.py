@@ -41,7 +41,7 @@ import torch
 from . import aumento as A
 from . import datos as D
 from .evaluar import macro_f1_medio, predecir
-from .modelo import MAX_TOK, Codificador, ModeloL2, SoporteEval, prototipos
+from .modelo import MAX_TOK, TEXTOS_TORRE, Codificador, ModeloL2, SoporteEval, prototipos
 
 CKPT_CADA_S = 600
 
@@ -217,6 +217,8 @@ def main(argv=None):
     ap.add_argument("--kappa", type=float, default=0.0, help="shrinkage del soporte del dev con soporte (0 = como siempre)")
     ap.add_argument("--elegir-kappa", type=float, nargs="*", default=[],
                     help="al final, mide el dev con soporte de k=2 para cada κ y deja el mejor en entrenamiento.json (`kappa_dev`)")
+    ap.add_argument("--texto-torre", choices=TEXTOS_TORRE, default=None,
+                    help="versión del texto de torre (contrato-torre.md). Con --desde fija la del modelo resultante; sin él, la del checkpoint de partida (v1 si no la trae)")
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     a = ap.parse_args(argv)
@@ -255,7 +257,7 @@ def main(argv=None):
         sop_dev = SoporteEval(por_conjunto, a.k_max, a.semilla, a.kappa)
 
     enc = Codificador(device=a.device, max_tok=a.max_tok, cache_mensajes=a.cache_mensajes, descongelar=a.descongelar)
-    modelo = ModeloL2().to(a.device)
+    modelo = ModeloL2(texto_torre=a.texto_torre or "v1").to(a.device)
     for k in claves:
         modelo.asegurar_cabeza(k, a.device)
 
@@ -276,6 +278,7 @@ def main(argv=None):
         for k in ck.get("cabezas", []):
             modelo.asegurar_cabeza(k, a.device)
         modelo.load_state_dict(ck["modelo"])
+        modelo.texto_torre = a.texto_torre or ck.get("texto_torre", "v1")
         enc.cargar_enc(ck.get("enc"))
         opt = nuevo_opt()
         print("pesos iniciales de %s (paso %s de ese entrenamiento)" % (a.inicial, ck.get("paso")), flush=True)
@@ -285,6 +288,7 @@ def main(argv=None):
             modelo.asegurar_cabeza(k, a.device)
         opt = nuevo_opt()
         modelo.load_state_dict(ck["modelo"])
+        modelo.texto_torre = ck.get("texto_torre", "v1")
         enc.cargar_enc(ck.get("enc"))
         opt.load_state_dict(ck["opt"])
         paso, total, mejor, calibrado = ck["paso"], ck["total"], ck["mejor"], ck["calibrado"]
@@ -296,7 +300,7 @@ def main(argv=None):
     def estado():
         return {"modelo": modelo.state_dict(), "opt": opt.state_dict(), "paso": paso, "total": total, "mejor": mejor,
                 "calibrado": calibrado, "cabezas": sorted(modelo.coral.keys()), "args": vars(a),
-                "enc": enc.estado_enc(), "max_tok": enc.max_tok}
+                "enc": enc.estado_enc(), "max_tok": enc.max_tok, "texto_torre": modelo.texto_torre}
 
     def checkpoint(sube=True):
         guardar(ultimo, estado())
@@ -322,7 +326,7 @@ def main(argv=None):
         if f1 > mejor["f1"]:
             mejor.update(f1=f1, paso=paso)
             guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": f1,
-                                       "enc": enc.estado_enc(), "max_tok": enc.max_tok})
+                                       "enc": enc.estado_enc(), "max_tok": enc.max_tok, "texto_torre": modelo.texto_torre})
         modelo.train()
 
     eval_cada = a.eval_cada or max(total // 4, 1)
@@ -370,7 +374,7 @@ def main(argv=None):
     evaluar_dev()
     if not (sal / "mejor.pt").exists():
         guardar(sal / "mejor.pt", {"modelo": modelo.state_dict(), "cabezas": sorted(modelo.coral.keys()), "paso": paso, "f1": None,
-                                   "enc": enc.estado_enc(), "max_tok": enc.max_tok})
+                                   "enc": enc.estado_enc(), "max_tok": enc.max_tok, "texto_torre": modelo.texto_torre})
     checkpoint()
     kappa_dev = elegir_kappa(modelo, enc, dev, filas, a) if a.elegir_kappa and a.episodios and not parar else None
     with open(sal / "entrenamiento.json", "w") as f:

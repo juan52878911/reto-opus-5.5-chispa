@@ -240,9 +240,9 @@ def opcion_consulta(fila):
     return niveles_score(fila["opciones"])[-1]
 
 
-def texto_torre_consulta(fila):
+def texto_torre_consulta(fila, version="v1"):
     """Texto de la torre de noul y score (ver `opcion_consulta`); `modelo.texto_consulta` usa `opciones[-1]`, igual si el orden es [false, true] / 1..K."""
-    return texto_opcion(fila, opcion_consulta(fila))
+    return texto_opcion(fila, opcion_consulta(fila), version)
 
 
 def clave_torre(fila, opcion=None):
@@ -263,9 +263,9 @@ def entradas_torres(modelo, enc, filas, lote=256):
     texto_de, claves = {}, []
     for r in filas:
         if r["tipo"] in POR_OPCION:
-            pares = [(clave_torre(r, o), texto_opcion(r, o)) for o in r["opciones"]]
+            pares = [(clave_torre(r, o), texto_opcion(r, o, modelo.texto_torre)) for o in r["opciones"]]
         else:
-            pares = [(clave_torre(r), texto_torre_consulta(r))]
+            pares = [(clave_torre(r), texto_torre_consulta(r, modelo.texto_torre))]
         for k, t in pares:
             if texto_de.setdefault(k, t) != t:
                 raise ValueError("la clave %r tiene dos textos de torre distintos (¿descripciones que cambian?)" % (k,))
@@ -381,10 +381,10 @@ def meta_consulta(ruta, max_len=MAX_TOK):
     poner_meta(ruta, {"chispa.consulta.max_len": max_len})
 
 
-def textos_calib(filas, n=500, semilla=0):
+def textos_calib(filas, n=500, semilla=0, version="v1"):
     """Hasta `n` textos de torre distintos de las filas, repartidos al azar (semilla fija) y no los primeros: una tarea no los copa."""
     import random
-    todos = textos_torre(filas, 10 ** 9)
+    todos = textos_torre(filas, 10 ** 9, version)
     return todos if len(todos) <= n else sorted(random.Random(semilla).sample(todos, n), key=todos.index)
 
 
@@ -421,13 +421,13 @@ def cuantizar_estatico(fp32, int8, ids_calib, per_channel=True, metodo="minmax",
                     op_types_to_quantize=["MatMul", "Gather"], calibrate_method=metodo_ort, **sel)
 
 
-def ids_calib_consulta(enc, filas, n=500, semilla=0):
+def ids_calib_consulta(enc, filas, n=500, semilla=0, version="v1"):
     """Ids de hasta `n` textos de mensaje distintos de las filas (con «query: », como los ve la consulta), repartidos al azar; si las
     filas no traen `texto` (las de calibración de torre), los textos de torre."""
     import random
     todos = list(dict.fromkeys(r["texto"] for r in filas if r.get("texto")))
     if not todos:
-        return ids_torre(enc, textos_calib(filas, n, semilla))
+        return ids_torre(enc, textos_calib(filas, n, semilla, version))
     todos = todos if len(todos) <= n else sorted(random.Random(semilla).sample(todos, n), key=todos.index)
     return ids_torre(enc, ["query: " + normalizar_mayusculas(t) for t in todos])
 
@@ -453,11 +453,11 @@ def exportar_torre(encoder, torre, ruta_int8, trabajo, vocab=None, cuant="dinami
     return {"mb": Path(ruta_int8).stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "vocab_n": n_vocab}
 
 
-def textos_torre(filas, n):
+def textos_torre(filas, n, version="v1"):
     """Hasta `n` textos de torre distintos (choice: uno por opción; el resto, el de consulta), en el orden de las filas."""
     vistos = {}
     for r in filas:
-        for t in ([texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] in POR_OPCION else [texto_torre_consulta(r)]):
+        for t in ([texto_opcion(r, o, version) for o in r["opciones"]] if r["tipo"] in POR_OPCION else [texto_torre_consulta(r, version)]):
             vistos.setdefault(t, None)
     return list(vistos)[:n]
 
@@ -498,15 +498,15 @@ def top1_torres(modelo, enc, sess_q, sess_t, filas, lote=64):
     El margen es el hueco entre la mejor opción y la segunda con las torres PyTorch: con pesos aleatorios es minúsculo y el
     top-1 mide ruido, así que se da también el acuerdo en la mitad de filas con más margen."""
     filas = [r for r in filas if r["tipo"] == "choice"]
-    textos = list(dict.fromkeys(texto_opcion(r, o) for r in filas for o in r["opciones"]))
+    textos = list(dict.fromkeys(texto_opcion(r, o, modelo.texto_torre) for r in filas for o in r["opciones"]))
     ref = dict(zip(textos, torch.from_numpy(h_torch(modelo, enc, textos))))
     got = dict(zip(textos, torch.from_numpy(correr_torre(sess_t, ids_torre(enc, textos)).astype(np.float32))))
     ok, margenes = [], []
     for r in filas:
         b = enc.tok(["query: " + normalizar_mayusculas(r["texto"])], truncation=True, max_length=enc.max_tok)
         S = torch.from_numpy(correr(sess_q, np.array(b["input_ids"]), np.array(b["attention_mask"])))
-        sa = maxsim(S, torch.stack([ref[texto_opcion(r, o)] for o in r["opciones"]]))[0]
-        sb = maxsim(S, torch.stack([got[texto_opcion(r, o)] for o in r["opciones"]]))[0]
+        sa = maxsim(S, torch.stack([ref[texto_opcion(r, o, modelo.texto_torre)] for o in r["opciones"]]))[0]
+        sb = maxsim(S, torch.stack([got[texto_opcion(r, o, modelo.texto_torre)] for o in r["opciones"]]))[0]
         ok.append(int(sa.argmax() == sb.argmax()))
         margenes.append(float(sa.topk(2).values.diff().abs()))
     ok, margenes = np.array(ok), np.array(margenes)
@@ -650,11 +650,14 @@ def empaquetar(meta, onnx, esquemas, calib, salida):
         raise RuntimeError("empaquetar_go falló:\n" + p.stdout + p.stderr)
 
 
-def meta_de(filas, dorado=""):
+def meta_de(filas, dorado="", texto_torre="v1"):
     lic = {}
     for r in filas:
         lic.setdefault(r.get("fuente", "?"), r.get("licencia", "?"))
-    return {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
+    meta = {"version": 1, "tareas": sorted({r["tarea"] for r in filas}), "licencias": lic, "dorado": dorado}
+    if texto_torre != "v1":  # falta = "v1": los .chispa v1 no cambian
+        meta["texto_torre"] = texto_torre
+    return meta
 
 
 def calib_con_multi(modelo, enc, chispa, filas):
@@ -701,7 +704,7 @@ def construir(modelo, enc, encoder, ckpt_info, calib, filas_esq, salida, trabajo
     meta_consulta(int8, enc.max_tok)
     torres = entradas_torres(modelo, enc, filas_esq)
     dim = int(torres[0][3].shape[0])
-    empaquetar(meta_de(filas_esq), int8, esquemas_json(torres, dim), calib_con_multi(modelo, enc, calib_completa(modelo, calib["chispa"]), filas_esq), salida)
+    empaquetar(meta_de(filas_esq, texto_torre=modelo.texto_torre), int8, esquemas_json(torres, dim), calib_con_multi(modelo, enc, calib_completa(modelo, calib["chispa"]), filas_esq), salida)
     inf = {"l2_mb": int8.stat().st_size / 1e6, "fp32_mb": fp32.stat().st_size / 1e6, "chispa_mb": Path(salida).stat().st_size / 1e6,
            "torres": len(torres), "vocab_podado": bool(vocab), "cuant": cuant, "per_channel": per_channel, "opset": OPSET, "k_ranuras": K_RANURAS}
     sess = sesion(int8)
@@ -746,9 +749,9 @@ def main_torre(a, modelo, enc, encoder, vocab, ampl=None):
             raise SystemExit("la cuantización estática pide --calib-torre")
         filas_c = D.leer(a.calib_torre)
         filas_c = [r for r in filas_c if r.get("split") == "train"] or filas_c
-        tx_c = textos_calib(filas_c, a.n_calib)
+        tx_c = textos_calib(filas_c, a.n_calib, version=modelo.texto_torre)
         ids_calib = ids_torre(enc, tx_c)
-        ids_calib_q = ids_calib_consulta(enc, filas_c, a.n_calib)
+        ids_calib_q = ids_calib_consulta(enc, filas_c, a.n_calib, version=modelo.texto_torre)
         print("calibración estática: %d textos de torre y %d de consulta de %d filas" % (len(ids_calib), len(ids_calib_q), len(filas_c)), file=sys.stderr)
     kw = dict(cuant=a.cuant_torre, per_channel=a.per_channel, max_len=enc.max_tok, ids_calib=ids_calib, metodo_calib=a.metodo_calib)
     with tempfile.TemporaryDirectory() as t:
@@ -964,7 +967,7 @@ def main(argv=None):
         if not a.calib_torre:
             ap.error("--cuant ffn-estatico pide --calib-torre")
         fc = D.leer(a.calib_torre)
-        ids_q = ids_calib_consulta(enc, [r for r in fc if r.get("split") == "train"] or fc, a.n_calib)
+        ids_q = ids_calib_consulta(enc, [r for r in fc if r.get("split") == "train"] or fc, a.n_calib, version=modelo.texto_torre)
     with tempfile.TemporaryDirectory() as t:
         inf = construir(modelo, enc, encoder, ck, calib, filas, a.salida, a.trabajo or t, vocab, par, cuant=a.cuant, per_channel=a.per_channel,
                         ids_calib=ids_q)

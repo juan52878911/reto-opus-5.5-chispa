@@ -108,7 +108,7 @@ def similitudes(modelo, enc, filas, lote=64):
                 niv = niveles_score(r["opciones"])
                 par = []
                 for o in (niv[-1], niv[0]):
-                    t = texto_opcion(r, o)
+                    t = texto_opcion(r, o, modelo.texto_torre)
                     if t not in pos:
                         pos[t] = len(textos)
                         textos.append(t)

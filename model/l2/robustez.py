@@ -3,6 +3,8 @@
     python -m model.l2.robustez --ckpt mejor.pt --potion potion.chispa-l1 --datos DATOS --salida DIR [--max-filas 200] [--semilla 0]
 
 Las variantes salen de `chispa.variantes` (E2, `sdk/python`): permutar, renombrar, parafrasear, erratas, mayusculas, mezcla y largo.
+«mayusculas» de E2 es una mezcla de mayúsculas y minúsculas (se informa como «mezcla de mayúsculas», sin el criterio del 5 %); `todo_mayusculas` pone el
+mensaje entero en `str.upper()` y L2 aplica su normalización al codificar, como en producción (sí entra en el criterio).
 Aquí solo están el adaptador fila de Chispa <-> caso, el bucle de medida y las variantes que E2 no cubre (es/en):
 `pregunta_en` (la pregunta en inglés con plantilla fija, descripciones intactas) y `esquema_en` (pregunta y descripciones, solo en las
 tareas con traducción determinista en `ESQUEMA_EN`). Lo que no se puede generar de forma determinista queda en `no_medido` con su motivo.
@@ -25,7 +27,10 @@ from pathlib import Path
 UMBRAL_CAMBIO = 0.05
 TIPOS_E2 = ("permutar", "renombrar", "parafrasear", "erratas", "mayusculas", "mezcla", "largo")
 TIPOS_ES_EN = ("pregunta_en", "esquema_en")
-TIPOS = TIPOS_E2 + TIPOS_ES_EN
+TIPOS_PROPIOS = ("todo_mayusculas",)   # el mensaje entero con str.upper(); L2 lo normaliza al codificar (modelo.normalizar_mayusculas), como en producción
+TIPOS = TIPOS_E2 + TIPOS_ES_EN + TIPOS_PROPIOS
+SIN_CRITERIO = ("mayusculas",)   # la «mezcla de mayúsculas» de E2 casi nunca activa la normalización: se informa, pero no entra en el criterio del 5 %
+ETIQUETA = {"mayusculas": "mezcla de mayúsculas"}
 SOLO_CHOICE = ("permutar", "renombrar")   # en noul/score los ids son semánticos (false/true, 1..K): cambiarlos no es una variante del mismo caso
 ESQUEMA = ("permutar", "renombrar", "parafrasear", "pregunta_en", "esquema_en")   # no tocan el mensaje
 
@@ -95,6 +100,12 @@ def variantes_de(fila, tipo, semilla, gen_e2):
     if tipo in SOLO_CHOICE and fila["tipo"] != "choice":
         return None
     caso = fila_a_caso(fila)
+    if tipo == "todo_mayusculas":
+        v = copy.deepcopy(caso)
+        v.update(variante=tipo, texto=caso["texto"].upper(), mapa={o["id"]: o["id"] for o in caso["opciones"]})
+        g = caso_a_fila(v, fila)
+        g["mapa"] = v["mapa"]
+        return g if g["texto"] != fila["texto"] else None
     v = generar_es_en(caso, fila, tipo) if tipo in TIPOS_ES_EN else gen_e2(caso, (tipo,), semilla)[0]
     if v is None:
         return None
@@ -215,6 +226,8 @@ ARREGLOS = {
     "erratas": ("Aumento de datos con 1–3 erratas por texto en ≈ 20 % de los ejemplos; en el runtime, nada fiable.", "≈ 3 h g5 ≈ 3 USD"),
     "mayusculas": ("Normalizar en el runtime (minúsculas si el texto es casi todo mayúsculas) o aumento con mayúsculas/minúsculas.",
                    "runtime: 0 GPU, horas; datos: ≈ 3 h g5 ≈ 3 USD"),
+    "todo_mayusculas": ("L2 ya normaliza en el runtime (minúsculas si más del 70 % de las letras son mayúsculas, contrato-normalizacion.md); "
+                        "si cambia, revisar la normalización o añadir aumento con el mensaje entero en mayúsculas.", "runtime: horas; datos: ≈ 3 h g5 ≈ 3 USD"),
     "mezcla": ("Aumento con mezcla es/en (glosario) en ≈ 20 % de los ejemplos; añadir fuentes en inglés si faltan.", "≈ 3 h g5 ≈ 3 USD"),
     "largo": ("Estrategia de M2 (`model.l2.largos`) para textos largos: recorte o ventanas, sin reentrenar.", "0 GPU (ver M2)"),
     "pregunta_en": ("Aumento de datos con la pregunta en inglés (traducción con plantillas) en ≈ 20 % de los ejemplos.", "≈ 3 h g5 ≈ 3 USD"),
@@ -237,8 +250,8 @@ def informe_md(res):
             lo, hi = r["pct_cambia_ic95"]
             dlo, dhi = r["delta_acc_ic95"]
             L.append("| %s | %d | %.1f %% | %.1f–%.1f | %.3f | %+.3f | %+.3f–%+.3f | %s |" % (
-                t, r["n"], 100 * r["pct_cambia"], 100 * lo, 100 * hi, r["acc_orig"], r["delta_acc"], dlo, dhi,
-                "estructural" if r.get("estructural") else ("**> 5 %**" if r["pct_cambia"] > UMBRAL_CAMBIO else "")))
+                ETIQUETA.get(t, t), r["n"], 100 * r["pct_cambia"], 100 * lo, 100 * hi, r["acc_orig"], r["delta_acc"], dlo, dhi,
+                "estructural" if r.get("estructural") else ("sin criterio del 5 %" if t in SIN_CRITERIO else "**> 5 %**" if r["pct_cambia"] > UMBRAL_CAMBIO else "")))
         L.append("")
     if res["arreglos"]:
         L += ["## Arreglos propuestos (no ejecutados)", ""]
@@ -300,7 +313,7 @@ def main(argv=None):
             glob[m][t] = resumir(ps)
             if t in ESQUEMA and m == "L1":
                 glob[m][t]["estructural"] = True
-            if glob[m][t]["pct_cambia"] > UMBRAL_CAMBIO:
+            if glob[m][t]["pct_cambia"] > UMBRAL_CAMBIO and t not in SIN_CRITERIO:
                 arr, coste = ARREGLOS[t]
                 arreglos.append({"modelo": m, "tipo": t, "pct_cambia": glob[m][t]["pct_cambia"], "arreglo": arr, "coste": coste})
     res = {"max_tok": l2.enc.max_tok, "max_filas": a.max_filas, "semilla": a.semilla, "tareas": n_total, "tipos": tipos,
