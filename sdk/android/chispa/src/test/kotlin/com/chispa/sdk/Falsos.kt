@@ -81,6 +81,8 @@ class MotorFalso(
 
     override fun torresL2(preguntaJson: String) = torres
     override fun textosTorreL2(preguntaJson: String): List<String> = if (torres) emptyList() else textosTorre
+    var versionTorre = "v1"
+    override fun textoTorre(): String = versionTorre
     override fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean {
         llamadas.add("TORRES")
         if (!aceptaTorres) return false

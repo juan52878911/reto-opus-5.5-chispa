@@ -210,9 +210,9 @@ Límites que conviene saber: (1) las probabilidades de un LLM son **autodeclarad
 
 ## `GET /healthz`
 ```
-{"status":"ok","capas":{"L0":false,"L1":true,"L2":true,"L3":false},"torre_al_vuelo":true}
+{"status":"ok","capas":{"L0":false,"L1":true,"L2":true,"L3":false},"torre_al_vuelo":true,"texto_torre":"v1"}
 ```
-Dice que el proceso responde y qué capas tienen modelo (`false` = capa sin modelo: L3 apagada o sección ausente del `.chispa`) y si L2 puede calcular la torre de un esquema nuevo (`torre_al_vuelo`: el `.chispa` trae `TORR`, y están `-tok` y ONNX Runtime). Con `torre_al_vuelo: false` y sin L1, un esquema que el `.chispa` no trae escala con `escalate_reason: "sin_opinion"`. Los clientes antiguos pueden ignorar los campos nuevos. Al arrancar (y en cada recarga) el servidor escribe en el log las mismas «capas efectivas» y, si no hay torre al vuelo, un `AVISO`.
+Dice que el proceso responde y qué capas tienen modelo (`false` = capa sin modelo: L3 apagada o sección ausente del `.chispa`) y si L2 puede calcular la torre de un esquema nuevo (`torre_al_vuelo`: el `.chispa` trae `TORR`, y están `-tok` y ONNX Runtime). `texto_torre` es la versión del texto de torre con que lo hace (`META.texto_torre` del `.chispa`: `v1` o `v2_sin_id`, ver [08](08-esquemas-nuevos.md#texto-de-torre)); falta si no hay torre al vuelo. Con `torre_al_vuelo: false` y sin L1, un esquema que el `.chispa` no trae escala con `escalate_reason: "sin_opinion"`. Los clientes antiguos pueden ignorar los campos nuevos. Al arrancar (y en cada recarga) el servidor escribe en el log las mismas «capas efectivas» y, si no hay torre al vuelo, un `AVISO`.
 
 ## `GET /metrics`
 Texto Prometheus, escrito a mano. Series:

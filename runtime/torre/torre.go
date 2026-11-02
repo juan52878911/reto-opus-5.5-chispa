@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"chispa/format/chispa3"
 )
@@ -31,18 +32,40 @@ type Pregunta struct {
 
 const sepTorre = " · "
 
-// Texto es la regla única de texto de torre (texto_opcion de model/l2/modelo.py): «passage: pregunta · opción ·
-// descripción». La usan el servidor y el motor móvil.
-func Texto(pregunta string, o Opcion) string {
-	return strings.Join([]string{"passage: " + pregunta, o.ID, o.Description}, sepTorre)
+// TextoTorre es la regla única de texto de torre, por versión de META.texto_torre (ver chispa3.TextoTorreV1/V2SinID):
+//   - v1 (y versión vacía): «passage: pregunta · id · descripción» (texto_opcion de model/l2/modelo.py).
+//   - v2_sin_id: si strip(descripción) no está vacía, «passage: pregunta · descripción» (la descripción tal cual); si lo
+//     está, el texto v1 exacto.
+//
+// strip solo decide si la descripción está vacía (espacios Unicode, como str.strip de Python). La usan el servidor y el motor móvil.
+func TextoTorre(version, pregunta, id, descripcion string) string {
+	if version == chispa3.TextoTorreV2SinID && !vacia(descripcion) {
+		return "passage: " + pregunta + sepTorre + descripcion
+	}
+	return strings.Join([]string{"passage: " + pregunta, id, descripcion}, sepTorre)
+}
+
+// vacia dice si strip(s) == "" con la definición de espacio de Python (unicode.IsSpace más U+001C..U+001F).
+func vacia(s string) bool {
+	for _, r := range s {
+		if !unicode.IsSpace(r) && !(r >= 0x1c && r <= 0x1f) {
+			return false
+		}
+	}
+	return true
+}
+
+// Texto es TextoTorre de una opción.
+func Texto(version, pregunta string, o Opcion) string {
+	return TextoTorre(version, pregunta, o.ID, o.Description)
 }
 
 // Textos son los textos de torre de una pregunta, en el orden de OpcionesConsulta.
-func Textos(p Pregunta) []string {
+func Textos(version string, p Pregunta) []string {
 	ops := OpcionesConsulta(p)
 	out := make([]string, len(ops))
 	for i, o := range ops {
-		out[i] = Texto(p.Texto, o)
+		out[i] = Texto(version, p.Texto, o)
 	}
 	return out
 }

@@ -39,11 +39,17 @@ interface Motor : AutoCloseable {
 
     /**
      * Zero-shot de L2 (esquema que el `.chispa` no trae en ESQUEMAS): textos de pasaje («passage: pregunta · opción ·
-     * descripción») cuyas torres hay que calcular, en el orden en que las espera [instalarTorresL2]; vacío si el motor
+     * descripción» en v1; «passage: pregunta · descripción» en v2_sin_id si la opción la tiene, ver [textoTorre]) cuyas torres hay que calcular, en el orden en que las espera [instalarTorresL2]; vacío si el motor
      * no sabe pedirlas (motor sin soporte, o ya las tiene). Las torres que calcule el propio motor no pasan por aquí:
      * basta con que [torresL2] diga true.
      */
     fun textosTorreL2(preguntaJson: String): List<String> = emptyList()
+
+    /**
+     * Versión del texto de torre del `.chispa` (META.texto_torre): «v1» (campo ausente) o «v2_sin_id». El motor (`chispamovil`)
+     * es el único que construye los textos de [textosTorreL2]; el SDK los pasa tal cual al codificador, sin reconstruirlos.
+     */
+    fun textoTorre(): String = "v1"
 
     /**
      * Entrega al motor las torres de [preguntaJson] ([n] vectores de d float32 little endian, uno por texto de

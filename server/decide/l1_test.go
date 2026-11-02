@@ -126,6 +126,13 @@ func v3Tiny(t testing.TB, calib chispa3.Calib, extra ...chispa3.Seccion) *chispa
 	}
 	secs := append([]chispa3.Seccion{{Tipo: chispa3.META, Datos: meta}, {Tipo: chispa3.L0, Datos: l0},
 		{Tipo: chispa3.L1, Datos: l1Tiny(palabras)}, {Tipo: chispa3.CALIB, Datos: cb}}, extra...)
+	for i, s := range secs { // un META en extra sustituye al de por defecto
+		if s.Tipo == chispa3.META && i > 0 {
+			secs[0] = s
+			secs = append(secs[:i], secs[i+1:]...)
+			break
+		}
+	}
 	var buf bytes.Buffer
 	if err := chispa3.Escribir(&buf, secs); err != nil {
 		t.Fatal(err)

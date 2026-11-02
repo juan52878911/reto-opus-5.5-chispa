@@ -381,8 +381,11 @@ func TestResumenCapasAvisaSinTorre(t *testing.T) {
 			t.Fatalf("falta %q en %q", w, sin)
 		}
 	}
-	con := resumenCapas(2, decide.Capacidades{Capas: map[string]bool{"L0": true, "L1": true, "L2": true, "L3": false}, TorreAlVuelo: true})
-	if !strings.Contains(con, "L0(2 modelos), L1, L2") || strings.Contains(con, "AVISO") {
+	con := resumenCapas(2, decide.Capacidades{Capas: map[string]bool{"L0": true, "L1": true, "L2": true, "L3": false}, TorreAlVuelo: true, TextoTorre: "v2_sin_id"})
+	if !strings.Contains(con, "L0(2 modelos), L1, L2") || strings.Contains(con, "AVISO") || !strings.Contains(con, "texto_torre: v2_sin_id") {
 		t.Fatal(con)
+	}
+	if !strings.Contains(sin, "texto_torre: -") {
+		t.Fatal(sin)
 	}
 }

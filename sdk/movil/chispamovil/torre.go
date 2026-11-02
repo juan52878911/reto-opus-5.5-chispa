@@ -125,14 +125,23 @@ func (c *Chispa) torresNuevas(p pregunta) ([]torreL2, error) {
 	return ts, nil
 }
 
-// TextosTorreL2 da los textos de torre de la pregunta («passage: pregunta · opción · descripción», JSON []string), en
+// TextoTorre es la versión del texto de torre del fichero (META.texto_torre): «v1» (sin el campo) o «v2_sin_id».
+func (c *Chispa) TextoTorre() string {
+	if c == nil || c.textoTorre == "" {
+		return chispa3.TextoTorreV1
+	}
+	return c.textoTorre
+}
+
+// TextosTorreL2 da los textos de torre de la pregunta («passage: pregunta · opción · descripción» en v1; «passage: pregunta ·
+// descripción» en v2_sin_id si la opción la tiene, ver TextoTorre; JSON []string), en
 // el orden de InstalarTorresL2. "[]" si ya hay torres (ESQUEMAS o instaladas), si el fichero no trae L2 o si la pregunta no vale.
 func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 	p, err := leerPregunta(preguntaJSON)
 	if err != nil || !c.tieneL2 || scoreInvalido(p) || c.sinOpinionMulti(p, false) || c.TorresL2(preguntaJSON) {
 		return "[]"
 	}
-	b, _ := json.Marshal(torre.Textos(aTorre(p)))
+	b, _ := json.Marshal(torre.Textos(c.textoTorre, aTorre(p)))
 	return string(b)
 }
 
