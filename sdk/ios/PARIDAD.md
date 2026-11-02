@@ -68,7 +68,7 @@ La regla de textos (`textoTorre`, `opcionesConsulta`, `claveTorre`, `cuantizarTo
 exporta y `server/**` queda fuera de la zona); si cambia allí, ese test falla.
 - `TextosTorreL2(preguntaJSON) string` (JSON `[]string`; `"[]"` si ya hay torres de ESQUEMAS o instaladas) e
   `InstalarTorresL2(preguntaJSON, torres []byte, n int) bool` (rechaza `n` ≠ nº de textos, bytes sueltos, `d` ≠ dim de TORR, NaN/Inf).
-  Las torres se cachean una a una por `HashEsquema(pregunta, [opción, descripción])`: las mismas opciones en otro orden
+  Las torres se cachean una a una por `torre.ClaveTexto(texto efectivo)`: las mismas opciones en otro orden
   siguen en caché; ESQUEMAS manda sobre lo instalado.
 - `TieneTorre`, `OnnxTorre` (bytes del ONNX de TORR; válidos mientras el fichero esté abierto), `DimTorre`,
   `IdsPasaje(texto)` (int32 LE; antepone «passage: » una sola vez y recorta a `MaxLen` conservando `</s>`, como `server/torre`).
@@ -93,6 +93,7 @@ preguntas, `state`, id de pregunta) no aplican, el motor móvil recibe una sola 
 | # | Comportamiento | Android | iOS | Estado |
 |---|---|---|---|---|
 | 30 | `multi`: `Pregunta.tipo = "multi"` viaja como `kind`; `SalidaCapa.respuestas` (`List<String>?` / `[String]?`) sale de `answers` del JSON del motor (nil/null si no viene); `opina` acepta respuesta vacía si `respuestas != nil` («ninguna activa» no es «sin opinión»); `Respuesta.respuestas` (lista, vacía fuera de `multi`) con la de la capa que acepta o, al escalar, la de la mejor pista (`res.Answers = mejor.Answers` del servidor). La cascada no cambia: la confianza mínima de las opciones ya la calcula el motor (`chispamovil.multi`), una capa solo acepta si todas sus decisiones pasan τ | K:Modelos, Cascada | S:Modelos, Cascada | igual (sin compilar). Tests `MultiTest` / `MultiTests` (activas, ninguna activa, una opción que no llega a τ y pasa a L2, escalar con pista, choice sin respuestas) |
+| 31 | Estado degradado visible (R21 #7): `Motor.torreAlVueloMotivo()` / `avisos()` (por defecto `""`) llegan del motor Go (`TorreAlVueloMotivo`, `Avisos`) y salen en el API público `Chispa.torreAlVueloMotivo()` / `avisos()`. Con motivo («texto_torre_inconsistente») el motor devuelve `[]` en `TextosTorreL2`, `false` en `InstalarTorresL2` y `""` en `TextoTorre`, y `CapaL2.torresAlVuelo` no llama al codificador de la app aunque se lo hayan pasado (R21 #1; paridad con el servidor, que desactiva la torre al vuelo) | K:Capas, Chispa, MotorNativo | S:Capas, Chispa, MotorNativo | igual (sin compilar). Tests `TextoTorreV2Test` / `TextoTorreV2Tests` y `TestDegradadoNoCalculaTorresAlVuelo` (Go). Android no tiene PARIDAD propio: vale esta fila |
 
 Detalle de plataforma: Kotlin añade `respuestas` como último parámetro con valor por defecto de `SalidaCapa` (tras `esquemaNuevo`) y de
 `Respuesta`; Swift lo añade como último parámetro con valor por defecto de `SalidaCapa.init` y como `var respuestas: [String] = []` de

@@ -59,6 +59,8 @@ final class MotorNativo: Motor {
         return a
     }
     func textoTorre() -> String { go.textoTorre() }
+    func torreAlVueloMotivo() -> String { go.torreAlVueloMotivo() }
+    func avisos() -> String { go.avisos() }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool {
         go.instalarTorresL2(preguntaJson, torres: torres, n: n)
     }

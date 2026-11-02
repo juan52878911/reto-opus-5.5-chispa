@@ -110,11 +110,11 @@ func Textos(version string, p Pregunta) []string {
 	return out
 }
 
-// Clave es la clave de caché de una torre: HashEsquema(pregunta, [opción, descripción]). Las torres se cachean una a
-// una, no por esquema entero, por dos razones: (1) el orden de las opciones de la petición no tiene por qué ser el del
-// primer cálculo, y un vector cacheado por posición se emparejaría con la opción equivocada; (2) la torre depende también
-// de la descripción, que HashEsquema(pregunta, opciones) (la clave de ESQUEMAS) no recoge. ClaveEsquema (FNV-128, no
-// criptográfico, ordena las opciones y mete Kind) no sirve para esto.
+// Clave es la clave antigua de caché de una torre: HashEsquema(pregunta, [opción, descripción]).
+//
+// Deprecated: no recoge la regla de descripciones repetidas de v2 (el texto de una opción depende de las demás) ni la versión
+// del texto de torre; dos preguntas con textos efectivos distintos pueden compartir clave. Usa ClaveTexto(TextoOpcion(...)). Ya
+// no la usa nadie fuera de los tests.
 func Clave(pregunta string, o Opcion) string {
 	h := chispa3.HashEsquema(pregunta, []string{o.ID, o.Description})
 	return string(h[:])

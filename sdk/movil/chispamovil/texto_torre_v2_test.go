@@ -147,3 +147,28 @@ func TestTextosTorreL2DescripcionesRepetidas(t *testing.T) {
 		}
 	}
 }
+
+// R21-1: con el motor degradado (texto_torre inconsistente) no hay textos de torre ni se aceptan torres; TextoTorre no inventa «v1».
+func TestDegradadoNoCalculaTorresAlVuelo(t *testing.T) {
+	c, err := abrirConMetaYTorr(t, `{"version":1,"texto_torre":"v1"}`, chispa3.TextoTorreV2SinID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Cerrar()
+	if c.TorreAlVueloMotivo() == "" {
+		t.Fatal("el motor debería estar degradado")
+	}
+	q := `{"kind":"choice","question":"nueva r21?","options":[{"id":"a"},{"id":"b"}]}`
+	if got := c.TextosTorreL2(q); got != "[]" {
+		t.Errorf("TextosTorreL2 degradado = %s, quería []", got)
+	}
+	if c.InstalarTorresL2(q, make([]byte, 2*256*4), 2) {
+		t.Error("InstalarTorresL2 degradado aceptó torres")
+	}
+	if c.TorresL2(q) {
+		t.Error("TorresL2 true tras instalar degradado")
+	}
+	if v := c.TextoTorre(); v != "" {
+		t.Errorf("TextoTorre degradado = %q, quería vacío", v)
+	}
+}
