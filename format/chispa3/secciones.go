@@ -125,6 +125,29 @@ func (f *Fichero) MetaTexto() (MetaTexto, error) {
 	return DecodificarMetaTexto(b)
 }
 
+// VersionTextoTorre lee de META solo texto_torre, de forma tolerante: ignora el resto de campos (que el runtime no usa) y valida
+// únicamente ese valor (desconocido = error; ausente = v1). Sin sección META devuelve v1.
+func (f *Fichero) VersionTextoTorre() (string, error) {
+	if !f.Tiene(META) {
+		return TextoTorreV1, nil
+	}
+	b, err := f.Bytes(META)
+	if err != nil {
+		return "", err
+	}
+	var m struct {
+		TextoTorre string `json:"texto_torre"`
+	}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return "", fmt.Errorf("%w: META: %v", ErrContenido, err)
+	}
+	mt := MetaTexto{TextoTorre: m.TextoTorre}
+	if m.TextoTorre != "" && m.TextoTorre != TextoTorreV1 && m.TextoTorre != TextoTorreV2SinID {
+		return "", fmt.Errorf("%w: META.texto_torre %q desconocido (se esperaba %q o %q)", ErrContenido, m.TextoTorre, TextoTorreV1, TextoTorreV2SinID)
+	}
+	return mt.VersionTextoTorre(), nil
+}
+
 // ---- CALIB ----
 
 // ParamsTipo son T, a, b y θ de un tipo de pregunta.

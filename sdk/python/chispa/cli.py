@@ -33,6 +33,8 @@ Los tres modos (los elige chispa según lo que le pases):
 
 --torre torre.onnx se combina con cualquiera de los tres: añade la sección TORR, con la que el servidor (compilado con -tags ort)
 y el móvil calculan al vuelo la torre de un esquema nuevo en L2. Necesita `pip install chispa[torre]`.
+La versión del texto de torre (META.texto_torre, v1 o v2_sin_id) se copia de la META del l2.chispa (--l2/--ckpt; ausente = v1) y, con --torre, debe
+coincidir con la metadata chispa.torre.texto_torre del ONNX (ausente = v1); --texto-torre la fija y debe coincidir con ambas. Si no coinciden, train falla.
 
 Qué hace falta instalado:
   - solo Python: zero-shot, y few-shot sin L0 (META + L1 + CALIB), más --torre con chispa[torre].
@@ -149,6 +151,9 @@ def main(argv=None) -> int:
                    "añade la sección TORR, con la que el servidor y el móvil calculan la torre al vuelo. Combina con zero-shot, few-shot y --conjunta")
     t.add_argument("--sin-torre", action="store_true", help="no incluir TORR (ni la que esté junto al checkpoint): el .chispa no decide esquemas nuevos en L2 y train no avisa de ello. "
                    "Sin --torre ni --sin-torre, con --ckpt se incluye por defecto el torre.onnx que esté junto al checkpoint; si no hay, train avisa")
+    t.add_argument("--texto-torre", choices=("v1", "v2_sin_id"),
+                   help="versión del texto con el que se calculan las torres al vuelo (META.texto_torre del .chispa; ausente = v1). Con --l2/--ckpt se copia de la META del l2.chispa y, con --torre, "
+                        "debe coincidir con chispa.torre.texto_torre del ONNX (ausente = v1): si hay dos fuentes que difieren, o difieren de este flag, train falla. Sin L2 ni --torre escribe lo que diga (por defecto v1)")
     t.add_argument("--torre-dim", type=int, help="con --torre: dim de h (por defecto de los metadatos del ONNX o de la forma de h)")
     t.add_argument("--torre-max-len", type=int, help="con --torre: tokens máximos del pasaje: los trunca el runtime a este valor (metadatos del ONNX o 128; hasta 512, p. ej. 256 para G.8)")
     t.add_argument("--torre-prefijo", help="con --torre: prefijo del pasaje (metadatos del ONNX o «passage: »)")
@@ -202,7 +207,7 @@ def main(argv=None) -> int:
                      pregunta=a.pregunta, shrinkage_lambda=a.shrinkage_lambda, sin_soporte=a.sin_soporte, tau_l2_esquema_nuevo=a.tau_l2_esquema_nuevo, semilla=a.semilla, frac_valid=a.frac_valid, l0_max_mb=a.l0_max_mb,
                      l0tf_max_mb=a.l0tf_max_mb, l0tf_f16=a.l0tf_f16,
                      precision_objetivo=a.precision_objetivo, validacion=a.validacion, margen=a.margen, suelo=a.suelo, tope_tau=a.tope_tau,
-                     torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo, perfil=a.perfil, sin_torre=a.sin_torre,
+                     texto_torre=a.texto_torre, torre=a.torre, torre_dim=a.torre_dim, torre_max_len=a.torre_max_len, torre_prefijo=a.torre_prefijo, perfil=a.perfil, sin_torre=a.sin_torre,
                      log=lambda m: print(m, file=sys.stderr))
         elif a.cmd == "evaluar" and a.bateria:
             return _bateria(a)

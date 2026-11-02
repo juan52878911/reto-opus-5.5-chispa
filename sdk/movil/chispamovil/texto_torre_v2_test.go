@@ -52,7 +52,7 @@ func TestTextosTorreL2SegunMeta(t *testing.T) {
 			t.Fatal(err)
 		}
 		secs := append(metaYCalib(t), chispa3.Seccion{Tipo: chispa3.L2, Datos: []byte("ONNX-falso")},
-			chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: mustEsq()})
+			chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: mustEsq()}, seccionTorreFalsa(t)) // texto_torre solo se lee con TORR
 		secs[0].Datos = meta
 		c, err := Abrir(escribirV3(t, secs))
 		if err != nil {
@@ -89,7 +89,7 @@ func TestTextosTorreL2SegunMeta(t *testing.T) {
 // Valor desconocido en META.texto_torre: error de carga claro.
 func TestAbrirTextoTorreDesconocido(t *testing.T) {
 	secs := append(metaYCalib(t), chispa3.Seccion{Tipo: chispa3.L2, Datos: []byte("ONNX-falso")},
-		chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: mustEsq()})
+		chispa3.Seccion{Tipo: chispa3.ESQUEMAS, Datos: mustEsq()}, seccionTorreFalsa(t))
 	secs[0].Datos = []byte(`{"version":1,"texto_torre":"v9"}`)
 	if _, err := Abrir(escribirV3(t, secs)); err == nil || !strings.Contains(err.Error(), "texto_torre") {
 		t.Fatalf("error %v", err)

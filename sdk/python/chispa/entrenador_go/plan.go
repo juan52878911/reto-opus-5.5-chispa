@@ -49,6 +49,8 @@ type Meta struct {
 	Tareas    []string          `json:"tareas"`
 	Licencias map[string]string `json:"licencias"`
 	Dorado    string            `json:"dorado"`
+	// TextoTorre es META.texto_torre (versión del texto de torre al vuelo): se copia del l2.chispa; vacío = v1 (no se escribe).
+	TextoTorre string `json:"texto_torre,omitempty"`
 }
 
 func leerPlan(ruta string) (*Plan, error) {

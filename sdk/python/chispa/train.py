@@ -332,6 +332,7 @@ def _avisar_sin_calib(secciones, origen: str, log) -> bool:
 def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="servidor") -> dict:
     """Sin ejemplos: META, CALIB sin calibrar, L1 (los prototipos de las opciones salen de «pregunta · opción · descripción»
     y los calcula el servidor al cargar) y, con `l2` o `ckpt`, L2 y ESQUEMAS (con `ckpt` no hay validación: no se calibra)."""
+    from .torre import texto_torre_de
     if not (l1 or l2 or ckpt):
         raise ChispaError("sin --ejemplos hace falta --l1 o --l2/--ckpt: un .chispa zero-shot sin ninguna capa no decide nada")
     secs = {formato.META: formato.meta([q.id], extra["licencias"], extra["dorado"]),
@@ -368,6 +369,7 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
             if t_ not in sec:
                 raise ChispaError(f"--l2: falta la sección {n}")
             secs[t_] = sec[t_]
+        texto_torre_l2 = texto_torre_de(sec)
         c2 = calib_de_l2(sec)
         if not c2:
             log("AVISO: --l2 sin CALIB: L2 usará la CALIB de L1")
@@ -378,6 +380,8 @@ def _zero_shot(q, extra, l1, l2, ckpt, repo, salida: Path, t0, log, perfil="serv
     nombres = {formato.META: "META", formato.L1: "L1", formato.L2: "L2", formato.ESQUEMAS: "ESQUEMAS", formato.CALIB: "CALIB"}
     inf = {"salida": str(salida), "modo": "zero-shot", "secciones": [nombres[t_] for t_ in sorted(secs)], "omitidas": omitidas,
            "bytes": salida.stat().st_size, "tiempos_s": tiempos, "reloj_s": time.time() - t0, "l0_valid_acc": 0.0}
+    if l2_ch:
+        inf["_texto_torre_l2"] = texto_torre_l2
     for k, v in omitidas.items():
         log(f"AVISO: sin {k}: {v}")
     log(f"{salida}: zero-shot, {'+'.join(inf['secciones'])}, {inf['bytes']} bytes")
@@ -391,7 +395,7 @@ LAMBDA_L1_SUGERIDA = 4.0
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
-             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, perfil="servidor", sin_torre=False, log=print) -> dict:
+             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, perfil="servidor", sin_torre=False, texto_torre=None, log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
@@ -424,6 +428,10 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         if l2 and Path(l2).is_file():  # con --l2 se sabe ya: falla antes de entrenar
             from .torre import comprobar_dim_l2
             comprobar_dim_l2(formato.leer(Path(l2).read_bytes()), torre["dim"])
+    from .torre import resolver_texto_torre, texto_torre_de
+    if texto_torre is not None or torre or l2:  # lo que ya se sabe falla antes de entrenar; con --ckpt, el l2.chispa nace después (_cierre_entrenar)
+        resolver_texto_torre(texto_torre_de(formato.leer(Path(l2).read_bytes())) if l2 and Path(l2).is_file() else None,
+                             torre["texto_torre"] if torre else None, texto_torre)
     q_tipo, extra_tipo = cargar_esquema(esquema, pregunta)
     if q_tipo.kind == "multi":  # multietiqueta: su propio flujo (L0 no opina; SOPL1 y CALIB de multi de los ejemplos con «|»)
         if conjunta:
@@ -431,7 +439,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         from .multi import entrenar_multi
         inf = entrenar_multi(ejemplos, q_tipo, extra_tipo, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, shrinkage_lambda=shrinkage_lambda,
                              sin_soporte=sin_soporte, embeber=embeber, perfil=perfil, log=log)
-        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre)
+        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre)
     lam = LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda
     con_soporte = not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos))
     inf = _entrenar(ejemplos, esquema, salida, lambda_l1=lam if con_soporte and l1 and ejemplos and lam != float("inf") else None, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
@@ -443,11 +451,19 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         q, _ = cargar_esquema(esquema, pregunta)
         anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, lam,
                      inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
-    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre)
+    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre)
 
 
-def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre) -> dict:
-    """Lo que `entrenar` añade al fichero ya escrito: τ de L2 para esquemas nuevos y la sección TORR."""
+def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre, texto_torre=None) -> dict:
+    """Lo que `entrenar` añade al fichero ya escrito: `texto_torre` de META, τ de L2 para esquemas nuevos y la sección TORR."""
+    from .torre import fijar_texto_torre, resolver_texto_torre
+    try:  # versión del l2.chispa (ausente = v1), del ONNX de la torre y de --texto-torre: si hay varias, coinciden
+        version = resolver_texto_torre(inf.pop("_texto_torre_l2", None), torre["texto_torre"] if torre else None, texto_torre)
+    except ChispaError:
+        Path(salida).unlink(missing_ok=True)  # no se deja un .chispa cuyo L2 y torres hablarían textos distintos
+        raise
+    fijar_texto_torre(salida, version)
+    inf["texto_torre"] = version
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
         log(f"τ de L2 para esquemas nuevos {tau_l2_esquema_nuevo:g} en CALIB (tau_l2_esquema_nuevo)")
@@ -498,7 +514,9 @@ def resumen_capas(salida, log=print, sin_torre=False) -> dict:
     """Dice qué capas lleva el .chispa escrito y cuáles no, y avisa si sin TORR no podrá decidir esquemas nuevos en L2. Devuelve {capa: bool}."""
     sec = formato.leer(Path(salida).read_bytes())
     tiene = {"L0": formato.L0 in sec or formato.L0TF in sec, "L1": formato.L1 in sec, "L2": formato.L2 in sec, "torre al vuelo (TORR)": formato.TORR in sec}
-    log("capas del .chispa: " + ", ".join(f"{k} {'sí' if v else 'no'}" for k, v in tiene.items()))
+    from .torre import texto_torre_de
+    log("capas del .chispa: " + ", ".join(f"{k} {'sí' if v else 'no'}" for k, v in tiene.items())
+        + (f", texto de torre {texto_torre_de(sec)}" if tiene["L2"] or tiene["torre al vuelo (TORR)"] else ""))
     if not tiene["torre al vuelo (TORR)"]:
         if sin_torre:
             log("sin torre por --sin-torre: L2 solo decide los esquemas de ESQUEMAS")
@@ -513,6 +531,7 @@ def resumen_capas(salida, log=print, sin_torre=False) -> dict:
 def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, pregunta, semilla, frac_valid, l0_max_mb, usar_go, conjunta,
               modelo_l2, l0tf_f16, l0tf_max_mb, precision_objetivo, validacion, margen, suelo, tope_tau, perfil, log) -> dict:
     t0 = time.time()
+    from .torre import texto_torre_de
     q, extra = cargar_esquema(esquema, pregunta)
     if l1 and not Path(l1).is_file():
         raise ChispaError(f"--l1: no existe {l1}")
@@ -585,12 +604,14 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
         with open(tmp / "ej.jsonl", "w", encoding="utf-8") as f:
             for t_, e in ex:
                 f.write(json.dumps({"text": t_, "label": e}, ensure_ascii=False) + "\n")
+        tt_l2 = texto_torre_de(formato.leer(Path(l2_ch).read_bytes())) if l2_ch else None
         plan = {"ejemplos": str(tmp / "ej.jsonl"), "salida": str(salida.resolve()), "semilla": semilla,
                 "frac_valid": frac_valid, "l0_max_mb": l0_max_mb, "sin_l0": sin_l0, "l1": str(Path(l1).resolve()) if l1 else "", "l2_chispa": str(l2_ch),
                 "conj": conj_ruta, "l0tf": l0tf_ruta, "l1_lambda": lambda_l1, "tau_l2c": (conj_inf or {}).get("tau_l2c"),
                 "pregunta": {"id": q.id, "texto": q.question, "kind": q.kind,
                              "opciones": [{"id": o.id, "description": o.description} for o in q.options]},
-                "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"]}}
+                "meta": {"version": 1, "tareas": [q.id], "licencias": extra["licencias"], "dorado": extra["dorado"],
+                         **({"texto_torre": tt_l2} if tt_l2 and tt_l2 != "v1" else {})}}
         (tmp / "plan.json").write_text(json.dumps(plan, ensure_ascii=False))
         d = preparar_go(tmp, fuentes)
         env = dict(os.environ, GOFLAGS=os.environ.get("GOFLAGS", "-mod=mod"), GOPROXY=os.environ.get("GOPROXY", "off"))
@@ -604,6 +625,8 @@ def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, 
             raise ChispaError(f"entrenador falló:\n{r.stderr[-2000:]}")
         inf = json.loads(r.stdout)
     inf["tiempos_s"]["go_build"] = t_build
+    if tt_l2 is not None:
+        inf["_texto_torre_l2"] = tt_l2
     if tiempo_l2 is not None:
         inf["tiempos_s"]["l2"] = tiempo_l2
     if conj_inf:

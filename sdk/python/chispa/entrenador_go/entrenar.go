@@ -206,7 +206,7 @@ func entrenar(p *Plan) (*Informe, error) {
 	if err != nil {
 		return nil, err
 	}
-	mb, err := chispa3.Meta(p.Meta).Codificar()
+	mb, err := codificarMeta(p.Meta)
 	if err != nil {
 		return nil, err
 	}
@@ -355,4 +355,10 @@ func copiarCalibL2(calib *chispa3.Calib, c2 chispa3.Calib) {
 	calib.TiposL2 = p.Tipos
 	calib.TauEscalateL2 = &p.TauEscalate
 	calib.TauL2c = c2.TauL2c
+}
+
+// codificarMeta codifica META con texto_torre (vacío = v1: no se escribe; desconocido = error).
+func codificarMeta(m Meta) ([]byte, error) {
+	return chispa3.MetaTexto{Meta: chispa3.Meta{Version: m.Version, Tareas: m.Tareas, Licencias: m.Licencias, Dorado: m.Dorado},
+		TextoTorre: m.TextoTorre}.Codificar()
 }

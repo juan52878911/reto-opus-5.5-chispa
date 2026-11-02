@@ -104,12 +104,12 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		}
 	}
 	textoTorre := chispa3.TextoTorreV1
-	if f.Tiene(chispa3.META) {
-		meta, err := f.MetaTexto()
+	if f.Tiene(chispa3.TORR) { // solo con TORR importa; META se lee tolerante (solo texto_torre)
+		v, err := f.VersionTextoTorre()
 		if err != nil {
 			return mt, fmt.Errorf("sección META: %w", err)
 		}
-		textoTorre = meta.VersionTextoTorre()
+		textoTorre = v
 	}
 	var calib chispa3.Calib
 	if f.Tiene(chispa3.CALIB) {

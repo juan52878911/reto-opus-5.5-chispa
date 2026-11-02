@@ -50,8 +50,29 @@ def escribir(secciones: Dict[int, bytes]) -> bytes:
     return cab(crc) + tabla + bytes(datos)
 
 
-def meta(tareas, licencias=None, dorado="") -> bytes:
-    return json.dumps({"version": 1, "tareas": list(tareas), "licencias": licencias or {}, "dorado": dorado}).encode()
+TEXTOS_TORRE = ("v1", "v2_sin_id")  # META.texto_torre (ausente = v1)
+_HEX = frozenset("0123456789abcdef")
+
+
+def validar_texto_torre(v, origen="texto_torre") -> str:
+    """`v` si es una versión conocida del texto de torre; ValueError claro si no."""
+    if v not in TEXTOS_TORRE:
+        raise ValueError(f"{origen} {v!r} desconocido (se esperaba {' o '.join(map(repr, TEXTOS_TORRE))})")
+    return v
+
+
+def meta(tareas, licencias=None, dorado="", texto_torre=None) -> bytes:
+    """META como la valida Go (`chispa3.Meta`): `licencias` es un mapa de strings y `dorado` un sha256 hex (64 minúsculas) o vacío.
+    `texto_torre` (opcional) solo se escribe si no es v1 (ausente = v1)."""
+    licencias = {} if licencias is None else licencias
+    if not isinstance(licencias, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in licencias.items()):
+        raise ValueError("META.licencias debe ser un mapa de strings a strings (nombre → licencia), p. ej. {\"massive\": \"CC-BY\"}")
+    if not isinstance(dorado, str) or (dorado and (len(dorado) != 64 or not set(dorado) <= _HEX)):
+        raise ValueError(f"META.dorado debe ser un sha256 hex (64 caracteres en minúscula) o vacío, no {dorado!r}")
+    d = {"version": 1, "tareas": list(tareas), "licencias": licencias, "dorado": dorado}
+    if texto_torre is not None and validar_texto_torre(texto_torre) != "v1":
+        d["texto_torre"] = texto_torre
+    return json.dumps(d).encode()
 
 
 def calib(tipos: dict, tau_escalate: float, tau_l2c=None, tau_l2_esquema_nuevo=None, l1_lambda_calib=None,
