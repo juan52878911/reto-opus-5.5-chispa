@@ -470,7 +470,28 @@ def _torre_junto_al_ckpt(ckpt, log):
         if (base / n).is_file():
             log(f"TORR: se incluye {base / n} (junto al checkpoint); --sin-torre para no incluirla")
             return base / n
+    # `model.l2.exportar --torre-onnx RUTA` escribe en un nombre libre: se busca un *.onnx con metadata chispa.torre.*
+    candidatos = [f for f in sorted(base.glob("*.onnx")) if f.is_file() and f.name not in NOMBRES_TORRE_CKPT and _tiene_meta_torre(f)]
+    if len(candidatos) == 1:
+        log(f"TORR: se incluye {candidatos[0]} (metadata chispa.torre.* junto al checkpoint); --sin-torre para no incluirla")
+        return candidatos[0]
+    if candidatos:
+        log("AVISO: varios ONNX con metadata chispa.torre.* junto al checkpoint (" + ", ".join(c.name for c in candidatos)
+            + "): no se elige ninguno; pasa --torre RUTA")
     return None
+
+
+def _tiene_meta_torre(ruta) -> bool:
+    """True si el ONNX trae alguna clave `chispa.torre.*` en su metadata. Sin el paquete `onnx` no se puede mirar: False."""
+    try:
+        import onnx
+    except ImportError:
+        return False
+    try:
+        m = onnx.load(str(ruta), load_external_data=False)
+    except Exception:
+        return False
+    return any(p.key.startswith("chispa.torre.") for p in m.metadata_props)
 
 
 def resumen_capas(salida, log=print, sin_torre=False) -> dict:
