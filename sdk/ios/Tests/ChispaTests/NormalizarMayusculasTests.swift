@@ -28,7 +28,7 @@ final class NormalizarMayusculasTests: XCTestCase {
         XCTAssertEqual(normalizarMayusculas("ABCDEFGH"), "abcdefgh") // 8 letras
         XCTAssertEqual(normalizarMayusculas("ABCDEFGHIJKLMNopqrst"), "ABCDEFGHIJKLMNopqrst") // 70 % exacto
         let setentaYUno = String(repeating: "A", count: 71) + String(repeating: "b", count: 29)
-        XCTAssertEqual(normalizarMayusculas(setentaYUno), setentaYUno.lowercased())
+        XCTAssertEqual(normalizarMayusculas(setentaYUno), setentaYUno.lowercased() // ASCII: igual que el mapeo simple)
         let setenta = String(repeating: "A", count: 70) + String(repeating: "b", count: 30)
         XCTAssertEqual(normalizarMayusculas(setenta), setenta)
     }
