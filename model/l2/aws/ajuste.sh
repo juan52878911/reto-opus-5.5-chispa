@@ -129,7 +129,7 @@ if [ "$V3" = 1 ]; then   # Clandestino (GitHub, no HF): se baja y se cuenta ANTE
   if [ "$LOCAL" = 1 ]; then cp "$REPO/model/datos/fixtures/clandestino/clandestino_muestra.json" "$CLAN" 2>/dev/null
   else curl -fsSL --retry 3 -o "$CLAN" "${CHISPA_CLANDESTINO_URL:-https://raw.githubusercontent.com/microsoft/Clandestino/main/data/clandestino_no_ontology_42023.json}"; fi
   [ -s "$CLAN" ] || { estado clandestino "FALLO sin fichero"; fallo "no se pudo bajar Clandestino de GitHub (microsoft/Clandestino)"; cierre; }
-  if "$PY" -I -m model.datos.clandestino contar "$CLAN" > "$OUT/clandestino_contar.json" 2> "$OUT/clandestino_contar.err" \
+  if "$PY" -m model.datos.clandestino contar "$CLAN" > "$OUT/clandestino_contar.json" 2> "$OUT/clandestino_contar.err" \
      && "$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r["filas_validas"] > 0 and r["filas_por_tipo_y_split"].get("score", {}).get("train", 0) > 0 else 1)' "$OUT/clandestino_contar.json"; then
     estado clandestino "OK $("$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print("leidas", r["filas_leidas"], "IA", r["descartadas_ia"], "PII", r["descartadas_pii"], "validas", r["filas_validas"], "score", r["distribucion_score"])' "$OUT/clandestino_contar.json")"
     export CHISPA_CLANDESTINO=$CLAN
