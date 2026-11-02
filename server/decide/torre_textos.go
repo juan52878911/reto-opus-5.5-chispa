@@ -5,9 +5,10 @@ import "chispa/runtime/torre"
 // Las reglas puras de las torres viven en runtime/torre (sin red, para que el motor móvil no arrastre net/http); aquí se
 // reexportan con los nombres de siempre.
 
-// TextoTorre es la regla única de texto de torre por versión de META.texto_torre (ver torre.TextoTorre).
-func TextoTorre(version, pregunta string, o Opcion) string {
-	return torre.TextoTorre(version, pregunta, o.ID, o.Description)
+// TextoTorre es la regla única de texto de torre por versión de META.texto_torre para la opción o de la pregunta p: necesita
+// todas las opciones de p por la regla de descripciones repetidas (ver torre.TextoOpcion).
+func TextoTorre(version string, p Pregunta, o Opcion) string {
+	return torre.TextoOpcion(version, p.Texto, torre.Opcion(o), aOpcionesTorre(p.Opciones))
 }
 
 func aTorre(p Pregunta) torre.Pregunta {

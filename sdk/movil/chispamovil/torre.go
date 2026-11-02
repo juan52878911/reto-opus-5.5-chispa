@@ -25,7 +25,7 @@ const (
 )
 
 // prefijoTorre es la regla por versión de TORR: el prefijo que la sección debe traer. Una versión futura puede traer otro.
-var prefijoTorre = map[uint32]string{1: "passage: "}
+var prefijoTorre = map[uint32]string{1: "passage: ", 2: "passage: "} // TORR v2 = v1 + versión del texto de torre
 
 // validarPrefijoTorre rechaza una sección TORR cuya versión no se conoce o cuyo prefijo no es el de su versión.
 func validarPrefijoTorre(f *chispa3.Fichero, prefijo string) error {
