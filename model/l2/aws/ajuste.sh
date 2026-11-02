@@ -288,7 +288,7 @@ read -ra L2A <<< "$EPIS $G8"
 ARGS+=("${L2A[@]}")
 if [ "$LOCAL" = 1 ]; then
   ARGS+=(--pasos "${CHISPA_PASOS:-6}" --device cpu --max-filas 2000 --ckpt-cada 60 --eval-cada 3 --dev-max 100 --lote 16 --max-tok 48)
-else ARGS+=(--minutos "$(( ${CHISPA_MINUTOS:-40} < $(tope 40) ? ${CHISPA_MINUTOS:-40} : $(tope 40) ))" --epocas 3 --device cuda); fi
+else ARGS+=(--minutos "$(( ${CHISPA_MINUTOS:-40} < $(tope 40) ? ${CHISPA_MINUTOS:-40} : $(tope 40) ))" --epocas "${CHISPA_EPOCAS:-3}" --device cuda); fi
 OK=0
 for intento in 1 2; do
   reint "$PY" -u -m model.l2.entrenar "${ARGS[@]}" > "$OUT/entrenar-$intento.log" 2>&1 && { OK=1; break; }
