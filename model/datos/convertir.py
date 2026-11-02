@@ -20,7 +20,7 @@ from .comun import FuenteAusente, filtrar_score
 FUENTES_LIBRES = ("odio_alia", "toxicidad_protestas", "toxicidad_constitucion", "goemociones", "spam_tanaos", "soporte_ti",
                   "ciberacoso", "clima", "riesgo_suicida", "pqrs_gb9w", "pqrs_e86p", "pqrs_xtj2", "pqrs_enrutamiento")
 FUENTES = ("massive", "hatecheck", "banking77", "clinc150", "inyecciones", "xnli", "sib200", "pawsx") + FUENTES_LIBRES
-FUENTES_OPCIONALES = ("clandestino",)   # no entran por defecto (no se conocen sus columnas reales); `--con-opcionales` o `--fuentes` las pide
+FUENTES_OPCIONALES = ("clandestino",)   # no entran por defecto (es de GitHub: $CHISPA_CLANDESTINO apunta al fichero); `--con-opcionales` o `--fuentes` las pide
 NO_EN_PLAN = {"necos-tox": "no disponible: no está en ~/hf (NECOS-TOX solo si se encuentra)"}
 FIXTURES = Path(__file__).parent / "fixtures"
 

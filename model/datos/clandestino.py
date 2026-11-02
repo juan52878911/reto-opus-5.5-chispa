@@ -1,185 +1,245 @@
-"""Clandestino (`microsoft/Clandestino`): mensajes anotados -> filas de Chispa, solo los escritos por personas (W9, ajuste v3).
+"""Clandestino (`microsoft/Clandestino`, GitHub, MIT): mensajes anotados -> filas de Chispa, solo los escritos por personas (W11, ajuste v3).
 
-Licencia: MIT, con la condición de uso de Microsoft («no dañar», sin vigilancia). Juan la aceptó el 2026-11-02 (ver `LICENCIAS.md`).
-Como el resto de conversores, solo se da por buena si la tarjeta del snapshot dice `license: mit`; si no, «sin verificar», `uso_comercial: false`
-y solo se emite `test`.
+Datos: `data/clandestino_no_ontology_42023.json`, una fila JSON por línea (también se acepta una lista JSON). Licencia MIT, con la condición de uso de
+Microsoft («no dañar», sin vigilancia; aceptada por Juan el 2026-11-02, ver `LICENCIAS.md`).
 
-COLUMNAS: HIPÓTESIS, SIN VERIFICAR. El dataset no está en `~/hf` y la máquina no tiene red, así que no se ha podido leer ni la tarjeta ni una fila
-real. Lo único dado por el encargo es la columna `Is AI Generated` (se conservan las filas con `false`) y que hay anotaciones de las cuatro clases:
-puntuación 1..5, sí/no, tipo y grupos. Los nombres de abajo son lo que se espera (sin distinguir mayúsculas, espacios, guiones ni guiones bajos):
+Fila: `Key`, `Sentence`, `IsAIGenerated` ("True"/"False"), `Index`, `Switch` y `Annotators` (5 a 12 dicts con `Annotator` y una clave por pregunta). Las
+preguntas se identifican por prefijo («Question 1:», «Question 7:»…), no por el texto entero. Si falta una clave esperada, `ValueError` con lo que trae la fila.
 
-    Text              el mensaje                                   (alias: message, utterance, content)
-    Is AI Generated   true/false: solo se conservan las false      (obligatoria)
-    Template ID       plantilla/semilla que generó el mensaje      (alias: template, seed, scenario id, prompt id); obligatoria: reparte
-                      train/dev/test por plantilla, sin fugas
-    Language          idioma del mensaje                           (alias: locale, lang); si falta, «en»
-    Score             entero 1..5 -> `score`, ids «1»..«5»         (alias: rating, severity)
-    Label             sí/no -> `noul`                              (alias: is harmful, harmful, is toxic, toxic)
-    Type              una categoría -> `choice`                    (alias: category, content type, harm type)
-    Groups            varias etiquetas -> `multi`                  (alias: target groups, targets, groups targeted)
+Conversión (decidida por el orquestador):
+  filtro   IsAIGenerated == "False" y ningún anotador con Q7 (PII) = Yes (esas filas se descartan y se cuentan).
+  score    Q1 (dañino, 1..5): mediana de los anotadores, redondeada (la mitad hacia arriba) -> ids «1»..«5».
+  noul     dañino: mediana de Q1 >= 3 (sin redondear) -> `true`/`false`.
+  noul     Q3 (sexual) y Q8 (información falsa): `true` si más de la mitad de los anotadores dice Yes, `false` si más de la mitad dice No; Maybe no
+           cuenta y sin mayoría estricta la fila se omite.
+  multi    el esquema no tiene `multi`: cada grupo de Q4 que marca más de la mitad de los anotadores (sin «21. No aplicable») y con al menos `MIN_GRUPO`
+           mensajes da una fila `noul` «¿el mensaje se refiere al grupo X?» por mensaje.
+Splits: `split_por_clave(Key, 0.1, 0.1)`; `plantilla` = Key, así que todas las filas de un mensaje caen en el mismo split.
 
-Cada anotación presente da una familia de filas; las ausentes se omiten (pero tiene que haber al menos una). Si falta `Text`, `Is AI Generated`
-o la plantilla, o no hay ninguna anotación, `convertir` lanza `ValueError` con las columnas que sí trae el fichero: así `ajuste.sh` falla antes de
-gastar GPU y se corrige este módulo con las columnas reales. Las preguntas y descripciones en español son una hipótesis de qué mide cada columna
-(gravedad 1..5, ¿dañino?, tipo y grupos aludidos) y hay que revisarlas con la tarjeta real.
-
-multi: el esquema (`esquema.md`) no tiene `multi`; cada grupo (con al menos `MIN_GRUPO` mensajes) da una fila `noul` «¿el mensaje se refiere al
-grupo X?» por mensaje, con `plantilla` igual que el resto de sus filas.
-Filas inválidas (puntuación fuera de 1..5, valor sí/no ilegible, tipo vacío) se descartan y se cuentan en `info`; nada se corrige.
-Splits: `split_por_clave(plantilla, 0.1, 0.1)`: todas las filas de una plantilla, de todas las anotaciones, caen en el mismo split.
+    python -m model.datos.clandestino contar FICHERO     # recuento en JSON (lo corre ajuste.sh antes de entrenar)
 """
+import json
+import os
 import re
+import statistics
+import sys
+import unicodedata
 from collections import Counter
 from pathlib import Path
 
-from .comun import EXT, fila, leer_tabla, licencia_fuente, raiz_hf, split_por_clave
+from .comun import FuenteAusente, fila, raiz_hf, split_por_clave
 
 REPO = "microsoft/Clandestino"
+URL = "https://raw.githubusercontent.com/microsoft/Clandestino/main/data/clandestino_no_ontology_42023.json"
 CORTO = "clandestino"
+LICENCIA = "MIT"
 MIN_GRUPO = 20   # grupos con menos mensajes no dan pregunta (sin soporte para aprender nada)
+NO_APLICABLE = 21
+ENV_FICHERO = "CHISPA_CLANDESTINO"
 
-ALIAS = {
-    "texto": ("text", "message", "utterance", "content"),
-    "ia": ("isaigenerated",),
-    "plantilla": ("templateid", "template", "seed", "scenarioid", "promptid"),
-    "idioma": ("language", "locale", "lang"),
-    "score": ("score", "rating", "severity"),
-    "sino": ("label", "isharmful", "harmful", "istoxic", "toxic"),
-    "tipo": ("type", "category", "contenttype", "harmtype"),
-    "grupos": ("groups", "targetgroups", "targets", "groupstargeted"),
-}
-VERDADERO = {"true", "1", "yes", "si", "sí", "y", "t"}
-FALSO = {"false", "0", "no", "n", "f"}
+CLAVES_FILA = ("Key", "Sentence", "IsAIGenerated", "Annotators")
+PREGUNTAS = {1: "Question 1:", 3: "Question 3:", 4: "Question 4:", 7: "Question 7:", 8: "Question 8:"}
 
-PREGUNTA_SCORE = "¿Qué tan grave es el contenido del mensaje, de 1 (nada grave) a 5 (muy grave)?"
-DESC_SCORE = {"1": "nada grave: no hay nada dañino ni ofensivo", "2": "poco grave: un tono incómodo o un comentario leve",
-              "3": "gravedad media: ofensivo o dañino, pero sin ensañamiento", "4": "grave: ofensa o daño claros contra alguien",
-              "5": "muy grave: ataque, amenaza o daño severo"}
+PREGUNTA_SCORE = "¿Qué tan dañino es el mensaje para alguien, de 1 (nada dañino) a 5 (muy dañino)?"
+DESC_SCORE = {"1": "nada dañino: no perjudica ni ofende a nadie", "2": "poco dañino: un tono incómodo o un comentario leve",
+              "3": "dañino a medias: puede ofender o perjudicar a alguien", "4": "dañino: ofensa o perjuicio claros contra alguien",
+              "5": "muy dañino: ataque, humillación o daño severo"}
 PREGUNTA_SINO = "¿El mensaje es dañino para alguien?"
 DESC_SINO = {"false": "false: no (el mensaje no daña a nadie)", "true": "true: sí (el mensaje ofende, humilla, amenaza o perjudica a alguien)"}
-PREGUNTA_TIPO = "¿De qué tipo es el contenido del mensaje?"
+PREGUNTA_SEXUAL = "¿El mensaje contiene o alude a contenido o actos sexuales?"
+DESC_SEXUAL = {"false": "false: no (no hay contenido sexual ni alusión a él)", "true": "true: sí (contiene o alude a contenido o actos sexuales)"}
+PREGUNTA_FALSA = "¿El mensaje contiene información falsa?"
+DESC_FALSA = {"false": "false: no (no contiene información falsa)", "true": "true: sí (afirma o da por cierto algo falso)"}
 PREGUNTA_GRUPO = "¿El mensaje se refiere al grupo «%s»?"
 DESC_GRUPO = {"false": "false: no (el mensaje no menciona ni apunta a ese grupo)", "true": "true: sí (el mensaje menciona o apunta a ese grupo)"}
 
 
-def _norm(c):
-    return re.sub(r"[^a-z0-9]", "", str(c).lower())
+def _pregunta(anot, n):
+    """Valor de la pregunta `n` de un anotador, buscada por prefijo («Question 7:»), o None si no está."""
+    pref = PREGUNTAS[n]
+    for k, v in anot.items():
+        if k.strip().startswith(pref):
+            return v
+    return None
 
 
-def columnas(muestra):
-    """{clave: nombre real de la columna} según ALIAS, para el conjunto de columnas de una fila."""
-    por_norm = {_norm(c): c for c in muestra}
-    return {k: next((por_norm[a] for a in al if a in por_norm), None) for k, al in ALIAS.items()}
+def _falta(r, donde, claves):
+    raise ValueError("clandestino: falta %s en %s; la fila %r trae %s" % (", ".join(claves), donde, r.get("Key"), sorted(r)))
 
 
-def _bool(v):
-    if isinstance(v, bool):
-        return v
+def _validar_fila(r):
+    if not isinstance(r, dict):
+        raise ValueError("clandestino: se esperaba un objeto JSON por fila y llegó %r" % (type(r).__name__,))
+    faltan = [k for k in CLAVES_FILA if k not in r]
+    if faltan:
+        _falta(r, "la fila", faltan)
+    if not isinstance(r["Annotators"], list) or not r["Annotators"]:
+        raise ValueError("clandestino: Annotators de %r no es una lista con anotadores; la fila trae %s" % (r.get("Key"), sorted(r)))
+    for a in r["Annotators"]:
+        faltan = [PREGUNTAS[n] for n in PREGUNTAS if _pregunta(a, n) is None]
+        if faltan:
+            raise ValueError("clandestino: falta %s en un anotador de la fila %r; el anotador trae %s" % (", ".join(faltan), r["Key"], sorted(a)))
+
+
+def _bool_ia(v):
     s = str(v).strip().lower()
-    return True if s in VERDADERO else False if s in FALSO else None
+    if s in ("true", "1"):
+        return True
+    if s in ("false", "0"):
+        return False
+    raise ValueError("clandestino: IsAIGenerated ilegible: %r (se esperaba \"True\"/\"False\")" % (v,))
 
 
-def _lista(v):
-    """Valor multi: lista, JSON de lista o texto separado por `;` `|` `,`."""
-    if v is None:
-        return []
-    if isinstance(v, (list, tuple)):
-        return [str(x).strip() for x in v if str(x).strip()]
-    s = str(v).strip()
-    if s.startswith("["):
-        import json
+def _yn(v):
+    return str(v).strip().lower()
+
+
+def _dañino(anots):
+    """Votos válidos de Q1 (enteros 1..5)."""
+    out = []
+    for a in anots:
         try:
-            return [str(x).strip() for x in json.loads(s) if str(x).strip()]
+            x = int(float(str(_pregunta(a, 1)).strip()))
         except ValueError:
-            pass
-        s = s.strip("[]").replace("'", "").replace('"', "")
-    return [x.strip() for x in re.split(r"[;|,]", s) if x.strip()]
+            continue
+        if 1 <= x <= 5:
+            out.append(x)
+    return out
 
 
-def leer_filas(raiz):
-    """Todas las filas de todos los ficheros de datos del snapshot (parquet/csv/tsv/json/jsonl, con o sin .gz)."""
-    ficheros = sorted(p for p in Path(raiz).rglob("*") if p.is_file() and p.name != "README.md" and not p.name.startswith(".")
-                      and p.name.endswith(EXT) and "/.git" not in str(p))
-    if not ficheros:
-        raise ValueError("clandestino: el snapshot %s no trae ficheros de datos (%s)" % (raiz, ", ".join(EXT)))
-    filas = []
+def _mayoria_yn(anots, n):
+    c = Counter(_yn(_pregunta(a, n)) for a in anots)
+    if c["yes"] * 2 > len(anots):
+        return "true"
+    if c["no"] * 2 > len(anots):
+        return "false"
+    return None
+
+
+def _grupos(anots):
+    """Grupos de Q4 que marca más de la mitad de los anotadores, sin «21. No aplicable»: {nombre sin número}."""
+    c = Counter()
+    for a in anots:
+        propios = {g.strip() for g in str(_pregunta(a, 4) or "").split(";") if g.strip()}
+        c.update(propios)
+    out = set()
+    for g, n in c.items():
+        m = re.match(r"(\d+)\.\s*(.*)$", g)
+        if m and int(m.group(1)) == NO_APLICABLE:
+            continue
+        if n * 2 > len(anots):
+            out.add(m.group(2).strip() if m else g)
+    return out
+
+
+def _slug(s):
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
+
+
+def leer_filas(ruta):
+    """Filas de un fichero (una por línea o lista JSON) o de los ficheros `*.json`/`*.jsonl` de un directorio (sin README ni ocultos)."""
+    ruta = Path(ruta)
+    if ruta.is_dir():
+        ficheros = sorted(p for p in ruta.rglob("*") if p.is_file() and p.suffix in (".json", ".jsonl") and not p.name.startswith("."))
+        if not ficheros:
+            raise ValueError("clandestino: %s no trae ficheros .json/.jsonl" % ruta)
+    else:
+        ficheros = [ruta]
     for p in ficheros:
-        filas.extend(leer_tabla(p))
-    return filas
+        with open(p, encoding="utf-8") as fh:
+            primero = fh.read(1)
+            fh.seek(0)
+            if primero == "[":
+                yield from json.load(fh)
+                continue
+            for i, linea in enumerate(fh, 1):
+                if linea.strip():
+                    try:
+                        yield json.loads(linea)
+                    except ValueError as e:
+                        raise ValueError("clandestino: %s línea %d no es JSON: %s" % (p.name, i, e))
+
+
+def _origen(raiz):
+    if raiz:
+        return Path(raiz)
+    if os.environ.get(ENV_FICHERO):
+        return Path(os.environ[ENV_FICHERO])
+    return Path(raiz_hf(REPO))   # FuenteAusente si no está
 
 
 def convertir(raiz=None, min_grupo=MIN_GRUPO):
-    raiz = Path(raiz or raiz_hf(REPO))
-    lic, com = licencia_fuente(raiz, ("mit",), "MIT", True)
-    crudas = leer_filas(raiz)
-    if not crudas:
-        raise ValueError("clandestino: los ficheros de %s no traen filas" % raiz)
-    col = columnas(crudas[0])
-    vistas = sorted(crudas[0])
-    for k, nombre in (("texto", "Text"), ("ia", "Is AI Generated"), ("plantilla", "Template ID")):
-        if col[k] is None:
-            raise ValueError("clandestino: falta la columna %s (alias %s); el fichero trae %s. Las columnas de este conversor son una hipótesis "
-                             "(ver el docstring de model/datos/clandestino.py): hay que ajustarlas a la tarjeta real" % (nombre, ", ".join(ALIAS[k]), vistas))
-    if not any(col[k] for k in ("score", "sino", "tipo", "grupos")):
-        raise ValueError("clandestino: no hay ninguna columna de anotación (score/rating, label, type, groups); el fichero trae %s. "
-                         "Hipótesis sin verificar: ver model/datos/clandestino.py" % (vistas,))
-    info = {"licencia": lic, "columnas": {k: v for k, v in col.items() if v}, "descartadas_ia": 0, "descartadas_invalidas": Counter(),
-            "condicion_de_uso": "Microsoft: no dañar, sin vigilancia (aceptada por Juan, 2026-11-02)"}
+    """-> (filas, info). `raiz`: fichero o directorio; por defecto $CHISPA_CLANDESTINO o ~/hf."""
+    info = {"licencia": LICENCIA, "leidas": 0, "descartadas_ia": 0, "descartadas_pii": 0, "descartadas_invalidas": Counter(),
+            "omitidas": Counter(), "condicion_de_uso": "Microsoft: no dañar, sin vigilancia (aceptada por Juan, 2026-11-02)"}
     humanas = []
-    for r in crudas:
-        ia = _bool(r.get(col["ia"]))
-        if ia is None:
-            raise ValueError("clandestino: valor ilegible en Is AI Generated: %r (se esperaba true/false)" % (r.get(col["ia"]),))
-        texto = str(r.get(col["texto"]) or "").strip()
-        if ia:
+    for r in leer_filas(_origen(raiz)):
+        info["leidas"] += 1
+        _validar_fila(r)
+        if _bool_ia(r["IsAIGenerated"]):
             info["descartadas_ia"] += 1
-        elif not texto or r.get(col["plantilla"]) in (None, ""):
-            info["descartadas_invalidas"]["sin_texto_o_plantilla"] += 1
+        elif any(_yn(_pregunta(a, 7)) == "yes" for a in r["Annotators"]):
+            info["descartadas_pii"] += 1
+        elif not str(r["Sentence"] or "").strip() or not str(r["Key"] or "").strip():
+            info["descartadas_invalidas"]["sin_texto_o_key"] += 1
         else:
-            humanas.append((r, texto, str(r[col["plantilla"]]).strip()))
-    tipos = sorted({str(r[col["tipo"]]).strip() for r, _, _ in humanas if col["tipo"] and str(r.get(col["tipo"]) or "").strip()})
-    grupos_n = Counter(g for r, _, _ in humanas if col["grupos"] for g in set(_lista(r.get(col["grupos"]))))
-    grupos = sorted(g for g, n in grupos_n.items() if n >= min_grupo)
-    info["tipos"], info["grupos"] = tipos, grupos
-    cont, descartadas_nc, out = Counter(), 0, []
-    for r, texto, plantilla in humanas:
-        split = split_por_clave(plantilla, 0.1, 0.1, CORTO)
-        idioma = str(r.get(col["idioma"]) or "en").strip() if col["idioma"] else "en"
-        base = dict(texto=texto, idioma=idioma, fuente="%s (Is AI Generated = false)" % REPO)
+            humanas.append(r)
+    propios = [_grupos(r["Annotators"]) for r in humanas]
+    n_grupo = Counter(g for s in propios for g in s)
+    grupos = sorted(g for g, n in n_grupo.items() if n >= min_grupo)
+    info["grupos"] = grupos
+    cont, out = Counter(), []
+    for r, gs in zip(humanas, propios):
+        key, texto, anots = str(r["Key"]).strip(), str(r["Sentence"]).strip(), r["Annotators"]
+        split = split_por_clave(key, 0.1, 0.1, CORTO)
+        fuente = "%s (IsAIGenerated = False, sin PII)" % REPO
 
         def emite(tarea, tipo, pregunta, ops, desc, et):
-            nonlocal descartadas_nc
-            if not com and split != "test":   # esquema.md: una fila no comercial solo puede ir a test
-                descartadas_nc += 1
-                return
-            out.append(fila(CORTO, split, cont[split], tarea, tipo, pregunta, base["texto"], ops, desc, et, base["idioma"], base["fuente"],
-                            lic, com, plantilla))
+            out.append(fila(CORTO, split, cont[split], tarea, tipo, pregunta, texto, ops, desc, et, "es", fuente, LICENCIA, True, key))
             cont[split] += 1
-        if col["score"]:
-            try:
-                v = int(float(str(r.get(col["score"])).strip()))
-            except ValueError:
-                v = None
-            if v is None or not 1 <= v <= 5:
-                info["descartadas_invalidas"]["score_fuera_de_1_5"] += 1
+        votos = _dañino(anots)
+        if votos:
+            med = statistics.median(votos)
+            emite("clandestino_gravedad", "score", PREGUNTA_SCORE, [str(i) for i in range(1, 6)], DESC_SCORE, str(int(med + 0.5)))
+            emite("clandestino_danino", "noul", PREGUNTA_SINO, ["false", "true"], DESC_SINO, "true" if med >= 3 else "false")
+        else:
+            info["descartadas_invalidas"]["sin_votos_validos_q1"] += 1
+        for n, tarea, preg, desc in ((3, "clandestino_sexual", PREGUNTA_SEXUAL, DESC_SEXUAL), (8, "clandestino_falsa", PREGUNTA_FALSA, DESC_FALSA)):
+            m = _mayoria_yn(anots, n)
+            if m is None:
+                info["omitidas"][tarea] += 1
             else:
-                emite("clandestino_gravedad", "score", PREGUNTA_SCORE, [str(i) for i in range(1, 6)], DESC_SCORE, str(v))
-        if col["sino"]:
-            b = _bool(r.get(col["sino"]))
-            if b is None:
-                info["descartadas_invalidas"]["sino_ilegible"] += 1
-            else:
-                emite("clandestino_danino", "noul", PREGUNTA_SINO, ["false", "true"], DESC_SINO, "true" if b else "false")
-        if col["tipo"]:
-            t = str(r.get(col["tipo"]) or "").strip()
-            if not t:
-                info["descartadas_invalidas"]["tipo_vacio"] += 1
-            else:
-                emite("clandestino_tipo", "choice", PREGUNTA_TIPO, tipos, {x: "contenido de tipo «%s»" % x for x in tipos}, t)
-        if col["grupos"]:
-            propios = set(_lista(r.get(col["grupos"])))
-            for g in grupos:
-                emite("clandestino_grupo_" + _norm(g), "noul", PREGUNTA_GRUPO % g, ["false", "true"], DESC_GRUPO, "true" if g in propios else "false")
-    info["descartadas_invalidas"] = dict(info["descartadas_invalidas"])
-    info["descartadas_licencia_nc_fuera_de_test"] = descartadas_nc
+                emite(tarea, "noul", preg, ["false", "true"], desc, m)
+        for g in grupos:
+            emite("clandestino_grupo_" + _slug(g), "noul", PREGUNTA_GRUPO % g, ["false", "true"], DESC_GRUPO, "true" if g in gs else "false")
+    info["descartadas_invalidas"], info["omitidas"] = dict(info["descartadas_invalidas"]), dict(info["omitidas"])
+    info["columnas"] = {"texto": "Sentence", "clave": "Key", "ia": "IsAIGenerated", "anotadores": "Annotators"}   # lo muestra ajuste.sh
     return out, info
+
+
+def contar(ruta, min_grupo=MIN_GRUPO):
+    filas, info = convertir(ruta, min_grupo)
+    por = {}
+    for f in filas:
+        por.setdefault(f["tipo"], Counter())[f["split"]] += 1
+    return {"filas_leidas": info["leidas"], "descartadas_ia": info["descartadas_ia"], "descartadas_pii": info["descartadas_pii"],
+            "descartadas_invalidas": info["descartadas_invalidas"], "omitidas_sin_mayoria": info["omitidas"], "filas_validas": len(filas),
+            "filas_por_tipo_y_split": {t: dict(sorted(c.items())) for t, c in sorted(por.items())},
+            "distribucion_score": dict(sorted(Counter(f["etiqueta"] for f in filas if f["tipo"] == "score").items())), "grupos": info["grupos"]}
+
+
+def main(argv):
+    if len(argv) != 3 or argv[1] != "contar":
+        print("uso: python -m model.datos.clandestino contar FICHERO", file=sys.stderr)
+        return 2
+    try:
+        print(json.dumps(contar(argv[2]), ensure_ascii=False, indent=2, sort_keys=True))
+    except (ValueError, OSError) as e:
+        print("clandestino: %s" % e, file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
