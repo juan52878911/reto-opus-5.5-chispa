@@ -139,3 +139,29 @@ class TestSeleccion(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTrozos(unittest.TestCase):
+    """Textos largos (tercer fallo de la traducción, 2026-11-02): se parten por frases en trozos de ≤ tope tokens."""
+
+    @staticmethod
+    def n_tok(t):
+        return len(t.split())   # un token por palabra, para el test
+
+    def test_texto_de_600_tokens_se_parte(self):
+        frase = " ".join(["palabra"] * 29) + "."   # 30 tokens por frase
+        texto = " ".join([frase] * 20)              # 600 tokens
+        tr, trunc = traducir.trozos(texto, self.n_tok, 200)
+        self.assertGreater(len(tr), 1)
+        self.assertTrue(all(self.n_tok(x) <= 200 for x in tr))
+        self.assertEqual(trunc, 0)
+        self.assertEqual(" ".join(tr).split(), texto.split())   # no se pierde ni se reordena nada
+
+    def test_una_frase_muy_larga_se_cuenta_truncada(self):
+        texto = " ".join(["x"] * 600)   # una sola frase de 600 tokens
+        tr, trunc = traducir.trozos(texto, self.n_tok, 200)
+        self.assertEqual(tr, [texto])
+        self.assertEqual(trunc, 1)
+
+    def test_texto_corto_no_se_toca(self):
+        self.assertEqual(traducir.trozos("Hola. Adiós.", self.n_tok, 200), (["Hola. Adiós."], 0))

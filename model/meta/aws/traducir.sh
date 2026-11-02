@@ -136,10 +136,12 @@ if [ "$LOCAL" = 1 ]; then MIN=5; TRAD=auto; else MIN=$(( $(quedan) - 15 )); [ "$
 echo "== traducir $(date -u +%T): tope de $MIN min, traductor $TRAD"
 # prueba corta antes del total: 20 filas de 2 tareas; si falla o no escribe nada, se aborta aquí (un fallo cuesta minutos, no la corrida)
 P=$BASE/prueba-traduccion; rm -rf "$P"
-"$PY" -u -m model.meta.traducir "$META" "$P" --traductor "$TRAD" --max-por-tarea 10 --max-filas 20 --minutos 5 \
+"$PY" -u -m model.meta.traducir "$META" "$P" --traductor "$TRAD" --max-por-tarea 10 --max-filas 20 --mas-largas 20 --minutos 8 \
   || { fallo "prueba de traducción"; paso prueba fallo "$t"; cierre; }
 NP=$("$PY" -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["filas_escritas"])' "$P/resumen.json" 2>/dev/null || echo 0)
 mkdir -p "$SALIDA/prueba" && cp "$P"/muestra-revision.md "$P"/resumen.json "$SALIDA/prueba/" 2>/dev/null
+# la muestra de la prueba sube ya, antes de la corrida total (si la total falla, la muestra queda)
+[ "$LOCAL" = 1 ] || for f in muestra-revision.md resumen.json; do aws s3 cp --only-show-errors "$P/$f" "$CHISPA_S3/tsjev-es/prueba/$f"; done
 if [ "${NP:-0}" -lt 1 ]; then fallo "prueba de traducción sin filas"; paso prueba fallo "$t" "0 filas"; cierre; fi
 paso prueba ok "$t" "$NP filas (muestra en prueba/)"
 "$PY" -u -m model.meta.traducir "$META" "$SALIDA" --traductor "$TRAD" --max-por-tarea 300 --max-filas "$MAX_FILAS" --minutos "$MIN" \

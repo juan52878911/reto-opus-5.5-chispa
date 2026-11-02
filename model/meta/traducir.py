@@ -37,6 +37,8 @@ CORTO = "tsjev-es"
 RATIO_MIN, RATIO_MAX = 0.3, 3.0
 LARGO_MIN_RATIO = 15
 MAX_TOK = 400  # tokens de entrada; lo que pase de aquí se trunca y suele caer en la heurística de longitud
+TROZO_TOK = 200  # un texto con más tokens se parte por frases en trozos de ≤ TROZO_TOK, que se traducen por separado y se unen
+MAX_POS = 512  # posiciones de Marian (opus-mt-en-es): ni la entrada ni la salida pueden pasar de aquí
 TROZO_FILAS = 1000
 
 
@@ -76,6 +78,27 @@ def licencia_tarjeta_modelo(snap):
     return m.group(1).strip("'\"").lower() if m else None
 
 
+def trozos(texto, n_tok, tope=TROZO_TOK):
+    """(trozos, frases truncadas): `texto` en trozos de ≤ `tope` tokens, cortando por frases (tras . ! ? … o salto de línea).
+    Una frase sola de más de `tope` tokens va en su propio trozo y se cuenta como truncada (el tokenizador la corta)."""
+    if n_tok(texto) <= tope:
+        return [texto], 0
+    frases = [f for f in re.split(r"(?<=[.!?…])\s+|\n+", texto) if f.strip()]
+    out, actual, trunc = [], "", 0
+    for f in frases:
+        cand = (actual + " " + f).strip() if actual else f
+        if actual and n_tok(cand) > tope:
+            out.append(actual)
+            actual = f
+        else:
+            actual = cand
+        if n_tok(f) > tope:
+            trunc += 1
+    if actual:
+        out.append(actual)
+    return out, trunc
+
+
 class TraductorOpus:
     """Opus-MT en→es con transformers (CPU o GPU). Revisión = nombre del snapshot de la caché de HF."""
 
@@ -95,15 +118,30 @@ class TraductorOpus:
         self.mod.to(self.device)
         self.lote, self.beams, self.torch = lote, beams, torch
 
-    def traducir(self, textos):
+    def _traducir_cortos(self, textos):
         out = []
         for i in range(0, len(textos), self.lote):
             lote = textos[i:i + self.lote]
-            enc = self.tok(lote, return_tensors="pt", padding=True, truncation=True, max_length=MAX_TOK).to(self.device)
-            with self.torch.inference_mode():
-                gen = self.mod.generate(**enc, num_beams=self.beams, max_new_tokens=int(MAX_TOK * 1.5), do_sample=False)
+            enc = self.tok(lote, return_tensors="pt", padding=True, truncation=True, max_length=TROZO_TOK).to(self.device)
+            with self.torch.inference_mode():   # la salida también cabe en las MAX_POS posiciones del decodificador
+                gen = self.mod.generate(**enc, num_beams=self.beams, max_new_tokens=MAX_POS - 2, do_sample=False)
             out.extend(self.tok.batch_decode(gen, skip_special_tokens=True))
         return out
+
+    def traducir(self, textos):
+        """Los textos de más de TROZO_TOK tokens se parten por frases (`trozos`) y se unen tras traducir; cuenta en `partidas` las
+        cadenas partidas y en `truncadas` las frases sueltas que aun así pasan de TROZO_TOK (esas sí se truncan)."""
+        n_tok = lambda t: len(self.tok(t, add_special_tokens=False)["input_ids"])  # noqa: E731
+        piezas, mapa = [], []
+        for t in textos:
+            tr, trunc = trozos(t, n_tok, TROZO_TOK)
+            if len(tr) > 1:
+                self.partidas = getattr(self, "partidas", 0) + 1
+            self.truncadas = getattr(self, "truncadas", 0) + trunc
+            mapa.append((len(piezas), len(tr)))
+            piezas.extend(tr)
+        trad = self._traducir_cortos(piezas)
+        return [" ".join(trad[i:i + n]) for i, n in mapa]
 
 
 def elegir_traductor(nombre, device=None):
@@ -165,7 +203,7 @@ def leer_meta(meta, corto=FUENTE):
                     yield json.loads(linea)
 
 
-def seleccionar(meta, max_por_tarea=300, max_filas=None, semilla=0, info=None):
+def seleccionar(meta, max_por_tarea=300, max_filas=None, semilla=0, info=None, mas_largas=0):
     """Filas a traducir, ordenadas por clave hash (determinista). Tope por tarea y total sobre ese orden."""
     info = info if info is not None else {}
     cont = lambda k: info.__setitem__(k, info.get(k, 0) + 1)  # noqa: E731
@@ -188,6 +226,11 @@ def seleccionar(meta, max_por_tarea=300, max_filas=None, semilla=0, info=None):
         info["filas_recortadas_por_total"] = len(sel) - max_filas
         sel = sel[:max_filas]
     info["tareas_con_filas"] = len(por_tarea)
+    if mas_largas:   # prueba dura: añade las `mas_largas` filas de texto más largo de todo el meta (que no estén ya)
+        ya = {x[1] for x in sel}
+        todas = sorted((x for lst in por_tarea.values() for x in lst if x[1] not in ya), key=lambda x: (-len(x[2]["texto"]), x[1]))
+        sel.extend(todas[:mas_largas])
+        info["filas_largas_anadidas"] = min(mas_largas, len(todas))
     return [x[2] for x in sel]
 
 
@@ -272,10 +315,10 @@ def escribir_muestra(ruta, pares, trad, semilla, n=50, descartes=None):
 
 
 # --- principal ----------------------------------------------------------------------------------------------------------------
-def correr(meta, salida, trad, max_por_tarea=300, max_filas=None, minutos=None, semilla=0, n_muestra=50, trozo=TROZO_FILAS):
+def correr(meta, salida, trad, max_por_tarea=300, max_filas=None, minutos=None, semilla=0, n_muestra=50, trozo=TROZO_FILAS, mas_largas=0):
     t0 = time.time()
     info = {}
-    filas = seleccionar(meta, max_por_tarea, max_filas, semilla, info)
+    filas = seleccionar(meta, max_por_tarea, max_filas, semilla, info, mas_largas)
     print("seleccionadas %d filas de %d tareas" % (len(filas), info.get("tareas_con_filas", 0)), flush=True)
     Path(salida).mkdir(parents=True, exist_ok=True)
     out = Salida(salida)
@@ -292,6 +335,7 @@ def correr(meta, salida, trad, max_por_tarea=300, max_filas=None, minutos=None, 
     res = out.resumen()
     res.update(
         traductor={"modelo": trad.modelo, "revision": trad.revision, "licencia": getattr(trad, "licencia", None)},
+        cadenas_partidas=getattr(trad, "partidas", 0), frases_truncadas=getattr(trad, "truncadas", 0),
         filas_por_tarea=dict(sorted(por_tarea.items())), descartadas_heuristica=descartes,
         descartadas_total=sum(descartes.values()), filas_seleccionadas=len(filas), filas_escritas=len(pares),
         pares_en_muestra=n_muestra, info=info, max_por_tarea=max_por_tarea, max_filas=max_filas, semilla=semilla,
@@ -339,6 +383,7 @@ def main(argv=None):
     ap.add_argument("--minutos", type=float, default=None, help="tope de traducción; lo que falte se cuenta y no se escribe")
     ap.add_argument("--semilla", type=int, default=0)
     ap.add_argument("--device", default=None)
+    ap.add_argument("--mas-largas", type=int, default=0, help="añade las N filas de texto más largo del meta (prueba dura)")
     ap.add_argument("--crear-fixture", action="store_true", help="escribe un meta tsjev inventado en META y sale")
     a = ap.parse_args(argv)
     if a.crear_fixture:
@@ -348,7 +393,7 @@ def main(argv=None):
         ap.error("falta SALIDA")
     trad = elegir_traductor(a.traductor, a.device)
     print("traductor: %s revisión %s" % (trad.modelo, trad.revision), flush=True)
-    res = correr(a.meta, a.salida, trad, a.max_por_tarea, a.max_filas, a.minutos, a.semilla)
+    res = correr(a.meta, a.salida, trad, a.max_por_tarea, a.max_filas, a.minutos, a.semilla, mas_largas=a.mas_largas)
     print(json.dumps({k: v for k, v in res.items() if k in (
         "filas_escritas", "descartadas_heuristica", "filas_seleccionadas", "segundos", "traductor")}, ensure_ascii=False, indent=1))
     if res["filas_escritas"] == 0:
