@@ -553,6 +553,7 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 		}
 		return nil, err
 	}
+	log.Print(resumenCapas(l0.NumModelos(), casc.Capacidades()))
 	return &decide.Armado{Cascada: casc, CacheRespuestas: cfg.CacheRespuestas, BytesNonces: cfg.CacheRespuestasMB << 20, Limites: cfg.Limites, APIKeys: cfg.APIKeys, APIKeysAbierto: cfg.APIKeysAbierto, AdminToken: cfg.AdminToken, AdminTokenSHA256: cfg.AdminTokenSHA256, L0: l0, Cerrar: cerrar}, nil
 }
 
@@ -640,4 +641,28 @@ func imprimirHashClave(r io.Reader, w io.Writer) error {
 	}
 	_, err = fmt.Fprintln(w, decide.HashClave(clave))
 	return err
+}
+
+// resumenCapas es la línea de arranque con las capas que de verdad tienen modelo y si L2 puede calcular torres al vuelo; avisa
+// cuando L2 no podrá decidir esquemas que el .chispa no trae (todo escalaría con escalate_reason sin_opinion).
+func resumenCapas(modelosL0 int, cp decide.Capacidades) string {
+	var efectivas, sin []string
+	for _, n := range []string{"L0", "L1", "L2", "L3"} {
+		activa, hay := cp.Capas[n]
+		switch {
+		case !hay:
+		case !activa:
+			sin = append(sin, n)
+		case n == "L0":
+			efectivas = append(efectivas, fmt.Sprintf("L0(%d modelos)", modelosL0))
+		default:
+			efectivas = append(efectivas, n)
+		}
+	}
+	msg := fmt.Sprintf("capas efectivas: %s; sin modelo: %s; torre al vuelo (esquemas nuevos en L2): %v", strings.Join(efectivas, ", "), strings.Join(sin, ", "), cp.TorreAlVuelo)
+	if !cp.TorreAlVuelo {
+		msg += ". AVISO: sin torre al vuelo, los esquemas que el .chispa no trae en ESQUEMAS no los decide L2: " +
+			"si tampoco los decide L0/L1, escalan sin probs con escalate_reason sin_opinion (reconstruya con `chispa train --torre`)"
+	}
+	return msg
 }

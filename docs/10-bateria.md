@@ -40,6 +40,8 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 | `exactitud_contestada` | **(2)** acierto de la respuesta sobre lo que la cascada contestó (sin escalar); vacía si todo escaló. Puerta de regresión |
 | `exactitud_estricta` | **(4)** sobre todas las filas, con lo escalado y los errores como fallo. Informativa: no es puerta (un `tau_escalate_l2` alto la hunde sin que el modelo empeore) |
 | `sin_probs` | fracción de filas sin error y sin `probs` (no se puede medir el argmax); si es alta, `exactitud` no representa al conjunto |
+| `nadie_opino` | fracción de filas que escalaron porque **ninguna capa opinó** (`escalate_reason` `sin_opinion` o `score_ids_no_validos`; con un servidor sin `escalate_reason`, escalar sin probs). No es «confianza baja»: es que el modelo no puede decidir ese esquema |
+| `baja_confianza` | fracción de filas que escalaron con alguna capa opinando pero sin llegar a su τ (traen probs y entran en `exactitud`) |
 | `f1_macro` | F1 macro sobre las clases `(esquema, opción)` con soporte; en `multi`, cada opción es una clase |
 | `ece` | error de calibración esperado, 10 cubos de igual ancho `(k/10, (k+1)/10]` sobre la confianza de la mejor respuesta (en `multi`, una decisión por opción: p si activa, 1−p si no) |
 | `cobertura` | **(3)** fracción de decisiones que un umbral único sobre la confianza acepta con precisión ≥ `objetivo` (0,95); 0 si ninguno lo logra |
@@ -73,6 +75,13 @@ Se pisan en el manifiesto (`umbrales`) y con `--umbrales FICHERO.json` (misma fo
 El informe da, por conjunto, tipo, grupo y global, `estabilidad` (% de decisiones que no cambian), `delta_conf` (media de \|confianza variante − original\|) y `delta_conf_p95`; y una tabla «Robustez por transformación» (global y por conjunto). Se perturban hasta `--robustez-max` filas por conjunto (200, a paso fijo). Si el módulo no existe, avisa por stderr y sigue sin esas métricas.
 
 **Mínimo de estabilidad (opcional).** Una línea base puede traer `estabilidad_min` (fracción, p. ej. `0.9`): arriba del todo vale para `global` y cada conjunto, y dentro de una entrada (`global`, un conjunto, tipo o grupo) vale solo para ella. Si la estabilidad medida baja de ese mínimo, o falta, la puerta falla, aunque la línea base no haya empeorado. Se añade a mano al JSON de la línea base y `--guardar-linea-base` lo conserva al regenerarla.
+
+## «Nadie opinó»: aviso y alerta
+Un `.chispa` construido sin `--torre` (y sin L0 ni L1) escala todo sin probs ante esquemas que no trae, y `exactitud` ignora esas filas (solo salen en `sin_probs`). Para que no pase en silencio:
+- **Al arrancar** la batería lee `GET /healthz` (`capas` y `torre_al_vuelo`, ver [03-api.md](03-api.md#get-healthz)); si no hay torre al vuelo ni L1, avisa (stderr y `aviso`) de que los esquemas nuevos del manifiesto escalarán sin probs. **No** comprueba qué esquemas trae el `ESQUEMAS` del `.chispa` frente a los del manifiesto: es un aviso conservador. Con un servidor anterior (sin esos campos) no avisa.
+- **En el informe**, `nadie_opino` y `baja_confianza` van en columnas aparte. Si `nadie_opino` supera el 50 % (global o por conjunto; `UMBRAL_SIN_OPINION` en `bateria.py`) el informe añade la sección «Alertas» con la causa probable (falta de torre, capas sin modelo, tipo no soportado o ids de score) y el reporte JSON la lleva en `alertas` (lista; vacía si no hay) junto con `capacidades_servidor`. La alerta **no** cambia `ok`: la puerta sigue siendo la línea base. La causa fina por capa está en `chispa_capa_no_opina_total{capa,causa}` de `/metrics`.
+- **En `chispa train`** (donde nace el problema): sin `--torre`, resume las capas del `.chispa` (`capas del .chispa: L0 no, L1 sí, L2 sí, torre al vuelo (TORR) no`) y, si falta `TORR`, avisa de que no decidirá esquemas nuevos en L2. Se eligió **avisar, no fallar**, tampoco con `--perfil servidor` (un `.chispa` solo con ESQUEMAS es legítimo); `--sin-torre` declara que es a propósito y silencia el aviso. Con `--ckpt`, si junto al checkpoint hay un `torre.onnx` (o `torre-int8.onnx`) se incluye por defecto (`--sin-torre` lo evita).
+- Con torre, un esquema nuevo que no llega al τ escala **con probs** (`baja_confianza`): entra en `exactitud` y no dispara la alerta.
 
 ## Informe
 El informe incluye la sección «CALIB del servidor» (leída de `/metrics`, con `--tok` o `CHISPA_TOKEN_METRICAS` si está protegido; `calib_servidor` en el JSON) y un AVISO, también por stderr, si alguna capa decidió con la CALIB por defecto.

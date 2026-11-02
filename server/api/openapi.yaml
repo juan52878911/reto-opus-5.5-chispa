@@ -291,6 +291,10 @@ components:
           description: Capa que contesto de esta API (L0, L1, L2, L3). L3 es opcional (apagada por defecto), escala lo no resuelto a un LLM compatible con OpenAI configurado en el servidor y devuelve el mismo contrato, con probs normalizadas por opcion; el texto del cliente sale del servidor hacia ese endpoint. Vale "escalar" cuando escalate es true, es decir, ninguna capa llego a su tau (tambien si L3 esta apagada, no opino o fallo). El audio (A1) no entra por esta API y no aparece aqui; ver audio/README.md.
         escalate:
           type: boolean
+        escalate_reason:
+          type: string
+          enum: [sin_opinion, score_ids_no_validos, baja_confianza]
+          description: "Solo cuando escalate es true. sin_opinion: ninguna capa opino (probs vacias; el modelo no puede decidir ese esquema: sin torre, tipo no soportado...). score_ids_no_validos: sin opinion porque los ids de un score no son 1..K. baja_confianza: alguna capa opino pero ninguna llego a su tau. Ausente si no escalo, o si escalo por un fallo/presupuesto de una capa."
         ms:
           type: number
         nonce:
@@ -326,3 +330,11 @@ components:
         status:
           type: string
           enum: [ok]
+        capas:
+          type: object
+          description: "Que capas tienen modelo (L0..L3; false = sin modelo, p. ej. L3 apagada)."
+          additionalProperties:
+            type: boolean
+        torre_al_vuelo:
+          type: boolean
+          description: "L2 puede calcular la torre de un esquema nuevo (el .chispa trae TORR y estan -tok y ONNX Runtime). Con false y sin L1, un esquema que el .chispa no trae escala con escalate_reason sin_opinion."
