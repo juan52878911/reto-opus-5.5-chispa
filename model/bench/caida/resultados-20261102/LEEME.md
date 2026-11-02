@@ -35,3 +35,20 @@ iguales. El escudo (el profesor) las juega todas, y por eso las cifras coinciden
 
 **Vídeo:** `~/Documents/chispa-caida/caida-zeroshot-servidor-i7.mp4`, 90 s, 1080p y 30 fps, renderizado en el Mac (excepción
 aprobada por Juan). Muestra al escudo, no a Chispa: hay que repetirlo con CD2.
+
+## Con CD2 y `--decidir argmax` (Chispa juega su argmax aunque escale)
+Modelo de servidor fp32, 20 partidas por agente, 2 peticiones por turno (choice por un lado; score y noul por otro):
+
+| agente | piezas | filas | puntos | coincide con el profesor | p50 / p99 por decisión |
+|---|---|---|---|---|---|
+| aleatorio | 21,6 | 0,05 | 236 | 11,1 % | 0,08 / 0,2 ms |
+| **Chispa zero-shot** | **40,9** | **3,0** | **882** | **28,2 %** | 185 / 347 ms |
+| profesor | 117,3 | 23,4 | 4702 | 100 % | 0,5 / 1,0 ms |
+
+- 805 decisiones de Chispa, todas bajo τ (escalaría) y ninguna de escudo.
+- **Latencia aislada:** fría p50 390 ms (2,5 decisiones/s) y caliente 87 ms (11,1 decisiones/s).
+- **Vídeo:** `~/Documents/chispa-caida/caida-zeroshot-argmax-i7.mp4`, 21 s, partida de 35 piezas.
+- **Few-shot pendiente:**
+  - los tres `.chispa` solo L0 se entrenan en el CT con el entrenador estático, que funciona;
+  - pero `chispa-server` no los acepta como `modelos` de la config: «checksum mismatch»;
+  - cómo servirlo es una pregunta abierta a la otra sesión.

@@ -1,0 +1,31 @@
+{
+  "url": "http://127.0.0.1:8090",
+  "decidir": "argmax",
+  "decisiones_por_serie": 100,
+  "peticiones_por_decision": 2,
+  "preguntas_por_decision": 3,
+  "fria": {
+    "peticiones": 100,
+    "ok": 100,
+    "errores_red": 0,
+    "peticiones_con_escalada": 100,
+    "ms_p50": 390.179,
+    "ms_p95": 456.743,
+    "ms_p99": 466.588,
+    "ms_media": 393.699,
+    "ms_servidor_media": 391.847,
+    "decisiones_por_s": 2.5
+  },
+  "caliente": {
+    "peticiones": 100,
+    "ok": 100,
+    "errores_red": 0,
+    "peticiones_con_escalada": 100,
+    "ms_p50": 86.523,
+    "ms_p95": 102.803,
+    "ms_p99": 146.442,
+    "ms_media": 90.213,
+    "ms_servidor_media": 88.602,
+    "decisiones_por_s": 11.1
+  }
+}
