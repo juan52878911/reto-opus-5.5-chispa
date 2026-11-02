@@ -77,3 +77,14 @@ Opciones comunes: `peticion, queja, reclamo, sugerencia, denuncia, felicitacion`
 | google-research-datasets/paws-x `es` (`pawsx.py`) | `parafrasis` | libre para cualquier uso (Google) | tarjeta: `license: other` y «may be freely used for any purpose»; sin esa frase queda «sin verificar» y solo test | true | train, dev (validation), test (el de M4: no entra en train) |
 
 `odio_alia` sigue en solo test (pendiente de Juan, ver arriba): el ajuste no la usa. `toxicidad_protestas` y `toxicidad_constitucion` (cc-by-4.0) ya entraban en train.
+
+## Traducción de tsjev al español (W10)
+
+| Fuente | Licencia | De dónde sale | uso_comercial | Splits |
+|---|---|---|---|---|
+| Traductor `Helsinki-NLP/opus-mt-en-es` (OPUS-MT) | CC-BY-4.0 (esperada; **no verificada**: sin red en kindling) | `model/meta/traducir.py` lee `license:` de la tarjeta del snapshot y aborta si no es `cc-by-4.0` o `apache-2.0` | true | — |
+| `tsjev-es` (`model/meta/traducir.py`, salida `$CHISPA_S3/tsjev-es/`) | la de la fila original (solo `commercial`) más la del traductor, en `licencia`: «<original>; traducción: CC-BY-4.0 (Helsinki-NLP/opus-mt-en-es)» | traducción automática de `texto`, `pregunta` y `descripciones` de las filas tsjev `commercial` | true | los mismos que la fila original (id con sufijo `:es`, misma `plantilla`; el test sigue siendo test) |
+
+- **Atribución obligatoria** (CC-BY-4.0): Opus-MT, Tiedemann y Thottingal (2020), Universidad de Helsinki; los datos se transformaron (traducidos automáticamente). Va con cualquier redistribución de `tsjev-es` y de los pesos entrenados con ellos.
+- **NLLB no** (no comercial). MADLAD-400 (`google/madlad400-3b-mt`, Apache-2.0) solo si Opus-MT no valiera.
+- Cada fila lleva `traducida: {modelo, revision, de}`; las filas con traductor `FALSO:*` son de prueba y no se usan.
