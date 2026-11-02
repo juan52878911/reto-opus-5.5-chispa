@@ -20,12 +20,13 @@ import (
 
 // Valores por defecto de los límites (ver Limites).
 const (
-	MaxCuerpo     = 1 << 20
-	MaxPreguntas  = 256
-	MaxOpciones   = 256
-	MaxEstadoByte = 256 << 10
-	MaxTextoByte  = 4 << 10 // question, description de opción
-	MaxIDByte     = 256     // id de pregunta, id de opción, nonce
+	MaxCuerpo       = 1 << 20
+	MaxPreguntas    = 256
+	MaxOpciones     = 256
+	MaxOpcionesTope = 4096 // máximo de limites.max_opciones: la caché de torres crece 16 × este valor
+	MaxEstadoByte   = 256 << 10
+	MaxTextoByte    = 4 << 10 // question, description de opción
+	MaxIDByte       = 256     // id de pregunta, id de opción, nonce
 )
 
 // Códigos de error de la API (campo error.code). Contrato: server/api/openapi.yaml.
@@ -70,6 +71,9 @@ func LimitesPorDefecto() Limites {
 }
 
 func (l Limites) validar() error {
+	if l.MaxOpciones > MaxOpcionesTope {
+		return fmt.Errorf("config: limites.max_opciones (%d) pasa del máximo %d: la caché de torres guarda 16 × max_opciones torres", l.MaxOpciones, MaxOpcionesTope)
+	}
 	for n, v := range map[string]int{"max_cuerpo": l.MaxCuerpo, "max_preguntas": l.MaxPreguntas, "max_opciones": l.MaxOpciones,
 		"max_estado": l.MaxEstado, "max_texto": l.MaxTexto, "max_id": l.MaxID} {
 		if v < 0 {

@@ -342,7 +342,7 @@ func (m *Metricas) Escribe(w io.Writer) {
 	m.mu.Lock()
 	cacheEf, cacheAj := m.cacheTorresEf, m.cacheTorresAjustada
 	m.mu.Unlock()
-	fmt.Fprintln(w, "# HELP chispa_cache_torres_efectiva Tamaño efectivo de la caché de torres al vuelo del modelo en servicio (0 = sin torres al vuelo); sube a ceil(1,5·max_opciones) si cache_torres pide menos.")
+	fmt.Fprintln(w, "# HELP chispa_cache_torres_efectiva Tamaño efectivo de la caché de torres al vuelo del modelo en servicio (0 = sin torres al vuelo); sube a 16·max_opciones si cache_torres pide menos.")
 	fmt.Fprintln(w, "# TYPE chispa_cache_torres_efectiva gauge")
 	fmt.Fprintf(w, "chispa_cache_torres_efectiva %d\n", cacheEf)
 	fmt.Fprintln(w, "# HELP chispa_cache_torres_ajustada 1 si cache_torres de la config se subió al mínimo al montar el modelo en servicio.")
