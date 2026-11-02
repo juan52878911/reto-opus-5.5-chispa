@@ -115,6 +115,7 @@ if [ "$LOCAL" != 1 ]; then
 from huggingface_hub import snapshot_download as s
 s("intfloat/multilingual-e5-small", allow_patterns=["*.json", "*.safetensors", "*.txt", "*.model", "tokenizer*"])
 s("minishlab/potion-multilingual-128M")
+s("mteb/amazon_massive_intent", repo_type="dataset", allow_patterns=["validation/es.json.gz"])   # exportar --vocab-ampliar mide <unk> con él
 PYEOF
 fi
 E5=$(ls -d "$HF_HOME"/hub/models--intfloat--multilingual-e5-small/snapshots/*/ 2>/dev/null | head -1)
