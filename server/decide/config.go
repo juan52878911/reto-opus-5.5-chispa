@@ -19,11 +19,12 @@ type Capa struct {
 	Tau    float64 `json:"tau"`
 }
 
-// TorresPorSegundoPorDefecto es el tope global de torres al vuelo por segundo de la config (con ráfaga igual). e5-small int8 tarda
-// del orden de 4-8 ms por pasaje corto en un núcleo (estimado, sin medir en esta máquina) y las pasadas de ORT se serializan:
-// la capacidad sostenida es de ~150-250 torres/s. 400 queda por encima (no recorta ráfagas legítimas) y por debajo de nada útil: cubre
-// de sobra una pregunta completa (max_opciones = 256 cabe en la ráfaga) y corta un flujo sostenido de textos únicos cerca de saturar.
-const TorresPorSegundoPorDefecto = 400.0
+// TorresPorSegundoPorDefecto es el tope global de torres al vuelo por segundo de la config (con ráfaga max(tasa, max_torres_nuevas, 1)).
+// Medido con e5-small fp32 en una CPU x86-64 de 4 núcleos, modelo de servidor (L0+L2+TORR): una petición fría de 3 preguntas tarda
+// p50 290 ms frente a 58 ms la caliente, con unas 18 torres nuevas: ≈ 13 ms por torre, ≈ 77 torres/s con la CPU ocupada en serie
+// (fp16 da ≈ 14 ms/torre: no acelera). 60 deja margen sobre esos 77. No escala con GOMAXPROCS: ORT ya reparte cada torre en varios
+// hilos. Súbelo con más núcleos o con GPU. Una pregunta de max_opciones (256) cabe entera en la ráfaga y tarda unos 4 s en tener torre.
+const TorresPorSegundoPorDefecto = 60.0
 
 // MaxFicheroBytes es el tope de tamaño del .chispa de -modelo: max_fichero de la config o, sin él, 1 GiB.
 func (c *Config) MaxFicheroBytes() int64 {
@@ -170,7 +171,8 @@ func (c Config) Avisos() []string {
 	if maxT == 0 {
 		maxT = MaxTorresNuevasPorDefecto
 	}
-	if t := c.TorresPorSegundo; t > 0 && t < float64(maxT) {
+	// Con los dos defectos (60 < 256) el ritmo sostenido menor que una pregunta completa es lo medido, no una rareza: no se avisa.
+	if t := c.TorresPorSegundo; t > 0 && t < float64(maxT) && !(t == TorresPorSegundoPorDefecto && maxT == MaxTorresNuevasPorDefecto) {
 		av = append(av, fmt.Sprintf("config: torres_por_segundo (%v) < max_torres_nuevas (%d): la ráfaga se sube a %d para que una pregunta completa quepa, pero el ritmo sostenido es menor", t, maxT, maxT))
 	}
 	for _, k := range c.APIKeys {
