@@ -92,6 +92,19 @@ def cmd_decidir(a):
         print(f"HTTP {st} ok")
         return 0
     resp = json.loads(cuerpo)
+    if a.razon:  # escalada: cada resultado escala con ese escalate_reason; sin_opinion = sin probs, el resto con probs
+        errs = []
+        for r in resp["results"]:
+            if not r["escalate"] or r.get("escalate_reason") != a.razon:
+                errs.append(f"{r['id']}: escalate={r['escalate']} escalate_reason={r.get('escalate_reason')!r}, esperaba escalar con {a.razon!r}")
+            if bool(r.get("probs")) != (a.razon != "sin_opinion"):
+                errs.append(f"{r['id']}: probs {r.get('probs')!r} no casan con escalate_reason {a.razon!r}")
+            if (a.razon == "sin_opinion") != (r.get("layer") == "escalar" and not r.get("answer")):
+                errs.append(f"{r['id']}: layer/answer {r.get('layer')!r}/{r.get('answer')!r} no casan con {a.razon!r}")
+        for e in errs:
+            print("FALLO " + e)
+        print(f"HTTP 200, escalate_reason {[r.get('escalate_reason') for r in resp['results']]}")
+        return 1 if errs else 0
     errs = forma(resp, pet)
     capas = [r["layer"] for r in resp["results"]]
     if a.capa and a.capa not in capas:
@@ -183,6 +196,7 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("decidir"); d.add_argument("url"); d.add_argument("peticion"); d.add_argument("--capa")
+    d.add_argument("--razon", help="exige que todas las preguntas escalen con este escalate_reason (sin_opinion: sin probs; baja_confianza: con probs)")
     d.add_argument("--sin-escalar", action="store_true"); d.add_argument("--esperar-http", type=int, default=200); d.add_argument("--guardar")
     d.add_argument("--multi-con-probs", action="store_true", help="cada multi debe traer una p por opción (también al escalar: es la mejor pista)")
     m = sub.add_parser("metrica"); m.add_argument("url"); m.add_argument("nombre"); m.add_argument("etiqueta", nargs="?")

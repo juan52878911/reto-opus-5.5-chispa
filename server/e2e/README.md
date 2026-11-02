@@ -47,6 +47,10 @@ sin `LD_LIBRARY_PATH` (ver H1 en [HALLAZGOS.md](HALLAZGOS.md), corregido).
    celda vacía = ninguna) → `ms.chispa`, servido por un servidor C con la misma config: misma forma; las probabilidades de L1 cambian frente al zero-shot (CALIB de multi + SOPL1).
    `chispa evaluar` con `datos/muestra_multi.csv` → rc 0, `informe_multi.json` (exactitud por subconjunto, F1 micro/macro, Hamming, por etiqueta) e `informe_multi.md`.
    La comparación zero-shot/few-shot se hace en L1 (τ=0): en L2 ambos usan la CALIB de noul (sin `maxsim_l2` no hay `multi_l2`) y coinciden por diseño.
+10. **Sin torre no falla en silencio**: `chispa train --l2` sin `--torre` (META+L2+ESQUEMAS+CALIB, como el `.chispa` de la medición M1) avisa y resume las capas;
+   `--sin-torre` no avisa. Un servidor con ese `.chispa` loguea las capas efectivas y el aviso, `/healthz` dice `torre_al_vuelo: false`, `peticion_nueva.json`
+   escala con `escalate_reason: "sin_opinion"` y sin probs, `chispa_capa_no_opina_total{capa="L2",causa="sin_torre"}` = 3 y la batería (`bateria_nadie.py`) cuenta
+   `nadie_opino` = 100 % y alerta. Con `zs.chispa` (TORR) y τ=1 escala con `baja_confianza` y probs, la batería las mide en `exactitud` y no alerta.
 
 Comprobado que puede fallar: con `CHISPA_ORT_LIB` apuntando a un fichero vacío, el script sale con 1 (L2 queda en stub y fallan 7 comprobaciones).
 

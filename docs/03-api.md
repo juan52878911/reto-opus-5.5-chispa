@@ -47,6 +47,7 @@ Ejemplo real: [`choice.resp.json`](../server/decide/testdata/choice.resp.json). 
 - `probs`: probabilidad calibrada de cada opción, la de la capa que respondió. Suman 1 en `choice`, `score` y `noul`; en `multi` cada opción lleva la suya, en [0, 1], y **no** suman 1.
 - `layer`: la capa que contestó (`L0`…`L3`). Si `escalate` es true, vale `"escalar"`: ninguna capa llegó a su τ.
 - `escalate`: ninguna capa llegó a su τ. `answer` y `probs` son entonces la mejor pista, o `""` y `{}` si nadie opinó.
+- `escalate_reason`: **solo si `escalate` es true** (campo aditivo; ausente en lo demás), el porqué de la escalada: `"sin_opinion"` (ninguna capa opinó, sin error: el modelo no puede decidir ese esquema; `answer` `""` y `probs` `{}`), `"score_ids_no_validos"` (sin opinión porque los ids de un `score` no son 1..K) o `"baja_confianza"` (alguna capa opinó pero ninguna llegó a su τ; `probs` es la mejor pista). Si escaló por un fallo o presupuesto agotado de una capa, no lleva motivo. La causa de cada «no opina» (`sin_torre`, `tipo_no_soportado`, …) va en `/metrics` (`chispa_capa_no_opina_total`). Una escalada `sin_opinion` en todas las peticiones casi siempre es un `.chispa` sin `TORR` ante esquemas que no trae: `chispa train` y el arranque del servidor lo avisan.
 - `ms`: tiempo de la cascada para esa pregunta. `nonce` vuelve tal cual.
 
 Con `noul` y `score` ([`noul_score_escala.req.json`](../server/decide/testdata/noul_score_escala.req.json) y
@@ -75,7 +76,7 @@ canónicos, `strconv.Itoa(n) == id`; sin huecos ni repetidos), en cualquier orde
 numérico ("2" < "10"): en L0, L1, L2, L3 y al agregar las ventanas de un texto largo, permutar `options` no cambia `answer` ni `probs`
 (`tok.NivelesScore`, `runtime/tok/orden.go`). Es el mismo contrato que el entrenamiento (`chispa train` rechaza otros ids y dice cómo
 mapearlos, p. ej. bajo→1, medio→2, alto→3). Con cualquier otro conjunto de ids **ninguna capa opina** (L3 ni siquiera llama al LLM ni gasta
-presupuesto) y la cascada escala (`layer: "escalar"`, `escalate: true`, `answer` vacío). La respuesta no lleva campo de motivo: se cuenta
+presupuesto) y la cascada escala (`layer: "escalar"`, `escalate: true`, `answer` vacío, `escalate_reason: "score_ids_no_validos"`). Además se cuenta
 en `chispa_score_ids_no_validos_total{capa}` (una por cada capa que no opinó por esto).
 
 | Tipo | L0 | L1 (zero-shot y few-shot) | L2 / L2c | L3 (opcional) |
@@ -197,9 +198,9 @@ Límites que conviene saber: (1) las probabilidades de un LLM son **autodeclarad
 
 ## `GET /healthz`
 ```
-{"status":"ok"}
+{"status":"ok","capas":{"L0":false,"L1":true,"L2":true,"L3":false},"torre_al_vuelo":true}
 ```
-Dice que el proceso responde. No dice qué capas están cargadas.
+Dice que el proceso responde y qué capas tienen modelo (`false` = capa sin modelo: L3 apagada o sección ausente del `.chispa`) y si L2 puede calcular la torre de un esquema nuevo (`torre_al_vuelo`: el `.chispa` trae `TORR`, y están `-tok` y ONNX Runtime). Con `torre_al_vuelo: false` y sin L1, un esquema que el `.chispa` no trae escala con `escalate_reason: "sin_opinion"`. Los clientes antiguos pueden ignorar los campos nuevos. Al arrancar (y en cada recarga) el servidor escribe en el log las mismas «capas efectivas» y, si no hay torre al vuelo, un `AVISO`.
 
 ## `GET /metrics`
 Texto Prometheus, escrito a mano. Series:
@@ -224,6 +225,8 @@ Texto Prometheus, escrito a mano. Series:
 | `chispa_calib_tau{capa,clave,origen}` | gauge: τ de la CALIB en servicio (`tau_escalate`, y en L2 también `tau_l2c` y `tau_l2_esquema_nuevo` si el `.chispa` los trae); `tau_escalate` de L2 es `tau_escalate_l2` si existe |
 
 Contrato de τ publicados (igual en el servidor y en `chispamovil`, `CalibJSON`): son los **efectivos** (config > CALIB > default), cada uno con su `origen` (`config`, `calib` o `default`). Claves por capa: `tau_escalate` (L1 y L2; en L2 con CONJ y `tau_l2c` es el τ de respaldo de las respuestas de L2 base, el de `tau_escalate_l2`), `tau_l2c` (solo L2 y solo con CONJ y `tau_l2c` en CALIB; es el τ de la cabeza conjunta) y `tau_l2_esquema_nuevo` (solo L2). Sin CONJ no hay `tau_l2c`. En el servidor, las series de CALIB y τ de un modelo se publican cuando ya está en servicio: una recarga rechazada o fallida no las cambia.
+| `chispa_capa_no_opina_total{capa,causa}` | veces que una capa devolvió «sin opinión» (sin error) y por qué: `sin_torre` (esquema que ESQUEMAS no trae y sin torre al vuelo), `tipo_no_soportado` (p. ej. `multi` sin cabeza calibrada), `score_ids_no_validos`, `sin_modelo`, `esquema_no_entrenado` (L0) o `sin_opinion` (otra) |
+| `chispa_sin_opinion_total` | peticiones escaladas porque ninguna capa opinó (`escalate_reason` `sin_opinion` o `score_ids_no_validos`) |
 | `chispa_score_ids_no_validos_total{capa}` | preguntas `score` cuyos ids no son exactamente 1..K, por cada capa que no opinó por eso (la cascada escala) |
 | `chispa_calib_sin_tipo{capa,tipo}` | gauge 1 por cada tipo base (`choice`, `noul`, `score`, `multi`) sin ninguna clave en la CALIB de la capa |
 | `chispa_calib_defecto_total{capa,tipo}` | decisiones que usaron los parámetros por defecto de `choice`/`noul` (o `score` en L1 sin `score` ni `choice`) por falta de CALIB. En `score` y `multi` L2 no usa defecto: no opina (`chispa_multi_l2_sin_calib_total`, `chispa_multi_calib_ausente_total`) |

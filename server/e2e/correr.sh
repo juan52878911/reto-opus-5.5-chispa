@@ -252,6 +252,32 @@ print({k: j[k] for k in ('exactitud_subconjunto','f1_micro','f1_macro','hamming'
 " 2>&1 | cut -c1-300 | sed 's/^/        /' && ok "informe_multi.json: métricas por etiqueta" || fallo "informe_multi.json no válido"
 grep -q "## Por etiqueta" "$W/informe_multi.md" && ok "informe_multi.md" || fallo "informe_multi.md ausente"
 
+paso "10. Que un .chispa sin torre no falle en silencio (train, servidor, métrica, batería) y, con torre, escale con probs"
+$PY -m chispa train --esquema "$D/ferreteria.yaml" --l2 "$W/l2.chispa" --salida "$W/sin_torre.chispa" >"$W/train_sin_torre.log" 2>&1 || { tail -5 "$W/train_sin_torre.log"; critico "train sin --torre"; }
+grep -q "^AVISO: sin TORR" "$W/train_sin_torre.log" && grep -q "capas del .chispa: L0 no, L1 no, L2 sí, torre al vuelo (TORR) no" "$W/train_sin_torre.log" \
+  && ok "train sin --torre: avisa y resume las capas" || { cat "$W/train_sin_torre.log"; fallo "train sin --torre no avisa/resume"; }
+$PY -m chispa train --esquema "$D/ferreteria.yaml" --l2 "$W/l2.chispa" --sin-torre --salida "$W/sin_torre2.chispa" >"$W/train_sin_torre2.log" 2>&1 || critico "train --sin-torre"
+grep -q "^AVISO: sin TORR" "$W/train_sin_torre2.log" && fallo "train --sin-torre avisa aunque es explícito" || ok "train --sin-torre explícito: sin aviso"
+PE=$((PUERTO + 5)); UE=http://127.0.0.1:$PE
+arrancar "$PE" "$W/srvE.log" -modelo "$W/sin_torre.chispa"; PSE=$SPID
+grep -q "capas efectivas: L2; sin modelo: L0, L1, L3; torre al vuelo (esquemas nuevos en L2): false" "$W/srvE.log" && grep -q "AVISO: sin torre al vuelo" "$W/srvE.log" \
+  && ok "servidor: log de arranque con capas efectivas y aviso de torre" || { grep -i "capas" "$W/srvE.log"; fallo "log de arranque sin capas efectivas/aviso"; }
+curl -s "$UE/healthz" | grep -q '"torre_al_vuelo":false' && ok "/healthz: torre_al_vuelo false" || fallo "/healthz sin capacidades"
+pase "esquema nuevo sin torre: todo escala con escalate_reason sin_opinion y sin probs" $CP decidir "$UE" "$D/peticion_nueva.json" --razon sin_opinion
+pase "métrica por capa y causa (L2, sin_torre = 3) y chispa_sin_opinion_total = 3" bash -c "$CP metrica '$UE' chispa_capa_no_opina_total '{capa=\"L2\",causa=\"sin_torre\"}' --igual 3 && $CP metrica '$UE' chispa_sin_opinion_total --igual 3"
+pase "batería contra el servidor sin torre: nadie opinó = 100 %, alerta con la causa" $PY "$AQUI/bateria_nadie.py" "$UE" sin_torre
+kill "$PSE"; wait "$PSE" 2>/dev/null
+cat > "$W/cfg_esc.json" <<JSON
+{"capas":[{"nombre":"L0","tau":1.0},{"nombre":"L1","tau":1.0},{"nombre":"L2","tau":1.0},{"nombre":"L3","tau":1.0}],
+ "tau_l2_esquema_nuevo":1.0, "l1_shrinkage_lambda":4, "cache_esquemas":64}
+JSON
+arrancar "$PE" "$W/srvF.log" -modelo "$W/zs.chispa" -config "$W/cfg_esc.json"; PSF=$SPID
+grep -q "torre al vuelo (esquemas nuevos en L2): true" "$W/srvF.log" && ok "servidor con TORR: el log dice torre al vuelo true" || fallo "log de arranque con torre"
+grep -q "AVISO: sin torre al vuelo" "$W/srvF.log" && fallo "aviso de torre con TORR"
+pase "con torre (τ=1): escala con probs y escalate_reason baja_confianza" $CP decidir "$UE" "$D/peticion_nueva.json" --razon baja_confianza
+pase "batería con torre: escala con probs, las cuenta en exactitud, sin alerta" $PY "$AQUI/bateria_nadie.py" "$UE" con_torre
+kill "$PSF"; wait "$PSF" 2>/dev/null
+
 echo
 if [ "$FALLOS" -eq 0 ]; then echo "RESULTADO: OK (todos los pasos pasan)"; exit 0; fi
 echo "RESULTADO: FALLA ($FALLOS comprobaciones)"; [ "${MANTENER:-}" = 1 ] && echo "trabajo en $W"; exit 1

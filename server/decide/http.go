@@ -183,7 +183,15 @@ func (s *Servidor) Handler() http.Handler {
 	mux.HandleFunc("/v1/decide", s.conAuth(s.decide))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"status":"ok"}`+"\n")
+		out := struct {
+			Status string `json:"status"`
+			Capacidades
+		}{Status: "ok"}
+		if v := s.cur.Load(); v != nil && v.casc != nil {
+			out.Capacidades = v.casc.Capacidades()
+		}
+		b, _ := json.Marshal(out)
+		w.Write(append(b, '\n'))
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		if !s.metricasAutorizado(r) {

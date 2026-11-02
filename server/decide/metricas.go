@@ -88,9 +88,11 @@ type Metricas struct {
 	calibs       map[string]VistaCalib        // CALIB efectiva por capa (calibvis.go), bajo mu
 	calibDefecto map[[2]string]*atomic.Uint64 // chispa_calib_defecto_total{capa,tipo}, bajo mu
 
-	l3Llamadas map[string]*atomic.Uint64 // chispa_l3_llamadas_total{resultado}, bajo mu
-	scoreIds   map[string]*atomic.Uint64 // chispa_score_ids_no_validos_total{capa}, bajo mu
-	l3Lat      histo                     // latencia de cada llamada al LLM de L3
+	l3Llamadas   map[string]*atomic.Uint64    // chispa_l3_llamadas_total{resultado}, bajo mu
+	scoreIds     map[string]*atomic.Uint64    // chispa_score_ids_no_validos_total{capa}, bajo mu
+	noOpina      map[[2]string]*atomic.Uint64 // chispa_capa_no_opina_total{capa,causa}, bajo mu
+	ningunaOpina atomic.Uint64                // chispa_sin_opinion_total
+	l3Lat        histo                        // latencia de cada llamada al LLM de L3
 
 	Timeouts atomic.Uint64 // peticiones cuyo contexto venció por plazo (p. ej. http.TimeoutHandler)
 }
@@ -151,7 +153,7 @@ func (m *Metricas) Recarga(resultado string) { contador(&m.mu, m.recargas, resul
 
 func NuevasMetricas() *Metricas {
 	return &Metricas{clavesN: map[[2]string]*atomic.Uint64{}, recargas: map[string]*atomic.Uint64{}, capas: map[string]*histo{}, errCapa: map[string]*atomic.Uint64{},
-		decididas: map[string]*atomic.Uint64{}, calibDefecto: map[[2]string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}, scoreIds: map[string]*atomic.Uint64{}}
+		decididas: map[string]*atomic.Uint64{}, calibDefecto: map[[2]string]*atomic.Uint64{}, codigos: map[int]*atomic.Uint64{}, l3Llamadas: map[string]*atomic.Uint64{}, scoreIds: map[string]*atomic.Uint64{}, noOpina: map[[2]string]*atomic.Uint64{}}
 }
 
 // l3Cuenta cuenta una llamada de L3 por resultado: ok, invalida (respuesta que no sirve), error, timeout o presupuesto (tope por
@@ -166,6 +168,20 @@ func (m *Metricas) l3Cuenta(resultado string) {
 func (m *Metricas) ScoreIdsNoValidos(capa string) {
 	if m != nil {
 		contador(&m.mu, m.scoreIds, capa).Add(1)
+	}
+}
+
+// CapaNoOpina cuenta una capa que devolvió «sin opinión» (sin error) y la causa. nil-safe.
+func (m *Metricas) CapaNoOpina(capa, causa string) {
+	if m != nil {
+		contador(&m.mu, m.noOpina, [2]string{capa, causa}).Add(1)
+	}
+}
+
+// NingunaCapaOpina cuenta una petición escalada porque ninguna capa opinó. nil-safe.
+func (m *Metricas) NingunaCapaOpina() {
+	if m != nil {
+		m.ningunaOpina.Add(1)
 	}
 }
 
@@ -345,6 +361,21 @@ func (m *Metricas) Escribe(w io.Writer) {
 	for _, c := range claves(&m.mu, m.scoreIds) {
 		fmt.Fprintf(w, "chispa_score_ids_no_validos_total{capa=%q} %d\n", c, contador(&m.mu, m.scoreIds, c).Load())
 	}
+	fmt.Fprintln(w, "# HELP chispa_capa_no_opina_total Veces que una capa devolvió «sin opinión» (sin error), por causa: sin_torre, tipo_no_soportado, score_ids_no_validos, sin_modelo, esquema_no_entrenado, sin_opinion.")
+	fmt.Fprintln(w, "# TYPE chispa_capa_no_opina_total counter")
+	m.mu.Lock()
+	kn := make([][2]string, 0, len(m.noOpina))
+	for k := range m.noOpina {
+		kn = append(kn, k)
+	}
+	m.mu.Unlock()
+	sort.Slice(kn, func(i, j int) bool { return kn[i][0]+"\x00"+kn[i][1] < kn[j][0]+"\x00"+kn[j][1] })
+	for _, k := range kn {
+		fmt.Fprintf(w, "chispa_capa_no_opina_total{capa=%q,causa=%q} %d\n", k[0], k[1], contador(&m.mu, m.noOpina, k).Load())
+	}
+	fmt.Fprintln(w, "# HELP chispa_sin_opinion_total Peticiones escaladas porque ninguna capa opinó (escalate_reason sin_opinion).")
+	fmt.Fprintln(w, "# TYPE chispa_sin_opinion_total counter")
+	fmt.Fprintf(w, "chispa_sin_opinion_total %d\n", m.ningunaOpina.Load())
 	fmt.Fprintln(w, "# HELP chispa_l3_latencia_segundos Latencia de cada llamada de L3 al LLM.")
 	fmt.Fprintln(w, "# TYPE chispa_l3_latencia_segundos histogram")
 	m.l3Lat.escribe(w, "chispa_l3_latencia_segundos")

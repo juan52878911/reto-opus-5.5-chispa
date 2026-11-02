@@ -94,12 +94,14 @@ class Resultado:
     ms: float = 0.0
     nonce: Optional[str] = None
     answers: Optional[List[str]] = None  # solo en multi: las opciones activas (p ≥ θ), en el orden de la pregunta; [] si ninguna
+    escalate_reason: str = ""  # solo si escalate: "sin_opinion" (ninguna capa opinó), "score_ids_no_validos" o "baja_confianza"; "" si no se sabe (servidor anterior)
 
     @classmethod
     def de_json(cls, d: dict) -> "Resultado":
         return cls(id=d["id"], kind=d["kind"], answer=d.get("answer", ""), probs=dict(d.get("probs") or {}),
                    layer=d.get("layer", ""), escalate=bool(d.get("escalate", False)), ms=float(d.get("ms", 0.0)),
-                   nonce=d.get("nonce"), answers=list(d["answers"]) if d.get("answers") is not None else None)
+                   nonce=d.get("nonce"), answers=list(d["answers"]) if d.get("answers") is not None else None,
+                   escalate_reason=d.get("escalate_reason") or "")
 
     @property
     def verdadero(self) -> Optional[bool]:

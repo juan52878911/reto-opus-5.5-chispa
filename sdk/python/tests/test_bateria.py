@@ -23,7 +23,7 @@ class Servidor:
     """/v1/decide falso: `regla(state, pregunta)` → dict con answer, probs, layer, escalate (y answers en multi)."""
 
     def __init__(self, regla):
-        self.regla, self.pedidos, self.metrics = regla, [], None
+        self.regla, self.pedidos, self.metrics, self.healthz = regla, [], None, None
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -46,6 +46,13 @@ class Servidor:
                 self.wfile.write(b)
 
             def do_GET(self):
+                if self.path == "/healthz" and outer.healthz is not None:
+                    b = json.dumps(outer.healthz).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(b)))
+                    self.end_headers()
+                    self.wfile.write(b)
+                    return
                 b = (outer.metrics or "").encode()
                 self.send_response(200 if outer.metrics is not None else 404)
                 self.send_header("Content-Length", str(len(b)))

@@ -74,7 +74,7 @@ def medir(q: Pregunta, ejemplos, cliente: Chispa, concurrencia: int = 4, reloj=t
         except ChispaError as e:
             f.update(error=str(e), error_codigo="transporte")
             return f
-        f.update(answer=r.answer, probs=r.probs, layer=r.layer, escalate=r.escalate, ms=r.ms,
+        f.update(answer=r.answer, probs=r.probs, layer=r.layer, escalate=r.escalate, escalate_reason=r.escalate_reason, ms=r.ms,
                  cliente_ms=(reloj() - t0) * 1000)
         if multi:
             f["answers"] = r.answers
@@ -389,6 +389,17 @@ def calib_servidor(url: str, token: Optional[str] = None, timeout: float = 10.0)
             return parsear_calib(r.read().decode("utf-8", "replace"))
     except Exception as e:  # noqa: BLE001 — la medición no depende de esto
         return {"error": f"/metrics no legible: {getattr(e, 'code', None) or type(e).__name__}"}
+
+
+def capacidades_servidor(url: str, timeout: float = 10.0) -> Optional[dict]:
+    """Lee de `GET /healthz` qué capas tienen modelo y si L2 calcula torres al vuelo ({"capas": {"L1": true, …}, "torre_al_vuelo": bool}).
+    None si el servidor no lo dice (anterior a este campo) o no responde. Nunca lanza."""
+    try:
+        with urllib.request.urlopen(url.rstrip("/") + "/healthz", timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:  # noqa: BLE001 — la medición no depende de esto
+        return None
+    return {"capas": d["capas"], "torre_al_vuelo": bool(d.get("torre_al_vuelo"))} if isinstance(d, dict) and isinstance(d.get("capas"), dict) else None
 
 
 def calib_md(c: dict) -> str:
