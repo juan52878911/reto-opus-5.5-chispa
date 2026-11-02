@@ -211,7 +211,7 @@ func coseno(a, b []float32) float64 {
 }
 
 func (l *L1) Decidir(ctx context.Context, p Pregunta) (Respuesta, error) {
-	if len(p.Opciones) == 0 {
+	if len(p.Opciones) == 0 || !scoreValido(p) { // score con ids que no son 1..K: no opina
 		return Respuesta{}, nil
 	}
 	msgs := l.ventanasMsg(ctx, p.Estado)
@@ -271,7 +271,8 @@ func (l *L1) paramsScore() chispa3.ParamsTipo {
 func respuestaScore(p Pregunta, sims []float64, T float64) Respuesta {
 	r := respuestaSoftmax(p, sims, T)
 	var acc float64
-	for _, o := range opcionesPorNivel(p.Opciones) {
+	niveles, _ := opcionesNiveles(p.Opciones) // Decidir ya comprobó 1..K
+	for _, o := range niveles {
 		acc += r.Probs[o.ID]
 		if acc >= 0.5 {
 			r.Answer, r.Conf = o.ID, r.Probs[o.ID]

@@ -373,3 +373,16 @@ func TestLimitarConexionesNoCortaActivas(t *testing.T) {
 		t.Fatal("no entró la nueva tras quedar ociosa la anterior")
 	}
 }
+
+func TestResumenCapasAvisaSinTorre(t *testing.T) {
+	sin := resumenCapas(0, decide.Capacidades{Capas: map[string]bool{"L0": false, "L1": false, "L2": true, "L3": false}})
+	for _, w := range []string{"capas efectivas: L2; sin modelo: L0, L1, L3", "torre al vuelo (esquemas nuevos en L2): false", "AVISO: sin torre al vuelo", "sin_opinion"} {
+		if !strings.Contains(sin, w) {
+			t.Fatalf("falta %q en %q", w, sin)
+		}
+	}
+	con := resumenCapas(2, decide.Capacidades{Capas: map[string]bool{"L0": true, "L1": true, "L2": true, "L3": false}, TorreAlVuelo: true})
+	if !strings.Contains(con, "L0(2 modelos), L1, L2") || strings.Contains(con, "AVISO") {
+		t.Fatal(con)
+	}
+}

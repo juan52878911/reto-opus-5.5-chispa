@@ -17,8 +17,10 @@ type Resultado struct {
 	Answers  []string `json:"answers,omitempty"`
 	Layer    string   `json:"layer"`
 	Escalate bool     `json:"escalate"`
-	Ms       float64  `json:"ms"`
-	Nonce    string   `json:"nonce,omitempty"`
+	// EscalateReason: por qué escaló (solo con escalate); ver MotivoSinOpinion, MotivoBajaConfianza y MotivoScoreIdsNoValidos.
+	EscalateReason string  `json:"escalate_reason,omitempty"`
+	Ms             float64 `json:"ms"`
+	Nonce          string  `json:"nonce,omitempty"`
 	// Incompleto: una capa falló o el ctx se canceló; no debe guardarse bajo un nonce.
 	Incompleto bool `json:"-"`
 }
@@ -42,6 +44,15 @@ func (r Resultado) MarshalJSON() ([]byte, error) {
 
 // CapaEscalar es el valor de «layer» cuando ninguna capa acepta: no contestó ninguna, así que no se atribuye a la última.
 const CapaEscalar = "escalar"
+
+// Valores de «escalate_reason». sin_opinion: ninguna capa opinó (todas «sin opinión», sin error: el modelo no puede decidir ese
+// esquema: sin torre, tipo no soportado…) y las probs van vacías. score_ids_no_validos: sin opinión porque los ids del score no son
+// 1..K. baja_confianza: alguna capa opinó pero ninguna llegó a su τ.
+const (
+	MotivoSinOpinion        = "sin_opinion"
+	MotivoScoreIdsNoValidos = "score_ids_no_validos"
+	MotivoBajaConfianza     = "baja_confianza"
+)
 
 type capa struct {
 	d   Decisor
@@ -164,6 +175,7 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	t0 := time.Now()
 	res := Resultado{ID: p.ID, Kind: p.Kind, Nonce: p.Nonce, Probs: map[string]float64{}}
 	var mejor Respuesta
+	ninguna := len(c.capas) > 0 // sigue true mientras todas las capas vistas devuelvan «sin opinión» limpia (sin error ni Incompleto)
 	previas := Previas{}
 	ctx = conPresupuesto(ctx)
 	for _, l := range c.capas {
@@ -191,6 +203,14 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			res.Incompleto = true
 		}
 		previas[l.d.Nombre()] = r
+		if r.Conf == 0 && !scoreValido(p) {
+			c.met.ScoreIdsNoValidos(l.d.Nombre())
+		}
+		if r.Conf == 0 && err == nil && !r.Incompleto && ctx.Err() == nil {
+			c.met.CapaNoOpina(l.d.Nombre(), causaNoOpina(l.d, p))
+		} else {
+			ninguna = false
+		}
 		if r.Conf > mejor.Conf {
 			mejor = r
 		}
@@ -219,6 +239,16 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 	}
 	res.Escalate = true
 	res.Layer = CapaEscalar
+	switch {
+	case mejor.Conf > 0:
+		res.EscalateReason = MotivoBajaConfianza
+	case ninguna && !res.Incompleto:
+		res.EscalateReason = MotivoSinOpinion
+		if !scoreValido(p) {
+			res.EscalateReason = MotivoScoreIdsNoValidos
+		}
+		c.met.NingunaCapaOpina()
+	}
 	res.Answer, res.Answers = mejor.Answer, mejor.Answers
 	if mejor.Probs != nil {
 		res.Probs = mejor.Probs

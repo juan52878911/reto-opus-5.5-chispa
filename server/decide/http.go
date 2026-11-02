@@ -16,8 +16,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"chispa/runtime/tok"
 )
 
 // Valores por defecto de los límites (ver Limites).
@@ -185,7 +183,15 @@ func (s *Servidor) Handler() http.Handler {
 	mux.HandleFunc("/v1/decide", s.conAuth(s.decide))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		io.WriteString(w, `{"status":"ok"}`+"\n")
+		out := struct {
+			Status string `json:"status"`
+			Capacidades
+		}{Status: "ok"}
+		if v := s.cur.Load(); v != nil && v.casc != nil {
+			out.Capacidades = v.casc.Capacidades()
+		}
+		b, _ := json.Marshal(out)
+		w.Write(append(b, '\n'))
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		if !s.metricasAutorizado(r) {
@@ -319,9 +325,6 @@ func (s *Servidor) decide(w http.ResponseWriter, r *http.Request) {
 		if p.Nonce != "" {
 			h := sha256.Sum256([]byte(p.Estado))
 			ck = idClave + "|" + p.Nonce + "|" + hex.EncodeToString(h[:8]) + "|" + ClaveEsquema(p) + "|" + p.ID
-			if p.Kind == KindScore && !tok.IdsEnteros(idsDe(p.Opciones)) {
-				ck += "|" + strings.Join(idsDe(p.Opciones), "\x00") // en score no numérico el orden declarado es la escala
-			}
 			if b, ok := v.nonces.Get(ck); ok {
 				s.Met.NonceHits.Add(1)
 				out.Results[i] = b

@@ -23,7 +23,7 @@ class Servidor:
     """/v1/decide falso: `regla(state, pregunta)` → dict con answer, probs, layer, escalate (y answers en multi)."""
 
     def __init__(self, regla):
-        self.regla, self.pedidos, self.metrics = regla, [], None
+        self.regla, self.pedidos, self.metrics, self.healthz = regla, [], None, None
         outer = self
 
         class H(BaseHTTPRequestHandler):
@@ -46,6 +46,13 @@ class Servidor:
                 self.wfile.write(b)
 
             def do_GET(self):
+                if self.path == "/healthz" and outer.healthz is not None:
+                    b = json.dumps(outer.healthz).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(b)))
+                    self.end_headers()
+                    self.wfile.write(b)
+                    return
                 b = (outer.metrics or "").encode()
                 self.send_response(200 if outer.metrics is not None else 404)
                 self.send_header("Content-Length", str(len(b)))
@@ -376,7 +383,10 @@ def _por_descripcion(state, q):
     if q["kind"] == "multi":
         act = [o["id"] for o in ops if o.get("description") in ("def a", "def b")]
         return {"answer": act[0], "answers": act, "probs": {o["id"]: (0.9 if o["id"] in act else 0.1) for o in ops}}
-    ans = next((o["id"] for o in ops if o.get("description") == "def a"), ops[0]["id"])
+    if q["kind"] == "score":  # como el runtime: el nivel es el valor del id, no la posición
+        ans = min((o["id"] for o in ops), key=int)
+    else:
+        ans = next((o["id"] for o in ops if o.get("description") == "def a"), ops[0]["id"])
     return {"answer": ans, "probs": probs(q, ans, 0.9)}
 
 
@@ -417,12 +427,12 @@ class TestRobustez(Base):
             self.assertIn(t, r["conjuntos"]["choice"]["transformaciones"])
         self.assertIn("Robustez por transformación", r["informe"])
 
-    def test_renombrar_y_permutar_solo_en_choice_y_multi(self):
+    def test_renombrar_solo_en_choice_y_multi_y_permutar_tambien_en_score(self):
         r = self.correr_con(_por_descripcion)
+        self.assertNotIn("permutar", r["conjuntos"]["noul"]["transformaciones"])
         for n in ("noul", "score"):
-            ts = r["conjuntos"][n]["transformaciones"]
-            self.assertNotIn("permutar", ts)
-            self.assertNotIn("renombrar", ts)
+            self.assertNotIn("renombrar", r["conjuntos"][n]["transformaciones"])
+        self.assertIn("permutar", r["conjuntos"]["score"]["transformaciones"])  # ids 1..K: permutar es segura
         self.assertIn("renombrar", r["conjuntos"]["multi"]["transformaciones"])
         self.assertEqual(r["conjuntos"]["multi"]["estabilidad"], 1.0)  # el conjunto activo se compara con los ids traducidos
 

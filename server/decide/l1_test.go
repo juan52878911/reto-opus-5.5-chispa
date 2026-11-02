@@ -366,11 +366,20 @@ func TestL1ScoreNivelesOrdenados(t *testing.T) {
 			t.Fatalf("cascada %q: %+v", estado, res)
 		}
 	}
-	// los ids no tienen que ser 1..K: el orden de la pregunta es el orden ordinal
-	ops := []Opcion{{ID: "bajo", Description: "factura cobro"}, {ID: "medio", Description: "paquete envio"}, {ID: "alto", Description: "hola gracias"}}
-	r, _ := l1.Decidir(context.Background(), Pregunta{Kind: KindScore, Texto: "¿Urgencia?", Estado: "paquete envio", Opciones: ops})
-	if r.Answer != "medio" {
-		t.Fatalf("ids ordinales: %+v", r)
+	// ids que no son exactamente 1..K: L1 no opina y la cascada escala (se cuenta en chispa_score_ids_no_validos_total)
+	desc := []string{"factura cobro", "paquete envio", "hola gracias"}
+	for _, ids := range [][]string{{"bajo", "medio", "alto"}, {"0", "1", "2"}, {"1", "2", "4"}, {"01", "2", "3"}} {
+		var ops []Opcion
+		for i, id := range ids {
+			ops = append(ops, Opcion{ID: id, Description: desc[i]})
+		}
+		q := Pregunta{ID: "n", Kind: KindScore, Texto: "¿Urgencia?", Estado: "paquete envio", Opciones: ops}
+		if r, err := l1.Decidir(context.Background(), q); err != nil || r.Conf != 0 || r.Answer != "" {
+			t.Fatalf("ids %v: %+v %v", ids, r, err)
+		}
+		if res := casc.Decidir(context.Background(), q); !res.Escalate || res.Layer != CapaEscalar || res.Answer != "" {
+			t.Fatalf("cascada %v: %+v", ids, res)
+		}
 	}
 }
 

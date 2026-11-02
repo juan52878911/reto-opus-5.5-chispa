@@ -391,7 +391,7 @@ LAMBDA_L1_SUGERIDA = 4.0
 def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=None, pregunta=None, semilla=1,
              frac_valid=0.2, l0_max_mb=48.0, usar_go=True, conjunta=False, modelo_l2=None, l0tf_f16=False, l0tf_max_mb=48.0, precision_objetivo=0.95,
              validacion=None, margen=0.02, suelo=0.05, tope_tau=0.9, torre=None, torre_dim=None, torre_max_len=None, torre_prefijo=None,
-             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, perfil="servidor", log=print) -> dict:
+             shrinkage_lambda=None, sin_soporte=False, embeber=None, tau_l2_esquema_nuevo=None, perfil="servidor", sin_torre=False, log=print) -> dict:
     """Entrena y escribe `salida`. Sin `ejemplos`: zero-shot (L1 de las descripciones, y L2/ESQUEMAS con `l2`/`ckpt`). Con pocos
     (< MIN_L0_POR_OPCION por opción): few-shot, sin L0. `conjunta` con < MIN_CONJ_POR_OPCION por opción avisa y cae a few-shot. Devuelve el informe (secciones, omitidas, validación, tiempos y `reloj_s` total).
 
@@ -414,6 +414,10 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         raise ChispaError("--sin-soporte y --shrinkage-lambda a la vez: elige uno")
     if tau_l2_esquema_nuevo is not None and not 0 <= tau_l2_esquema_nuevo <= 1:  # también descarta NaN
         raise ChispaError(f"--tau-l2-esquema-nuevo debe estar en [0,1]: {tau_l2_esquema_nuevo}")
+    if sin_torre and torre:
+        raise ChispaError("--sin-torre y --torre a la vez: elige uno")
+    if not torre and not sin_torre and ckpt:  # el checkpoint trae su torre (o su ONNX está al lado): se incluye por defecto
+        torre = _torre_junto_al_ckpt(ckpt, log)
     if torre:  # valida antes de entrenar nada: un ONNX malo falla en segundos
         from .torre import validar_torre
         torre = validar_torre(torre, torre_dim, torre_max_len, torre_prefijo, log)
@@ -427,7 +431,7 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         from .multi import entrenar_multi
         inf = entrenar_multi(ejemplos, q_tipo, extra_tipo, salida, l1=l1, ckpt=ckpt, l2=l2, repo=repo, shrinkage_lambda=shrinkage_lambda,
                              sin_soporte=sin_soporte, embeber=embeber, perfil=perfil, log=log)
-        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log)
+        return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre)
     lam = LAMBDA_L1_SUGERIDA if shrinkage_lambda is None else shrinkage_lambda
     con_soporte = not sin_soporte and (shrinkage_lambda is not None or (l1 and ejemplos))
     inf = _entrenar(ejemplos, esquema, salida, lambda_l1=lam if con_soporte and l1 and ejemplos and lam != float("inf") else None, l1=l1, ckpt=ckpt, l2=l2, repo=repo, pregunta=pregunta, semilla=semilla,
@@ -439,10 +443,10 @@ def entrenar(ejemplos, esquema, salida, *, l1=None, ckpt=None, l2=None, repo=Non
         q, _ = cargar_esquema(esquema, pregunta)
         anadir_sopl1(salida, q, cargar_ejemplos(ejemplos, q.id) if ejemplos else [], l1, lam,
                      inf, log, embeber, repo, normas, explicito=shrinkage_lambda is not None)
-    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log)
+    return _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre)
 
 
-def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log) -> dict:
+def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log, sin_torre) -> dict:
     """Lo que `entrenar` añade al fichero ya escrito: τ de L2 para esquemas nuevos y la sección TORR."""
     if tau_l2_esquema_nuevo is not None:
         anadir_tau_l2_esquema_nuevo(salida, tau_l2_esquema_nuevo)
@@ -451,7 +455,38 @@ def _cierre_entrenar(inf, salida, tau_l2_esquema_nuevo, torre, log) -> dict:
         from .torre import anadir_torr
         anadir_torr(salida, torre, inf)
         log(f"TORR: dim {torre['dim']}, max_len {torre['max_len']}, prefijo {torre['prefijo']!r}, {len(torre['onnx'])} bytes de ONNX")
+    resumen_capas(salida, log, sin_torre)
     return inf
+
+
+NOMBRES_TORRE_CKPT = ("torre.onnx", "torre-int8.onnx")
+
+
+def _torre_junto_al_ckpt(ckpt, log):
+    """Ruta del ONNX de la torre que acompaña al checkpoint (en su directorio, o al lado si `ckpt` es un fichero), o None."""
+    ckpt = Path(ckpt)
+    base = ckpt if ckpt.is_dir() else ckpt.parent
+    for n in NOMBRES_TORRE_CKPT:
+        if (base / n).is_file():
+            log(f"TORR: se incluye {base / n} (junto al checkpoint); --sin-torre para no incluirla")
+            return base / n
+    return None
+
+
+def resumen_capas(salida, log=print, sin_torre=False) -> dict:
+    """Dice qué capas lleva el .chispa escrito y cuáles no, y avisa si sin TORR no podrá decidir esquemas nuevos en L2. Devuelve {capa: bool}."""
+    sec = formato.leer(Path(salida).read_bytes())
+    tiene = {"L0": formato.L0 in sec or formato.L0TF in sec, "L1": formato.L1 in sec, "L2": formato.L2 in sec, "torre al vuelo (TORR)": formato.TORR in sec}
+    log("capas del .chispa: " + ", ".join(f"{k} {'sí' if v else 'no'}" for k, v in tiene.items()))
+    if not tiene["torre al vuelo (TORR)"]:
+        if sin_torre:
+            log("sin torre por --sin-torre: L2 solo decide los esquemas de ESQUEMAS")
+        else:
+            otras = [k for k in ("L0", "L1") if tiene[k]]
+            log("AVISO: sin TORR: este .chispa no decide esquemas nuevos en L2 (solo los de ESQUEMAS)"
+                + (f"; con esquemas nuevos solo opinarán {' y '.join(otras)}" if otras else "; sin L0 ni L1, con esquemas nuevos escalará todo sin probs (escalate_reason sin_opinion)")
+                + ". Añade --torre torre.onnx (o deja el ONNX junto al checkpoint) o pasa --sin-torre si es a propósito")
+    return tiene
 
 
 def _entrenar(ejemplos, esquema, salida, *, lambda_l1=None, l1, ckpt, l2, repo, pregunta, semilla, frac_valid, l0_max_mb, usar_go, conjunta,

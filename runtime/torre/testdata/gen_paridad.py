@@ -25,7 +25,7 @@ CASOS = [
  ("noul", "¿Odio?", [("false", "no hay"), ("true", "sí hay")]),
  ("score", "Gravedad", [("1", ""), ("2", ""), ("3", "")]),
  ("score", "Gravedad desordenada", [("3", "alta"), ("1", "baja"), ("2", "media")]),
- ("score", "Diez niveles", [("2", ""), ("10", "máximo"), ("9", "")]),
+ ("score", "Cuatro niveles", [("2", ""), ("4", "máximo"), ("3", ""), ("1", "")]),
  ("score", "Satisfacción", [("5", "muy satisfecho"), ("4", ""), ("3", ""), ("2", ""), ("1", "nada")]),
  ("multi", "Etiquetas del ticket", [("pago", "problemas de pago"), ("envío", ""), ("cuenta", "acceso")]),
  ("multi", "Temas", [("b", ""), ("a", "")]),

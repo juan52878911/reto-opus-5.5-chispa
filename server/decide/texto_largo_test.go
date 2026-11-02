@@ -27,7 +27,7 @@ func l1Largo(t *testing.T, tl *TextoLargo) *L1 {
 func preguntasL1(estado string) []Pregunta {
 	return []Pregunta{
 		{Kind: KindChoice, Texto: "¿Qué área?", Opciones: opsReembolso(), Estado: estado},
-		{Kind: KindScore, Texto: "¿Qué área?", Opciones: opsReembolso(), Estado: estado},
+		{Kind: KindScore, Texto: "¿Qué área?", Opciones: nivelesScore(), Estado: estado},
 		{Kind: KindNoul, Texto: "¿Es de envíos?", Opciones: []Opcion{{ID: "true"}, {ID: "false"}}, Estado: estado},
 	}
 }

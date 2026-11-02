@@ -3,7 +3,6 @@ package decide
 import (
 	"context"
 	"math"
-	"strings"
 	"testing"
 
 	"chispa/format/chispa3"
@@ -24,16 +23,15 @@ func opsWA(ids []string) []Opcion {
 	return out
 }
 
-func TestWAOrdenNivel(t *testing.T) {
-	if got := tok.OrdenNivel([]string{"10", "2", "1"}); strings.Join(got, ",") != "1,2,10" {
-		t.Fatalf("numérico: %v", got)
+func TestWAOpcionesNiveles(t *testing.T) {
+	ops, ok := opcionesNiveles(opsWA([]string{"3", "1", "2"}))
+	if !ok || ops[0].ID != "1" || ops[1].ID != "2" || ops[2].ID != "3" {
+		t.Fatalf("%v ok=%v", ops, ok)
 	}
-	in := []string{"alto", "bajo", "medio"}
-	if got := tok.OrdenNivel(in); strings.Join(got, ",") != "alto,bajo,medio" {
-		t.Fatalf("no numérico debe conservar el orden: %v", got)
-	}
-	if got := tok.OrdenNivel([]string{"3", "x", "1"}); strings.Join(got, ",") != "3,x,1" {
-		t.Fatalf("mezcla debe conservar el orden: %v", got)
+	for _, ids := range [][]string{{"bajo", "medio", "alto"}, {"0", "1", "2"}, {"1", "2", "4"}, {"01", "2", "3"}} {
+		if _, ok := opcionesNiveles(opsWA(ids)); ok {
+			t.Fatalf("%v no son 1..K", ids)
+		}
 	}
 }
 

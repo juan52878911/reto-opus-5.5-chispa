@@ -112,11 +112,19 @@ class TestVariantes(unittest.TestCase):
             self.assertEqual(v["etiqueta"], "2")
             self.assertEqual(v["mapa"], {"1": "1", "2": "2", "3": "3"})
         self.assertGreater(len(ordenes), 1)
-        self.assertIn("ordena las opciones por id", V.permutar.__doc__)
-        self.assertIn("ordena las opciones por id", V.__doc__)
+        self.assertIn("por el valor del id", V.permutar.__doc__)
+        self.assertIn("por el valor del id", V.__doc__)
 
-    def test_permutar_en_score_no_entero_canonico_es_la_identidad(self):
-        for ids in (("bajo", "medio", "alto"), ("01", "2", "3"), ("1", "+2", "3"), ("1", "2", "x")):
+    def test_permutar_en_score_doce_niveles_siempre_uno_a_k(self):
+        score = {"texto": "t", "pregunta": "¿Cuánto?", "kind": "score", "etiqueta": "10",
+                 "opciones": [{"id": str(i), "description": ""} for i in range(1, 13)]}
+        for s_ in range(20):
+            ids = [o["id"] for o in V.permutar(score, random.Random(s_))["opciones"]]
+            self.assertEqual(sorted(int(i) for i in ids), list(range(1, 13)))
+
+    def test_permutar_en_score_sin_uno_a_k_es_la_identidad(self):
+        for ids in (("bajo", "medio", "alto"), ("0", "1", "2"), ("1", "2", "4"), ("2", "3"), ("1", "1", "2"), ("01", "2", "3"),
+                    ("1", "+2", "3"), ("1", "2", "x")):
             score = {"texto": "t", "pregunta": "¿Qué tan urgente?", "kind": "score", "etiqueta": ids[1],
                      "opciones": [{"id": i, "description": f"nivel {i}"} for i in ids]}
             for s_ in range(10):

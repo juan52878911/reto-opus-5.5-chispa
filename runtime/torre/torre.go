@@ -58,7 +58,7 @@ func Clave(pregunta string, o Opcion) string {
 }
 
 // OpcionesConsulta son las opciones que llevan torre: una por opción en choice; en noul y score una sola, la de la
-// consulta (texto_consulta del export): «true» en noul y el nivel máximo en score. Vacío si score no trae opciones.
+// consulta (texto_consulta del export): «true» en noul y el nivel máximo (K) en score. Vacío si los ids de score no son exactamente 1..K.
 func OpcionesConsulta(p Pregunta) []Opcion {
 	switch p.Kind {
 	case KindChoice:
@@ -71,16 +71,30 @@ func OpcionesConsulta(p Pregunta) []Opcion {
 		}
 		return []Opcion{{ID: "true"}}
 	}
-	if len(p.Opciones) == 0 {
-		return nil
-	}
-	ult, max := len(p.Opciones)-1, -1 // el nivel mayor si los ids son numéricos; si no, la última
-	for i, o := range p.Opciones {
-		if n, ok := canonico(o.ID); ok && n > max {
-			ult, max = i, n
+	// score: la consulta es el nivel máximo, y solo hay torre si los ids son exactamente 1..K (como tok.NivelesScore).
+	k := len(p.Opciones)
+	for _, o := range p.Opciones {
+		if n, ok := canonico(o.ID); ok && n == k {
+			if !idsUnoAK(p.Opciones) {
+				return nil
+			}
+			return []Opcion{o}
 		}
 	}
-	return p.Opciones[ult : ult+1]
+	return nil
+}
+
+// idsUnoAK dice si los ids son exactamente 1..K canónicos, sin repetidos y en cualquier orden.
+func idsUnoAK(ops []Opcion) bool {
+	vistos := make([]bool, len(ops)+1)
+	for _, o := range ops {
+		n, ok := canonico(o.ID)
+		if !ok || n < 1 || n > len(ops) || vistos[n] {
+			return false
+		}
+		vistos[n] = true
+	}
+	return len(ops) > 0
 }
 
 // canonico devuelve el entero de id si está en forma canónica (strconv.Itoa(n) == id).

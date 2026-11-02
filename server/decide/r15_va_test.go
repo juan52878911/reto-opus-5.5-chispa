@@ -157,26 +157,20 @@ func TestR15L2ScoreDocePermutado(t *testing.T) {
 	}
 }
 
-// (b) ids no numéricos: se conserva el orden declarado (el nivel es la posición), nunca el lexicográfico.
-func TestR15L2ScoreNoNumericosConservaOrden(t *testing.T) {
-	a := []string{"bajo", "medio", "alto"}
-	b := []string{"alto", "medio", "bajo"} // lexicográfico daría alto, bajo, medio
-	l := l2Score(t, calibNiveles(3), a, b)
-	pos := func(ids []string) int {
-		r, err := l.Decidir(context.Background(), Pregunta{Texto: "s", Kind: KindScore, Opciones: opsIDs(ids...)})
-		if err != nil || r.Conf == 0 {
-			t.Fatalf("%v: %+v %v", ids, r, err)
-		}
-		for i, id := range ids {
-			if id == r.Answer {
-				return i
-			}
-		}
-		t.Fatalf("respuesta %q fuera de las opciones", r.Answer)
-		return -1
+// (b) L2 y score: con ids que no son exactamente 1..K no opina (ni gasta torres), en cualquier orden.
+func TestR15L2ScoreIdsNoUnoAKNoOpina(t *testing.T) {
+	validos := []string{"1", "2", "3"}
+	invalidos := [][]string{{"bajo", "medio", "alto"}, {"alto", "medio", "bajo"}, {"0", "1", "2"}, {"1", "2", "4"}, {"01", "2", "3"}}
+	l := l2Score(t, calibNiveles(3), append([][]string{validos}, invalidos...)...)
+	r, err := l.Decidir(context.Background(), Pregunta{Texto: "s", Kind: KindScore, Opciones: opsIDs(validos...)})
+	if err != nil || r.Conf == 0 {
+		t.Fatalf("1..3 debía opinar: %+v %v", r, err)
 	}
-	if pa, pb := pos(a), pos(b); pa != pb {
-		t.Fatalf("el nivel debe ser la posición declarada: %d vs %d", pa, pb)
+	for _, ids := range invalidos {
+		r, err := l.Decidir(context.Background(), Pregunta{Texto: "s", Kind: KindScore, Opciones: opsIDs(ids...)})
+		if err != nil || r.Conf != 0 || r.Answer != "" {
+			t.Fatalf("%v: %+v %v, esperaba que no opinara", ids, r, err)
+		}
 	}
 }
 
@@ -188,7 +182,7 @@ type casoScoreOrden struct {
 }
 
 // (c) paridad con model/l2/modelo.py (testdata/gen_score_orden.py → score_orden.json): la torre de consulta es el nivel máximo
-// sea cual sea el orden; con ids no numéricos Python rechaza y aquí se conserva el orden declarado.
+// sea cual sea el orden; con ids que no son 1..K Python rechaza y aquí la capa no opina.
 func TestR15L2ScoreParidadPythonOrden(t *testing.T) {
 	b, err := os.ReadFile("testdata/score_orden.json")
 	if err != nil {
@@ -200,20 +194,18 @@ func TestR15L2ScoreParidadPythonOrden(t *testing.T) {
 	}
 	for _, c := range casos {
 		ops := opsIDs(c.Opciones...)
-		orden, num := ordenNivel(ops)
+		orden, ok := opcionesNiveles(ops)
 		if c.Error {
-			if num {
-				t.Fatalf("%s: Python rechaza y Go lo trata como numérico", c.Caso)
+			if ok {
+				t.Fatalf("%s: Python rechaza y Go lo acepta como 1..K", c.Caso)
 			}
-			for i := range ops {
-				if orden[i].ID != ops[i].ID {
-					t.Fatalf("%s: no se conservó el orden declarado: %v", c.Caso, orden)
-				}
+			if got := OpcionesConsulta(Pregunta{Kind: KindScore, Opciones: ops}); got != nil {
+				t.Fatalf("%s: sin 1..K no hay torre de consulta: %v", c.Caso, got)
 			}
 			continue
 		}
-		if !num {
-			t.Fatalf("%s: debía ser numérico", c.Caso)
+		if !ok {
+			t.Fatalf("%s: debía ser 1..K", c.Caso)
 		}
 		if got := OpcionesConsulta(Pregunta{Kind: KindScore, Opciones: ops})[0].ID; got != c.Consulta {
 			t.Fatalf("%s: torre de consulta %q, Python %q", c.Caso, got, c.Consulta)

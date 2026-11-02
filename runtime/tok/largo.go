@@ -214,8 +214,12 @@ func AgregarProbs(kind string, ids []string, ps []map[string]float64, agg string
 		probs[id] /= z
 	}
 	if kind == "score" {
+		niveles, valido := NivelesScore(ids)
+		if !valido {
+			return nil, "", 0, false // ids que no son 1..K: sin escala
+		}
 		var acc float64
-		for _, id := range OrdenNivel(ids) {
+		for _, id := range niveles {
 			acc += probs[id]
 			if acc >= 0.5 {
 				return probs, id, probs[id], true
