@@ -1,0 +1,19 @@
+entorno	OK torch 2.10.0+cu130 cuda True dispositivo cuda, go version go1.27.1 linux/amd64
+paquete	OK
+v2	OK 4113441 bytes de s3://chispa-pruebas-879381269751/ajuste-v2-23b38e6/ckpt/mejor.pt
+clandestino	OK leidas 9998 IA 1625 PII 6479 validas 30055 score {'1': 406, '2': 434, '3': 627, '4': 322, '5': 105}
+jevbench	OK 231 casos
+datos	OK 17 fuentes convertidas (sib200 pawsx odio_alia toxicidad_protestas toxicidad_constitucion )
+clandestino	OK filas {'dev': 3091, 'test': 3001, 'train': 23963} descartadas IA 1625 PII 6479
+meta	OK 14 ficheros de tsjev
+tsjev_es	OMITIDO CHISPA_SIN_TSJEV_ES=1 (sin español traducido)
+orden_score	OK score 53623, no ascendente 0, fuera de 1..K 0 (descartadas al cargar)
+ajuste	OK 2672 pasos, 152791 filas, mejor dev 0.3889 en el paso 1336, 732 s
+potion	OK 154772608 bytes
+jev_nuevo	OK L2 k=0: exactitud 0.4892, macro-F1 0.3431
+m3_nuevo	OK L2 cambia > 5 %: 7 de 9 tipos
+m4_nuevo	OK Δ(es−en) exactitud -3.0 pts
+jev_v2	OK L2 k=0: exactitud 0.5022, macro-F1 0.3410
+m3_v2	OK L2 cambia > 5 %: 6 de 9 tipos
+m4_v2	OK Δ(es−en) exactitud -3.0 pts
+comparacion	OK comparacion.md
