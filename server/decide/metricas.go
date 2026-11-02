@@ -330,9 +330,9 @@ func (m *Metricas) Escribe(w io.Writer) {
 	m.mu.Lock()
 	motivoTorre := m.torreMotivo
 	m.mu.Unlock()
-	fmt.Fprintln(w, "# HELP chispa_torre_al_vuelo_desactivada 1 si el modelo en servicio trae TORR pero L2 no calcula torres al vuelo, con el motivo (texto_torre_inconsistente: META.texto_torre y TORR no coinciden).")
+	fmt.Fprintln(w, "# HELP chispa_torre_al_vuelo_desactivada 1 si el modelo en servicio trae TORR pero L2 no calcula torres al vuelo, con el motivo (texto_torre_inconsistente: META.texto_torre y TORR no coinciden; max_opciones_excesivo: limites.max_opciones pasa de 4096).")
 	fmt.Fprintln(w, "# TYPE chispa_torre_al_vuelo_desactivada gauge")
-	for _, mo := range []string{"texto_torre_inconsistente"} {
+	for _, mo := range []string{"texto_torre_inconsistente", MotivoMaxOpcionesExcesivo} {
 		v := 0
 		if motivoTorre == mo {
 			v = 1

@@ -232,6 +232,13 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 			mt.avisarCalib(VistaCalibCapa("L2", calib.ParaL2(), or, !base.sinCalibFichero))
 			cerrables := []any{base.ses}
 			base.ConMotivoSinTorre(motivoSinTorre)
+			if f.Tiene(chispa3.TORR) && motivoSinTorre == "" && cfg.maxOpcionesEfectivo() > MaxOpcionesTope {
+				// la caché de torres guarda 16 × max_opciones: con más del máximo, la torre al vuelo se desactiva en vez de fallar
+				motivoSinTorre = MotivoMaxOpcionesExcesivo
+				base.ConMotivoSinTorre(motivoSinTorre)
+				mt.Avisos = append(mt.Avisos, fmt.Sprintf("AVISO: torre al vuelo desactivada (%s): limites.max_opciones (%d) pasa del máximo %d para la caché de torres (16 × max_opciones); el modelo carga sin torres al vuelo",
+					motivoSinTorre, cfg.maxOpcionesEfectivo(), MaxOpcionesTope))
+			}
 			if f.Tiene(chispa3.TORR) && motivoSinTorre == "" {
 				base.ConTextoTorre(textoTorre)
 				// Con TORR, la caché debe caber la pregunta más grande con margen por los fragmentos del LRU (16 × max_opciones):
