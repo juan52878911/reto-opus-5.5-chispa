@@ -114,26 +114,25 @@ func TestR20CupoDevueltoCaminoParcial(t *testing.T) {
 	}
 }
 
-// R20 #6: cache_torres debe ser >= max_torres_nuevas (valores efectivos).
+// R20 #6 / ZE: Validar acepta cualquier cache_torres >= 0 (el mínimo 1,5 × max_opciones se aplica al montar el modelo con TORR);
+// el aviso de cache_torres < max_torres_nuevas sigue.
 func TestR20ConfigCacheTorresMenorQueMax(t *testing.T) {
 	cfg := ConfigPorDefecto()
 	if err := cfg.Validar(); err != nil {
 		t.Fatalf("el defecto debe ser válido: %v", err)
 	}
+	for _, k := range [][2]int{{128, 256}, {128, 0}, {64, 64}, {384, 256}, {0, 64}} {
+		cfg.CacheTorres, cfg.MaxTorresNuevas = k[0], k[1]
+		if err := cfg.Validar(); err != nil {
+			t.Fatalf("cache=%d max=%d debe ser válida: %v", k[0], k[1], err)
+		}
+	}
 	cfg.CacheTorres, cfg.MaxTorresNuevas = 128, 256
-	if err := cfg.Validar(); err == nil || !strings.Contains(err.Error(), "cache_torres") {
-		t.Fatalf("esperaba error de cache_torres < 1,5 × max_opciones: %v", err)
+	if av := cfg.Avisos(); len(av) == 0 || !strings.Contains(av[0], "cache_torres") {
+		t.Fatalf("cache_torres < max_torres_nuevas debe avisar: %q", av)
 	}
-	cfg.CacheTorres, cfg.MaxTorresNuevas = 128, 0 // max efectivo = defecto
+	cfg.CacheTorres = -1
 	if err := cfg.Validar(); err == nil {
-		t.Fatal("cache_torres 128 con el max por defecto debe fallar")
-	}
-	cfg.CacheTorres, cfg.MaxTorresNuevas = 384, 256 // ZC-3: lo que cuenta es 1,5 × max_opciones, no max_torres_nuevas
-	if err := cfg.Validar(); err != nil {
-		t.Fatalf("384 = 1,5 × 256 es válido: %v", err)
-	}
-	cfg.CacheTorres, cfg.MaxTorresNuevas = 0, 64
-	if err := cfg.Validar(); err != nil {
-		t.Fatalf("cache por defecto y max 64: %v", err)
+		t.Fatal("cache_torres negativo debe fallar")
 	}
 }
