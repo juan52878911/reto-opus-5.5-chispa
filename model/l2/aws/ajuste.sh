@@ -243,7 +243,9 @@ json.dump({"ficheros": ficheros}, open(os.path.join(raiz, "resumen.json"), "w"))
 PYEOF
   fi
   NE=0; NEF=0
-  if s3cp "$TSJEV_ES_S3/resumen.json" "$BASE/tsjev-es.resumen.json" 2>/dev/null; then
+  if [ "${CHISPA_SIN_TSJEV_ES:-0}" = 1 ]; then   # sin traducción (se paró el 2026-11-02 tras 4 intentos): v3 solo con Clandestino y el aumento
+    estado tsjev_es "OMITIDO CHISPA_SIN_TSJEV_ES=1 (sin español traducido)"
+  elif s3cp "$TSJEV_ES_S3/resumen.json" "$BASE/tsjev-es.resumen.json" 2>/dev/null; then
     "$PY" -I -c 'import json,sys; print("\n".join(f for f in json.load(open(sys.argv[1]))["ficheros"] if f.startswith("tsjev-es/")))' "$BASE/tsjev-es.resumen.json" > "$BASE/tsjev-es.lista" 2>/dev/null
     while IFS= read -r f; do
       [ -n "$f" ] || continue
