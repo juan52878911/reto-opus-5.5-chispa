@@ -7,7 +7,8 @@ Fila: `Key`, `Sentence`, `IsAIGenerated` ("True"/"False"), `Index`, `Switch` y `
 preguntas se identifican por prefijo («Question 1:», «Question 7:»…), no por el texto entero. Si falta una clave esperada, `ValueError` con lo que trae la fila.
 
 Conversión (decidida por el orquestador):
-  filtro   IsAIGenerated == "False" y ningún anotador con Q7 (PII) = Yes (esas filas se descartan y se cuentan).
+  filtro   IsAIGenerated == "False" y ningún anotador con Q7 (PII) = Yes o Maybe (esas filas se descartan y se cuentan;
+           `descartadas_pii_solo_maybe` las que solo tenían Maybe).
   score    Q1 (dañino, 1..5): mediana de los anotadores, redondeada (la mitad hacia arriba) -> ids «1»..«5».
   noul     dañino: mediana de Q1 >= 3 (sin redondear) -> `true`/`false`.
   noul     Q3 (sexual) y Q8 (información falsa): `true` si más de la mitad de los anotadores dice Yes, `false` si más de la mitad dice No; Maybe no
@@ -179,8 +180,10 @@ def convertir(raiz=None, min_grupo=MIN_GRUPO):
         _validar_fila(r)
         if _bool_ia(r["IsAIGenerated"]):
             info["descartadas_ia"] += 1
-        elif any(_yn(_pregunta(a, 7)) == "yes" for a in r["Annotators"]):
+        elif any(_yn(_pregunta(a, 7)) in ("yes", "maybe") for a in r["Annotators"]):   # Maybe cuenta como Yes (decisión de 2026-11-02)
             info["descartadas_pii"] += 1
+            if not any(_yn(_pregunta(a, 7)) == "yes" for a in r["Annotators"]):
+                info["descartadas_pii_solo_maybe"] = info.get("descartadas_pii_solo_maybe", 0) + 1
         elif not str(r["Sentence"] or "").strip() or not str(r["Key"] or "").strip():
             info["descartadas_invalidas"]["sin_texto_o_key"] += 1
         else:
@@ -223,7 +226,7 @@ def contar(ruta, min_grupo=MIN_GRUPO):
     por = {}
     for f in filas:
         por.setdefault(f["tipo"], Counter())[f["split"]] += 1
-    return {"filas_leidas": info["leidas"], "descartadas_ia": info["descartadas_ia"], "descartadas_pii": info["descartadas_pii"],
+    return {"filas_leidas": info["leidas"], "descartadas_ia": info["descartadas_ia"], "descartadas_pii": info["descartadas_pii"], "descartadas_pii_solo_maybe": info.get("descartadas_pii_solo_maybe", 0),
             "descartadas_invalidas": info["descartadas_invalidas"], "omitidas_sin_mayoria": info["omitidas"], "filas_validas": len(filas),
             "filas_por_tipo_y_split": {t: dict(sorted(c.items())) for t, c in sorted(por.items())},
             "distribucion_score": dict(sorted(Counter(f["etiqueta"] for f in filas if f["tipo"] == "score").items())), "grupos": info["grupos"]}

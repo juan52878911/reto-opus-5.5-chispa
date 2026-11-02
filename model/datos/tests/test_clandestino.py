@@ -37,20 +37,20 @@ class Muestra(unittest.TestCase):
         self.filas, self.info = clandestino.convertir(MUESTRA, min_grupo=1)
 
     def test_descarta_ia_y_pii(self):
-        self.assertEqual((self.info["leidas"], self.info["descartadas_ia"], self.info["descartadas_pii"]), (19, 1, 2))
+        self.assertEqual((self.info["leidas"], self.info["descartadas_ia"], self.info["descartadas_pii"]), (19, 1, 5))   # 2 con Yes + 3 con solo Maybe (Maybe cuenta como Yes)
         claves = {f["plantilla"] for f in self.filas}
-        self.assertEqual(len(claves), 16)
+        self.assertEqual(len(claves), 13)
         self.assertFalse(claves & {"Sent_IA", "Sent_2", "Sent_3"})
 
     def test_mediana_y_redondeo(self):
         # Sent_8 (10 votos, 1 y 2 -> 1,5): 2; Sent_1: 2; Sent_15 (9 votos): 4; Sent_33 (12 votos, 1 y 2 -> 1,5): 2; Sent_30 (2 y 2): 2
         got = {k: etiqueta(self.filas, k, "clandestino_gravedad") for k in ("Sent_8", "Sent_1", "Sent_15", "Sent_33", "Sent_30")}
-        self.assertEqual(got, {"Sent_8": "2", "Sent_1": "2", "Sent_15": "4", "Sent_33": "2", "Sent_30": "2"})
+        self.assertEqual(got, {"Sent_8": "2", "Sent_1": "2", "Sent_15": None, "Sent_33": "2", "Sent_30": "2"})   # Sent_15: Q7 = Maybe, descartada
 
     def test_umbral_noul(self):
         # Sent_8: 1,5 -> false; Sent_14: 3 -> true; Sent_15: 4 -> true; Sent_1: 2 -> false
         got = {k: etiqueta(self.filas, k, "clandestino_danino") for k in ("Sent_8", "Sent_14", "Sent_15", "Sent_1")}
-        self.assertEqual(got, {"Sent_8": "false", "Sent_14": "true", "Sent_15": "true", "Sent_1": "false"})
+        self.assertEqual(got, {"Sent_8": "false", "Sent_14": "true", "Sent_15": None, "Sent_1": "false"})
 
     def test_q3_q8_sin_mayoria_se_omiten(self):
         self.assertIsNone(etiqueta(self.filas, "Sent_1", "clandestino_sexual"))     # 4 Yes, 5 No, 2 Maybe de 11
@@ -58,14 +58,14 @@ class Muestra(unittest.TestCase):
         self.assertEqual(etiqueta(self.filas, "Sent_5", "clandestino_sexual"), "true")     # 10 Yes de 11
         self.assertEqual(etiqueta(self.filas, "Sent_8", "clandestino_sexual"), "false")    # 10 No de 10
         self.assertEqual(etiqueta(self.filas, "Sent_8", "clandestino_falsa"), "false")     # 8 No de 10, Maybe no cuenta
-        self.assertEqual(self.info["omitidas"]["clandestino_sexual"] + self.info["omitidas"]["clandestino_falsa"], 5)
+        self.assertEqual(self.info["omitidas"]["clandestino_sexual"] + self.info["omitidas"]["clandestino_falsa"], 4)
 
     def test_grupos_de_multi(self):
         self.assertIn("Mujeres", self.info["grupos"])
         self.assertNotIn("No aplicable", self.info["grupos"])
         self.assertFalse([g for g in self.info["grupos"] if g[0].isdigit()])
         g = [f for f in self.filas if f["tarea"] == "clandestino_grupo_mujeres"]
-        self.assertEqual(len(g), 16)
+        self.assertEqual(len(g), 13)
         self.assertEqual({f["etiqueta"] for f in g}, {"false", "true"})
         self.assertEqual(g[0]["pregunta"], "¿El mensaje se refiere al grupo «Mujeres»?")
 
@@ -105,8 +105,11 @@ class Sinteticas(unittest.TestCase):
     def test_pii_de_un_solo_anotador_descarta(self):
         a = [anot() for _ in range(5)]
         a[2] = anot(q7="Yes")
-        filas, info = self.conv([fila("K1", a), fila("K2", [anot(q7="Maybe")] * 5)])
-        self.assertEqual((info["descartadas_pii"], {f["plantilla"] for f in filas}), (1, {"K2"}))
+        b = [anot() for _ in range(5)]
+        b[4] = anot(q7="Maybe")
+        filas, info = self.conv([fila("K1", a), fila("K2", b), fila("K3", [anot()] * 5)])
+        # Maybe cuenta como Yes (2026-11-02): K1 (un Yes) y K2 (un Maybe) se descartan; solo queda K3
+        self.assertEqual((info["descartadas_pii"], info["descartadas_pii_solo_maybe"], {f["plantilla"] for f in filas}), (2, 1, {"K3"}))
 
     def test_redondeo_de_la_mitad_hacia_arriba(self):
         filas, _ = self.conv([fila("K1", [anot("2"), anot("3")]), fila("K2", [anot("4"), anot("5")]), fila("K3", [anot("1"), anot("2")])])
@@ -147,8 +150,8 @@ class Sinteticas(unittest.TestCase):
 
     def test_contar(self):
         r = clandestino.contar(MUESTRA)
-        self.assertEqual((r["filas_leidas"], r["descartadas_ia"], r["descartadas_pii"]), (19, 1, 2))
-        self.assertEqual(sum(r["distribucion_score"].values()), 16)
+        self.assertEqual((r["filas_leidas"], r["descartadas_ia"], r["descartadas_pii"]), (19, 1, 5))
+        self.assertEqual(sum(r["distribucion_score"].values()), 13)
         self.assertEqual(sum(sum(c.values()) for c in r["filas_por_tipo_y_split"].values()), r["filas_validas"])
         json.dumps(r)
 
