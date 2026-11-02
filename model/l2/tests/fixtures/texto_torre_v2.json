@@ -1,0 +1,93 @@
+[
+ {
+  "pregunta": "¿Qué quiere hacer el usuario con el asistente?",
+  "opcion": "alarma_poner",
+  "descripcion": "Poner una alarma a una hora concreta.",
+  "v1": "passage: ¿Qué quiere hacer el usuario con el asistente? · alarma_poner · Poner una alarma a una hora concreta.",
+  "v2": "passage: ¿Qué quiere hacer el usuario con el asistente? · Poner una alarma a una hora concreta."
+ },
+ {
+  "pregunta": "¿Es spam?",
+  "opcion": "true",
+  "descripcion": "Mensaje no deseado.",
+  "v1": "passage: ¿Es spam? · true · Mensaje no deseado.",
+  "v2": "passage: ¿Es spam? · Mensaje no deseado."
+ },
+ {
+  "pregunta": "¿Es spam?",
+  "opcion": "false",
+  "descripcion": "Mensaje legítimo.",
+  "v1": "passage: ¿Es spam? · false · Mensaje legítimo.",
+  "v2": "passage: ¿Es spam? · Mensaje legítimo."
+ },
+ {
+  "pregunta": "¿Qué acción pide la persona?",
+  "opcion": "alarma_poner",
+  "descripcion": "",
+  "v1": "passage: ¿Qué acción pide la persona? · alarma_poner · ",
+  "v2": "passage: ¿Qué acción pide la persona? · alarma_poner · "
+ },
+ {
+  "pregunta": "¿Qué acción pide la persona?",
+  "opcion": "x1",
+  "descripcion": "   ",
+  "v1": "passage: ¿Qué acción pide la persona? · x1 ·    ",
+  "v2": "passage: ¿Qué acción pide la persona? · x1 ·    "
+ },
+ {
+  "pregunta": "¿Qué acción pide la persona?",
+  "opcion": "x2",
+  "descripcion": "\t\n ",
+  "v1": "passage: ¿Qué acción pide la persona? · x2 · \t\n ",
+  "v2": "passage: ¿Qué acción pide la persona? · x2 · \t\n "
+ },
+ {
+  "pregunta": "¿Qué año es?",
+  "opcion": "anio",
+  "descripcion": "Año nuevo: ¿qué pasó? ñandú, café, 日本",
+  "v1": "passage: ¿Qué año es? · anio · Año nuevo: ¿qué pasó? ñandú, café, 日本",
+  "v2": "passage: ¿Qué año es? · Año nuevo: ¿qué pasó? ñandú, café, 日本"
+ },
+ {
+  "pregunta": "¿Cuál es la señal más ñoña?",
+  "opcion": "señal_ñ",
+  "descripcion": "Señalización española: pingüino, acción.",
+  "v1": "passage: ¿Cuál es la señal más ñoña? · señal_ñ · Señalización española: pingüino, acción.",
+  "v2": "passage: ¿Cuál es la señal más ñoña? · Señalización española: pingüino, acción."
+ },
+ {
+  "pregunta": "¿Qué etiquetas aplican al texto? (varias)",
+  "opcion": "tema_política",
+  "descripcion": "Política y gobierno, con espacios al final   ",
+  "v1": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_política · Política y gobierno, con espacios al final   ",
+  "v2": "passage: ¿Qué etiquetas aplican al texto? (varias) · Política y gobierno, con espacios al final   "
+ },
+ {
+  "pregunta": "¿Qué etiquetas aplican al texto? (varias)",
+  "opcion": "tema_deporte",
+  "descripcion": "  Deportes: fútbol, tenis",
+  "v1": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_deporte ·   Deportes: fútbol, tenis",
+  "v2": "passage: ¿Qué etiquetas aplican al texto? (varias) ·   Deportes: fútbol, tenis"
+ },
+ {
+  "pregunta": "¿Qué etiquetas aplican al texto? (varias)",
+  "opcion": "tema_otros",
+  "descripcion": "",
+  "v1": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_otros · ",
+  "v2": "passage: ¿Qué etiquetas aplican al texto? (varias) · tema_otros · "
+ },
+ {
+  "pregunta": "What does the user want?",
+  "opcion": "book_flight",
+  "descripcion": "Book a flight.",
+  "v1": "passage: What does the user want? · book_flight · Book a flight.",
+  "v2": "passage: What does the user want? · Book a flight."
+ },
+ {
+  "pregunta": "¿Cuánto es?",
+  "opcion": "3",
+  "descripcion": "Nivel 3 de 5",
+  "v1": "passage: ¿Cuánto es? · 3 · Nivel 3 de 5",
+  "v2": "passage: ¿Cuánto es? · Nivel 3 de 5"
+ }
+]

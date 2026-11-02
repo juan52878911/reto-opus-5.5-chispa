@@ -139,8 +139,8 @@ def probs_de_s(modelo, fila, s):
     return modelo.coral["score%d" % len(fila["opciones"])](s[:1])[0]
 
 
-def textos_torre(fila):
-    return [texto_opcion(fila, o) for o in fila["opciones"]] if fila["tipo"] == "choice" else [texto_consulta(fila)]
+def textos_torre(fila, version="v1"):
+    return [texto_opcion(fila, o, version) for o in fila["opciones"]] if fila["tipo"] == "choice" else [texto_consulta(fila, version)]
 
 
 @torch.no_grad()
@@ -150,7 +150,7 @@ def predecir_estrategias(modelo, enc, fila, estrategias=ESTRATEGIAS, max_tok=Non
     dev = modelo.ranuras.q.device
     modelo.asegurar_cabeza("score%d" % len(fila["opciones"]) if fila["tipo"] == "score" else fila["tipo"], dev)
     pref, cuerpo = tokenizar(enc.tok, fila["texto"])
-    h = modelo.torre(enc.pasaje(textos_torre(fila)).to(dev))
+    h = modelo.torre(enc.pasaje(textos_torre(fila, modelo.texto_torre)).to(dev))
     vent = {e: [tuple(con_especiales(enc.tok, w)) for w in ventanas(pref, cuerpo, max_tok, e)] for e in estrategias}
     unicas = list(dict.fromkeys(w for ws in vent.values() for w in ws))
     s_por = dict(zip(unicas, sim_ventanas(modelo, enc, [list(w) for w in unicas], h)))

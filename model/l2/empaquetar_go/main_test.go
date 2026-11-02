@@ -180,3 +180,39 @@ func TestFixtureEsquemasV2(t *testing.T) {
 		}
 	}
 }
+
+func TestTextoTorreEnMeta(t *testing.T) {
+	leer := func(meta string) (map[string]any, error) {
+		ruta := filepath.Join(t.TempDir(), "x.chispa")
+		if err := empaquetar([]byte(meta), []byte("ONNX-falso"), esquemasJ(t), []byte(calibJ), ruta); err != nil {
+			return nil, err
+		}
+		f, err := chispa3.Abrir(ruta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		b, err := f.Bytes(chispa3.META)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatal(err)
+		}
+		return m, nil
+	}
+	m, err := leer(`{"version":1,"tareas":["t1"],"licencias":{"x":"MIT"},"dorado":"","texto_torre":"v2_sin_id"}`)
+	if err != nil || m["texto_torre"] != "v2_sin_id" || m["version"] != float64(1) || m["dorado"] != "" {
+		t.Fatalf("v2: %v %v", m, err)
+	}
+	if m, err = leer(metaJ); err != nil || m["texto_torre"] != nil {
+		t.Fatalf("sin campo: %v %v", m, err)
+	}
+	if _, err = leer(`{"version":1,"tareas":["t1"],"licencias":{},"dorado":"","texto_torre":"v3"}`); err == nil {
+		t.Fatal("v3 no debería valer")
+	}
+	if _, err = leer(`{"version":1,"tareas":["t1"],"licencias":{},"dorado":"","otro":1}`); err == nil {
+		t.Fatal("campos desconocidos siguen rechazados")
+	}
+}

@@ -67,14 +67,54 @@ func codificarEsquemas(b []byte) ([]byte, error) {
 	return chispa3.CodificarEsquemas2(j.Dim, es)
 }
 
+// separarTextoTorre saca `texto_torre` ("v1" o "v2_sin_id", contrato-torre.md) del META: chispa3.Meta no lo declara y rechaza los
+// campos desconocidos, así que el resto se valida con chispa3 y el campo se reinserta al codificar (ponerTextoTorre).
+func separarTextoTorre(metaB []byte) ([]byte, string, error) {
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(metaB, &campos); err != nil {
+		return metaB, "", nil // que lo rechace DecodificarMeta con su error
+	}
+	raw, ok := campos["texto_torre"]
+	if !ok {
+		return metaB, "", nil
+	}
+	var v string
+	if err := json.Unmarshal(raw, &v); err != nil || (v != "v1" && v != "v2_sin_id") {
+		return nil, "", fmt.Errorf("META.texto_torre %s: debe ser \"v1\" o \"v2_sin_id\"", raw)
+	}
+	delete(campos, "texto_torre")
+	resto, err := json.Marshal(campos)
+	return resto, v, err
+}
+
+// ponerTextoTorre añade `texto_torre` al META ya codificado; vacío (no venía) lo deja igual.
+func ponerTextoTorre(meta []byte, texto string) ([]byte, error) {
+	if texto == "" {
+		return meta, nil
+	}
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(meta, &campos); err != nil {
+		return nil, err
+	}
+	campos["texto_torre"], _ = json.Marshal(texto)
+	return json.Marshal(campos)
+}
+
 // empaquetar valida cada sección con los decodificadores de chispa3 y escribe el fichero.
 func empaquetar(metaB, l2, esqB, calibB []byte, salida string) error {
+	metaB, texto, err := separarTextoTorre(metaB)
+	if err != nil {
+		return err
+	}
 	m, err := chispa3.DecodificarMeta(metaB)
 	if err != nil {
 		return err
 	}
 	meta, err := m.Codificar()
 	if err != nil {
+		return err
+	}
+	if meta, err = ponerTextoTorre(meta, texto); err != nil {
 		return err
 	}
 	c, err := chispa3.DecodificarCalib(calibB)

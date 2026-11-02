@@ -42,7 +42,7 @@ def simil(modelo, enc, filas, lote=64):
         S = modelo.ranuras(H.to(dev), m.to(dev))
         textos, pos, ixs = [], {}, []
         for r in fs:
-            ts = [texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] in ("choice", "multi") else [texto_consulta(r)]
+            ts = [texto_opcion(r, o, modelo.texto_torre) for o in r["opciones"]] if r["tipo"] in ("choice", "multi") else [texto_consulta(r, modelo.texto_torre)]
             ix = []
             for t in ts:
                 if t not in pos:

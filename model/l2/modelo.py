@@ -35,8 +35,18 @@ def normalizar_mayusculas(texto):
     return texto
 
 
-def texto_opcion(fila, opcion):
-    return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, opcion, SEP, fila["descripciones"].get(opcion, ""))
+TEXTOS_TORRE = ("v1", "v2_sin_id")
+
+
+def texto_opcion(fila, opcion, version="v1"):
+    """Texto de torre de una opción. v1: pregunta · opción · descripción. v2_sin_id: sin la opción si su descripción (`strip()`) no
+    está vacía; el `strip()` solo decide, el texto lleva la descripción tal cual. Ver contrato-torre.md."""
+    desc = fila["descripciones"].get(opcion, "")
+    if version == "v2_sin_id" and desc.strip():
+        return "passage: %s%s%s" % (fila["pregunta"], SEP, desc)
+    if version not in TEXTOS_TORRE:
+        raise ValueError("texto_torre desconocido: %r" % (version,))
+    return "passage: %s%s%s%s%s" % (fila["pregunta"], SEP, opcion, SEP, desc)
 
 
 def indice_etiqueta(fila):
@@ -46,7 +56,7 @@ def indice_etiqueta(fila):
     return fila["opciones"].index(fila["etiqueta"])
 
 
-def texto_consulta(fila):
+def texto_consulta(fila, version="v1"):
     """Torre de las cabezas noul y score: la pregunta con la opción «true» (noul) o el nivel máximo (score), sea cual sea el orden.
 
     Mismo criterio que `exportar.opcion_consulta`. Otros tipos: la última opción."""
@@ -54,10 +64,10 @@ def texto_consulta(fila):
     if fila["tipo"] == "noul":
         if "true" not in ops:
             raise ValueError("pregunta noul sin opción «true»: %r" % (fila["pregunta"],))
-        return texto_opcion(fila, "true")
+        return texto_opcion(fila, "true", version)
     if fila["tipo"] == "score":
-        return texto_opcion(fila, niveles_score(ops)[-1])
-    return texto_opcion(fila, ops[-1])
+        return texto_opcion(fila, niveles_score(ops)[-1], version)
+    return texto_opcion(fila, ops[-1], version)
 
 
 def clave_cabeza(fila):
@@ -240,7 +250,7 @@ def prototipos(modelo, enc, filas_soporte, lote=256, kappa=0.0):
         return idx, F.normalize(suma, dim=-1)
     ref = filas_soporte[0]
     with torch.no_grad():
-        h = modelo.torre(enc.pasaje([texto_opcion(ref, e) for e in etqs]).to(dev))  # (C,d), norma 1
+        h = modelo.torre(enc.pasaje([texto_opcion(ref, e, modelo.texto_torre) for e in etqs]).to(dev))  # (C,d), norma 1
     return idx, mezcla_prototipos(suma, n, h, kappa)
 
 
@@ -328,8 +338,9 @@ class Coral(nn.Module):
 class ModeloL2(nn.Module):
     """Parte entrenable de L2 (el codificador e5 va aparte, congelado)."""
 
-    def __init__(self, k=K_RANURAS, d=D):
+    def __init__(self, k=K_RANURAS, d=D, texto_torre="v1"):
         super().__init__()
+        self.texto_torre = texto_torre  # versión del texto de torre (configuración del modelo; va en el checkpoint)
         self.ranuras = Ranuras(k, DIM_E5, d)
         self.torre = Torre(DIM_E5, d)
         self.log_t = nn.ParameterDict({"choice": nn.Parameter(torch.tensor(math.log(0.02)))})
@@ -382,7 +393,7 @@ class ModeloL2(nn.Module):
         S = self.ranuras(H.to(dev), m.to(dev))
         textos, pos, fila_txt = [], {}, []
         for r in filas:
-            ts = [texto_opcion(r, o) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r)]
+            ts = [texto_opcion(r, o, self.texto_torre) for o in r["opciones"]] if r["tipo"] == "choice" else [texto_consulta(r, self.texto_torre)]
             ix = []
             for t in ts:
                 if t not in pos:
