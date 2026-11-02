@@ -349,6 +349,7 @@ func generarDorados(t *testing.T) {
 	escribirJSON(t, "peticiones.json", ps)
 	escribirJSON(t, "claves.json", clavesDoradas(ps))
 	escribirJSON(t, "esperado.json", sol)
+	escribirJSON(t, "entorno.json", entornoActual())
 }
 
 // ClaveDorada: las claves de esquema del servidor (HashEsquema2 de CALIB multi y CONJ v2, ClaveConj de CONJ v1 y SOPL1), en hex,
@@ -391,20 +392,78 @@ func leerJSON(t testing.TB, nombre string, v any) {
 	}
 }
 
-// tolDoradoServidor: bit a bit en amd64 (donde se generó). En otras arquitecturas el compilador de Go puede fusionar x*y+z (FMA) y
-// cambiar el último bit de float64: 1e-9. Ver docs/07-rendimiento-y-limites.md (Determinismo).
-func tolDoradoServidor() float64 {
-	if runtime.GOARCH == "amd64" {
+// EntornoDorado: dónde se generaron los dorados. La igualdad de bits solo vale si el entorno de ejecución coincide.
+// huella_math resume el resultado real de math.Exp/Log/Tanh/Pow/Sqrt sobre entradas fijas: en amd64 Exp elige en tiempo de
+// ejecución una rutina con FMA según la CPU (math/exp_amd64.s), así que la huella cambia con la CPU o con GODEBUG=cpu.fma=off.
+type EntornoDorado struct {
+	GoVersion  string `json:"go_version"`
+	GoArch     string `json:"goarch"`
+	CPUModelo  string `json:"cpu_modelo"`
+	FMA        bool   `json:"fma"`
+	HuellaMath string `json:"huella_math"`
+}
+
+// tolDoradoEntorno: tolerancia relativa entre entornos distintos, |a-b| <= tol·max(|a|,|b|) (medida en docs/07-rendimiento-y-limites.md).
+const tolDoradoEntorno = 1e-12
+
+func huellaMath() string {
+	h := fnv.New64a()
+	for i := 0; i < 200; i++ {
+		x := float64(i)*0.37 - 25.3
+		for _, v := range []float64{math.Exp(x), math.Log(math.Abs(x) + 0.5), math.Tanh(x / 7), math.Pow(math.Abs(x)+1, 0.3), math.Sqrt(math.Abs(x))} {
+			var b [8]byte
+			u := math.Float64bits(v)
+			for k := range b {
+				b[k] = byte(u >> (8 * k))
+			}
+			h.Write(b[:])
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func entornoActual() EntornoDorado {
+	e := EntornoDorado{GoVersion: runtime.Version(), GoArch: runtime.GOARCH, HuellaMath: huellaMath()}
+	if b, err := os.ReadFile("/proc/cpuinfo"); err == nil {
+		for _, l := range strings.Split(string(b), "\n") {
+			k, v, ok := strings.Cut(l, ":")
+			k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+			if !ok {
+				continue
+			}
+			if k == "model name" && e.CPUModelo == "" {
+				e.CPUModelo = v
+			}
+			if k == "flags" && !e.FMA {
+				for _, f := range strings.Fields(v) {
+					e.FMA = e.FMA || f == "fma"
+				}
+			}
+		}
+	}
+	return e
+}
+
+// tolDoradoServidor: 0 (bit a bit) solo si go_version, goarch y huella_math coinciden con los del entorno que generó los dorados
+// (entorno.json); en otro caso tolDoradoEntorno. Ver docs/07-rendimiento-y-limites.md (Determinismo).
+func tolDoradoServidor(t testing.TB) float64 {
+	t.Helper()
+	var g EntornoDorado
+	leerJSON(t, "entorno.json", &g)
+	a := entornoActual()
+	if g.GoVersion == a.GoVersion && g.GoArch == a.GoArch && g.HuellaMath == a.HuellaMath {
 		return 0
 	}
-	return 1e-9
+	t.Logf("entorno distinto del de los dorados (%s/%s fma=%v %q, huella %s; aquí %s/%s fma=%v %q, huella %s): tolerancia %g",
+		g.GoVersion, g.GoArch, g.FMA, g.CPUModelo, g.HuellaMath, a.GoVersion, a.GoArch, a.FMA, a.CPUModelo, a.HuellaMath, tolDoradoEntorno)
+	return tolDoradoEntorno
 }
 
 func cercano(a, b, tol float64) bool {
 	if tol == 0 {
 		return math.Float64bits(a) == math.Float64bits(b)
 	}
-	return math.Abs(a-b) <= tol
+	return math.Abs(a-b) <= tol*math.Max(math.Abs(a), math.Abs(b))
 }
 
 func comparaProbs(got, want map[string]float64, tol float64) string {
@@ -466,7 +525,7 @@ func TestDorados(t *testing.T) {
 		t.Error("claves.json no es el de las claves de esquema del servidor")
 	}
 	a := armarDorados(t)
-	tol := tolDoradoServidor()
+	tol := tolDoradoServidor(t)
 	opinan := map[string]int{}
 	for _, p := range ps {
 		e, c := a.decidir(t, p)
