@@ -12,11 +12,11 @@ CHISPA_S3=__CHISPA_S3__
 # CHISPA_TEXTO_TORRE=v2_sin_id (W6): el ajuste pasa `--texto-torre v2_sin_id` (texto de torre sin id si hay descripción, contrato-torre.md) y el nuevo se
 # mide con él; G.8 sigue en v1 (su checkpoint no trae texto_torre). M3 incluye `todo_mayusculas`. Mismo tope: ≈ 1 USD y `shutdown -h +75`.
 # CHISPA_V3=1 (W9, ajuste v3): parte del checkpoint v2 (CHISPA_G8_S3, por defecto s3://…/ajuste-v2-23b38e6/ckpt/mejor.pt) con CHISPA_TEXTO_TORRE=v2_sin_id
-# por defecto, y añade a train Clandestino (`microsoft/Clandestino` de HF, solo `Is AI Generated == false`, model.datos.clandestino) y `tsjev-es`
+# por defecto, y añade a train Clandestino (`microsoft/Clandestino` de GitHub, solo `IsAIGenerated == "False"` y sin PII, model.datos.clandestino; se baja y se corre primero `contar`) y `tsjev-es`
 # (CHISPA_TSJEV_ES_S3, por defecto s3://…/traducir-286bda8/tsjev-es; se baja resumen.json y los ficheros train-*/dev-* que lista, nunca los test-*; sin
 # ListBucket no se puede listar). El aumento usa las fracciones de v3 (paráfrasis 0,4, erratas 0,3, inglés 0,1). El nuevo se mide frente a **v2**
 # (dir `v2/`, no `g8/`) en la misma máquina: JevBench, M3 (paráfrasis, erratas, renombrar, todo en mayúsculas…) y M4 ampliado (MASSIVE es/en, MMMLU
-# ES_LA con su pareja de MMLU, o solo en español marcado). Si Clandestino no convierte (sus columnas son una hipótesis: model/datos/clandestino.py)
+# ES_LA con su pareja de MMLU, o solo en español marcado). Si Clandestino no baja o no tiene filas válidas
 # o tsjev-es no llega, falla ANTES de entrenar, con el motivo. Mismo tope de 75 min, ≈ 1,3 USD.
 # CHISPA_LOCAL=1: prueba en seco (G.8 aleatorio, fixtures, CHISPA_PASOS=6, max_tok 48; sin pip, descargas ni shutdown; «s3» = /tmp/chispa/s3/).
 EXCLUIR=${CHISPA_EXCLUIR:-massive,hatecheck,inyecciones}   # MASSIVE, HateCheck y MMMLU solo se miden, nunca se entrenan
@@ -124,6 +124,20 @@ torch.save({'modelo': modelo_aleatorio().state_dict(), 'cabezas': [], 'max_tok':
 else s3cp "$G8_S3" "$G8CK" && estado $BN "OK $(stat -c %s "$G8CK") bytes de $G8_S3" || { fallo "checkpoint de partida $G8_S3"; estado $BN "FALLO"; cierre; }
 fi
 export CHISPA_V3=$V3
+if [ "$V3" = 1 ]; then   # Clandestino (GitHub, no HF): se baja y se cuenta ANTES de bajar nada más y de entrenar; sin filas válidas, falla aquí
+  CLAN=$BASE/clandestino.json; rm -f "$CLAN"
+  if [ "$LOCAL" = 1 ]; then cp "$REPO/model/datos/fixtures/clandestino/clandestino_muestra.json" "$CLAN" 2>/dev/null
+  else curl -fsSL --retry 3 -o "$CLAN" "${CHISPA_CLANDESTINO_URL:-https://raw.githubusercontent.com/microsoft/Clandestino/main/data/clandestino_no_ontology_42023.json}"; fi
+  [ -s "$CLAN" ] || { estado clandestino "FALLO sin fichero"; fallo "no se pudo bajar Clandestino de GitHub (microsoft/Clandestino)"; cierre; }
+  if "$PY" -I -m model.datos.clandestino contar "$CLAN" > "$OUT/clandestino_contar.json" 2> "$OUT/clandestino_contar.err" \
+     && "$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1])); sys.exit(0 if r["filas_validas"] > 0 and r["filas_por_tipo_y_split"].get("score", {}).get("train", 0) > 0 else 1)' "$OUT/clandestino_contar.json"; then
+    estado clandestino "OK $("$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print("leidas", r["filas_leidas"], "IA", r["descartadas_ia"], "PII", r["descartadas_pii"], "validas", r["filas_validas"], "score", r["distribucion_score"])' "$OUT/clandestino_contar.json")"
+    export CHISPA_CLANDESTINO=$CLAN
+  else
+    estado clandestino "FALLO $(tr '\n' ' ' < "$OUT/clandestino_contar.err" | cut -c1-300)"
+    fallo "Clandestino sin filas válidas (o con otro formato): $(tr '\n' ' ' < "$OUT/clandestino_contar.err" | cut -c1-300) $(tr -d '\n ' < "$OUT/clandestino_contar.json" 2>/dev/null | cut -c1-200)"; cierre
+  fi
+fi
 if [ "$LOCAL" != 1 ]; then
   "$PY" -I - <<'PYEOF' || fallo "descarga de modelos y datasets de HF"
 import glob, os, shutil, sys
@@ -153,7 +167,6 @@ intenta("facebook/xnli", repo_type="dataset", allow_patterns=["es/*", "en/test-*
 intenta("google-research-datasets/paws-x", repo_type="dataset", allow_patterns=["es/*", "en/test-*", "README.md"])
 intenta("Davlan/sib200", repo_type="dataset", allow_patterns=["data/spa_Latn/*", "data/eng_Latn/*", "README.md"])
 if os.environ.get("CHISPA_V3") == "1":
-    intenta("microsoft/Clandestino", repo_type="dataset")   # obligatoria en v3: sin ella el ajuste no es v3
     intenta("openai/MMMLU", repo_type="dataset", allow_patterns=["test/mmlu_ES-LA.csv", "README.md"], opcional=True)   # M4: solo se mide
     intenta("cais/mmlu", repo_type="dataset", allow_patterns=["all/test-*", "README.md"], opcional=True)   # su pareja en inglés
 snaps = glob.glob(os.path.expanduser("~/hf/hub/datasets--PolyAI--banking77/snapshots/*"))
@@ -180,8 +193,8 @@ if [ "$V3" = 1 ]; then   # Clandestino tiene que haber convertido (la conversió
   CL=$("$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1])).get("clandestino", {}); print(r.get("estado", "ausente")); print(r.get("error") or r.get("detalle") or "")
 f=r.get("filas") or {}; sys.exit(0 if r.get("estado") == "convertida" and f.get("train", 0) > 0 else 1)' "$DATOS/resumen.json")
   if [ $? = 0 ]; then
-    estado clandestino "OK $("$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1]))["clandestino"]; print("filas", r["filas"], "descartadas Is AI Generated=true", r["descartadas_ia"], "columnas", sorted(r["columnas"].values()))' "$DATOS/resumen.json")"
-  else estado clandestino "FALLO $(echo $CL | tr '\n' ' ' | cut -c1-300)"; fallo "Clandestino no convirtió (¿columnas distintas de la hipótesis de model/datos/clandestino.py?): $(echo $CL | tr '\n' ' ' | cut -c1-300)"; cierre; fi
+    estado clandestino "OK $("$PY" -I -c 'import json,sys; r=json.load(open(sys.argv[1]))["clandestino"]; print("filas", r["filas"], "descartadas IA", r["descartadas_ia"], "PII", r["descartadas_pii"])' "$DATOS/resumen.json")"
+  else estado clandestino "FALLO $(echo $CL | tr '\n' ' ' | cut -c1-300)"; fallo "Clandestino no convirtió (ver clandestino_contar.err): $(echo $CL | tr '\n' ' ' | cut -c1-300)"; cierre; fi
 fi
 rm -rf "$BLANDAS"; mkdir -p "$BLANDAS"
 if s3cp "$BLANDAS_S3/blandas.tgz" "$BASE/blandas.tgz" 2>/dev/null; then tar -xzf "$BASE/blandas.tgz" -C "$BLANDAS" || fallo "blandas.tgz"; fi
