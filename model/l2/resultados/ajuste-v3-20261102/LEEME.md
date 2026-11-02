@@ -10,5 +10,5 @@
 
 - **Clandestino:** 9998 frases leídas, 1625 de IA y 6479 con PII descartadas (Yes o Maybe en Q7, el 77 % de las humanas). Quedan
   30 055 filas: train 23 963, dev 3091, test 3001.
-- No se repite la batería M1 con v3: el criterio ya falla en .
+- No se repite la batería M1 con v3: el criterio ya falla en `ajuste.sh`.
 - Checkpoint: `s3://chispa-pruebas-879381269751/v3-ff359773/ckpt/mejor.pt`, guardado pero sin usar.
