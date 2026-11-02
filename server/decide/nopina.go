@@ -1,5 +1,10 @@
 package decide
 
+import (
+	"fmt"
+	"strconv"
+)
+
 // Causas de «sin opinión» de una capa (etiqueta «causa» de chispa_capa_no_opina_total).
 const (
 	CausaSinTorre        = "sin_torre"            // esquema ausente de ESQUEMAS y el .chispa no trae TORR (o falta -tok/ORT): L2 no puede calcular torres
@@ -18,6 +23,9 @@ type ExplicaNoOpina interface {
 func causaNoOpina(d Decisor, p Pregunta) string {
 	if !scoreValido(p) {
 		return CausaScoreIds
+	}
+	if !activaCapa(d) {
+		return CausaSinModelo
 	}
 	if e, ok := d.(ExplicaNoOpina); ok {
 		return e.CausaNoOpina(p)
@@ -38,7 +46,27 @@ func (l *L2) CausaNoOpina(p Pregunta) string {
 	if l.torres == nil && l.esquemaNuevo(p) {
 		return CausaSinTorre
 	}
+	if p.Kind == KindScore && !l.scoreCalibrado(len(p.Opciones)) {
+		return CausaTipoNoSoportado
+	}
 	return CausaSinOpinion
+}
+
+// scoreCalibrado dice si CALIB trae la cabeza «scoreK» y todas sus «scoreK#j» (las que lee L2.score).
+func (l *L2) scoreCalibrado(K int) bool {
+	if K < 2 {
+		return false
+	}
+	clave := "score" + strconv.Itoa(K)
+	if _, ok := l.calib.Tipos[clave]; !ok {
+		return false
+	}
+	for j := 1; j < K-1; j++ {
+		if _, ok := l.calib.Tipos[fmt.Sprintf("%s#%d", clave, j)]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // TorreAlVuelo dice si L2 puede calcular la torre de un esquema nuevo.

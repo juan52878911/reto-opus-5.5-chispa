@@ -17,6 +17,10 @@ pip install dist/chispa-0.1.0-py3-none-any.whl          # sin el repositorio al 
 - **Fuera del wheel**: `model/l2` (checkpoint, calibrar, exportar). `--ckpt` y `--conjunta` necesitan el repositorio (`--repo` o
   `CHISPA_REPO`) y fallan con ese mensaje si no está. Licencia: propietaria de Juan Bedoya (ver `LICENSE` en la raíz).
 
+## Tests
+Desde `sdk/python`, cualquiera de los dos comandos carga y corre todo (los tests se importan como `tests.<módulo>`):
+`python -m unittest` · `python -m unittest discover -s tests`
+
 ## Modos de `chispa train` y ejemplos
 Ver `chispa train --help`. Con el esquema de ferretería de `docs/02-inicio-rapido.md`, en `ejemplos/`:
 - `ejemplos/zero_shot.py --l1 potion.chispa-l1`: sin ejemplos.

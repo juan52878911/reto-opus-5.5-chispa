@@ -84,9 +84,10 @@ func (l *procLog) tail() string {
 type procHandle struct {
 	cmd    *exec.Cmd
 	log    *procLog
-	done   chan struct{}
-	mu     sync.Mutex // Kill y recogida (Wait4) van bajo el mismo cerrojo
-	reaped bool       // el líder ya se recogió: su pgid puede ser de otro
+	done   chan struct{} // el líder se recogió y las dos tuberías llegaron a EOF
+	salio  chan struct{} // el líder se recogió (un nieto puede seguir con las tuberías abiertas)
+	mu     sync.Mutex    // Kill y recogida (Wait4) van bajo el mismo cerrojo
+	reaped bool          // el líder ya se recogió: su pgid puede ser de otro
 }
 
 // reap recoge al hijo bajo h.mu, sin bloquear mientras siga vivo, para que
@@ -105,6 +106,14 @@ func (h *procHandle) reap() {
 		h.mu.Unlock()
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// vigilar recoge al líder en paralelo a la lectura de las tuberías (si un nieto
+// las hereda y sobrevive, el líder no queda zombi ni Start espera al plazo
+// entero) y cierra done cuando terminan las dos cosas.
+func (h *procHandle) vigilar(rd *sync.WaitGroup) {
+	go func() { h.reap(); close(h.salio) }()
+	go func() { rd.Wait(); <-h.salio; close(h.done) }()
 }
 
 // healthTimeout: plazo total de espera a /health tras el arranque.
@@ -131,7 +140,7 @@ func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("%s: no arrancó el proceso: %w", r.id, err)
 	}
-	h := &procHandle{cmd: cmd, log: &procLog{}, done: make(chan struct{})}
+	h := &procHandle{cmd: cmd, log: &procLog{}, done: make(chan struct{}), salio: make(chan struct{})}
 	r.handle = h
 	addrCh := make(chan string, 1)
 	var rd sync.WaitGroup
@@ -151,11 +160,11 @@ func (p *procLauncher) Start(ctx context.Context, r *replica) (string, error) {
 	rd.Add(2)
 	go scan(out, true)
 	go scan(errp, false)
-	go func() { rd.Wait(); h.reap(); close(h.done) }()
+	h.vigilar(&rd)
 	select {
 	case addr := <-addrCh:
 		return "http://" + addr, nil
-	case <-h.done:
+	case <-h.salio:
 		return "", fmt.Errorf("%s: el detector salió antes de escuchar; último log: %s", r.id, h.log.tail())
 	case <-time.After(startTimeout):
 		p.Stop(r)

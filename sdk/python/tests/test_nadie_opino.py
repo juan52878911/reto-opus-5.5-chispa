@@ -10,9 +10,9 @@ from chispa import formato
 from chispa.cliente import Chispa
 from chispa.train import entrenar, resumen_capas, _torre_junto_al_ckpt
 
-from test_bateria import Base
-from test_train import ESQ, PAL
-from test_torre_train import SINTETICO
+from tests.test_bateria import Base
+from tests.test_train import ESQ, PAL
+from tests.test_torre_train import SINTETICO
 
 SIN_TORRE = {"capas": {"L0": False, "L1": False, "L2": True, "L3": False}, "torre_al_vuelo": False}
 CON_TORRE = {"capas": {"L0": False, "L1": False, "L2": True, "L3": False}, "torre_al_vuelo": True}
@@ -58,6 +58,26 @@ class BateriaNadieOpino(Base):
         r = self.correr()
         self.assertEqual(r["global"]["nadie_opino"], 1.0)
         self.assertIn("no expone sus capas", r["alertas"][0])
+
+    def test_servidor_nuevo_sin_motivo_es_incompleta_y_sin_alerta_de_torre(self):
+        self.srv.regla, self.srv.healthz = (lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar"}), SIN_TORRE
+        r = self.correr()
+        g = r["global"]
+        self.assertEqual((g["nadie_opino"], g["incompletas"], g["baja_confianza"]), (0.0, 1.0, 0.0))
+        self.assertEqual(r["alertas"], [])
+
+    def test_servidor_nuevo_motivo_incompleta(self):
+        self.srv.regla, self.srv.healthz = (lambda s, q: {"answer": "", "probs": {}, "escalate": True, "layer": "escalar", "escalate_reason": "incompleta"}), CON_TORRE
+        g = self.correr()["global"]
+        self.assertEqual((g["nadie_opino"], g["incompletas"]), (0.0, 1.0))
+
+    def test_sin_opinion_atajo_solo_con_servidor_antiguo(self):
+        fila = {"error": "", "escalate": True, "escalate_reason": "", "probs": {}}
+        self.assertFalse(B._sin_opinion(fila))
+        self.assertTrue(B._incompleta(fila))
+        antigua = dict(fila, servidor_antiguo=True)
+        self.assertTrue(B._sin_opinion(antigua))
+        self.assertFalse(B._incompleta(antigua))
 
     def test_cliente_lee_escalate_reason(self):
         self.srv.regla = nadie

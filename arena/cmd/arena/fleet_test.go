@@ -2,7 +2,10 @@ package main
 
 import (
 	"os/exec"
+	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -82,5 +85,44 @@ func TestStopNoMataSiYaTermino(t *testing.T) {
 	case <-exited:
 		t.Fatal("Stop mató un grupo cuyo líder ya estaba recogido")
 	case <-time.After(500 * time.Millisecond):
+	}
+}
+
+// Un nieto que hereda las tuberías y sobrevive al líder no impide recoger al líder
+// ni que Start vea «salió»; done se cierra cuando el nieto suelta las tuberías.
+func TestVigilarRecogeAlLiderConNietoVivo(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "sleep 30 & echo $! ; exit 0")
+	cmd.SysProcAttr = sysProcAttr()
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	h := &procHandle{cmd: cmd, log: &procLog{}, done: make(chan struct{}), salio: make(chan struct{})}
+	var rd sync.WaitGroup
+	rd.Add(1)
+	nieto := make(chan string, 1)
+	go func() { defer rd.Done(); drainLines(out, func(l string) { nieto <- l }) }()
+	h.vigilar(&rd)
+	select {
+	case <-h.salio:
+	case <-time.After(3 * time.Second):
+		t.Fatal("el líder no se recogió con el nieto vivo")
+	}
+	select {
+	case <-h.done:
+		t.Fatal("done se cerró con las tuberías aún abiertas")
+	default:
+	}
+	pid, _ := strconv.Atoi(strings.TrimSpace(<-nieto))
+	if pid > 0 {
+		syscall.Kill(pid, syscall.SIGKILL)
+	}
+	select {
+	case <-h.done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("done no se cerró al soltar el nieto las tuberías")
 	}
 }
