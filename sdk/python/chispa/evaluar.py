@@ -399,7 +399,12 @@ def capacidades_servidor(url: str, timeout: float = 10.0) -> Optional[dict]:
             d = json.loads(r.read().decode("utf-8", "replace"))
     except Exception:  # noqa: BLE001 — la medición no depende de esto
         return None
-    return {"capas": d["capas"], "torre_al_vuelo": bool(d.get("torre_al_vuelo"))} if isinstance(d, dict) and isinstance(d.get("capas"), dict) else None
+    if not (isinstance(d, dict) and isinstance(d.get("capas"), dict)):
+        return None
+    cap = {"capas": d["capas"], "torre_al_vuelo": bool(d.get("torre_al_vuelo"))}
+    if d.get("torre_al_vuelo_motivo"):  # p. ej. "texto_torre_inconsistente": el modelo cargó degradado, sin torre al vuelo
+        cap["torre_al_vuelo_motivo"] = str(d["torre_al_vuelo_motivo"])
+    return cap
 
 
 def calib_md(c: dict) -> str:

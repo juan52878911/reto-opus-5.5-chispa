@@ -527,6 +527,9 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 			log.Print("el .chispa trae TORR pero falta -tok: sin torres al vuelo, L2 solo decide esquemas de ESQUEMAS")
 		}
 		for _, a := range mt.Avisos {
+			if strings.HasPrefix(a, "AVISO: torre al vuelo desactivada") {
+				continue // ArmarDesde ya lo escribió en el log (también en cada recarga)
+			}
 			log.Print(a)
 		}
 		capaL1, capaL2 = mt.L1, mt.L2
@@ -660,7 +663,9 @@ func resumenCapas(modelosL0 int, cp decide.Capacidades) string {
 		}
 	}
 	msg := fmt.Sprintf("capas efectivas: %s; sin modelo: %s; torre al vuelo (esquemas nuevos en L2): %v; texto_torre: %s", strings.Join(efectivas, ", "), strings.Join(sin, ", "), cp.TorreAlVuelo, textoTorreLog(cp.TextoTorre))
-	if !cp.TorreAlVuelo {
+	if cp.TorreAlVueloMotivo != "" {
+		msg += ". AVISO: torre al vuelo desactivada (" + cp.TorreAlVueloMotivo + "): META.texto_torre y TORR no coinciden; L2 decide solo los esquemas de ESQUEMAS (reentrene con `chispa train`)"
+	} else if !cp.TorreAlVuelo {
 		msg += ". AVISO: sin torre al vuelo, los esquemas que el .chispa no trae en ESQUEMAS no los decide L2: " +
 			"si tampoco los decide L0/L1, escalan sin probs con escalate_reason sin_opinion (reconstruya con `chispa train --torre`)"
 	}

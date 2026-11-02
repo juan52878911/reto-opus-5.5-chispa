@@ -41,7 +41,7 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 | `exactitud_estricta` | **(4)** sobre todas las filas, con lo escalado y los errores como fallo. Informativa: no es puerta (un `tau_escalate_l2` alto la hunde sin que el modelo empeore) |
 | `sin_probs` | fracción de filas sin error y sin `probs` (no se puede medir el argmax); si es alta, `exactitud` no representa al conjunto |
 | `incompletas` | fracción de filas que escalaron porque una capa falló o se quedó sin presupuesto y ninguna otra opinó (`escalate_reason` `incompleta` o `sin_presupuesto_torres`; con un servidor que expone `capas` en `/healthz`, escalar sin motivo también cuenta aquí). No es «nadie opinó» y no dispara la alerta de torre; sí la de incompletas (abajo) |
-| `sin_presupuesto_torres` | subconjunto de `incompletas`: filas con `escalate_reason` `sin_presupuesto_torres` (L2 agotó `max_torres_nuevas` o `torres_por_segundo`) |
+| `sin_presupuesto_torres` | subconjunto de `incompletas`: filas con `escalate_reason` `sin_presupuesto_torres` (L2 agotó `max_torres_nuevas` o `torres_por_segundo`; si otra capa además falló por error o plazo, el motivo es `incompleta`) |
 | `nadie_opino` | fracción de filas que escalaron porque **ninguna capa opinó** (`escalate_reason` `sin_opinion` o `score_ids_no_validos`; solo con un servidor antiguo —sin `capas` en `/healthz`— y sin `escalate_reason`, escalar sin probs). No es «confianza baja»: es que el modelo no puede decidir ese esquema |
 | `baja_confianza` | fracción de filas que escalaron con alguna capa opinando pero sin llegar a su τ (traen probs y entran en `exactitud`) |
 | `f1_macro` | F1 macro sobre las clases `(esquema, opción)` con soporte; en `multi`, cada opción es una clase |
@@ -81,6 +81,10 @@ El informe da, por conjunto, tipo, grupo y global, `estabilidad` (% de decisione
 ## Incompletas: alerta
 
 Si `incompletas` supera el 20 % (global o por conjunto; `UMBRAL_INCOMPLETAS` en `bateria.py`) el informe añade una alerta en «Alertas» (y en `alertas` del JSON) con la causa probable: presupuesto de torres agotado si hay filas `sin_presupuesto_torres` (preguntas con más opciones nuevas que `max_torres_nuevas`, o `torres_por_segundo` bajo) o, si no, fallo/plazo de una capa. Mira `chispa_torres_presupuesto_agotado_total` y `chispa_capa_no_opina_total{capa,causa}` en `/metrics`. Como el servidor cachea las torres calculadas antes del corte, repetir la corrida suele avanzar. No cambia `ok`.
+
+## Torre al vuelo desactivada: alerta
+
+Si `/healthz` trae `torre_al_vuelo_motivo` (hoy `texto_torre_inconsistente`: `META.texto_torre` y `TORR` del `.chispa` no coinciden y el servidor cargó el modelo sin torre al vuelo), el informe añade en «Alertas» una línea `ALERTA: el servidor desactivó la torre al vuelo (…)` (y en `alertas` del JSON; `capacidades_servidor` lleva el motivo). No cambia `ok`. Reconstruye el `.chispa` con `chispa train`.
 
 ## «Nadie opinó»: aviso y alerta
 Un `.chispa` construido sin `--torre` (y sin L0 ni L1) escala todo sin probs ante esquemas que no trae, y `exactitud` ignora esas filas (solo salen en `sin_probs`). Para que no pase en silencio:

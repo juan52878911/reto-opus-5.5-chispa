@@ -338,6 +338,10 @@ components:
         torre_al_vuelo:
           type: boolean
           description: "L2 puede calcular la torre de un esquema nuevo (el .chispa trae TORR y estan -tok y ONNX Runtime). Con false y sin L1, un esquema que el .chispa no trae escala con escalate_reason sin_opinion."
+        torre_al_vuelo_motivo:
+          type: string
+          enum: [texto_torre_inconsistente]
+          description: "Solo aparece si el .chispa trae TORR pero el modelo cargo sin torre al vuelo por una incoherencia: texto_torre_inconsistente = META.texto_torre y TORR no coinciden (el modelo carga degradado: L0, L1 y L2 con ESQUEMAS siguen; el servidor lo avisa en el log al arrancar y al recargar y publica el gauge chispa_torre_al_vuelo_desactivada{motivo})."
         texto_torre:
           type: string
           enum: [v1, v2_sin_id]
