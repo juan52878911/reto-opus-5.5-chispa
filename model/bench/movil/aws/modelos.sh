@@ -268,6 +268,9 @@ N=0; for v in $VARIANTES; do N=$((N+1)); done; N=$((N+3))
 for f in $(for v in $VARIANTES; do echo modelo-$v.chispa; done) e5.chispa-tok esquema.json manifiesto.json; do
   s3cp "$OUT/$f" "$CHISPA_S3/movil/$f" && SUBIDOS=$((SUBIDOS+1)) || fallo "subida de $f"
 done
+for v in $VARIANTES; do   # la torre ONNX (con sus metadata_props) también: `chispa train --l2 … --torre` la pide para el few-shot
+  [ -s "$BASE/torre-$v.onnx" ] && { s3cp "$BASE/torre-$v.onnx" "$CHISPA_S3/movil/torre-$v.onnx" && echo "torre-$v.onnx subida $(sha256sum "$BASE/torre-$v.onnx" | cut -c1-64)" || fallo "subida de torre-$v.onnx"; }
+done
 [ "$SUBIDOS" = "$N" ] && estado subida "OK $SUBIDOS ficheros en $CHISPA_S3/movil/" || estado subida "FALLO $SUBIDOS de $N"
 cp "$OUT/manifiesto.json" "$RES/" 2>/dev/null
 cierre
