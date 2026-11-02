@@ -40,7 +40,8 @@ Por conjunto, por tipo, por grupo y en global (`n` y las siguientes), todas en [
 | `exactitud_contestada` | **(2)** acierto de la respuesta sobre lo que la cascada contestó (sin escalar); vacía si todo escaló. Puerta de regresión |
 | `exactitud_estricta` | **(4)** sobre todas las filas, con lo escalado y los errores como fallo. Informativa: no es puerta (un `tau_escalate_l2` alto la hunde sin que el modelo empeore) |
 | `sin_probs` | fracción de filas sin error y sin `probs` (no se puede medir el argmax); si es alta, `exactitud` no representa al conjunto |
-| `nadie_opino` | fracción de filas que escalaron porque **ninguna capa opinó** (`escalate_reason` `sin_opinion` o `score_ids_no_validos`; con un servidor sin `escalate_reason`, escalar sin probs). No es «confianza baja»: es que el modelo no puede decidir ese esquema |
+| `incompletas` | fracción de filas que escalaron porque una capa falló o se quedó sin presupuesto y ninguna otra opinó (`escalate_reason` `incompleta`; con un servidor que expone `capas` en `/healthz`, escalar sin motivo también cuenta aquí). No es «nadie opinó» y no dispara la alerta de torre |
+| `nadie_opino` | fracción de filas que escalaron porque **ninguna capa opinó** (`escalate_reason` `sin_opinion` o `score_ids_no_validos`; solo con un servidor antiguo —sin `capas` en `/healthz`— y sin `escalate_reason`, escalar sin probs). No es «confianza baja»: es que el modelo no puede decidir ese esquema |
 | `baja_confianza` | fracción de filas que escalaron con alguna capa opinando pero sin llegar a su τ (traen probs y entran en `exactitud`) |
 | `f1_macro` | F1 macro sobre las clases `(esquema, opción)` con soporte; en `multi`, cada opción es una clase |
 | `ece` | error de calibración esperado, 10 cubos de igual ancho `(k/10, (k+1)/10]` sobre la confianza de la mejor respuesta (en `multi`, una decisión por opción: p si activa, 1−p si no) |

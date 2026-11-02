@@ -13,8 +13,8 @@ from chispa.cliente import ChispaError
 from chispa.cli import main
 from chispa.train import encontrar_go, encontrar_repo, entrenar
 
-from fixture_torre import onnx_torre
-from test_train import ESQ, PAL
+from tests.fixture_torre import onnx_torre
+from tests.test_train import ESQ, PAL
 
 SINTETICO = Path(__file__).resolve().parents[3] / "server/torre/testdata/sintetico.onnx"
 CON_GO = unittest.skipUnless(encontrar_go() and encontrar_repo(), "sin Go o sin repositorio")

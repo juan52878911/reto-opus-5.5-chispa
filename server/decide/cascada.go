@@ -17,7 +17,7 @@ type Resultado struct {
 	Answers  []string `json:"answers,omitempty"`
 	Layer    string   `json:"layer"`
 	Escalate bool     `json:"escalate"`
-	// EscalateReason: por qué escaló (solo con escalate); ver MotivoSinOpinion, MotivoBajaConfianza y MotivoScoreIdsNoValidos.
+	// EscalateReason: por qué escaló (solo con escalate); ver MotivoSinOpinion, MotivoBajaConfianza, MotivoScoreIdsNoValidos y MotivoIncompleta.
 	EscalateReason string  `json:"escalate_reason,omitempty"`
 	Ms             float64 `json:"ms"`
 	Nonce          string  `json:"nonce,omitempty"`
@@ -48,8 +48,10 @@ const CapaEscalar = "escalar"
 // Valores de «escalate_reason». sin_opinion: ninguna capa opinó (todas «sin opinión», sin error: el modelo no puede decidir ese
 // esquema: sin torre, tipo no soportado…) y las probs van vacías. score_ids_no_validos: sin opinión porque los ids del score no son
 // 1..K. baja_confianza: alguna capa opinó pero ninguna llegó a su τ.
+// incompleta: ninguna capa opinó y alguna falló o se quedó sin presupuesto (no se sabe si habría opinado).
 const (
 	MotivoSinOpinion        = "sin_opinion"
+	MotivoIncompleta        = "incompleta" // una capa falló o se quedó sin presupuesto y ninguna otra opinó: no es «nadie opinó»
 	MotivoScoreIdsNoValidos = "score_ids_no_validos"
 	MotivoBajaConfianza     = "baja_confianza"
 )
@@ -248,6 +250,8 @@ func (c *Cascada) Decidir(ctx context.Context, p Pregunta) Resultado {
 			res.EscalateReason = MotivoScoreIdsNoValidos
 		}
 		c.met.NingunaCapaOpina()
+	case res.Incompleto:
+		res.EscalateReason = MotivoIncompleta
 	}
 	res.Answer, res.Answers = mejor.Answer, mejor.Answers
 	if mejor.Probs != nil {

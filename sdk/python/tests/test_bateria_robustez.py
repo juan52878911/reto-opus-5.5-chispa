@@ -7,7 +7,7 @@ from unittest import mock
 from chispa import bateria as B
 from chispa.evaluar import parsear_calib
 
-from test_bateria import Base, CASOS_ROB, Servidor, _por_descripcion, fila
+from tests.test_bateria import Base, CASOS_ROB, Servidor, _por_descripcion, fila
 
 
 def _una_activa(state, q):

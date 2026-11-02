@@ -13,7 +13,7 @@ export interface Pregunta {
   /** 1..4096 bytes UTF-8. */
   question: string;
   kind: Kind;
-  /** choice, score y multi: al menos 2. noul: opcional. */
+  /** choice, score y multi: al menos 2. noul: opcional. En score, los ids deben ser "1".."K" (K = número de opciones): con otros ids ninguna capa opina y escala con escalate_reason "score_ids_no_validos". */
   options?: Opcion[];
   /** Clave de idempotencia (≤ 256 bytes). Si falta o es "", el cliente genera una. */
   nonce?: string;
@@ -31,6 +31,8 @@ export interface Resultado {
   /** L0, L1, L2, L3, o "escalar" cuando escalate es true. */
   layer: string;
   escalate: boolean;
+  /** Solo con escalate: "sin_opinion" (ninguna capa opinó), "score_ids_no_validos" (score cuyos ids no son 1..K), "baja_confianza" (alguna opinó, ninguna llegó a su τ) o "incompleta" (una capa falló o se quedó sin presupuesto). Ausente en servidores antiguos. */
+  escalate_reason?: "sin_opinion" | "score_ids_no_validos" | "baja_confianza" | "incompleta";
   ms: number;
   nonce?: string;
 }
