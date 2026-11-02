@@ -18,7 +18,7 @@ excl=(':(exclude,glob)model/l1/resultados/**' ':(exclude,glob)model/l2/resultado
       ':(exclude,glob)model/*/tests/falso.py' ':(exclude,glob)**/*_test.go' ':(exclude,glob)model/lineas_base/pred/**')
 [ $fix = 1 ] || excl+=(':(exclude,glob)**/fixtures*/**')
 rutas=(model/__init__.py model/l1 model/l2 model/datos model/evaluacion model/lineas_base model/meta model/herramientas/train.jsonl model/herramientas/test.jsonl
-       runtime server format sdk)
+       runtime server format sdk model/bench/vocab-podado-e5-small.json)
 if [ "${CHISPA_GOMOD_PROXY:-0}" != 1 ]; then git archive --format=tar.gz "$ref" -- "${rutas[@]}" "${excl[@]}"; exit; fi
 KIND=${GOMODCACHE:-$(go env GOMODCACHE)}/cache/download/github.com/juan52878911/kindling
 [ -d "$KIND/@v" ] || { echo "falta $KIND/@v (go mod download en server/)" >&2; exit 1; }
