@@ -11,7 +11,9 @@ ENV ANDROID_HOME=/opt/android-sdk ANDROID_SDK_ROOT=/opt/android-sdk GOROOT=/usr/
     GRADLE_USER_HOME=/cache/gradle GOFLAGS=-buildvcs=false
 ENV PATH=/usr/local/go/bin:/cache/go/bin:/opt/gradle/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:$PATH
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip curl ca-certificates git python3 && rm -rf /var/lib/apt/lists/*
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xz
+# tar de GNU falla bajo la emulación amd64 de Docker Desktop («Function not implemented» en algunos ficheros): se extrae con Python
+RUN curl -fsSL -o /tmp/go.tgz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" \
+ && python3 -c "import tarfile; tarfile.open('/tmp/go.tgz').extractall('/usr/local', filter='tar')" && rm /tmp/go.tgz
 RUN mkdir -p $ANDROID_HOME/cmdline-tools && curl -fsSL -o /tmp/c.zip "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS}_latest.zip" \
  && unzip -q /tmp/c.zip -d $ANDROID_HOME/cmdline-tools && mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest && rm /tmp/c.zip \
  && yes | sdkmanager --licenses >/dev/null 2>&1; sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;${NDK_VERSION}" >/dev/null
