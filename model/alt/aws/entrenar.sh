@@ -23,7 +23,10 @@ MMBERT=${CHISPA_MMBERT:-0}
 META_S3=${CHISPA_META_S3:-s3://chispa-pruebas-879381269751/meta-20261027/meta}
 MIN_E5=${CHISPA_MIN_E5:-110}   # con mmBERT detrás, e5 no puede comerse todo el techo
 ESPERA_MIN=${CHISPA_ESPERA_MIN:-20}   # tras subir, espera $CHISPA_S3/terminar (el orquestador ya trajo y verificó) antes de apagar
-SHUTDOWN_MIN=$([ "$MMBERT" = 1 ] && echo 300 || echo 180)
+DESTILAR=${CHISPA_DESTILAR:-0}   # 1: etiquetas blandas de Qwen3-4B con vLLM antes de entrenar (OK de Juan 2026-11-03, tope del hito 5 USD)
+MIN_DESTILAR=${CHISPA_MIN_DESTILAR:-80}   # instalar vLLM + bajar Qwen + etiquetar
+MAX_BLANDAS=${CHISPA_MAX_BLANDAS:-150000}
+SHUTDOWN_MIN=$(( $([ "$MMBERT" = 1 ] && echo 300 || echo 180) + $([ "$DESTILAR" = 1 ] && echo $((MIN_DESTILAR + 5)) || echo 0) ))
 if [ "$LOCAL" = 1 ]; then case $CHISPA_S3 in __*) CHISPA_S3=/tmp/chispa-alt-s3; mkdir -p "$CHISPA_S3/ckpt";; esac
 else shutdown -h +$SHUTDOWN_MIN; fi   # apagado forzoso: con terminate la instancia desaparece
 set -uo pipefail
@@ -149,6 +152,23 @@ if [ "$LOCAL" != 1 ]; then
   grep -q "tsjev filtrado: [1-9]" "$OUT/tsjev-filtrado.txt" || { fallo "tsjev filtrado sin filas"; estado tsjev "FALLO 0 filas"; cierre; }
 fi
 estado manifiesto "OK $(cat "$OUT/tsjev-filtrado.txt" 2>/dev/null)"
+
+# --- 3b. destilación (opcional): Qwen3-4B-Instruct-2507 (Apache-2.0) en un venv aparte con vLLM, solo filas del manifiesto.
+# Si falla o se queda sin tiempo, se entrena con lo etiquetado hasta ahí o solo con la etiqueta dura: es un aviso, no un FALLO.
+if [ "$DESTILAR" = 1 ] && [ "$LOCAL" != 1 ]; then
+  echo "== 3b. destilación $(date -u +%T)"
+  T3=$(date +%s)
+  if "$PY" -m venv /opt/vllm && /opt/vllm/bin/pip install -q --no-cache-dir vllm pyyaml numpy > "$OUT/vllm-pip.log" 2>&1 \
+     && HF_HUB_OFFLINE=0 /opt/vllm/bin/python -c 'from huggingface_hub import snapshot_download as s; s("Qwen/Qwen3-4B-Instruct-2507", allow_patterns=["*.json", "*.safetensors", "*.txt", "LICENSE*", "merges.txt", "vocab.json"])'; then
+    resto=$(( MIN_DESTILAR - ($(date +%s) - T3) / 60 - 5 ))
+    if [ "$resto" -ge 5 ]; then
+      timeout -s TERM $(( resto + 8 ))m /opt/vllm/bin/python -m model.alt.destilar --datos "$RAIZ" --minutos "$resto" --max-filas "$MAX_BLANDAS" \
+        --resumen "$OUT/destilacion.json" > "$OUT/destilar.log" 2>&1
+      [ -s "$OUT/destilacion.json" ] && estado destilar "OK $(tr -d '\n' < "$OUT/destilacion.json" | cut -c1-240)" \
+        || { tail -5 "$OUT/destilar.log"; estado destilar "AVISO sin blandas (ver destilar.log)"; }
+    else estado destilar "AVISO sin tiempo tras instalar ($resto min)"; fi
+  else tail -5 "$OUT/vllm-pip.log"; estado destilar "AVISO vLLM o Qwen no se instalaron (ver vllm-pip.log)"; fi
+fi
 
 # --- 4. entrenar (--sellar fija filas y sha256 de lo que se entrena; entrenar se niega si algo no valida)
 entrenar_con() {  # $1 = alias del codificador
