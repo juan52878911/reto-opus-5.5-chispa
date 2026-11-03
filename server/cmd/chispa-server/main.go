@@ -493,7 +493,7 @@ func armarModelo(met *decide.Metricas, cfgPath, modelo, rutaTok string) (*decide
 		}
 	}
 	l0 := decide.NuevoL0(cfg.CacheEsquemas)
-	if err := l0.Cargar(cfg.Modelos...); err != nil {
+	if err := l0.CargarCon(chispa3.Limites{MaxFichero: cfg.MaxFicheroBytes()}, cfg.Modelos...); err != nil {
 		return nil, err
 	}
 	capaL1, capaL2 := decide.NuevoL1(), decide.NuevoL2()
