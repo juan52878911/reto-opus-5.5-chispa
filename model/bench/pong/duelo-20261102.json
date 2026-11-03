@@ -1,0 +1,116 @@
+[
+ {
+  "semilla": 1,
+  "texto": "px",
+  "tics": 798,
+  "segundos": 26.6,
+  "puntos": {
+   "izquierda": 1,
+   "derecha": 7
+  },
+  "golpes": {
+   "izquierda": 2,
+   "derecha": 2
+  },
+  "agentes": {
+   "izquierda": {
+    "nombre": "Laya",
+    "decisiones": 66,
+    "errores": 0,
+    "coincide_optima_pct": 33.3,
+    "bajo_tau_pct": 0.0,
+    "p50_ms": 254.1,
+    "p99_ms": 1771.6,
+    "decisiones_por_s": 2.5,
+    "ms_servidor_p50": 251.74
+   },
+   "derecha": {
+    "nombre": "Chispa",
+    "decisiones": 610,
+    "errores": 0,
+    "coincide_optima_pct": 16.1,
+    "bajo_tau_pct": 100.0,
+    "p50_ms": 15.8,
+    "p99_ms": 128.0,
+    "decisiones_por_s": 22.9,
+    "ms_servidor_p50": 13.093
+   }
+  }
+ },
+ {
+  "semilla": 2,
+  "texto": "px",
+  "tics": 909,
+  "segundos": 30.3,
+  "puntos": {
+   "izquierda": 7,
+   "derecha": 6
+  },
+  "golpes": {
+   "izquierda": 2,
+   "derecha": 1
+  },
+  "agentes": {
+   "izquierda": {
+    "nombre": "Laya",
+    "decisiones": 66,
+    "errores": 0,
+    "coincide_optima_pct": 30.3,
+    "bajo_tau_pct": 0.0,
+    "p50_ms": 298.1,
+    "p99_ms": 2332.2,
+    "decisiones_por_s": 2.2,
+    "ms_servidor_p50": 295.6
+   },
+   "derecha": {
+    "nombre": "Chispa",
+    "decisiones": 693,
+    "errores": 0,
+    "coincide_optima_pct": 12.8,
+    "bajo_tau_pct": 100.0,
+    "p50_ms": 16.7,
+    "p99_ms": 103.2,
+    "decisiones_por_s": 22.9,
+    "ms_servidor_p50": 13.765
+   }
+  }
+ },
+ {
+  "semilla": 3,
+  "texto": "px",
+  "tics": 574,
+  "segundos": 19.1,
+  "puntos": {
+   "izquierda": 1,
+   "derecha": 7
+  },
+  "golpes": {
+   "izquierda": 1,
+   "derecha": 1
+  },
+  "agentes": {
+   "izquierda": {
+    "nombre": "Laya",
+    "decisiones": 40,
+    "errores": 0,
+    "coincide_optima_pct": 22.5,
+    "bajo_tau_pct": 0.0,
+    "p50_ms": 306.4,
+    "p99_ms": 2078.9,
+    "decisiones_por_s": 2.1,
+    "ms_servidor_p50": 303.37
+   },
+   "derecha": {
+    "nombre": "Chispa",
+    "decisiones": 441,
+    "errores": 0,
+    "coincide_optima_pct": 43.1,
+    "bajo_tau_pct": 100.0,
+    "p50_ms": 17.0,
+    "p99_ms": 117.4,
+    "decisiones_por_s": 23.0,
+    "ms_servidor_p50": 13.982
+   }
+  }
+ }
+]
