@@ -1,0 +1,83 @@
+{
+ "precision_objetivo": 0.85,
+ "conjuntos": {
+  "clinc150": {
+   "origen_cal": "dev",
+   "n_cal": 1500,
+   "n_test": 5500,
+   "exactitud_argmax_test": 0.7155,
+   "escalada_servidor_test_pct": 100.0,
+   "tau": 0.0767,
+   "cobertura_cal": 0.9407,
+   "precision_cal": 0.8505,
+   "escalada_test_pct": 11.0,
+   "precision_no_escala_test": 0.7771,
+   "cumple": false
+  },
+  "spam": {
+   "origen_cal": "dev",
+   "n_cal": 1441,
+   "n_test": 1450,
+   "exactitud_argmax_test": 0.9262,
+   "escalada_servidor_test_pct": 99.2,
+   "tau": 0.5001,
+   "cobertura_cal": 1.0,
+   "precision_cal": 0.9389,
+   "escalada_test_pct": 0.0,
+   "precision_no_escala_test": 0.9262,
+   "cumple": true
+  },
+  "herramientas": {
+   "origen_cal": "mitad de test por plantilla",
+   "n_cal": 167,
+   "n_test": 201,
+   "exactitud_argmax_test": 0.6169,
+   "escalada_servidor_test_pct": 98.5,
+   "tau": 0.2764,
+   "cobertura_cal": 0.485,
+   "precision_cal": 0.8519,
+   "escalada_test_pct": 55.7,
+   "precision_no_escala_test": 0.8315,
+   "cumple": false
+  },
+  "massive": {
+   "origen_cal": "dev",
+   "n_cal": 1500,
+   "n_test": 2974,
+   "exactitud_argmax_test": 0.4126,
+   "escalada_servidor_test_pct": 100.0,
+   "tau": 0.4056,
+   "cobertura_cal": 0.1007,
+   "precision_cal": 0.8543,
+   "escalada_test_pct": 90.7,
+   "precision_no_escala_test": 0.8484,
+   "cumple": false
+  },
+  "hatecheck": {
+   "origen_cal": "dev",
+   "n_cal": 285,
+   "n_test": 361,
+   "exactitud_argmax_test": 0.4765,
+   "escalada_servidor_test_pct": 100.0,
+   "tau": 0.7139,
+   "cobertura_cal": 0.014,
+   "precision_cal": 1.0,
+   "escalada_test_pct": 99.7,
+   "precision_no_escala_test": 1.0,
+   "cumple": false
+  },
+  "inyecciones": {
+   "origen_cal": "dev",
+   "n_cal": 92,
+   "n_test": 116,
+   "exactitud_argmax_test": 0.4914,
+   "escalada_servidor_test_pct": 100.0,
+   "tau": 0.718,
+   "cobertura_cal": 0.2174,
+   "precision_cal": 0.85,
+   "escalada_test_pct": 77.6,
+   "precision_no_escala_test": 0.8846,
+   "cumple": false
+  }
+ }
+}
