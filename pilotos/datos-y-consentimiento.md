@@ -34,7 +34,7 @@ quedó incorporado en el Decreto Único 1074 de 2015); no se verificó aquí nin
 
 - [ ] Si el servidor está en una nube, anotar el país de la región: si los datos pasan a otro país, aplica el régimen de **transferencia y transmisión** de la Ley 1581 (art. 26 y Decreto 1377); verifíquelo con su asesor.
 - [ ] Estas afirmaciones de «no sale» las cumple el cliente con su red y sus permisos. El producto no las impone.
-- Lo que sí se sabe del producto: el servidor corre en CPU, sin GPU, y por sí mismo no tiene una opción de enviar datos a terceros ([`main.go`](../server/cmd/chispa-server/main.go): solo `-addr`, `-config`, `-modelo`, `-tok`).
+- Lo que sí se sabe del producto: el servidor corre en CPU, sin GPU, y por sí mismo no tiene una opción de enviar datos a terceros ([`main.go`](../server/cmd/chispa-server/main.go): sus flags son de escucha, límites, modelo, tokenizador, config y claves; ninguno envía datos fuera, salvo la L3 si se enciende en `-config`).
   El único registro que conserva es el de métricas agregadas en `/metrics` (contadores) y una caché de respuestas por `nonce` en memoria. No se ha auditado el log del servidor con datos reales: sin verificar.
 
 ## 4. Retención

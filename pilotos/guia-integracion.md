@@ -1,8 +1,8 @@
 # Guía de integración: de cero a `/v1/decide` en su sistema
 
 Para el equipo de TI del cliente y el responsable técnico de Chispa. Los comandos salen de [`docs/`](../docs) y de
-[`sdk/python/chispa/cli.py`](../sdk/python/chispa/cli.py) y se corren desde la raíz del repositorio. En el nodo donde se escribió esta guía no hay Go:
-**los comandos de compilación y de servidor no se ejecutaron**; sí se comprobó que `python -m chispa train --help` y `decide --help` muestran los flags usados aquí.
+[`sdk/python/chispa/cli.py`](../sdk/python/chispa/cli.py) y se corren desde la raíz del repositorio. Para llegar en un día con un piloto few-shot, la ruta corta y probada está en [`despliegue-minimo.md`](despliegue-minimo.md).
+Aquí sí se comprobaron con `--help` los flags de `chispa train` y `chispa decide`; la compilación de `chispa-server` y el arranque con un `.chispa` L0 se corrieron con datos sintéticos (ver esa guía). **No se ejecutaron** las imágenes OCI, ORT/L2 ni el modo avanzado.
 Cifras y límites: [`docs/07`](../docs/07-rendimiento-y-limites.md); lo que Chispa todavía no hace, en [`README.md`](README.md#pendiente-de-producto).
 
 ## 0. Antes de empezar
@@ -48,8 +48,8 @@ Lo medido corrió en una instancia c6a.xlarge de AWS (4 vCPU, sin GPU) con el pa
 Otras nubes: el contenedor es el mismo; no se ha probado en ninguna.
 
 ### Seguridad de red (pendiente del lado del cliente)
-`chispa-server` no pide credenciales ni usa TLS (no hay flags para ello en [`main.go`](../server/cmd/chispa-server/main.go)): por defecto escucha solo en `127.0.0.1`.
-Ponga delante un proxy inverso del cliente con TLS y autenticación, y no lo exponga a internet. Sin medir ni probado aquí.
+`chispa-server` no trae TLS: por defecto escucha solo en `127.0.0.1`. Sí trae claves de API: con `api_keys` en `-config` (hash con `chispa-server -hash-clave`), `/v1/decide` exige `Authorization: Bearer <clave>`
+(401 si falta) y fuera de loopback **no arranca sin ellas**. Ponga delante un proxy inverso del cliente con TLS y no lo exponga a internet. Las claves se probaron en loopback; el proxy no.
 
 ### Comprobar
 ```
@@ -74,7 +74,7 @@ Ejemplos en CSV o JSONL, columnas `texto` y `etiqueta`; cada etiqueta debe ser u
 PYTHONPATH=sdk/python python -m chispa train --ejemplos pilotos/esquemas/ejemplos/pqrs_tipo.csv --esquema mi-esquema.yaml \
   --pregunta pqrs_tipo --salida fs.chispa --l1 potion.chispa-l1
 ```
-Con menos de 10 ejemplos en alguna opción no se entrena L0 y L1 se calibra con todos; con 10 o más por opción también se entrena L0.
+Con menos de 10 ejemplos en alguna opción no se entrena L0 y L1 se calibra con todos (sin `--l1`, el `.chispa` sale sin ninguna capa); con 10 o más por opción también se entrena L0, y **sin `--l1` ese L0 basta para servir** (probado con datos sintéticos).
 Referencia: L1 con 32 ejemplos por clase sube de 0,455 a 0,654 de macro-F1 (`informe.md`, mismo fichero); con k = 5, sin medir.
 La calibración con pocos ejemplos es ruidosa: deje aparte unas decenas de casos reales y mida.
 
@@ -128,7 +128,8 @@ Atención: este comando manda **solo los ids** de las opciones, sin descripcione
 ### Varias preguntas
 Una petición admite hasta 256 preguntas ([`docs/03`](../docs/03-api.md#límites)); cada pregunta la decide el `.chispa` cuyas etiquetas coinciden. Para servir varios `.chispa`
 (p. ej. `pqrs_tipo` y `pqrs_urgencia_cat`), use `-config` con una lista `modelos` ([`docs/03`](../docs/03-api.md#configuración--config)) o únalos con
-`go run ./deploy/mkmodelo -unir a.chispa,b.chispa -out modelo.chispa` (gana el primero si repiten sección, así que no sirve para dos preguntas con las mismas secciones). Servir varios modelos a la vez: sin probar aquí.
+`cd server && go run ./deploy/mkmodelo -unir a.chispa,b.chispa -out modelo.chispa`: los L0 de cada pregunta se juntan en una sección `L0MULTI` (el resto de secciones, como CALIB y L1, son las del primer fichero; dos L0 con las mismas etiquetas hacen fallar la unión).
+Probado con dos preguntas sintéticas de L0: [`despliegue-minimo.md`](despliegue-minimo.md#2-unir-en-un-solo-chispa-l0multi).
 
 ## 6. Conectar su sistema
 - Llame a `/v1/decide` desde su sistema de PQRS, mesa de ayuda o CRM, **sin enviar datos personales** del paso de anonimización ([`datos-y-consentimiento.md`](datos-y-consentimiento.md)).

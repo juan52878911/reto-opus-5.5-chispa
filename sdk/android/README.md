@@ -90,3 +90,8 @@ Tests: `MultiTest.kt` (9) con `jsonMulti` y `PREGUNTA_MULTI` de `Falsos.kt`. Rev
 Sin compilar ni ejecutar. Verificar con: `cd sdk/android && ./gradlew :chispa:testDebugUnitTest --tests '*MultiTest'`.
 
 **score y `escalateReason`.** Un `score` solo vale con ids exactamente `1..K` (en cualquier orden); con otros ids ninguna capa opina. `Respuesta.escalateReason` (nulo/`nil` si no escaló o escaló por el fallo de una capa) trae, igual que `escalate_reason` del servidor: `sin_opinion`, `baja_confianza` o `score_ids_no_validos`.
+
+## Licencia
+
+Apache-2.0 (ver `LICENSE` de la raíz del repositorio). Las atribuciones de terceros están en `NOTICE`. Los datasets con SA, NC o con términos pendientes
+(XNLI, clima, datos.gov.co, SIB-200, etiquetas de ALIA, salidas de Haiku) no se redistribuyen y solo se usan como test.

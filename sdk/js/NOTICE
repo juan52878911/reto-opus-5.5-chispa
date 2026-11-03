@@ -1,0 +1,36 @@
+Chispa
+Copyright 2026 Juan Bedoya
+
+Licenciado bajo Apache-2.0 (ver LICENSE). Este producto incluye o deriva de lo siguiente.
+
+== Código ==
+- Go y su biblioteca estándar — BSD-3-Clause, Copyright The Go Authors. Incluye demo/wasm/wasm_exec.js y
+  wasm_exec_node.js (texto de la licencia en demo/wasm/LICENSE.go).
+- github.com/juan52878911/kindling v0.17.0 — Apache-2.0, Copyright the kindling authors (enlazado en el servidor, el formato y los SDK móviles).
+  Sin verificar: la titularidad de «the kindling authors».
+- github.com/yalue/onnxruntime_go — MIT, Copyright (c) 2023 Nathan Otterness.
+- ONNX Runtime — MIT, Copyright (c) Microsoft Corporation. Ver su ThirdPartyNotices.txt, que acompaña a la biblioteca en la imagen y el APK.
+  Sin verificar: el .tgz de la release y el AAR de Android (onnxruntime-android) y el paquete Swift.
+
+== Modelos ==
+- intfloat/multilingual-e5-small — MIT, Copyright intfloat (nivel L2, torres y ESQUEMAS; los pesos de Chispa son derivados ajustados).
+  Sin verificar: licencia leída de la tarjeta (el inventario la da de memoria). Tampoco el tokenizador SentencePiece de XLM-RoBERTa que usa.
+- minishlab/potion-multilingual-128M (Model2Vec) — MIT, MinishLab (nivel L1).
+  Sin verificar: tarjeta de Hugging Face; el inventario lo da de memoria. Su destilación y tokenizador vienen de BAAI/bge-m3 (licencia sin verificar).
+
+== Datos y benchmarks ==
+- JevBench — MIT, Copyright (c) 2026 Florian Standhartinger and contributors.
+- MASSIVE (Amazon, FitzGerald et al.) — Apache-2.0 (copia mteb/amazon_massive_intent; el original es CC-BY-4.0). Se indican los cambios (extractos y conversión).
+- HateCheck-ES (Paul/hatecheck-spanish) — CC-BY-4.0. Se indican los cambios.
+
+Otras atribuciones CC-BY que pide model/datos/LICENCIAS.md, por si entran en pesos o datos distribuidos:
+- CLINC150 (clinc/clinc_oos) — CC-BY-3.0.
+- Banking77 (PolyAI/banking77) — CC-BY-4.0 (no convertido).
+- bgonzalezbustamante/toxicity-protests-ES y toxicity-Constitution-ES — CC-BY-4.0.
+- tasksource/it-support-tickets — CC-BY-4.0 (Zenodo 10.5281/zenodo.7648117).
+- SINAI/ALIA-es-discriminative-hate-speech — CC-BY-4.0 (solo test; etiquetas fusionadas de LLM, términos sin leer).
+- datos.gov.co m3mt-c275 (Sanidad Militar) — CC-BY-4.0 (solo test).
+- deepset/prompt-injections, mrm8488/go_emotions-es-mt — Apache-2.0; spam sintético tanaos y FelipeGuerra (ciberacoso) — MIT; PAWS-X es (Google) — libre para cualquier uso.
+Los conjuntos con SA, NC o términos pendientes (XNLI, somosnlp/spa_climate_detection, SIB-200, PQRS de datos.gov.co gb9w-jt96, e86p-frfd y xtj2-ipwy,
+etiquetas de ALIA, salidas de Haiku) no se redistribuyen y solo se usan como test.
+Sin verificar: qué datasets entraron en el checkpoint real de L2 (META.licencias del .chispa real).

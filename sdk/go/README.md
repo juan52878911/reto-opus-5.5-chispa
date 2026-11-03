@@ -76,3 +76,8 @@ cd sdk/go && go vet ./... && go test -race -count=1 ./...
 ```
 
 Con `httptest`, sin servidor real. Las esperas entre reintentos se sustituyen en las pruebas, que no duermen.
+
+## Licencia
+
+Apache-2.0 (ver `LICENSE` de la raíz del repositorio). Las atribuciones de terceros están en `NOTICE`. Los datasets con SA, NC o con términos pendientes
+(XNLI, clima, datos.gov.co, SIB-200, etiquetas de ALIA, salidas de Haiku) no se redistribuyen y solo se usan como test.

@@ -15,7 +15,7 @@ pip install dist/chispa-0.1.0-py3-none-any.whl          # sin el repositorio al 
 - **Extras**: `chispa[yaml]` (esquemas `.yaml`), `chispa[torre]` (`--torre`: numpy, onnx, onnxruntime),
   `chispa[l2]` (torch, transformers, scikit-learn: `--ckpt` y `--conjunta`).
 - **Fuera del wheel**: `model/l2` (checkpoint, calibrar, exportar). `--ckpt` y `--conjunta` necesitan el repositorio (`--repo` o
-  `CHISPA_REPO`) y fallan con ese mensaje si no está. Licencia: propietaria de Juan Bedoya (ver `LICENSE` en la raíz).
+  `CHISPA_REPO`) y fallan con ese mensaje si no está. Licencia: Apache-2.0 (ver `LICENSE` y `NOTICE`).
 
 ## Tests
 Desde `sdk/python`, cualquiera de los dos comandos carga y corre todo (los tests se importan como `tests.<módulo>`):
@@ -126,3 +126,8 @@ con el cliente de este SDK (4 frases).
 
 ## Pruebas
 `python -m unittest discover -s sdk/python -t sdk/python` · `cd sdk/python/chispa/entrenador_go && GOFLAGS=-mod=mod GOPROXY=off go test ./...`
+
+## Licencia
+
+Apache-2.0 (ver `LICENSE`). Las atribuciones de terceros están en `NOTICE`. Los datasets con SA, NC o con términos pendientes
+(XNLI, clima, datos.gov.co, SIB-200, etiquetas de ALIA, salidas de Haiku) no se redistribuyen y solo se usan como test.
