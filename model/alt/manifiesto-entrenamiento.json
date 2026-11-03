@@ -1,0 +1,2335 @@
+{
+ "version": 1,
+ "descripcion": "Conjuntos de train de la alternativa (b) del hito 4. Todos comerciales y sin SA/NC/ND. filas y sha256 se rellenan al sellar en el nodo.",
+ "conjuntos": [
+  {
+   "nombre": "toxicidad_protestas",
+   "fuente": "bgonzalezbustamante/toxicity-protests-ES",
+   "licencia": "cc-by-4.0",
+   "uso_comercial": true,
+   "fichero": "datos/toxicidad_protestas.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": ""
+  },
+  {
+   "nombre": "toxicidad_constitucion",
+   "fuente": "bgonzalezbustamante/toxicity-Constitution-ES",
+   "licencia": "cc-by-4.0",
+   "uso_comercial": true,
+   "fichero": "datos/toxicidad_constitucion.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": ""
+  },
+  {
+   "nombre": "goemociones_es",
+   "fuente": "mrm8488/go_emotions-es-mt",
+   "licencia": "apache-2.0",
+   "uso_comercial": true,
+   "fichero": "datos/goemociones_es.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": "traducción automática de GoEmotions (Apache-2.0)"
+  },
+  {
+   "nombre": "spam_tanaos",
+   "fuente": "tanaos/synthetic-spam-detection-dataset-spanish",
+   "licencia": "mit",
+   "uso_comercial": true,
+   "fichero": "datos/spam_tanaos.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": "sintético"
+  },
+  {
+   "nombre": "soporte_ti",
+   "fuente": "tasksource/it-support-tickets",
+   "licencia": "cc-by-4.0",
+   "uso_comercial": true,
+   "fichero": "datos/soporte_ti.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": ""
+  },
+  {
+   "nombre": "ciberacoso",
+   "fuente": "FelipeGuerra/Colombian_Spanish_Cyberbullying_Dataset_1 y _2",
+   "licencia": "mit",
+   "uso_comercial": true,
+   "fichero": "datos/ciberacoso.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": ""
+  },
+  {
+   "nombre": "tsjev",
+   "fuente": "tasksource/tasksource-jev-typed-decisions",
+   "licencia": "por tarea (ver tareas)",
+   "uso_comercial": true,
+   "fichero": "datos/tsjev-admitido.jsonl.gz",
+   "filas": null,
+   "sha256": null,
+   "notas": "solo tareas license_use=commercial sin SA/NC/ND ni lista de exclusión; salida de `python -m model.alt.manifiesto filtrar`",
+   "filas_catalogo": 1277391,
+   "filas_train_catalogo": 1261765,
+   "tareas": [
+    {
+     "tarea": "CONDAQA",
+     "licencia": "apache-2.0, Apache License 2.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 4035
+    },
+    {
+     "tarea": "FLUTE",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 3249
+    },
+    {
+     "tarea": "FOL-nli",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 12232
+    },
+    {
+     "tarea": "HatemojiBuild",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3232
+    },
+    {
+     "tarea": "HelpSteer/coherence",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 722
+    },
+    {
+     "tarea": "HelpSteer/complexity",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 721
+    },
+    {
+     "tarea": "HelpSteer/correctness",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 728
+    },
+    {
+     "tarea": "HelpSteer/helpfulness",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 727
+    },
+    {
+     "tarea": "HelpSteer/verbosity",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 712
+    },
+    {
+     "tarea": "HelpSteer2/coherence",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1019
+    },
+    {
+     "tarea": "HelpSteer2/complexity",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1055
+    },
+    {
+     "tarea": "HelpSteer2/correctness",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1002
+    },
+    {
+     "tarea": "HelpSteer2/helpfulness",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 996
+    },
+    {
+     "tarea": "HelpSteer2/verbosity",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1020
+    },
+    {
+     "tarea": "HelpSteer3/edit_quality",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3464
+    },
+    {
+     "tarea": "HelpSteer3/feedback",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1493
+    },
+    {
+     "tarea": "HelpSteer3/preference",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 6637
+    },
+    {
+     "tarea": "HelpSteer3/preference_strength",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1430
+    },
+    {
+     "tarea": "HelpSteer3/principle",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1760
+    },
+    {
+     "tarea": "I2D2",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3356
+    },
+    {
+     "tarea": "PARADISE",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 12230
+    },
+    {
+     "tarea": "PARARULE-Plus",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3595
+    },
+    {
+     "tarea": "Prompt-injection-dataset/full",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3321
+    },
+    {
+     "tarea": "PromptShield",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3381
+    },
+    {
+     "tarea": "SDOH-NLI",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1702
+    },
+    {
+     "tarea": "SpaceNLI",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4364
+    },
+    {
+     "tarea": "Touche23-ValueEval",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 1667
+    },
+    {
+     "tarea": "TroFi",
+     "licencia": "gpl, Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 1988
+    },
+    {
+     "tarea": "TuringBench",
+     "licencia": "apache-2.0, Apache License 2.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 7467
+    },
+    {
+     "tarea": "UNLI",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 30848
+    },
+    {
+     "tarea": "UltraFeedback-paired",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 10357
+    },
+    {
+     "tarea": "WANLI",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 12203
+    },
+    {
+     "tarea": "acceptability-prediction/binary_votes",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 2355
+    },
+    {
+     "tarea": "acceptability-prediction/rating_votes",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 4608
+    },
+    {
+     "tarea": "acord",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 4195
+    },
+    {
+     "tarea": "agent_action_safety",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 1879
+    },
+    {
+     "tarea": "amazon_counterfactual/en",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3212
+    },
+    {
+     "tarea": "amazon_polarity/amazon_polarity",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3541
+    },
+    {
+     "tarea": "arct",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 1472
+    },
+    {
+     "tarea": "args_me",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 3571
+    },
+    {
+     "tarea": "autotnli",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3578
+    },
+    {
+     "tarea": "babi_nli/basic-coreference",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 272
+    },
+    {
+     "tarea": "babi_nli/basic-deduction",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 259
+    },
+    {
+     "tarea": "babi_nli/basic-induction",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 257
+    },
+    {
+     "tarea": "babi_nli/compound-coreference",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 262
+    },
+    {
+     "tarea": "babi_nli/conjunction",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 270
+    },
+    {
+     "tarea": "babi_nli/counting",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 243
+    },
+    {
+     "tarea": "babi_nli/indefinite-knowledge",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 267
+    },
+    {
+     "tarea": "babi_nli/lists-sets",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 266
+    },
+    {
+     "tarea": "babi_nli/path-finding",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 253
+    },
+    {
+     "tarea": "babi_nli/positional-reasoning",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 257
+    },
+    {
+     "tarea": "babi_nli/simple-negation",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 274
+    },
+    {
+     "tarea": "babi_nli/single-supporting-fact",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 245
+    },
+    {
+     "tarea": "babi_nli/size-reasoning",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 247
+    },
+    {
+     "tarea": "babi_nli/three-arg-relations",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 266
+    },
+    {
+     "tarea": "babi_nli/three-supporting-facts",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 280
+    },
+    {
+     "tarea": "babi_nli/time-reasoning",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 266
+    },
+    {
+     "tarea": "babi_nli/two-arg-relations",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 273
+    },
+    {
+     "tarea": "babi_nli/two-supporting-facts",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 248
+    },
+    {
+     "tarea": "babi_nli/yes-no-questions",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 268
+    },
+    {
+     "tarea": "balanced-copa",
+     "licencia": "cc-by-4.0, BSD 2-Clause License (DPI)",
+     "license_use": "commercial",
+     "filas": 1074
+    },
+    {
+     "tarea": "banking77",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 5624
+    },
+    {
+     "tarea": "blog_authorship_corpus/age",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 1953
+    },
+    {
+     "tarea": "blog_authorship_corpus/gender",
+     "licencia": "apache-2.0, Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 1943
+    },
+    {
+     "tarea": "causal-news",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 3183
+    },
+    {
+     "tarea": "causal-reasoning/transitivity",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3503
+    },
+    {
+     "tarea": "cebab/ambiance",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 948
+    },
+    {
+     "tarea": "cebab/food",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 939
+    },
+    {
+     "tarea": "cebab/noise",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 905
+    },
+    {
+     "tarea": "cebab/rating",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 786
+    },
+    {
+     "tarea": "cebab/service",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 905
+    },
+    {
+     "tarea": "cicero",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 12240
+    },
+    {
+     "tarea": "circa",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 4369
+    },
+    {
+     "tarea": "civil_comments/identity_attack_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 914
+    },
+    {
+     "tarea": "civil_comments/insult_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 4655
+    },
+    {
+     "tarea": "civil_comments/obscene_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 726
+    },
+    {
+     "tarea": "civil_comments/severe_toxicity_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 4
+    },
+    {
+     "tarea": "civil_comments/sexual_explicit_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 337
+    },
+    {
+     "tarea": "civil_comments/threat_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 349
+    },
+    {
+     "tarea": "civil_comments/toxicity_share",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 4656
+    },
+    {
+     "tarea": "clcd-english",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3293
+    },
+    {
+     "tarea": "clinc_oos/plus",
+     "licencia": "cc-by-3.0",
+     "license_use": "commercial",
+     "filas": 5700
+    },
+    {
+     "tarea": "cloth",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 12283
+    },
+    {
+     "tarea": "codah/codah",
+     "licencia": "odc-by",
+     "license_use": "commercial",
+     "filas": 2921
+    },
+    {
+     "tarea": "commonsense_qa",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 9005
+    },
+    {
+     "tarea": "commonsense_qa_2.0",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3277
+    },
+    {
+     "tarea": "conceptrules_v2",
+     "licencia": "mit, Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 5121
+    },
+    {
+     "tarea": "corr2cause",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 6346
+    },
+    {
+     "tarea": "cosmos_qa",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 11521
+    },
+    {
+     "tarea": "cuad/answerability",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3293
+    },
+    {
+     "tarea": "cycic_classification",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3229
+    },
+    {
+     "tarea": "cycic_multiplechoice",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 7567
+    },
+    {
+     "tarea": "defeasible-nli/atomic",
+     "licencia": "apache-2.0, MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 1535
+    },
+    {
+     "tarea": "defeasible-nli/snli",
+     "licencia": "apache-2.0, MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 1481
+    },
+    {
+     "tarea": "defeasible-nli/social",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 1454
+    },
+    {
+     "tarea": "dgen",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 2439
+    },
+    {
+     "tarea": "discosense",
+     "licencia": "apache-2.0, apache-2.0 (original source)",
+     "license_use": "commercial",
+     "filas": 8842
+    },
+    {
+     "tarea": "discovery/discovery",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 5844
+    },
+    {
+     "tarea": "disrpt/eng.dep.scidtb.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 5610
+    },
+    {
+     "tarea": "dnd_style_intents",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 5107
+    },
+    {
+     "tarea": "doc-nli",
+     "licencia": "bsd",
+     "license_use": "commercial",
+     "filas": 19681
+    },
+    {
+     "tarea": "docred",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 8617
+    },
+    {
+     "tarea": "dynahate",
+     "licencia": "gpl",
+     "license_use": "commercial",
+     "filas": 3550
+    },
+    {
+     "tarea": "dynasent/r1_votes",
+     "licencia": "CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 21595
+    },
+    {
+     "tarea": "dynasent/r2_votes",
+     "licencia": "CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 13262
+    },
+    {
+     "tarea": "e-CARE",
+     "licencia": "BSD 2-Clause License (DPI)",
+     "license_use": "commercial",
+     "filas": 8350
+    },
+    {
+     "tarea": "edos",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 3350
+    },
+    {
+     "tarea": "emo/emo2019",
+     "licencia": "mpl-2.0",
+     "license_use": "commercial",
+     "filas": 2361
+    },
+    {
+     "tarea": "ems-mcqa",
+     "licencia": "mit, mit (original source)",
+     "license_use": "commercial",
+     "filas": 14111
+    },
+    {
+     "tarea": "equate",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 2263
+    },
+    {
+     "tarea": "esci",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 2437
+    },
+    {
+     "tarea": "ethics/commonsense",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 1001
+    },
+    {
+     "tarea": "ethics/deontology",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 973
+    },
+    {
+     "tarea": "ethics/justice",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 970
+    },
+    {
+     "tarea": "ethics/virtue",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 1099
+    },
+    {
+     "tarea": "ethos/multilabel",
+     "licencia": "agpl-3.0",
+     "license_use": "commercial",
+     "filas": 2053
+    },
+    {
+     "tarea": "faithdial/grounding",
+     "licencia": "mit, mit (original source)",
+     "license_use": "commercial",
+     "filas": 3367
+    },
+    {
+     "tarea": "feasibilityQA",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3207
+    },
+    {
+     "tarea": "fig-qa",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 7381
+    },
+    {
+     "tarea": "fool-me-twice",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3330
+    },
+    {
+     "tarea": "gap",
+     "licencia": "apache-2.0, apache-2.0 (original source)",
+     "license_use": "commercial",
+     "filas": 2519
+    },
+    {
+     "tarea": "github-issue-similarity",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3409
+    },
+    {
+     "tarea": "go_emotions/simplified",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3191
+    },
+    {
+     "tarea": "goal-step-wikihow/goal",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 7220
+    },
+    {
+     "tarea": "goal-step-wikihow/order",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 6886
+    },
+    {
+     "tarea": "goal-step-wikihow/step",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 7148
+    },
+    {
+     "tarea": "hallmarks-of-cancer/yesno",
+     "licencia": "gpl-3.0",
+     "license_use": "commercial",
+     "filas": 3263
+    },
+    {
+     "tarea": "hatexplain/majority",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 4148
+    },
+    {
+     "tarea": "head_qa/en",
+     "licencia": "mit, other",
+     "license_use": "commercial",
+     "filas": 3192
+    },
+    {
+     "tarea": "headline_cause/en_simple",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 4023
+    },
+    {
+     "tarea": "health_fact",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4081
+    },
+    {
+     "tarea": "hh-rlhf/harmless-base",
+     "licencia": "MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 5547
+    },
+    {
+     "tarea": "hh-rlhf/helpful-base",
+     "licencia": "MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 5484
+    },
+    {
+     "tarea": "hh-rlhf/helpful-online",
+     "licencia": "MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 5481
+    },
+    {
+     "tarea": "hh-rlhf/helpful-rejection-sampled",
+     "licencia": "MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 5522
+    },
+    {
+     "tarea": "hope_edi/english",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 4094
+    },
+    {
+     "tarea": "hover",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3358
+    },
+    {
+     "tarea": "hyperpartisan_news",
+     "licencia": "CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 719
+    },
+    {
+     "tarea": "implicatures",
+     "licencia": "gpl",
+     "license_use": "commercial",
+     "filas": 1139
+    },
+    {
+     "tarea": "infotabs",
+     "licencia": "apache-2.0 (original source)",
+     "license_use": "commercial",
+     "filas": 4144
+    },
+    {
+     "tarea": "it-support-tickets",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1176
+    },
+    {
+     "tarea": "jigsaw_toxicity",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3337
+    },
+    {
+     "tarea": "knowref60k",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 8986
+    },
+    {
+     "tarea": "lex_glue/case_hold",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 12192
+    },
+    {
+     "tarea": "lex_glue/ledgar",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1888
+    },
+    {
+     "tarea": "lex_glue/scotus",
+     "licencia": "cc-by-4.0, Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 1963
+    },
+    {
+     "tarea": "lex_glue/unfair_tos",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 2136
+    },
+    {
+     "tarea": "logical-entailment",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3542
+    },
+    {
+     "tarea": "lonli",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4366
+    },
+    {
+     "tarea": "magpie/idiomatic",
+     "licencia": "mit, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 3232
+    },
+    {
+     "tarea": "mams/atsa",
+     "licencia": "apache-2.0 (original source)",
+     "license_use": "commercial",
+     "filas": 4072
+    },
+    {
+     "tarea": "math_qa",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 12142
+    },
+    {
+     "tarea": "maud/antitrust-efforts",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 380
+    },
+    {
+     "tarea": "maud/bringdown-timing",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 291
+    },
+    {
+     "tarea": "maud/consideration",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 287
+    },
+    {
+     "tarea": "maud/ordinary-course-consent",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 131
+    },
+    {
+     "tarea": "maud/ordinary-course-efforts",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 275
+    },
+    {
+     "tarea": "maud/specific-performance",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 98
+    },
+    {
+     "tarea": "medmcqa",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 12204
+    },
+    {
+     "tarea": "mindgames",
+     "licencia": "apache-2.0, Apache License 2.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 3299
+    },
+    {
+     "tarea": "monotonicity-entailment",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3245
+    },
+    {
+     "tarea": "moral_stories/full",
+     "licencia": "mit, MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 7723
+    },
+    {
+     "tarea": "multidogo/airline/intent",
+     "licencia": "other, cdla-permissive-1.0 (original source)",
+     "license_use": "commercial",
+     "filas": 958
+    },
+    {
+     "tarea": "multidogo/fastfood/intent",
+     "licencia": "other, cdla-permissive-1.0 (original source)",
+     "license_use": "commercial",
+     "filas": 942
+    },
+    {
+     "tarea": "multidogo/finance/intent",
+     "licencia": "other, cdla-permissive-1.0 (original source)",
+     "license_use": "commercial",
+     "filas": 933
+    },
+    {
+     "tarea": "multidogo/insurance/intent",
+     "licencia": "other, cdla-permissive-1.0 (original source)",
+     "license_use": "commercial",
+     "filas": 948
+    },
+    {
+     "tarea": "multidogo/media/intent",
+     "licencia": "other, cdla-permissive-1.0 (original source)",
+     "license_use": "commercial",
+     "filas": 944
+    },
+    {
+     "tarea": "multidogo/software/intent",
+     "licencia": "other, cdla-permissive-1.0 (original source)",
+     "license_use": "commercial",
+     "filas": 940
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/amh",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 375
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/arq",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 382
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/ary",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 386
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/hau",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 403
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/ibo",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 380
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/kin",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 387
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/pcm",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 375
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/por",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 380
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/swa",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 384
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/tso",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 381
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/twi",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 382
+    },
+    {
+     "tarea": "multilingual/AfriSenti-twitter-sentiment/yor",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 384
+    },
+    {
+     "tarea": "multilingual/MLMA_hate_speech",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 2548
+    },
+    {
+     "tarea": "multilingual/disrpt/deu.rst.pcc.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 625
+    },
+    {
+     "tarea": "multilingual/disrpt/eus.rst.ert.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 640
+    },
+    {
+     "tarea": "multilingual/disrpt/fas.rst.prstc.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 650
+    },
+    {
+     "tarea": "multilingual/disrpt/fra.sdrt.annodis.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 640
+    },
+    {
+     "tarea": "multilingual/disrpt/nld.rst.nldt.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 633
+    },
+    {
+     "tarea": "multilingual/disrpt/por.rst.cstn.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 641
+    },
+    {
+     "tarea": "multilingual/disrpt/rus.rst.rrt.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 610
+    },
+    {
+     "tarea": "multilingual/disrpt/spa.rst.rststb.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 646
+    },
+    {
+     "tarea": "multilingual/disrpt/tha.pdtb.tdtb.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 652
+    },
+    {
+     "tarea": "multilingual/disrpt/zho.rst.gcdt.rels",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 597
+    },
+    {
+     "tarea": "multilingual/masakhanews/amh",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 260
+    },
+    {
+     "tarea": "multilingual/masakhanews/eng",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 282
+    },
+    {
+     "tarea": "multilingual/masakhanews/fra",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 275
+    },
+    {
+     "tarea": "multilingual/masakhanews/hau",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 278
+    },
+    {
+     "tarea": "multilingual/masakhanews/ibo",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 267
+    },
+    {
+     "tarea": "multilingual/masakhanews/lin",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 271
+    },
+    {
+     "tarea": "multilingual/masakhanews/lug",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 256
+    },
+    {
+     "tarea": "multilingual/masakhanews/orm",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 266
+    },
+    {
+     "tarea": "multilingual/masakhanews/pcm",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 267
+    },
+    {
+     "tarea": "multilingual/masakhanews/run",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 255
+    },
+    {
+     "tarea": "multilingual/masakhanews/sna",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 256
+    },
+    {
+     "tarea": "multilingual/masakhanews/som",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 259
+    },
+    {
+     "tarea": "multilingual/masakhanews/swa",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 257
+    },
+    {
+     "tarea": "multilingual/masakhanews/tir",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 267
+    },
+    {
+     "tarea": "multilingual/masakhanews/xho",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 268
+    },
+    {
+     "tarea": "multilingual/masakhanews/yor",
+     "licencia": "afl-3.0",
+     "license_use": "commercial",
+     "filas": 254
+    },
+    {
+     "tarea": "multilingual/massive",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 5641
+    },
+    {
+     "tarea": "multilingual/multilingual-sentiments/all",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 4105
+    },
+    {
+     "tarea": "multilingual/offenseval_dravidian/kannada",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1706
+    },
+    {
+     "tarea": "multilingual/offenseval_dravidian/malayalam",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1873
+    },
+    {
+     "tarea": "multilingual/offenseval_dravidian/tamil",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1733
+    },
+    {
+     "tarea": "multilingual/tweet_sentiment_multilingual",
+     "licencia": "cc-by-3.0",
+     "license_use": "commercial",
+     "filas": 4084
+    },
+    {
+     "tarea": "multilingual/universal-joy",
+     "licencia": "gpl",
+     "license_use": "commercial",
+     "filas": 4374
+    },
+    {
+     "tarea": "multilingual/wili_2018",
+     "licencia": "odbl",
+     "license_use": "commercial",
+     "filas": 5808
+    },
+    {
+     "tarea": "multilingual/x-stance",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3575
+    },
+    {
+     "tarea": "multilingual/xcopa/et",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/ht",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 62
+    },
+    {
+     "tarea": "multilingual/xcopa/id",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 68
+    },
+    {
+     "tarea": "multilingual/xcopa/it",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/qu",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 63
+    },
+    {
+     "tarea": "multilingual/xcopa/sw",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 63
+    },
+    {
+     "tarea": "multilingual/xcopa/ta",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 59
+    },
+    {
+     "tarea": "multilingual/xcopa/th",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/tr",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 64
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-et",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 61
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-ht",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 61
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-id",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 63
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-it",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 59
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-sw",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-ta",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 65
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-th",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-tr",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 61
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-vi",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/translation-zh",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcopa/vi",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 61
+    },
+    {
+     "tarea": "multilingual/xcopa/zh",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 60
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-ar",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 169
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-de",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 171
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-en",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 171
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-es",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 167
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-fr",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 173
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-hi",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 169
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-it",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 172
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-jap",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 173
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-nl",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 168
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-pl",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 167
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-pt",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 170
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-ru",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 172
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-sw",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 174
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-ur",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 175
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-vi",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 171
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CODAH-zh",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 169
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-ar",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 401
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-de",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 396
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-en",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 393
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-es",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 402
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-fr",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 405
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-hi",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 397
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-it",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 404
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-jap",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 395
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-nl",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 389
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-pl",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 394
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-pt",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 397
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-ru",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 399
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-sw",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 399
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-ur",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 401
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-vi",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 385
+    },
+    {
+     "tarea": "multilingual/xcsr/X-CSQA-zh",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 400
+    },
+    {
+     "tarea": "multiwoz22/categorical-slot",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 2754
+    },
+    {
+     "tarea": "multiwoz22/dialogue-act",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 2742
+    },
+    {
+     "tarea": "naturallogic",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 4017
+    },
+    {
+     "tarea": "nevir",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 2188
+    },
+    {
+     "tarea": "newsmtsc",
+     "licencia": "mit, MIT License (DPI)",
+     "license_use": "commercial",
+     "filas": 4056
+    },
+    {
+     "tarea": "numer_sense",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4857
+    },
+    {
+     "tarea": "open_question_type",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI), Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 4792
+    },
+    {
+     "tarea": "patent-phrase-similarity",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 5109
+    },
+    {
+     "tarea": "poem_sentiment",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1181
+    },
+    {
+     "tarea": "prm800k_dpo/solution",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4328
+    },
+    {
+     "tarea": "prm800k_dpo/step",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3648
+    },
+    {
+     "tarea": "procedural-typed-decisions/arithmetic",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14463
+    },
+    {
+     "tarea": "procedural-typed-decisions/entity_belief_tracking",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14454
+    },
+    {
+     "tarea": "procedural-typed-decisions/event_state_reconstruction",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14459
+    },
+    {
+     "tarea": "procedural-typed-decisions/event_triggered_execution",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14461
+    },
+    {
+     "tarea": "procedural-typed-decisions/evidence_sufficiency",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14461
+    },
+    {
+     "tarea": "procedural-typed-decisions/goal_directed_planning",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14453
+    },
+    {
+     "tarea": "procedural-typed-decisions/graph_navigation",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14457
+    },
+    {
+     "tarea": "procedural-typed-decisions/instruction_execution",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14461
+    },
+    {
+     "tarea": "procedural-typed-decisions/multi_view_adjudication",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14457
+    },
+    {
+     "tarea": "procedural-typed-decisions/needle_retrieval",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14455
+    },
+    {
+     "tarea": "procedural-typed-decisions/partial_observation_calibration",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14455
+    },
+    {
+     "tarea": "procedural-typed-decisions/policy_applicability",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14456
+    },
+    {
+     "tarea": "procedural-typed-decisions/policy_under_uncertainty",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14465
+    },
+    {
+     "tarea": "procedural-typed-decisions/record_aggregation",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14461
+    },
+    {
+     "tarea": "procedural-typed-decisions/record_eligibility",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14454
+    },
+    {
+     "tarea": "procedural-typed-decisions/state_perturbation",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14453
+    },
+    {
+     "tarea": "procedural-typed-decisions/table_lookup",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 7222
+    },
+    {
+     "tarea": "procedural-typed-decisions/taxonomy_routing",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 14453
+    },
+    {
+     "tarea": "prompt-injection-dataset",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3315
+    },
+    {
+     "tarea": "prompt-injections",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 645
+    },
+    {
+     "tarea": "propsegment/nli",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 4285
+    },
+    {
+     "tarea": "prosocial-dialog/safety",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 4247
+    },
+    {
+     "tarea": "proto_qa/proto_qa",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 8032
+    },
+    {
+     "tarea": "qasc",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 5796
+    },
+    {
+     "tarea": "qasper/yesno",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 370
+    },
+    {
+     "tarea": "quac/answerability",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3356
+    },
+    {
+     "tarea": "quality",
+     "licencia": "cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 2947
+    },
+    {
+     "tarea": "quartz",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3218
+    },
+    {
+     "tarea": "ragtruth/grounding",
+     "licencia": "mit (original source)",
+     "license_use": "commercial",
+     "filas": 3315
+    },
+    {
+     "tarea": "redial/preference",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 4101
+    },
+    {
+     "tarea": "resnli",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3533
+    },
+    {
+     "tarea": "robust_nli_is_sd",
+     "licencia": "OANC (DPI)",
+     "license_use": "commercial",
+     "filas": 353
+    },
+    {
+     "tarea": "robust_nli_li_ts",
+     "licencia": "OANC (DPI)",
+     "license_use": "commercial",
+     "filas": 356
+    },
+    {
+     "tarea": "ruletaker",
+     "licencia": "apache-2.0, Apache License 2.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 3536
+    },
+    {
+     "tarea": "rumoureval_2019/RumourEval2019",
+     "licencia": "cc-by-4.0, CC BY 4.0 (DPI), Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 4019
+    },
+    {
+     "tarea": "sbic/intent",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 2102
+    },
+    {
+     "tarea": "sbic/offensiveness",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 2118
+    },
+    {
+     "tarea": "scientific-exaggeration-detection",
+     "licencia": "gpl-3.0",
+     "license_use": "commercial",
+     "filas": 159
+    },
+    {
+     "tarea": "scone",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 3222
+    },
+    {
+     "tarea": "scruples/verdict_votes",
+     "licencia": "apache-2.0, Custom (DPI)",
+     "license_use": "commercial",
+     "filas": 13757
+    },
+    {
+     "tarea": "sem_eval_2010_task_8",
+     "licencia": "CC0 1.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 4836
+    },
+    {
+     "tarea": "sentfin",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4090
+    },
+    {
+     "tarea": "sentihood/sentiment",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3204
+    },
+    {
+     "tarea": "shell-safety-v2",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4320
+    },
+    {
+     "tarea": "sherliic",
+     "licencia": "CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 1200
+    },
+    {
+     "tarea": "slurp/intent",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 2862
+    },
+    {
+     "tarea": "slurp/slot-type",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 2885
+    },
+    {
+     "tarea": "sms_spam",
+     "licencia": "CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 3215
+    },
+    {
+     "tarea": "snips_built_in_intents",
+     "licencia": "cc0-1.0, CC0 1.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 424
+    },
+    {
+     "tarea": "social_i_qa",
+     "licencia": "CC BY 4.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 12234
+    },
+    {
+     "tarea": "soul",
+     "licencia": "mit, mit (publisher); original review terms (original source)",
+     "license_use": "commercial",
+     "filas": 9310
+    },
+    {
+     "tarea": "spartqa-mchoice",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 14822
+    },
+    {
+     "tarea": "spartqa-yn",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 6259
+    },
+    {
+     "tarea": "stackoverflow-questions",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 4286
+    },
+    {
+     "tarea": "starcon",
+     "licencia": "CC0 1.0 (DPI)",
+     "license_use": "commercial",
+     "filas": 1779
+    },
+    {
+     "tarea": "stepgame",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 5171
+    },
+    {
+     "tarea": "sts-companion",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 4920
+    },
+    {
+     "tarea": "subjectivity",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 943
+    },
+    {
+     "tarea": "syntactic-augmentation-nli",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4080
+    },
+    {
+     "tarea": "tab/identifier",
+     "licencia": "mit, mit (original source)",
+     "license_use": "commercial",
+     "filas": 4254
+    },
+    {
+     "tarea": "tabfact",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 3578
+    },
+    {
+     "tarea": "temporal-nli",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 4360
+    },
+    {
+     "tarea": "tomi-nli",
+     "licencia": "gpl-3.0",
+     "license_use": "commercial",
+     "filas": 4808
+    },
+    {
+     "tarea": "tracie",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 1397
+    },
+    {
+     "tarea": "tweets_hate_speech_detection",
+     "licencia": "gpl-3.0",
+     "license_use": "commercial",
+     "filas": 3296
+    },
+    {
+     "tarea": "twitter-financial-news-sentiment",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4075
+    },
+    {
+     "tarea": "ukpconvarg/convincingness",
+     "licencia": "cc-by-4.0, cc-by-4.0 (original source)",
+     "license_use": "commercial",
+     "filas": 7320
+    },
+    {
+     "tarea": "utilitarianism",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 1756
+    },
+    {
+     "tarea": "wands",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 4194
+    },
+    {
+     "tarea": "webinstruct/binary",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 3285
+    },
+    {
+     "tarea": "webinstruct/mc",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 10065
+    },
+    {
+     "tarea": "websrc/element",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1169
+    },
+    {
+     "tarea": "websrc/yesno",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1154
+    },
+    {
+     "tarea": "wikimedqa/medwiki",
+     "licencia": "apache-2.0",
+     "license_use": "commercial",
+     "filas": 13713
+    },
+    {
+     "tarea": "wikipedia-detox/aggression",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 7727
+    },
+    {
+     "tarea": "wikipedia-detox/aggression_score",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 7723
+    },
+    {
+     "tarea": "wikipedia-detox/attack",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 7725
+    },
+    {
+     "tarea": "wikipedia-detox/toxicity",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 7726
+    },
+    {
+     "tarea": "wikipedia-detox/toxicity_score",
+     "licencia": "cc0-1.0",
+     "license_use": "commercial",
+     "filas": 7730
+    },
+    {
+     "tarea": "wildguardmix-cleaned/prompt_harm",
+     "licencia": "odc-by",
+     "license_use": "commercial",
+     "filas": 1366
+    },
+    {
+     "tarea": "wildguardmix-cleaned/response_harm",
+     "licencia": "odc-by",
+     "license_use": "commercial",
+     "filas": 1508
+    },
+    {
+     "tarea": "wildguardmix-cleaned/response_refusal",
+     "licencia": "odc-by",
+     "license_use": "commercial",
+     "filas": 1365
+    },
+    {
+     "tarea": "winodict",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 1629
+    },
+    {
+     "tarea": "winowhy",
+     "licencia": "mit",
+     "license_use": "commercial",
+     "filas": 3205
+    },
+    {
+     "tarea": "wnut_17/wnut_17",
+     "licencia": "cc-by-4.0",
+     "license_use": "commercial",
+     "filas": 7839
+    }
+   ]
+  }
+ ],
+ "exclusiones": {
+  "mientras_Juan_no_decida": [
+   "SIB-200 (CC-BY-SA, solo test)",
+   "Clandestino",
+   "PQRS de datos.gov.co",
+   "blandas de Qwen3.5 (model/maestro)",
+   "XNLI",
+   "clima (spa_climate_detection)",
+   "ALIA"
+  ],
+  "medicion_solo": [
+   "massive",
+   "clinc150",
+   "hatecheck",
+   "inyecciones (deepset)"
+  ]
+ },
+ "tsjev_resumen": {
+  "tareas_total": 754,
+  "filas_total": 2580012,
+  "filas_train_total": 2550012,
+  "tareas_admitidas": 365,
+  "filas_admitidas": 1277391,
+  "filas_train_admitidas": 1261765,
+  "tareas_excluidas": 389,
+  "filas_excluidas": 1302621,
+  "excluidas_por_motivo": {
+   "SA": {
+    "tareas": 74,
+    "filas": 152741
+   },
+   "SA+lista de exclusión": {
+    "tareas": 1,
+    "filas": 4008
+   },
+   "license_use=non-commercial": {
+    "tareas": 9,
+    "filas": 97429
+   },
+   "license_use=non-commercial+NC": {
+    "tareas": 23,
+    "filas": 75440
+   },
+   "license_use=non-commercial+NC+lista de exclusión": {
+    "tareas": 3,
+    "filas": 12810
+   },
+   "license_use=non-commercial+SA": {
+    "tareas": 20,
+    "filas": 88629
+   },
+   "license_use=unspecified": {
+    "tareas": 67,
+    "filas": 240495
+   },
+   "license_use=unspecified+sin verificar": {
+    "tareas": 188,
+    "filas": 597986
+   },
+   "license_use=unspecified+sin verificar+lista de exclusión": {
+    "tareas": 4,
+    "filas": 33083
+   }
+  }
+ }
+}
