@@ -178,3 +178,12 @@ class JevBench(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Tope(unittest.TestCase):
+    def test_tope_por_tarea_determinista(self):
+        fs = [dict(f, tarea="t%d" % (i % 2)) for i, f in enumerate(filas(20))]
+        a, b = EN.tope_por_tarea(fs, 3, 0), EN.tope_por_tarea(fs, 3, 0)
+        self.assertEqual([r["id"] for r in a], [r["id"] for r in b])
+        self.assertEqual(len(a), 6)
+        self.assertEqual(len(EN.tope_por_tarea(fs, 0)), 20)
