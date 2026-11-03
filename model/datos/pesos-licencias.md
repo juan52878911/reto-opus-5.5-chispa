@@ -18,6 +18,10 @@ Antes de publicar pesos con Apache-2.0. Auditoría de solo lectura del código c
   - `model/l2/entrenar.py:97-100` carga solo `split="train"` con `solo_comercial=True`, y `model/l2/datos.py:252` hace lo mismo en el meta.
   - Por eso XNLI (NC), clima (NC-SA), ALIA (etiquetas de LLM) y las PQRS de datos.gov.co (SA), marcadas solo test, **no entraron**.
   - El fallo es solo el marcado de SIB-200.
+- **tsjev: confirmado, también hay SA en train.** Lo verificó W17 por tarea con el `sources.yaml` (`model/alt/manifiesto-entrenamiento.json`, `tsjev_resumen`).
+  - De 754 tareas, 74 están marcadas `commercial` pero son SA: 152 741 filas que el filtro de `model/meta` (solo NC/ND) dejó pasar al meta de G.8 y del ajuste 1.
+  - Eso confirma el veredicto de «no publicable» por una segunda vía.
+  - El manifiesto nuevo admite 365 tareas (1 261 765 filas de train) y excluye el resto: SA, NC, `unspecified` o sin verificar.
 - **Quedan dudosos, aunque no bloquean igual:**
   - **El meta tasksource** (tsjev, 171 172 filas en el ajuste 1; tsjev y tsinst en G.8): el filtro `validar.py` quita NC/ND pero no SA. Falta la licencia por tarea del `sources.yaml`.
   - **Las blandas del maestro Qwen** (Qwen3.5-4B): falta verificar su licencia en la tarjeta.
