@@ -172,6 +172,21 @@ make -C server carga-arnes ARGS="-d 10s -n 1"
 ## Un solo `-modelo`
 Si tienes `l0l1.chispa` y `l2.chispa` por separado, únelos con `cd server && go run ./deploy/mkmodelo -unir l0l1.chispa,l2.chispa -out modelo.chispa`. Gana el primero si repiten sección.
 
+### Varias preguntas few-shot + el L2 de un servidor
+
+Receta para servir varias preguntas few-shot entrenadas por separado junto a un `.chispa` de servidor (L0+L2+TORR+CALIB) en un solo `chispa-server`, sin cambiar el formato:
+
+```
+chispa-server -modelo servidor.chispa -tok e5.chispa-tok -config config.json
+# config.json: {"modelos": ["colocacion.chispa", "riesgo.chispa", "completa.chispa"], ...}
+```
+
+- Cada fichero de `modelos` es un `.chispa` v3 solo-L0 (entrenado sin `--l2` ni `--torre`) o un v1/v2 de kindling. De un v3 se usa su `L0TF` (o `L0` si no hay), abierto con el tope `max_fichero`. Corre en la recarga igual que en el arranque.
+- **La calibración es la del `-modelo`.** CALIB, SOPL1, ESQUEMAS, CONJ y cualquier otra sección de esos ficheros se ignoran; el arranque escribe un aviso por fichero, p. ej. `modelos: colocacion.chispa: se usa solo su L0; se ignoran CALIB, SOPL1: la calibración es la del -modelo`. Los τ y la calibración por tipo de pregunta los fija el `-modelo` (o `-config`).
+- Si un fichero de `modelos` trae L1, L2 o TORR, el arranque falla («`modelos` es solo para L0; ese fichero lleva L2; úsalo como `-modelo`»). Solo cabe un L2 (el del `-modelo`).
+- **Cómo elige L0.** Por el conjunto de ids de las opciones de la petición (sin orden), contra las etiquetas de cada modelo: el `Kind` no cuenta. `multi` nunca usa L0; un `score` solo si sus ids son exactamente 1..K (y responde con la mediana); un `noul` tiene ids `false`/`true`, así que lo atiende un L0 con esas dos etiquetas. Un `choice` con ids 1..5 y un `score` 1..5 comparten L0 si los ids coinciden. En Caída, `colocacion` (choice 1..6), `riesgo` (score 1..5) y `completa` (noul) tienen conjuntos distintos y no se pisan.
+- **Conflictos.** Dos L0 con el mismo conjunto de etiquetas (incluido el L0 del `-modelo`) hacen fallar el arranque (y la recarga, que deja el modelo anterior) con un error que nombra los dos ficheros; nunca pisa uno al otro. Una pregunta sin L0 propio cae a L1/L2 como siempre.
+
 ## El patrón de AWS
 Todo lo medido de punta a punta corrió así, en una c6a.xlarge (spot):
 

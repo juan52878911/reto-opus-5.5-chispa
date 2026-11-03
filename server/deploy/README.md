@@ -28,6 +28,12 @@ curl -s localhost:8090/v1/decide -d @server/decide/testdata/choice.req.json
 `CMD` es `-modelo /modelos/modelo.chispa` (un `.chispa` v3, o v2 con solo L0); se puede sustituir por `-config …`.
 Contrato y endpoints: `server/README.md`. `carga` va en la imagen (`--entrypoint carga`).
 
+## Varias preguntas few-shot + L2 de servidor
+
+`-modelo servidor.chispa` (L0+L2+TORR+CALIB) y, en `-config`, `"modelos": ["colocacion.chispa", "riesgo.chispa", "completa.chispa"]` (v3 solo-L0 o v1/v2). Solo se usa el L0 de cada uno:
+**la calibración es la del `-modelo`** (CALIB, SOPL1 y demás se ignoran con un aviso por fichero al arrancar); si traen L1, L2 o TORR el arranque falla; dos L0 con las mismas etiquetas (el del `-modelo` incluido) también, con un error que nombra los dos ficheros.
+Detalle: `docs/06-despliegue.md`.
+
 ## Limitaciones
 - **L2 responde si se pasa `-tok`** (`.chispa-tok` de e5, `runtime/tok/exportar.py`; `main.go`); sin él, L2 queda en stub.
   Otros flags: `-addr`, `-config`, `-modelo` y `-timeout` (tope por petición, 30 s por defecto; responde 503; 0 = sin tope). `chispa-server` solo admite un `-modelo`;
