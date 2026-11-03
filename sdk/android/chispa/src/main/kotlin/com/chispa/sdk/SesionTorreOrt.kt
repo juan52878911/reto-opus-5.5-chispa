@@ -7,7 +7,7 @@ import java.nio.LongBuffer
 
 /**
  * El ONNX de la torre (sección TORR) sobre ONNX Runtime Mobile, abierto desde sus bytes. Entradas `input_ids` y
- * `attention_mask` (int64, [1, n]); salida `h` (float32, [1, d]). Las llamadas a Run se serializan.
+ * `attention_mask` (int64, [1, n]); salida `h` (float32, o float16/bfloat16 que se convierte a float32; [1, d]). Las llamadas a Run se serializan.
  */
 class SesionTorreOrt(onnx: ByteArray, proveedor: ProveedorOrt = PROVEEDOR_ORT_POR_DEFECTO) : SesionTorre {
     private val entorno = OrtEnvironment.getEnvironment()
@@ -35,8 +35,8 @@ class SesionTorreOrt(onnx: ByteArray, proveedor: ProveedorOrt = PROVEEDOR_ORT_PO
                     val t = res.get("h").get() as OnnxTensor
                     val sh = t.info.shape // [1, d]
                     if (sh.size != 2 || sh[0] != 1L) throw ErrorChispa("torre: forma de h ${sh.toList()}")
-                    val h = FloatArray(t.floatBuffer.remaining())
-                    t.floatBuffer.get(h)
+                    val h = leerComoFloat32(t, "torre") // float32, o float16/bfloat16 si el ONNX se exportó sin keep_io_types
+                    if (h.size.toLong() != sh[1]) throw ErrorChispa("torre: h trae ${h.size} valores y su forma dice ${sh.toList()}")
                     h
                 }
             }

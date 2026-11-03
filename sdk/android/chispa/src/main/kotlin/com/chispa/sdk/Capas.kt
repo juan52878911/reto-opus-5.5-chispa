@@ -68,6 +68,14 @@ interface Motor : AutoCloseable {
      */
     fun instalarTorresL2(preguntaJson: String, torres: ByteArray, n: Int): Boolean = false
 
+    /**
+     * Como [instalarTorresL2] pero devuelve el motivo del rechazo ("" si las instaló). Por defecto llama a [instalarTorresL2];
+     * el motor nativo usa `InstalarTorresL2Motivo` de chispamovil, que dice cuál de las comprobaciones falló (n, d, Dim de TORR,
+     * valores no finitos…).
+     */
+    fun instalarTorresL2Motivo(preguntaJson: String, torres: ByteArray, n: Int): String =
+        if (instalarTorresL2(preguntaJson, torres, n)) "" else "motivo no informado por el motor"
+
     /** El fichero trae TORR (el ONNX de la torre de opción, para esquemas nuevos). */
     fun tieneTorre(): Boolean = false
 
@@ -339,8 +347,9 @@ class CapaL2(
             if (d == 0 || torres.any { it.size != d }) throw ErrorChispa("L2: el codificador de torres devolvió dimensiones distintas")
             val b = java.nio.ByteBuffer.allocate(4 * d * torres.size).order(java.nio.ByteOrder.LITTLE_ENDIAN)
             for (t in torres) for (x in t) b.putFloat(x)
-            if (!motor.instalarTorresL2(preguntaJson, b.array(), torres.size)) {
-                throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=$d, n=${torres.size})")
+            val motivo = motor.instalarTorresL2Motivo(preguntaJson, b.array(), torres.size)
+            if (motivo.isNotEmpty()) {
+                throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=$d, n=${torres.size}): $motivo")
             }
             return true
         } catch (e: Exception) {

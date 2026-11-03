@@ -64,6 +64,9 @@ final class MotorNativo: Motor {
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool {
         go.instalarTorresL2(preguntaJson, torres: torres, n: n)
     }
+    func instalarTorresL2Motivo(_ preguntaJson: String, torres: Data, n: Int) -> String {
+        go.instalarTorresL2Motivo(preguntaJson, torres: torres, n: n)
+    }
     func tieneTorre() -> Bool { go.tieneTorre() }
     func onnxTorre() -> Data? { go.onnxTorre() }
     func idsPasaje(_ texto: String) -> Data? { go.idsPasaje(texto) }

@@ -44,8 +44,7 @@ public final class SesionOrt: SesionRanuras {
         let forma3 = try s.tensorTypeAndShapeInfo().shape.map { $0.intValue }
         guard forma3.count == 3, forma3[0] == 1 else { throw ErrorChispa("L2: forma de S \(forma3)") }
         let bytes = try s.tensorData() as Data
-        let datos = bytes.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-        guard datos.count == forma3[1] * forma3[2] else { throw ErrorChispa("L2: S trae \(datos.count) valores para \(forma3)") }
+        let datos = try leerFloat32(bytes, esperados: forma3[1] * forma3[2], "L2") // float32, o float16 si el ONNX se exportó sin keep_io_types
         return Ranuras(datos: datos, k: forma3[1])
     }
 }
