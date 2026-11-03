@@ -12,6 +12,9 @@ Fuente de verdad: `model/l2/modelo.py` (`texto_opcion`, `texto_consulta`, `Codif
   (`"true"` en noul y el nivel máximo en score).
 - La clave en ESQUEMAS y CONJ es `HashEsquema2` (siguiente sección) e incluye la descripción.
 
+**Versión por defecto: v1, con id** (decisión del 2026-11-03). El exportador, el entrenador y `chispa train` escriben v1 salvo que se
+pida `v2_sin_id` de forma explícita (`--texto-torre`, `CHISPA_TEXTO_TORRE`). Lo fija `model/l2/tests/test_texto_torre_defecto.py`.
+
 ## Texto de torre versión 2: sin id cuando hay descripción (`texto_torre: "v2_sin_id"`)
 Aprobado el 2026-11-02, porque el id de la opción en el texto hacía que renombrar ids cambiara el 35 % de las decisiones de L2.
 - **Flag:** el campo `texto_torre` de la sección **META** del `.chispa` (JSON).
