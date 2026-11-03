@@ -122,15 +122,15 @@ Todo lo de esta sección sale del código; cada nodo lleva su fichero.
 flowchart TD
     P["POST /v1/decide: state + questions"] --> C["Cascada.Decidir<br/>server/decide/cascada.go"]
     C --> L0["L0: TF-IDF de caracteres + logística (L0TF) o lineal (L0)<br/>solo si hay ejemplos del esquema"]
-    L0 -->|"conf >= tau de L0"| R["Resultado: answer, probs, layer"]
-    L0 -->|"conf < tau o sin opinión"| L1["L1: Model2Vec en Go, int8<br/>coseno con pregunta · opción · descripción"]
-    L1 -->|"conf >= tau_escalate"| R
-    L1 -->|"conf < tau"| L2["L2: e5-small, ONNX int8, ranuras + torres de opción<br/>con CONJ es L2c (cabeza conjunta)"]
+    L0 -->|"conf >= τ de L0"| R["Resultado: answer, probs, layer"]
+    L0 -->|"conf < τ de L0 o sin opinión"| L1["L1: Model2Vec en Go, int8<br/>coseno con pregunta · opción · descripción"]
+    L1 -->|"conf >= τ de L1"| R
+    L1 -->|"conf < τ de L1"| L2["L2: e5-small en ONNX (fp32 en servidor; fp16 o int8 en móvil), ranuras + torres de opción<br/>con CONJ es L2c (cabeza conjunta)"]
     TORR["Sección TORR del .chispa<br/>torre al vuelo para un esquema nuevo"] -.-> L2
-    L2 -->|"conf >= tau_escalate_l2 o tau_l2c"| R
-    L2 -->|"conf < tau"| L3["L3: LLM con API compatible con OpenAI<br/>opcional: sección l3 de la config"]
-    L3 -->|"conf >= tau de L3"| R
-    L3 -->|"conf < tau"| E["escalar: layer = escalar, escalate = true<br/>+ escalate_reason"]
+    L2 -->|"conf >= τ de L2 (tau_l2c con L2c)"| R
+    L2 -->|"conf < τ de L2"| L3["L3: LLM con API compatible con OpenAI<br/>opcional: sección l3 de la config"]
+    L3 -->|"conf >= τ de L3"| R
+    L3 -->|"conf < τ de L3"| E["escalar: layer = escalar, escalate = true<br/>+ escalate_reason"]
     R --> OUT["answer, probs, layer, escalate"]
     E --> OUT
 ```
@@ -159,7 +159,7 @@ flowchart LR
     F[".chispa v3: cabecera + secciones"] --> M["1 META"]
     F --> A["2 L0 · 8 L0TF · 11 L0MULTI<br/>capa lineal / TF-IDF; L0MULTI = 2 o más modelos"]
     F --> B["3 L1<br/>Model2Vec int8"]
-    F --> D["4 L2 · 5 ESQUEMAS · 9 TORR<br/>ONNX int8, torres, torre al vuelo"]
+    F --> D["4 L2 · 5 ESQUEMAS · 9 TORR<br/>ONNX y torres (precisión según el perfil), torre al vuelo"]
     F --> G["6 CALIB · 7 CONJ · 10 SOPL1<br/>umbrales y calibración, cabeza L2c, soporte few-shot"]
 ```
 
@@ -181,7 +181,7 @@ flowchart LR
 Precisión, según el código y la documentación:
 
 - **L1** (servidor y móvil): pesos int8 con escala float32 por fila y aritmética entera, idéntica en amd64 y arm64 ([`runtime/l1/embed.go`](runtime/l1/embed.go)).
-- **L2**: el `.chispa` guarda el ONNX del codificador y las torres de opción en int8 ([`docs/04`](docs/04-formato-chispa.md)); el perfil de exportación se
+- **L2**: el `.chispa` guarda el ONNX del codificador y las torres de opción con la precisión del perfil de exportación ([`docs/04`](docs/04-formato-chispa.md)); el perfil de exportación se
   elige con `--perfil servidor|movil|movil-int8`: `servidor` es fp32, `movil` es fp16 con vocabulario podado, `movil-int8` es int8 dinámico ([`docs/02`](docs/02-inicio-rapido.md)).
   Las ranuras que salen de ORT son float32 ([`sdk/movil/README.md`](sdk/movil/README.md)).
 - La cascada del móvil vive en Kotlin ([`Cascada.kt`](sdk/android/chispa/src/main/kotlin/com/chispa/sdk/Cascada.kt)) y Swift; el motor Go no lleva ONNX Runtime.
