@@ -1,6 +1,6 @@
 # Lista de verificación de despliegue de `chispa-server`
 
-Una página. El detalle y el porqué de cada punto están en [`operacion.md`](operacion.md); los pasos de cero a producción, en [`docs/09-despliegue-piloto.md`](../docs/09-despliegue-piloto.md). `$URL` = `http://127.0.0.1:8090` (o la del servicio).
+Una página. Para un piloto few-shot de un día: [`despliegue-minimo.md`](despliegue-minimo.md). El detalle y el porqué de cada punto están en [`operacion.md`](operacion.md); los pasos de cero a producción, en [`docs/09-despliegue-piloto.md`](../docs/09-despliegue-piloto.md). `$URL` = `http://127.0.0.1:8090` (o la del servicio).
 Valores marcados *(sug.)* son sugerencias, no compromisos del producto.
 
 **Antes**
