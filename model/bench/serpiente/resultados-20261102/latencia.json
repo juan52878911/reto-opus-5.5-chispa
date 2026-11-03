@@ -1,0 +1,29 @@
+{
+  "url": "http://127.0.0.1:8090",
+  "decidir": "argmax",
+  "decisiones_por_serie": 100,
+  "fria": {
+    "peticiones": 100,
+    "ok": 100,
+    "errores_red": 0,
+    "peticiones_con_escalada": 100,
+    "ms_p50": 177.413,
+    "ms_p95": 234.504,
+    "ms_p99": 250.127,
+    "ms_media": 185.749,
+    "ms_servidor_media": 184.894,
+    "decisiones_por_s": 5.4
+  },
+  "caliente": {
+    "peticiones": 100,
+    "ok": 100,
+    "errores_red": 0,
+    "peticiones_con_escalada": 100,
+    "ms_p50": 28.734,
+    "ms_p95": 34.655,
+    "ms_p99": 55.652,
+    "ms_media": 29.888,
+    "ms_servidor_media": 29.165,
+    "decisiones_por_s": 33.4
+  }
+}

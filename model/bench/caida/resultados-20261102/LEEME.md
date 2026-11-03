@@ -52,3 +52,16 @@ Modelo de servidor fp32, 20 partidas por agente, 2 peticiones por turno (choice 
   - los tres `.chispa` solo L0 se entrenan en el CT con el entrenador estático, que funciona;
   - pero `chispa-server` no los acepta como `modelos` de la config: «checksum mismatch»;
   - cómo servirlo es una pregunta abierta a la otra sesión.
+
+## Few-shot con ZJ2 (`modelos` admite `.chispa` v3 solo-L0), `--decidir argmax`
+Servidor: modelo de servidor (L2) más las tres L0 few-shot (n = 300; validación: colocación 0,26, riesgo 0,98 y completa
+0,85).
+
+| agente | piezas | filas | puntos | p50 / p99 por decisión |
+|---|---|---|---|---|
+| Chispa zero-shot (pasada anterior) | 40,9 | 3,0 | 882 | 185 / 347 ms |
+| **Chispa few-shot** | **42,7** | **3,35** | **963** | **79 / 137 ms** |
+
+- Riesgo y completa los decide L0, más barato y rápido.
+- Colocación sigue en L2: L0 no la aprende ni con 300 ejemplos, porque el texto rota las opciones.
+- **Vídeo:** `~/Documents/chispa-caida/caida-fewshot-argmax-i7.mp4`, 22 s.

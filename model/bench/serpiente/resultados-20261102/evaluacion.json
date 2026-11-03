@@ -1,0 +1,512 @@
+{
+  "decidir": "argmax",
+  "url": "http://127.0.0.1:8090",
+  "semillas": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "max_pasos": 500,
+  "agentes": {
+    "aleatorio": {
+      "resumen": {
+        "partidas": 20,
+        "pasos_media": 38.95,
+        "pasos_mediana": 35.0,
+        "comida_media": 0.15,
+        "comida_mediana": 0.0,
+        "muertes": 20,
+        "topes": 0,
+        "decisiones": 779,
+        "decisiones_chispa": null,
+        "coincidencia_pct": 34.7,
+        "bajo_tau_pct": null,
+        "escudo_pct": null,
+        "errores_red": 0,
+        "latencia_ms_p50": 0.001,
+        "latencia_ms_p99": 0.003
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "pasos": 23,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 2,
+          "pasos": 18,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 3,
+          "pasos": 22,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 4,
+          "pasos": 50,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 5,
+          "pasos": 26,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 6,
+          "pasos": 44,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 7,
+          "pasos": 14,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 8,
+          "pasos": 15,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 9,
+          "pasos": 61,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 10,
+          "pasos": 90,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 11,
+          "pasos": 66,
+          "comidas": 1,
+          "longitud": 4,
+          "fin": "muro"
+        },
+        {
+          "semilla": 12,
+          "pasos": 36,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 13,
+          "pasos": 19,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 14,
+          "pasos": 63,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 15,
+          "pasos": 51,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 16,
+          "pasos": 49,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 17,
+          "pasos": 21,
+          "comidas": 1,
+          "longitud": 4,
+          "fin": "muro"
+        },
+        {
+          "semilla": 18,
+          "pasos": 26,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 19,
+          "pasos": 51,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "muro"
+        },
+        {
+          "semilla": 20,
+          "pasos": 34,
+          "comidas": 1,
+          "longitud": 4,
+          "fin": "muro"
+        }
+      ]
+    },
+    "profesor": {
+      "resumen": {
+        "partidas": 20,
+        "pasos_media": 500.0,
+        "pasos_mediana": 500.0,
+        "comida_media": 38.25,
+        "comida_mediana": 39.0,
+        "muertes": 0,
+        "topes": 20,
+        "decisiones": 10000,
+        "decisiones_chispa": null,
+        "coincidencia_pct": 100.0,
+        "bajo_tau_pct": null,
+        "escudo_pct": null,
+        "errores_red": 0,
+        "latencia_ms_p50": 0.849,
+        "latencia_ms_p99": 1.736
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "pasos": 500,
+          "comidas": 42,
+          "longitud": 45,
+          "fin": "tope"
+        },
+        {
+          "semilla": 2,
+          "pasos": 500,
+          "comidas": 33,
+          "longitud": 36,
+          "fin": "tope"
+        },
+        {
+          "semilla": 3,
+          "pasos": 500,
+          "comidas": 39,
+          "longitud": 42,
+          "fin": "tope"
+        },
+        {
+          "semilla": 4,
+          "pasos": 500,
+          "comidas": 37,
+          "longitud": 40,
+          "fin": "tope"
+        },
+        {
+          "semilla": 5,
+          "pasos": 500,
+          "comidas": 38,
+          "longitud": 41,
+          "fin": "tope"
+        },
+        {
+          "semilla": 6,
+          "pasos": 500,
+          "comidas": 39,
+          "longitud": 42,
+          "fin": "tope"
+        },
+        {
+          "semilla": 7,
+          "pasos": 500,
+          "comidas": 32,
+          "longitud": 35,
+          "fin": "tope"
+        },
+        {
+          "semilla": 8,
+          "pasos": 500,
+          "comidas": 39,
+          "longitud": 42,
+          "fin": "tope"
+        },
+        {
+          "semilla": 9,
+          "pasos": 500,
+          "comidas": 39,
+          "longitud": 42,
+          "fin": "tope"
+        },
+        {
+          "semilla": 10,
+          "pasos": 500,
+          "comidas": 40,
+          "longitud": 43,
+          "fin": "tope"
+        },
+        {
+          "semilla": 11,
+          "pasos": 500,
+          "comidas": 39,
+          "longitud": 42,
+          "fin": "tope"
+        },
+        {
+          "semilla": 12,
+          "pasos": 500,
+          "comidas": 40,
+          "longitud": 43,
+          "fin": "tope"
+        },
+        {
+          "semilla": 13,
+          "pasos": 500,
+          "comidas": 33,
+          "longitud": 36,
+          "fin": "tope"
+        },
+        {
+          "semilla": 14,
+          "pasos": 500,
+          "comidas": 45,
+          "longitud": 48,
+          "fin": "tope"
+        },
+        {
+          "semilla": 15,
+          "pasos": 500,
+          "comidas": 36,
+          "longitud": 39,
+          "fin": "tope"
+        },
+        {
+          "semilla": 16,
+          "pasos": 500,
+          "comidas": 37,
+          "longitud": 40,
+          "fin": "tope"
+        },
+        {
+          "semilla": 17,
+          "pasos": 500,
+          "comidas": 36,
+          "longitud": 39,
+          "fin": "tope"
+        },
+        {
+          "semilla": 18,
+          "pasos": 500,
+          "comidas": 40,
+          "longitud": 43,
+          "fin": "tope"
+        },
+        {
+          "semilla": 19,
+          "pasos": 500,
+          "comidas": 39,
+          "longitud": 42,
+          "fin": "tope"
+        },
+        {
+          "semilla": 20,
+          "pasos": 500,
+          "comidas": 42,
+          "longitud": 45,
+          "fin": "tope"
+        }
+      ]
+    },
+    "chispa_zero_shot": {
+      "resumen": {
+        "partidas": 20,
+        "pasos_media": 500.0,
+        "pasos_mediana": 500.0,
+        "comida_media": 0.0,
+        "comida_mediana": 0.0,
+        "muertes": 0,
+        "topes": 20,
+        "decisiones": 9886,
+        "decisiones_chispa": 9886,
+        "coincidencia_pct": 31.9,
+        "bajo_tau_pct": 100.0,
+        "escudo_pct": 0.0,
+        "errores_red": 0,
+        "latencia_ms_p50": 26.624,
+        "latencia_ms_p99": 144.61
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 2,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 3,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 4,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 5,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 6,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 7,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 8,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 9,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 10,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 11,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 12,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 13,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 14,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 15,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 16,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 17,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 18,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 19,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        },
+        {
+          "semilla": 20,
+          "pasos": 500,
+          "comidas": 0,
+          "longitud": 3,
+          "fin": "tope"
+        }
+      ]
+    }
+  }
+}

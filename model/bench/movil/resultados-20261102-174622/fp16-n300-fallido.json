@@ -1,0 +1,220 @@
+{
+  "etiqueta": "ChispaMedir",
+  "version": 1,
+  "fecha_ms": 1793664963949,
+  "dispositivo": {
+    "fabricante": "motorola",
+    "modelo": "moto g24 power",
+    "dispositivo": "fogorow",
+    "soc": "MT6769",
+    "android": "14",
+    "sdk_int": 34,
+    "abi": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "armeabi"
+    ],
+    "cpus": 8,
+    "ram_total_mb": 7791,
+    "ram_disponible_mb": 5056,
+    "pss_proceso_mb": 863
+  },
+  "ort": {
+    "proveedores_disponibles": [
+      "CPU",
+      "NNAPI",
+      "XNNPACK"
+    ],
+    "proveedores_pedidos": [
+      "CPU",
+      "XNNPACK",
+      "NNAPI"
+    ],
+    "proveedores_usados": [
+      "CPU",
+      "XNNPACK",
+      "NNAPI"
+    ],
+    "nota": "XNNPACK, NNAPI y CPU se miden por separado; si uno falla al crear la sesión, el escenario dice CPU"
+  },
+  "config": {
+    "n": 300,
+    "calentamiento": 100,
+    "umbral_p99_ms": 150,
+    "modelo": "modelo.chispa",
+    "modelo_bytes": 331907984,
+    "tokenizador": "e5.chispa-tok",
+    "capas_cascada": [
+      "L0",
+      "L1",
+      "L2"
+    ],
+    "textos_distintos": 40
+  },
+  "escenarios": [
+    {
+      "nombre": "zero-shot · L1 solo",
+      "esquema": "zero-shot",
+      "capa": "L1",
+      "n": 300,
+      "p50_ms": 0.496,
+      "p95_ms": 0.641,
+      "p99_ms": 0.782,
+      "max_ms": 0.958,
+      "media_ms": 0.508,
+      "decisiones_por_s": 1954.722,
+      "primera_llamada_ms": 6.668,
+      "capa_que_respondio": {
+        "L1": 300
+      },
+      "errores": 0,
+      "proveedor": "n\/a",
+      "proveedor_pedido": "n\/a",
+      "nota": null
+    },
+    {
+      "nombre": "zero-shot · cascada L0→L1→L2 [CPU]",
+      "esquema": "zero-shot",
+      "capa": "cascada L0→L1→L2 [CPU]",
+      "n": 300,
+      "p50_ms": 1.074,
+      "p95_ms": 1.507,
+      "p99_ms": 1.86,
+      "max_ms": 6.079,
+      "media_ms": 1.143,
+      "decisiones_por_s": 870.176,
+      "primera_llamada_ms": 2435.875,
+      "capa_que_respondio": {
+        "escalar": 300
+      },
+      "errores": 1,
+      "proveedor": "CPU",
+      "proveedor_pedido": "CPU",
+      "nota": "1 fallos de capa (la capa L2 falló: L2: el motor rechazó las torres al vuelo (d=256, n=5)): el escenario puede no medir toda la cascada"
+    },
+    {
+      "nombre": "few-shot · L1 solo",
+      "esquema": "few-shot",
+      "capa": "L1",
+      "n": 300,
+      "p50_ms": 0.37,
+      "p95_ms": 0.473,
+      "p99_ms": 0.865,
+      "max_ms": 0.977,
+      "media_ms": 0.385,
+      "decisiones_por_s": 2578.022,
+      "primera_llamada_ms": 1.117,
+      "capa_que_respondio": {
+        "L1": 300
+      },
+      "errores": 0,
+      "proveedor": "n\/a",
+      "proveedor_pedido": "n\/a",
+      "nota": null
+    },
+    {
+      "nombre": "few-shot · cascada L0→L1→L2 [CPU]",
+      "esquema": "few-shot",
+      "capa": "cascada L0→L1→L2 [CPU]",
+      "n": 300,
+      "p50_ms": 0.846,
+      "p95_ms": 174.696,
+      "p99_ms": 189.196,
+      "max_ms": 204.494,
+      "media_ms": 53.023,
+      "decisiones_por_s": 18.856,
+      "primera_llamada_ms": 199.829,
+      "capa_que_respondio": {
+        "L0": 202,
+        "escalar": 98
+      },
+      "errores": 128,
+      "proveedor": "CPU",
+      "proveedor_pedido": "CPU",
+      "nota": "128 fallos de capa (la capa L2 falló: respuesta de la capa ilegible: End of input at character 0 of ): el escenario puede no medir toda la cascada"
+    },
+    {
+      "nombre": "zero-shot · cascada L0→L1→L2 [XNNPACK]",
+      "esquema": "zero-shot",
+      "capa": "cascada L0→L1→L2 [XNNPACK]",
+      "n": 300,
+      "p50_ms": 0.994,
+      "p95_ms": 1.237,
+      "p99_ms": 1.499,
+      "max_ms": 1.788,
+      "media_ms": 1.022,
+      "decisiones_por_s": 975.376,
+      "primera_llamada_ms": 2483.283,
+      "capa_que_respondio": {
+        "escalar": 300
+      },
+      "errores": 1,
+      "proveedor": "XNNPACK",
+      "proveedor_pedido": "XNNPACK",
+      "nota": "1 fallos de capa (la capa L2 falló: L2: el motor rechazó las torres al vuelo (d=256, n=5)): el escenario puede no medir toda la cascada"
+    },
+    {
+      "nombre": "few-shot · cascada L0→L1→L2 [XNNPACK]",
+      "esquema": "few-shot",
+      "capa": "cascada L0→L1→L2 [XNNPACK]",
+      "n": 300,
+      "p50_ms": 0.81,
+      "p95_ms": 178.175,
+      "p99_ms": 190.641,
+      "max_ms": 201.822,
+      "media_ms": 53.929,
+      "decisiones_por_s": 18.541,
+      "primera_llamada_ms": 149.213,
+      "capa_que_respondio": {
+        "L0": 202,
+        "escalar": 98
+      },
+      "errores": 128,
+      "proveedor": "XNNPACK",
+      "proveedor_pedido": "XNNPACK",
+      "nota": "128 fallos de capa (la capa L2 falló: respuesta de la capa ilegible: End of input at character 0 of ): el escenario puede no medir toda la cascada"
+    },
+    {
+      "nombre": "zero-shot · cascada L0→L1→L2 [NNAPI]",
+      "esquema": "zero-shot",
+      "capa": "cascada L0→L1→L2 [NNAPI]",
+      "n": 300,
+      "p50_ms": 1.022,
+      "p95_ms": 1.571,
+      "p99_ms": 1.828,
+      "max_ms": 1.942,
+      "media_ms": 1.078,
+      "decisiones_por_s": 923.729,
+      "primera_llamada_ms": 2627.883,
+      "capa_que_respondio": {
+        "escalar": 300
+      },
+      "errores": 1,
+      "proveedor": "NNAPI",
+      "proveedor_pedido": "NNAPI",
+      "nota": "1 fallos de capa (la capa L2 falló: L2: el motor rechazó las torres al vuelo (d=256, n=5)): el escenario puede no medir toda la cascada"
+    },
+    {
+      "nombre": "few-shot · cascada L0→L1→L2 [NNAPI]",
+      "esquema": "few-shot",
+      "capa": "cascada L0→L1→L2 [NNAPI]",
+      "n": 300,
+      "p50_ms": 0.82,
+      "p95_ms": 177.264,
+      "p99_ms": 191.107,
+      "max_ms": 202.455,
+      "media_ms": 53.785,
+      "decisiones_por_s": 18.59,
+      "primera_llamada_ms": 201.762,
+      "capa_que_respondio": {
+        "L0": 202,
+        "escalar": 98
+      },
+      "errores": 128,
+      "proveedor": "NNAPI",
+      "proveedor_pedido": "NNAPI",
+      "nota": "128 fallos de capa (la capa L2 falló: respuesta de la capa ilegible: End of input at character 0 of ): el escenario puede no medir toda la cascada"
+    }
+  ],
+  "notas": []
+}
