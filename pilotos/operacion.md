@@ -230,7 +230,7 @@ Se corrieron con datos sintéticos, en un PC de pruebas con Go y sin ORT ni poti
 `-hash-clave`, la recarga con `SIGHUP` (ok y con un fichero truncado: sigue el modelo viejo) y el apagado con `SIGTERM` ([`despliegue-minimo.md`](despliegue-minimo.md)). Lo demás de este runbook no se ejecutó. En un nodo con Go, ORT y modelos:
 ```
 cd server && go build ./cmd/chispa-server && ./chispa-server -h 2>&1 | head -20       # confirma flags de §2
-. ~/orquestador/herr/env.sh && deploy/kindling/comprobar.sh server/testdata/intencion.chispa   # arranca y manda una decisión
+deploy/kindling/comprobar.sh server/testdata/intencion.chispa   # arranca y manda una decisión
 python3 -m chispa.cli evaluar -h | head -30                                            # confirma flags de §7 (desde sdk/python)
 ```
 Sin confirmar: las órdenes de `kling` (§2.3), el tamaño real de la imagen y la RAM de las imágenes (§1), que la imagen de `server/deploy` y la de kindling construyan, y el comportamiento de un `.chispa` sobrescrito en sitio (§6, tomado de cómo funciona `mmap`, no probado).
