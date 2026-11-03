@@ -31,7 +31,7 @@ def softmax(valores: List[float], t: float) -> List[float]:
 
 
 def filas(n: int, semilla: int = 1, ruido: float = 0.3, temperatura: float = 1.0, max_piezas: int = 150,
-          pesos=M.PESOS_DELLACHERIE) -> Iterator[tuple]:
+          pesos=M.PESOS_DELLACHERIE, sin_siguiente: bool = False) -> Iterator[tuple]:
     """Genera `n` pares (fila, blanda) jugando partidas sucesivas (semillas semilla, semilla+1, …)."""
     rng = random.Random(semilla)
     k, partida = 0, 0
@@ -48,7 +48,7 @@ def filas(n: int, semilla: int = 1, ruido: float = 0.3, temperatura: float = 1.0
                 id_ = f"tetris:{split}:{k}"
                 fila = {
                     "id": id_, "tarea": "tetris_colocacion", "tipo": "choice", "pregunta": PREGUNTA,
-                    "texto": O.texto_estado(j.tablero, j.pieza, j.siguiente),
+                    "texto": O.texto_estado(j.tablero, j.pieza, None if sin_siguiente else j.siguiente),
                     "opciones": [o.id for o in ops], "descripciones": {o.id: o.descripcion for o in ops},
                     "etiqueta": mejor.id, "idioma": "es", "split": split, "fuente": "simulador tetris-ale (maestro Dellacherie)",
                     "licencia": "CC0-1.0", "uso_comercial": True, "plantilla": f"semilla-{sem}",
@@ -82,9 +82,10 @@ def main(argv=None) -> int:
     ap.add_argument("--n", type=int, default=16000)
     ap.add_argument("--semilla", type=int, default=1)
     ap.add_argument("--ruido", type=float, default=0.3, help="probabilidad de jugar una opción al azar en vez de la del maestro")
+    ap.add_argument("--sin-siguiente", action="store_true", help="el estado no nombra la pieza siguiente (como en el bucle ALE)")
     ap.add_argument("--temperatura", type=float, default=1.0, help="T del objetivo blando softmax(valor/T)")
     a = ap.parse_args(argv)
-    print(json.dumps(generar(a.salida, a.n, semilla=a.semilla, ruido=a.ruido, temperatura=a.temperatura)))
+    print(json.dumps(generar(a.salida, a.n, semilla=a.semilla, ruido=a.ruido, temperatura=a.temperatura, sin_siguiente=a.sin_siguiente)))
     return 0
 
 

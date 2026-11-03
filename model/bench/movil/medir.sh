@@ -2,6 +2,7 @@
 # Para el Mac (o cualquier equipo con adb y aws): mide la latencia de los dos perfiles móviles en el Android conectado con la pantalla «Medir» de la demo
 # (com.chispa.demo, debug). Solo usa adb, `aws s3 cp` y ficheros: no compila nada. Los .chispa los deja modelos.sh en $CHISPA_S3/movil/.
 # Uso:   CHISPA_S3=s3://bucket/prefijo [ADB_SERIAL=XXXX] bash model/bench/movil/medir.sh [fp16] [int8]      (sin argumentos: los dos)
+# Sin S3: MEDIR_LOCAL=dir con los mismos ficheros (manifiesto.json incluido) en vez de CHISPA_S3; no hace falta aws.
 # Opcionales: MEDIR_N (decisiones por escenario, 1000) · MEDIR_TIMEOUT (segundos por perfil, 2400) · MEDIR_CACHE (descargas, $TMPDIR/chispa-movil)
 #             MEDIR_FECHA (sufijo del directorio, AAAAMMDD-HHMMSS) · MEDIR_SALIDA (por defecto resultados-<fecha> junto a este script)
 # Salida: resultados-<fecha>/<perfil>.json (el JSON de la app + «adicional»: memoria y tamaño instalado), <perfil>.meminfo.txt, manifiesto.json.
@@ -13,14 +14,14 @@ AQUI=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 N=${MEDIR_N:-1000}; TIMEOUT=${MEDIR_TIMEOUT:-2400}
 FECHA=${MEDIR_FECHA:-$(date +%Y%m%d-%H%M%S)}
 SALIDA=${MEDIR_SALIDA:-$AQUI/resultados-$FECHA}
-CACHE=${MEDIR_CACHE:-${TMPDIR:-/tmp}/chispa-movil}
+CACHE=${MEDIR_LOCAL:-${MEDIR_CACHE:-${TMPDIR:-/tmp}/chispa-movil}}
 PERFILES=("$@"); [ ${#PERFILES[@]} -gt 0 ] || PERFILES=(fp16 int8)
 TMPD=/data/local/tmp
 die() { echo "medir.sh: $*" >&2; exit 1; }
-[ -n "${CHISPA_S3:-}" ] || die "falta CHISPA_S3 (s3://bucket/prefijo con movil/ dentro)"
+[ -n "${CHISPA_S3:-}${MEDIR_LOCAL:-}" ] || die "falta CHISPA_S3 (s3://bucket/prefijo con movil/ dentro) o MEDIR_LOCAL"
 for p in "${PERFILES[@]}"; do case $p in fp16|int8) ;; *) die "perfil '$p': fp16 o int8";; esac; done
 command -v adb >/dev/null || die "no hay adb en el PATH"
-command -v aws >/dev/null || die "no hay aws en el PATH"
+[ -n "${MEDIR_LOCAL:-}" ] || command -v aws >/dev/null || die "no hay aws en el PATH"
 SHA=$(command -v sha256sum || true); [ -n "$SHA" ] || SHA="shasum -a 256"
 adb() { command adb ${ADB_SERIAL:+-s "$ADB_SERIAL"} "$@"; }
 sh_movil() { adb shell "$@" | tr -d '\r'; }
@@ -37,6 +38,7 @@ echo "dispositivo: $(sh_movil getprop ro.product.manufacturer) $(sh_movil getpro
 mkdir -p "$CACHE" "$SALIDA"
 for f in manifiesto.json modelo-fp16.chispa modelo-int8.chispa e5.chispa-tok esquema.json; do
   case $f in modelo-fp16.chispa) [[ " ${PERFILES[*]} " == *" fp16 "* ]] || continue;; modelo-int8.chispa) [[ " ${PERFILES[*]} " == *" int8 "* ]] || continue;; esac
+  if [ -n "${MEDIR_LOCAL:-}" ]; then [ -s "$CACHE/$f" ] || die "falta $CACHE/$f"; continue; fi
   aws s3 cp --only-show-errors "$CHISPA_S3/movil/$f" "$CACHE/$f" || die "no se pudo bajar $CHISPA_S3/movil/$f"
 done
 cp "$CACHE/manifiesto.json" "$SALIDA/manifiesto.json"
