@@ -17,9 +17,8 @@ def defectos(fichero: str, funcion: str) -> dict:
         nodos = nodo.body
     a = nodo.args
     pos = a.args[len(a.args) - len(a.defaults):]
-    out = {x.arg: ast.literal_eval(d) for x, d in zip(pos, a.defaults)}
-    out.update({x.arg: ast.literal_eval(d) for x, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None})
-    return out
+    pares = list(zip(pos, a.defaults)) + [(x, d) for x, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None]
+    return {x.arg: d.value for x, d in pares if isinstance(d, ast.Constant)}  # solo los literales (K_RANURAS y demás, fuera)
 
 
 class TextoTorreDefecto(unittest.TestCase):
