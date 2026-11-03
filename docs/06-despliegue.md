@@ -170,7 +170,22 @@ make -C server carga-arnes ARGS="-d 10s -n 1"
 - Objetivos del plan: `l1` ≥ 5 000 dec/s con p99 < 20 ms; `l2` ≥ 300 dec/s. Cifras medidas: [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md#carga-del-arnés).
 - `-O`, `-M` y `-T` no se ejecutaron en este nodo (sin ORT ni modelos).
 ## Un solo `-modelo`
-Si tienes `l0l1.chispa` y `l2.chispa` por separado, únelos con `cd server && go run ./deploy/mkmodelo -unir l0l1.chispa,l2.chispa -out modelo.chispa`. Gana el primero si repiten sección.
+Si tienes `l0l1.chispa` y `l2.chispa` por separado, únelos con `cd server && go run ./deploy/mkmodelo -unir l0l1.chispa,l2.chispa -out modelo.chispa`. Gana el primero si repiten sección, salvo los L0: los `L0`/`L0TF` de todos los ficheros (y los de sus `L0MULTI`) se juntan (ver abajo).
+
+### Un `.chispa` por cliente (varias L0 few-shot en un solo fichero)
+
+En vez de `-modelo` + `"modelos": [...]`, une las preguntas en el propio `.chispa` del cliente. Entrena cada pregunta solo con L0 (sin `--l2` ni `--torre`) y únelas con el `.chispa` de servidor:
+
+```
+cd server && go run ./deploy/mkmodelo -unir servidor.chispa,colocacion.chispa,riesgo.chispa,completa.chispa -out cliente.chispa
+chispa-server -modelo cliente.chispa -tok e5.chispa-tok
+```
+
+- El resultado lleva una sección `L0MULTI` con todos los L0 (el del `servidor.chispa` incluido). Las demás secciones (CALIB, L1, L2, TORR…) se unen como siempre: si dos ficheros repiten una, gana el primero y `mkmodelo` lo escribe en el log, así que el CALIB es el de `servidor.chispa`.
+- Dos L0 con el mismo conjunto de etiquetas hacen fallar la unión, nombrando los dos ficheros; si aun así se abre un fichero así (escrito a mano), el arranque falla igual.
+- Se puede combinar con `"modelos"`: el conflicto de etiquetas se comprueba también entre ambos.
+- Un solo L0 se sigue escribiendo como `L0`/`L0TF`. Un servidor anterior a `L0MULTI` rechaza el fichero con `ErrTipo`.
+- Equivalencia comprobada en Caída (30 turnos, 3 preguntas, probs a 1e-6): `server/decide/caida_unido_test.go`.
 
 ### Varias preguntas few-shot + el L2 de un servidor
 
@@ -181,7 +196,7 @@ chispa-server -modelo servidor.chispa -tok e5.chispa-tok -config config.json
 # config.json: {"modelos": ["colocacion.chispa", "riesgo.chispa", "completa.chispa"], ...}
 ```
 
-- Cada fichero de `modelos` es un `.chispa` v3 solo-L0 (entrenado sin `--l2` ni `--torre`) o un v1/v2 de kindling. De un v3 se usa su `L0TF` (o `L0` si no hay), abierto con el tope `max_fichero`. Corre en la recarga igual que en el arranque.
+- Cada fichero de `modelos` es un `.chispa` v3 solo-L0 (entrenado sin `--l2` ni `--torre`) o un v1/v2 de kindling. De un v3 se usan su `L0TF` (o `L0` si no hay) y los de su `L0MULTI`, abierto con el tope `max_fichero`. Corre en la recarga igual que en el arranque.
 - **La calibración es la del `-modelo`.** CALIB, SOPL1, ESQUEMAS, CONJ y cualquier otra sección de esos ficheros se ignoran; el arranque escribe un aviso por fichero, p. ej. `modelos: colocacion.chispa: se usa solo su L0; se ignoran CALIB, SOPL1: la calibración es la del -modelo`. Los τ y la calibración por tipo de pregunta los fija el `-modelo` (o `-config`).
 - Si un fichero de `modelos` trae L1, L2 o TORR, el arranque falla («`modelos` es solo para L0; ese fichero lleva L2; úsalo como `-modelo`»). Solo cabe un L2 (el del `-modelo`).
 - **Cómo elige L0.** Por el conjunto de ids de las opciones de la petición (sin orden), contra las etiquetas de cada modelo: el `Kind` no cuenta. `multi` nunca usa L0; un `score` solo si sus ids son exactamente 1..K (y responde con la mediana); un `noul` tiene ids `false`/`true`, así que lo atiende un L0 con esas dos etiquetas. Un `choice` con ids 1..5 y un `score` 1..5 comparten L0 si los ids coinciden. En Caída, `colocacion` (choice 1..6), `riesgo` (score 1..5) y `completa` (noul) tienen conjuntos distintos y no se pisan.

@@ -1,6 +1,7 @@
 """Escritor mínimo de `.chispa` v3 en Python (espejo de `format/chispa3.Escribir`).
 
-Solo se usa si no hay Go: permite dejar META, L1 y CALIB sin L0. El lector oficial es el de Go."""
+Solo se usa si no hay Go: permite dejar META, L1 y CALIB sin L0. El lector oficial es el de Go. `leer` devuelve los bytes de cada
+sección sin decodificarlos (L0, L0TF y L0MULTI incluidos: `leer_l0multi` abre el marco de esta última)."""
 from __future__ import annotations
 
 import hashlib
@@ -8,8 +9,8 @@ import json
 import struct
 from typing import Dict
 
-META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1 = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
-TIPOS = (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1)
+META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1, L0MULTI = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+TIPOS = (META, L0, L1, L2, ESQUEMAS, CALIB, CONJ, L0TF, TORR, SOPL1, L0MULTI)
 MAGIA = b"\x89CHI\r\n\x1a\n"
 
 
@@ -271,6 +272,55 @@ def l0tf(etiquetas, vocab, idf, inter, coef, f16=False) -> bytes:
     out.append(b"".join(bs))
     out.append(coef.tobytes())
     return b"".join(out)
+
+
+# --- L0MULTI (ver format/chispa3/l0multi.go para la disposición) ---
+L0MULTI_VERSION = 1
+L0MULTI_MAX = 1 << 12
+
+
+def l0multi(entradas) -> bytes:
+    """Sección L0MULTI: varios L0 (uno por pregunta few-shot). `entradas`: (tipo, datos) o (tipo, datos, nombre) con `tipo` L0
+    o L0TF y `datos` los bytes de esa sección. No comprueba etiquetas repetidas: eso lo hace el lector Go al unir o cargar."""
+    entradas = list(entradas)
+    if not 1 <= len(entradas) <= L0MULTI_MAX:
+        raise ValueError("L0MULTI: entre 1 y %d modelos" % L0MULTI_MAX)
+    out = [struct.pack("<II", L0MULTI_VERSION, len(entradas))]
+    for e in entradas:
+        tipo, datos = e[0], bytes(e[1])
+        nombre = (e[2] if len(e) > 2 else "").encode("utf-8")
+        if tipo not in (L0, L0TF) or len(nombre) > 1024:
+            raise ValueError("L0MULTI: tipo o nombre inválido")
+        out.append(struct.pack("<IH", tipo, len(nombre)) + nombre + struct.pack("<Q", len(datos)) + datos)
+    return b"".join(out)
+
+
+def leer_l0multi(b: bytes) -> list:
+    """Lista de (tipo, datos, nombre) de una sección L0MULTI; valida el marco (los datos de cada modelo los valida el lector Go)."""
+    if len(b) < 8:
+        raise ValueError("L0MULTI truncada")
+    ver, n = struct.unpack("<II", b[:8])
+    if ver != L0MULTI_VERSION or not 1 <= n <= L0MULTI_MAX:
+        raise ValueError("L0MULTI: versión %d o %d modelos" % (ver, n))
+    pos, out = 8, []
+    for _ in range(n):
+        if pos + 6 > len(b):
+            raise ValueError("L0MULTI truncada")
+        tipo, ln = struct.unpack("<IH", b[pos:pos + 6])
+        pos += 6
+        if tipo not in (L0, L0TF) or pos + ln + 8 > len(b):
+            raise ValueError("L0MULTI inválida")
+        nombre = b[pos:pos + ln].decode("utf-8")
+        pos += ln
+        (tam,) = struct.unpack("<Q", b[pos:pos + 8])
+        pos += 8
+        if pos + tam > len(b):
+            raise ValueError("L0MULTI truncada")
+        out.append((tipo, b[pos:pos + tam], nombre))
+        pos += tam
+    if pos != len(b):
+        raise ValueError("L0MULTI con bytes sobrantes")
+    return out
 
 
 # --- TORR (ver format/chispa3/torr.go para la disposición) ---

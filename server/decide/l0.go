@@ -73,6 +73,28 @@ func (l *L0) AnadirTF(nombre string, m *chispa3.L0TFModelo) error {
 	return nil
 }
 
+// AnadirDe añade los L0 de un .chispa v3: el de la sección L0TF (o el de L0 si no hay L0TF) y los de L0MULTI. Dos con las mismas
+// etiquetas, también contra los ya cargados (p. ej. de «modelos»), son un error que nombra los dos orígenes.
+func (l *L0) AnadirDe(f *chispa3.Fichero) error {
+	ms, err := f.L0Todos()
+	if err != nil {
+		return err
+	}
+	for _, m := range ms {
+		if err := l.anadirModelo(m.Nombre, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (l *L0) anadirModelo(nombre string, m chispa3.ModeloL0) error {
+	if m.TF != nil {
+		return l.AnadirTF(nombre, m.TF)
+	}
+	return l.Anadir(nombre, m.M)
+}
+
 // Cargar lee ficheros .chispa con el tope de tamaño por defecto de chispa3.
 func (l *L0) Cargar(paths ...string) error { return l.CargarCon(chispa3.Limites{}, paths...) }
 
@@ -116,39 +138,38 @@ func (l *L0) cargarV3(p string, lim chispa3.Limites) error {
 	if len(pesadas) > 0 {
 		return fmt.Errorf("modelos: %s: \"modelos\" es solo para L0; ese fichero lleva %s; úselo como -modelo", p, strings.Join(pesadas, ", "))
 	}
-	if !f.Tiene(chispa3.L0TF) && !f.Tiene(chispa3.L0) {
-		return fmt.Errorf("modelos: %s: el .chispa v3 no trae L0 ni L0TF", p)
+	if !f.Tiene(chispa3.L0TF) && !f.Tiene(chispa3.L0) && !f.Tiene(chispa3.L0MULTI) {
+		return fmt.Errorf("modelos: %s: el .chispa v3 no trae L0 ni L0TF (ni L0MULTI)", p)
+	}
+	ms, err := f.L0Todos()
+	if err != nil {
+		return fmt.Errorf("modelos: %s: %w", p, err)
+	}
+	for _, m := range ms {
+		if err := l.anadirModelo(p+" ("+strings.TrimPrefix(m.Nombre, "sección ")+")", m); err != nil {
+			return err
+		}
 	}
 	usada := chispa3.L0
 	if f.Tiene(chispa3.L0TF) { // como ArmarDesde: L0TF manda sobre L0
 		usada = chispa3.L0TF
 	}
-	if usada == chispa3.L0TF {
-		m, err := f.L0TF()
-		if err != nil {
-			return fmt.Errorf("modelos: %s: sección L0TF: %w", p, err)
-		}
-		if err := l.AnadirTF(p, m); err != nil {
-			return err
-		}
-	} else {
-		m, err := f.L0Modelo()
-		if err != nil {
-			return fmt.Errorf("modelos: %s: sección L0: %w", p, err)
-		}
-		if err := l.Anadir(p, m); err != nil {
-			return err
-		}
-	}
 	var ign []string
 	for _, t := range f.Tipos() {
-		if t != usada && t != chispa3.META {
+		if t != usada && t != chispa3.META && t != chispa3.L0MULTI {
 			ign = append(ign, t.String())
 		}
 	}
 	if len(ign) > 0 {
 		sort.Strings(ign)
-		aviso := fmt.Sprintf("modelos: %s: se usa solo su %s; se ignoran %s", filepath.Base(p), usada, strings.Join(ign, ", "))
+		usa := usada.String()
+		switch {
+		case f.Tiene(chispa3.L0MULTI) && (f.Tiene(chispa3.L0) || f.Tiene(chispa3.L0TF)):
+			usa += " y L0MULTI"
+		case f.Tiene(chispa3.L0MULTI):
+			usa = "L0MULTI"
+		}
+		aviso := fmt.Sprintf("modelos: %s: se usa solo su %s; se ignoran %s", filepath.Base(p), usa, strings.Join(ign, ", "))
 		if slices.Contains(ign, "CALIB") {
 			aviso += ": la calibración es la del -modelo"
 		}

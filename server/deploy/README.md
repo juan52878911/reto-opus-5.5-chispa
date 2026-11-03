@@ -34,6 +34,8 @@ Contrato y endpoints: `server/README.md`. `carga` va en la imagen (`--entrypoint
 **la calibración es la del `-modelo`** (CALIB, SOPL1 y demás se ignoran con un aviso por fichero al arrancar); si traen L1, L2 o TORR el arranque falla; dos L0 con las mismas etiquetas (el del `-modelo` incluido) también, con un error que nombra los dos ficheros.
 Detalle: `docs/06-despliegue.md`.
 
+**Un solo fichero por cliente:** `go run ./deploy/mkmodelo -unir servidor.chispa,colocacion.chispa,riesgo.chispa,completa.chispa -out cliente.chispa` y `-modelo cliente.chispa`, sin `modelos`. Los L0 de todos los ficheros van a una sección `L0MULTI` (uno solo se escribe como `L0`/`L0TF`); dos con las mismas etiquetas hacen fallar la unión nombrando los dos ficheros. El resto de secciones, como siempre, las del primero que las trae.
+
 ## Limitaciones
 - **L2 responde si se pasa `-tok`** (`.chispa-tok` de e5, `runtime/tok/exportar.py`; `main.go`); sin él, L2 queda en stub.
   Otros flags: `-addr`, `-config`, `-modelo` y `-timeout` (tope por petición, 30 s por defecto; responde 503; 0 = sin tope). `chispa-server` solo admite un `-modelo`;
@@ -48,4 +50,4 @@ Detalle: `docs/06-despliegue.md`.
   Pasos: docker + Go + ORT → `docker build` → tamaño (`tamano.txt`) → arranque con el modelo → 20 peticiones de contrato
   (`contrato.py`: 18 a `/v1/decide`, `/healthz`, `/metrics`) → `carga` lote 1 y 16 (`carga.txt`) → `go build/test -tags ort` fuera de docker.
 - `CHISPA_LOCAL=1`: prueba en seco sin docker ni ORT (pasos 4 a 6, binario nativo sin etiqueta).
-- `mkmodelo`: genera el `.chispa` pequeño de reserva (L0 de `testdata` + L1 diminuto) y fusiona ficheros.
+- `mkmodelo`: genera el `.chispa` pequeño de reserva (L0 de `testdata` + L1 diminuto) y fusiona ficheros (`-unir`; une también los L0 en `L0MULTI`).

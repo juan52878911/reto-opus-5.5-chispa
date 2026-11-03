@@ -31,6 +31,7 @@ const (
 	L0TF
 	TORR
 	SOPL1
+	L0MULTI
 	numTipos = iota + 1
 )
 
@@ -56,6 +57,8 @@ func (t Tipo) String() string {
 		return "TORR"
 	case SOPL1:
 		return "SOPL1"
+	case L0MULTI:
+		return "L0MULTI"
 	}
 	return fmt.Sprintf("tipo(%d)", uint32(t))
 }

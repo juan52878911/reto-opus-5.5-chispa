@@ -86,6 +86,7 @@ r.respuesta; r.confianza; r.capa; r.escalar; r.ms
   (`SesionTorreOrt`); también se puede pasar un `CodificadorTorre` propio. L1 usa las descripciones tal cual.
 - **Demo `:demo`, pantalla «Medir»** (`MedirActivity`): N decisiones por escenario con p50/p95/p99 y el proveedor de ORT medido por separado; se lanza con
   `adb shell am start -n com.chispa.demo/.MedirActivity --ei n 1000 --ez auto true`. Sin cifras en el repo: sin medir en dispositivo.
+- `L0MULTI` (varios L0 en un `.chispa`): lo lee el motor Go (`chispamovil`) y Kotlin/Swift no cambian (llaman al motor); sin compilar aquí. Python lo lee y escribe a nivel de sección (`formato.l0multi`, `formato.leer_l0multi`); la validación de etiquetas es la del lado Go.
 - λ de `SOPL1`: Kotlin no lo expone todavía (solo el núcleo Go, con `AbrirConSoporte`); en el móvil no hay mezcla de soporte.
 - Se compila en AWS con `sdk/android/aws/`; no en un portátil. Pasos en el README.
 

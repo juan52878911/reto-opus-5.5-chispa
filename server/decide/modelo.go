@@ -72,7 +72,7 @@ type Montaje struct {
 	Cerrar func() error
 }
 
-// ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y monta L1 y L2 con las secciones presentes;
+// ArmarDesde añade a l0 el modelo de la sección L0TF, o el de L0 si no hay, y los de L0MULTI (uno por pregunta few-shot), y monta L1 y L2 con las secciones presentes;
 // las que faltan quedan como stub. Con tauDeCalib, el τ de L1 y L2 pasa a ser el tau_escalate
 // de CALIB (cfg se modifica; el de L2 es tau_escalate_l2 si existe); si L2 es L2c y CALIB trae tau_l2c, ese es el τ de L2. tok es el tokenizador de e5 que necesita L2 (puede ser nil).
 // Si el .chispa trae la sección TORR, L2 calcula al vuelo las torres de los esquemas que ESQUEMAS no trae (L2.ConTorres,
@@ -85,23 +85,9 @@ func ArmarDesde(f *chispa3.Fichero, l0 *L0, cfg *Config, tauDeCalib bool, tok To
 		o(&op)
 	}
 	mt := Montaje{L1: NuevoL1(), L2: NuevoL2()}
-	if f.Tiene(chispa3.L0TF) {
-		// El L0 tfidf es el que entrenó la cabeza conjunta: manda sobre el Chispa de kindling del mismo fichero.
-		m, err := f.L0TF()
-		if err != nil {
-			return mt, fmt.Errorf("sección L0TF: %w", err)
-		}
-		if err := l0.AnadirTF("sección L0TF", m); err != nil {
-			return mt, err
-		}
-	} else if f.Tiene(chispa3.L0) {
-		m, err := f.L0Modelo()
-		if err != nil {
-			return mt, fmt.Errorf("sección L0: %w", err)
-		}
-		if err := l0.Anadir("sección L0", m); err != nil {
-			return mt, err
-		}
+	// L0TF (el que entrenó la cabeza conjunta) manda sobre el L0 de kindling del mismo fichero; L0MULTI añade los demás, uno por pregunta.
+	if err := l0.AnadirDe(f); err != nil {
+		return mt, err
 	}
 	textoTorre := chispa3.TextoTorreV1
 	motivoSinTorre := ""       // META.texto_torre y TORR discrepan: el modelo carga sin torre al vuelo, con aviso (L0/L1/L2 con ESQUEMAS siguen)
