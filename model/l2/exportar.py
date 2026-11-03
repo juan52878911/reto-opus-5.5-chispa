@@ -166,12 +166,33 @@ def nodos_ffn(fp32, embeddings=True):
     return nombres
 
 
-def a_fp16(fp32, salida):
-    """Todo el grafo en fp16 (pesos y cálculo) con `onnxruntime.transformers.float16` (en este venv no está `onnxconverter_common`);
-    `keep_io_types`: entradas y salidas siguen como estaban (la salida, fp32)."""
+# Ops de normalización y atención que se quedan en fp32 en el perfil fp16: en un Android arm64 con fp16 nativo el cálculo en fp16
+# de e5 desborda (Inf/NaN) y las torres se rechazan. Son los que usa el grafo exportado de e5 (LayerNormalization, Softmax, Erf de
+# la GELU, Div de la escala de la atención y de la norma, ReduceSum/ReduceL2 de las medias y la norma L2) más los que aparecen
+# si el exportador descompone la normalización (Pow, ReduceMean, Sqrt). MatMul y Gather (los pesos) siguen en fp16.
+OPS_FP32 = ("LayerNormalization", "Softmax", "Pow", "ReduceMean", "Sqrt", "Div", "Erf", "ReduceSum", "ReduceL2", "ReduceMax", "Clip")
+
+
+def a_fp16(fp32, salida, bloquear=OPS_FP32):
+    """Grafo en fp16 (pesos y MatMul/Gather) con `onnxruntime.transformers.float16` (en este venv no está `onnxconverter_common`),
+    salvo los ops de `bloquear` (normalización y atención), que siguen en fp32 con Cast alrededor. `keep_io_types`: entradas y
+    salidas siguen como estaban (la salida, fp32). `bloquear=()` da el fp16 puro, para simular el fp16 nativo."""
     import onnx
-    from onnxruntime.transformers.float16 import convert_float_to_float16
-    onnx.save(convert_float_to_float16(onnx.load(str(fp32)), keep_io_types=True), str(salida))
+    from onnxruntime.transformers import float16 as f16
+    bloq = list(f16.DEFAULT_OP_BLOCK_LIST) + [o for o in bloquear if o not in f16.DEFAULT_OP_BLOCK_LIST]
+    m = f16.convert_float_to_float16(onnx.load(str(fp32)), keep_io_types=True, op_block_list=bloq)
+    # si una salida alimenta a varios ops bloqueados, el conversor inserta el mismo Cast a fp32 varias veces (mismo nombre y salida):
+    # el modelo no carga. Los duplicados son idénticos: se queda el primero.
+    vistos, nodos = set(), []
+    for n in m.graph.node:
+        if n.op_type == "Cast" and n.name in vistos:
+            continue
+        vistos.add(n.name)
+        nodos.append(n)
+    if len(nodos) != len(m.graph.node):
+        del m.graph.node[:]
+        m.graph.node.extend(nodos)
+    onnx.save(m, str(salida))
 
 
 def cuantizar(fp32, int8, modo="codificador", per_channel=True, prefijo=PREFIJO_RANURAS, ids_calib=None, metodo_calib="minmax"):
