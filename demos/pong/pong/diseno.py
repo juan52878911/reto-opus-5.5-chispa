@@ -15,7 +15,7 @@ from .motor import ALTO, ALTO_PALA, VEL_PALA, Estado, corte, hacia
 
 ID = "pala"
 PREGUNTA = "¿Qué movimiento devuelve la pelota?"
-DESCRIPCIONES = {"subir": "subir la pala", "bajar": "bajar la pala", "quieta": "dejar la pala quieta"}
+DESCRIPCIONES = {"subir": "subir", "bajar": "bajar", "quieta": "quieta"}  # las mismas cadenas con las que Laya entrena su pregunta
 NOMBRES = ("subir", "bajar", "quieta")
 ACCION = {"subir": -1, "bajar": 1, "quieta": 0}
 ALINEADA = ALTO_PALA / 4  # 20 px: el centro de la pala cubre el punto de corte con margen
