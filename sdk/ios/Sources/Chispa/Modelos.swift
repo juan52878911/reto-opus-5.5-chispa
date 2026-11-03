@@ -69,6 +69,7 @@ public struct SalidaCapa: Equatable {
 
     /// Lee el JSON de chispamovil (`{"ok":…,"opina":…,"answer":…,"conf":…,"probs":{…}}`).
     public static func desdeJson(_ js: String) throws -> SalidaCapa {
+        if js.allSatisfy(\.isWhitespace) { throw ErrorChispa("el motor devolvió una respuesta vacía") }
         guard let datos = js.data(using: .utf8),
               let o = (try? JSONSerialization.jsonObject(with: datos)) as? [String: Any]
         else { throw ErrorChispa("respuesta de la capa ilegible") }

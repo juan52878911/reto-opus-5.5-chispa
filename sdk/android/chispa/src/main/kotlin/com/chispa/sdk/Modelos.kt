@@ -46,6 +46,7 @@ data class SalidaCapa(
 
         /** Lee el JSON de chispamovil (`{"ok":…,"opina":…,"answer":…,"conf":…,"probs":{…}}`). */
         fun desdeJson(js: String): SalidaCapa {
+            if (js.isBlank()) throw ErrorChispa("el motor devolvió una respuesta vacía")
             val o = try {
                 JSONObject(js)
             } catch (e: org.json.JSONException) {

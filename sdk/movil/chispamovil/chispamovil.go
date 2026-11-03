@@ -100,22 +100,23 @@ func (r respuesta) MarshalJSON() ([]byte, error) {
 
 // Chispa es un .chispa v3 abierto.
 type Chispa struct {
-	f           *chispa3.Fichero
-	e           embebedor
-	l0          []modeloL0
-	esq         *chispa3.Esquemas
-	calib       chispa3.Calib
-	tieneL2     bool
-	sinTauNuevo bool               // SinTauEsquemaNuevo(true): TauL2EsquemaNuevo devuelve −1 (L2 usa su τ de siempre)
-	maxLenQ     int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
-	conj        *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
-	tok         *tok.Tokenizador   // tokenizador de e5, o nil
-	torre       *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
-	torreMotivo string             // por qué hay TORR pero no torre al vuelo (chispa3.MotivoTextoTorreInconsistente); vacío = ninguno
-	textoTorre  string             // META.texto_torre («v1» / «v2_sin_id»); vacío = v1
-	dyn         map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
-	dynUso      map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
-	dynTic      uint64
+	f            *chispa3.Fichero
+	e            embebedor
+	l0           []modeloL0
+	esq          *chispa3.Esquemas
+	calib        chispa3.Calib
+	tieneL2      bool
+	sinTauNuevo  bool               // SinTauEsquemaNuevo(true): TauL2EsquemaNuevo devuelve −1 (L2 usa su τ de siempre)
+	maxLenQ      int                // truncado de la consulta (chispa.consulta.max_len del ONNX de L2; 128 si no viene)
+	conj         *chispa3.Conj      // sección CONJ (la cabeza conjunta), o nil
+	tok          *tok.Tokenizador   // tokenizador de e5, o nil
+	torre        *chispa3.Torre     // sección TORR (ONNX de la torre al vuelo), o nil
+	motivoTorres string             // motivo del último rechazo de InstalarTorresL2 (c.mu)
+	torreMotivo  string             // por qué hay TORR pero no torre al vuelo (chispa3.MotivoTextoTorreInconsistente); vacío = ninguno
+	textoTorre   string             // META.texto_torre («v1» / «v2_sin_id»); vacío = v1
+	dyn          map[string]torreL2 // torres de esquemas nuevos que calculó la app, por claveTorre
+	dynUso       map[string]uint64  // último uso de cada torre de dyn (para desalojar la más antigua)
+	dynTic       uint64
 
 	largo  tok.TextoLargo // estrategia para textos que pasan del truncado (AbrirConTextoLargo); cero = cabeza
 	largoN atomic.Int64   // textos que pasaron del truncado de L1 o de la consulta de L2 (TextoLargoSuperados)

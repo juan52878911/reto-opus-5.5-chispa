@@ -158,18 +158,54 @@ func (c *Chispa) TextosTorreL2(preguntaJSON string) string {
 
 // InstalarTorresL2 recibe las n torres (n·d float32 little endian, una por texto de TextosTorreL2), las cuantiza y las
 // cachea con claveTorre; false si no cuadran (n, d, valores no finitos), no hay L2 o el motor está degradado (TorreAlVueloMotivo() != "").
+// El porqué del último rechazo queda en MotivoInstalarTorresL2; con hilos concurrentes, InstalarTorresL2Motivo lo devuelve sin carrera.
 func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) bool {
+	m := c.InstalarTorresL2Motivo(preguntaJSON, torres, n)
+	c.mu.Lock()
+	c.motivoTorres = m
+	c.mu.Unlock()
+	return m == ""
+}
+
+// MotivoInstalarTorresL2 es el motivo del último rechazo de InstalarTorresL2 ("" si esa llamada fue aceptada o aún no hubo ninguna).
+func (c *Chispa) MotivoInstalarTorresL2() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.motivoTorres
+}
+
+// InstalarTorresL2Motivo hace lo mismo que InstalarTorresL2 pero devuelve el motivo del rechazo en vez de un bool: "" si las
+// torres se instalaron.
+func (c *Chispa) InstalarTorresL2Motivo(preguntaJSON string, torres []byte, n int) string {
 	p, err := leerPregunta(preguntaJSON)
-	if err != nil || !c.tieneL2 || c.torreMotivo != "" || scoreInvalido(p) {
-		return false
+	if err != nil {
+		return "pregunta ilegible: " + err.Error()
+	}
+	if !c.tieneL2 {
+		return "el fichero no trae L2"
+	}
+	if c.torreMotivo != "" {
+		return "motor degradado (torre al vuelo desactivada: " + c.torreMotivo + ")"
+	}
+	if scoreInvalido(p) {
+		return "pregunta score inválida (los ids de las opciones no son 1..K)"
 	}
 	ops := opcionesConsulta(p)
-	if n <= 0 || n != len(ops) || len(torres)%(4*n) != 0 {
-		return false
+	if n <= 0 || n != len(ops) {
+		return fmt.Sprintf("n=%d no casa con las %d opciones de la pregunta", n, len(ops))
+	}
+	if len(torres)%(4*n) != 0 {
+		return fmt.Sprintf("%d bytes no se reparten en n=%d torres float32 (resto %d)", len(torres), n, len(torres)%(4*n))
 	}
 	d := len(torres) / (4 * n)
-	if d == 0 || d > maxDimTorr || (c.torre != nil && d != c.torre.Dim) {
-		return false
+	if d == 0 {
+		return "torres vacías (d=0)"
+	}
+	if d > maxDimTorr {
+		return fmt.Sprintf("d=%d supera el máximo %d", d, maxDimTorr)
+	}
+	if c.torre != nil && d != c.torre.Dim {
+		return fmt.Sprintf("d=%d no casa con el Dim=%d que declara TORR", d, c.torre.Dim)
 	}
 	nuevas := make([]torreL2, n)
 	for i := range nuevas {
@@ -177,7 +213,7 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 		for j := range h {
 			h[j] = math.Float32frombits(binary.LittleEndian.Uint32(torres[4*(i*d+j):]))
 			if math.IsNaN(float64(h[j])) || math.IsInf(float64(h[j]), 0) {
-				return false
+				return fmt.Sprintf("valor no finito (%v) en la torre %d, columna %d: la salida del ONNX de la torre desbordó (¿fp16?)", h[j], i, j)
 			}
 		}
 		nuevas[i] = cuantizarTorre(h)
@@ -224,5 +260,5 @@ func (c *Chispa) InstalarTorresL2(preguntaJSON string, torres []byte, n int) boo
 		c.dynTic++
 		c.dyn[k], c.dynUso[k] = nuevas[i], c.dynTic
 	}
-	return true
+	return ""
 }

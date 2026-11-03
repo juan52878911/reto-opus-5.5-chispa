@@ -45,8 +45,6 @@ public final class SesionTorreOrt: SesionTorre {
         let forma2 = try h.tensorTypeAndShapeInfo().shape.map { $0.intValue }
         guard forma2.count == 2, forma2[0] == 1 else { throw ErrorChispa("torre: forma de h \(forma2)") }
         let bytes = try h.tensorData() as Data
-        let datos = bytes.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-        guard datos.count == forma2[1] else { throw ErrorChispa("torre: h trae \(datos.count) valores para \(forma2)") }
-        return datos
+        return try leerFloat32(bytes, esperados: forma2[1], "torre") // float32, o float16 si el ONNX se exportó sin keep_io_types
     }
 }

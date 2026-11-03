@@ -36,8 +36,8 @@ class SesionOrt(rutaOnnx: String, proveedor: ProveedorOrt = PROVEEDOR_ORT_POR_DE
                     val t = res.get("S").get() as OnnxTensor
                     val sh = t.info.shape // [1, K, d]
                     if (sh.size != 3 || sh[0] != 1L) throw ErrorChispa("L2: forma de S ${sh.toList()}")
-                    val datos = FloatArray(t.floatBuffer.remaining())
-                    t.floatBuffer.get(datos)
+                    val datos = leerComoFloat32(t, "L2") // float32, o float16/bfloat16 si el ONNX se exportó sin keep_io_types
+                    if (datos.size.toLong() != sh[1] * sh[2]) throw ErrorChispa("L2: S trae ${datos.size} valores y su forma dice ${sh.toList()}")
                     Ranuras(datos, sh[1].toInt())
                 }
             }

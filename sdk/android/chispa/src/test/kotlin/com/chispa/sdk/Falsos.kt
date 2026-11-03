@@ -54,6 +54,9 @@ class MotorFalso(
     /** false = [instalarTorresL2] rechaza las torres (y no las cachea). */
     var aceptaTorres = true
 
+    /** El motivo que da [instalarTorresL2Motivo] cuando [aceptaTorres] es false. */
+    var motivoRechazo = "motivo falso"
+
     /** `tau_l2_esquema_nuevo` de CALIB (−1 = falta). */
     var tauNuevo = -1.0
 
@@ -94,6 +97,9 @@ class MotorFalso(
         if (sinTorresAlInicio == null) sinTorresAlInicio = !this.torres
         torresInstaladas = torres; nInstaladas = n; this.torres = true; return true
     }
+
+    override fun instalarTorresL2Motivo(preguntaJson: String, torres: ByteArray, n: Int): String =
+        if (instalarTorresL2(preguntaJson, torres, n)) "" else motivoRechazo
 
     override fun puntuarL2(preguntaJson: String, ranuras: ByteArray, k: Int): String {
         llamadas.add("L2"); ultimasRanuras = ranuras; ultimoK = k; return marcar(l2())
