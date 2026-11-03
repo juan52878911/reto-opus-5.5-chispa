@@ -125,8 +125,9 @@ class TestSib200Pawsx(Base):
         from model.l2 import espanol
         filas, info = sib200.convertir(FIX / "sib200")
         self.assertValidas(filas)
-        self.assertEqual(por_split(filas), {"train": 3, "dev": 1, "test": 2})
-        self.assertTrue(all(f["uso_comercial"] and f["licencia"] == "CC-BY-SA-4.0" for f in filas))
+        self.assertEqual(por_split(filas), {"test": 2})  # SA sin decidir: solo test
+        self.assertEqual(info["descartadas_nc"], 4)
+        self.assertTrue(all(not f["uso_comercial"] and f["licencia"] == "CC-BY-SA-4.0" for f in filas))
         self.assertEqual((sib200.PREGUNTA, sib200.DESCRIPCIONES), (espanol.PREGUNTA_SIB, espanol.DESC_SIB))
 
     def test_pawsx_fixture_y_mismo_esquema_que_m4(self):

@@ -1,7 +1,7 @@
 """SIB-200 `spa_Latn` (Davlan/sib200) -> tema del texto, `choice` de 7 clases.
 
 Licencia: la tarjeta declara cc-by-sa-4.0 (y «CC 4.0 Commercial» en el texto); se da por buena solo si la
-tarjeta lo sigue diciendo.
+tarjeta lo sigue diciendo. Por ser SA (sin decidir), `uso_comercial` es siempre false: solo sale el split test.
 """
 import csv
 
@@ -34,8 +34,9 @@ def filas(raiz=None, info=None, tope=None):
     raiz = raiz or raiz_hf(REPO)
     info = info if info is not None else {}
     leida = licencia_tarjeta(raiz)
-    com = leida in LICENCIAS_OK
-    lic = "cc-by-sa-4.0" if com else "sin verificar (tarjeta: %s; se esperaba cc-by-sa-4.0)" % (leida or "sin licencia")
+    verificada = leida in LICENCIAS_OK
+    com = False  # SA sin decidir por Juan: solo test (2026-11-03; ver model/datos/pesos-licencias.md)
+    lic = "cc-by-sa-4.0" if verificada else "sin verificar (tarjeta: %s; se esperaba cc-by-sa-4.0)" % (leida or "sin licencia")
     info["licencia"] = lic
     etiquetas = (raiz / "data" / "spa_Latn" / "labels.txt").read_text(encoding="utf-8").split()
     if sorted(etiquetas) != sorted(OPCIONES):

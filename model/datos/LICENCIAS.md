@@ -73,7 +73,7 @@ Opciones comunes: `peticion, queja, reclamo, sugerencia, denuncia, felicitacion`
 
 | Fuente | Tarea | Licencia | De dónde sale | uso_comercial | Splits |
 |---|---|---|---|---|---|
-| Davlan/sib200 `spa_Latn` (`sib200.py`) | `tema` | cc-by-sa-4.0 | tarjeta (`license: cc-by-sa-4.0` y «CC 4.0 Commercial» en el cuerpo) | true. **SA sin decidir por Juan** (como en las fuentes PQRS): `COMERCIAL = False` en `sib200.py` lo deja en solo test. `model/meta/sib200_es.py` ya aceptaba la misma licencia | train, dev, test (el test es el de M4: no entra en train) |
+| Davlan/sib200 `spa_Latn` (`sib200.py`) | `tema` | cc-by-sa-4.0 | tarjeta (`license: cc-by-sa-4.0` y «CC 4.0 Commercial» en el cuerpo) | **false (solo test) desde el 2026-11-03.** SA sin decidir por Juan, como en las fuentes PQRS. Antes estaba en true y entró en train de G.8, del ajuste 1, de v2 y de v3 (`model/datos/pesos-licencias.md`). `model/meta/sib200_es.py` también lo deja en solo test | test (train y dev se descartan) |
 | google-research-datasets/paws-x `es` (`pawsx.py`) | `parafrasis` | libre para cualquier uso (Google) | tarjeta: `license: other` y «may be freely used for any purpose»; sin esa frase queda «sin verificar» y solo test | true | train, dev (validation), test (el de M4: no entra en train) |
 
 `odio_alia` sigue en solo test (pendiente de Juan, ver arriba): el ajuste no la usa. `toxicidad_protestas` y `toxicidad_constitucion` (cc-by-4.0) ya entraban en train.

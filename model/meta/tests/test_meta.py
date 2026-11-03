@@ -156,11 +156,13 @@ class TestOtrasFuentes(Base):
     def test_sib200_es(self):
         falsos.sib200(self.hub)
         filas, info = sib200_es.convertir()
-        self.assertEqual(len(filas), 28)  # las comillas del texto no se comen líneas
+        # SA sin decidir: solo test (7 de las 28 filas del falso; las 21 de train y dev se descartan)
+        self.assertEqual(len(filas), 7)  # las comillas del texto no se comen líneas
+        self.assertEqual({f["split"] for f in filas}, {"test"})
+        self.assertFalse(any(f["uso_comercial"] for f in filas))
+        self.assertEqual(info["descartadas_licencia_nc_fuera_de_test"], 21)
         self.assertEqual(validar.errores_conjunto(filas), [])
-        self.assertEqual(len(filas[0]["opciones"]), 7)
-        self.assertEqual((filas[0]["tipo"], filas[0]["etiqueta"], filas[1]["etiqueta"]), ("choice", "science/technology", "travel"))
-        self.assertIn('"0"', filas[0]["texto"])
+        self.assertEqual((len(filas[0]["opciones"]), filas[0]["tipo"]), (7, "choice"))
         falsos.sib200(self.hub, licencia="cc-by-nc-4.0")
         self.assertEqual({f["split"] for f in sib200_es.convertir()[0]}, {"test"})
 
@@ -204,10 +206,10 @@ class TestCorrer(Base):
         with tempfile.TemporaryDirectory() as d:
             res = convertir.correr(d, solo=[c for c in convertir.FUENTES if c != "tsinst"], chunk_bytes=2000)
             r = json.loads((Path(d) / "resumen.json").read_text(encoding="utf-8"))
-            self.assertEqual(r["filas_por_fuente"], {"tsjev": 11, "synzs": 90, "pawsx": 12, "sib200": 28})
+            self.assertEqual(r["filas_por_fuente"], {"tsjev": 11, "synzs": 90, "pawsx": 12, "sib200": 7})
             self.assertEqual(r["descartadas"]["tsjev"], {"licencia_non-commercial": 10, "licencia_unspecified": 10})
             self.assertEqual(r["descartadas_por_licencia"]["tsjev"], r["descartadas"]["tsjev"])
-            self.assertEqual(r["filas_por_tipo"]["choice"], 10 + 28)
+            self.assertEqual(r["filas_por_tipo"]["choice"], 10 + 7)  # sib200: solo test
             self.assertEqual(r["filas_por_fuente_tipo_split"]["tsjev"]["choice"], {"train": 10})
             self.assertEqual(r["tareas_distintas"], 5)
             self.assertEqual(r["fuentes_vacias"], [])
