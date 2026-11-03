@@ -226,7 +226,8 @@ Cada punto: síntoma → comprobar → actuar. Si una misma causa falla dos vece
 5. Si el RSS sube sin parar con tráfico estable: **no hay medida de fugas en el repo**; escale al equipo de Chispa con las series de `/metrics` y el RSS. Mientras, reinicie en la ventana de menos tráfico.
 
 ## Verificación pendiente
-Nada de esto se ejecutó en el nodo de redacción. En un nodo con Go, ORT y modelos:
+Se corrieron con datos sintéticos, en un PC de pruebas con Go y sin ORT ni potion: `go build ./cmd/chispa-server`, `-h`, el arranque con un `.chispa` L0 (solo y unido con `mkmodelo -unir`), `/healthz`, `/metrics`, `/v1/decide` con y sin `api_keys` (401/200),
+`-hash-clave`, la recarga con `SIGHUP` (ok y con un fichero truncado: sigue el modelo viejo) y el apagado con `SIGTERM` ([`despliegue-minimo.md`](despliegue-minimo.md)). Lo demás de este runbook no se ejecutó. En un nodo con Go, ORT y modelos:
 ```
 cd server && go build ./cmd/chispa-server && ./chispa-server -h 2>&1 | head -20       # confirma flags de §2
 . ~/orquestador/herr/env.sh && deploy/kindling/comprobar.sh server/testdata/intencion.chispa   # arranca y manda una decisión

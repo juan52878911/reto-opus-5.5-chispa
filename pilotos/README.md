@@ -11,7 +11,10 @@ recibe un texto y una pregunta con opciones, y devuelve la opción, sus probabil
 | [`guia-integracion.md`](guia-integracion.md) | Paso a paso desde cero hasta `/v1/decide` en su sistema (on-prem o nube); los tres modos |
 | [`esquemas/`](esquemas) | Plantillas YAML de PQRS, soporte y ventas, con ejemplos de few-shot |
 | [`datos-y-consentimiento.md`](datos-y-consentimiento.md) | Checklist de datos y de consentimiento (habeas data) |
+| [`despliegue-minimo.md`](despliegue-minimo.md) | Del CSV de ejemplos del cliente a `chispa-server` respondiendo, en un día (few-shot: L0 por pregunta, `mkmodelo -unir`, vuelta atrás) y sus huecos |
 | [`metrica.md`](metrica.md) | Cómo se mide el piloto y plantilla del informe final |
+| [`medir.py`](medir.py) | Mide un servidor con un JSONL de casos etiquetados: métricas de `metrica.md`, latencias p50/p95/p99, % por capa y escalados (JSON + tabla Markdown); tests en `test_medir.py` |
+| [`plantilla-informe.md`](plantilla-informe.md) | Informe del piloto few-shot: línea base del cliente y del codificador abierto, métricas, latencia, coste, escalado, errores y decisión |
 | [`operacion.md`](operacion.md) | Runbook: desplegar, configurar, vigilar, actualizar y recuperar `chispa-server` |
 | [`checklist-despliegue.md`](checklist-despliegue.md) | Lista de verificación de una página para el despliegue |
 
@@ -59,9 +62,9 @@ Se marcan aquí y **no se prometen** al cliente (cada punto se explica donde apa
 2. **L2 en esquemas nuevos.** Falta el ONNX real de la torre; sin paridad ni cifra ([`docs/08`](../docs/08-esquemas-nuevos.md#qué-falta)).
 3. **Modo con datos del cliente (`--conjunta`).** Necesita un checkpoint de L2 que el repositorio no trae; solo para `choice`
    ([`docs/02`](../docs/02-inicio-rapido.md#4-con-datos-del-cliente---conjunta-modo-avanzado)). Se ofrece solo si el equipo de Chispa lo entrega.
-4. **Evaluación sobre datos del cliente con una sola orden.** Lo que hay (`e2e_util.py cliente` + `medir.py`) está escrito para los benchmarks:
-   el cliente HTTP de `e2e_util.py` solo manda `choice` y `medir.py` espera un formato propio ([`metrica.md`](metrica.md#cómo-se-mide)). Para `noul` y `score` no hay medición lista.
+4. **Evaluación sobre datos del cliente.** Hay dos herramientas: `chispa evaluar` (CSV/JSONL con `texto` y `etiqueta`; `choice`, `noul`, `score`; **no envía clave de API**) y [`medir.py`](medir.py) (JSONL con el esquema por caso; solo stdlib; **sí** envía clave, desde `CHISPA_CLAVE`).
+   Ninguna se corrió con datos de un cliente; `medir.py` sí contra un `chispa-server` real con un `.chispa` L0 sintético ([`despliegue-minimo.md`](despliegue-minimo.md)). El cálculo de τ y el coste por 1.000 exigen la infraestructura del cliente ([`metrica.md`](metrica.md#cómo-se-mide)).
 5. **Coste por 1.000 decisiones y latencia con el modelo y el hardware del cliente:** sin medir.
 6. **Español de Colombia, PQRS, EPS, ferretería:** sin medir; las cifras del repo son de benchmarks ([`docs/07`](../docs/07-rendimiento-y-limites.md)).
 7. **Salvaguardas de datos en el producto** (enmascarar datos personales, registro de decisiones): el producto no las trae; las hace el cliente antes de llamar a `/v1/decide`.
-8. **Operación** (detalle en [`operacion.md`](operacion.md)): recarga del modelo en caliente (`SIGHUP` o `POST /v1/admin/recargar` con `admin_token`), reintentos del cliente y registros. Siguen pendientes de producto el apagado ordenado, TLS y autenticación, el log de acceso, `/readyz` y las métricas de memoria: el cliente pone un proxy delante.
+8. **Operación** (detalle en [`operacion.md`](operacion.md)): recarga del modelo en caliente (`SIGHUP` o `POST /v1/admin/recargar` con `admin_token`), reintentos del cliente y registros. El apagado ordenado (`-apagado`, `-pre-drenaje`) y las claves de API con límite de tasa (`api_keys`) ya existen. Siguen pendientes de producto TLS, el log de acceso, `/readyz` y las métricas de memoria: el cliente pone un proxy delante.
