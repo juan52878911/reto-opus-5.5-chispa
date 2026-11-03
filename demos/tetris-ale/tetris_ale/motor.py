@@ -1,4 +1,4 @@
-"""Simulador de planificación: tablero de 10 × 20, 7 tetrominós, colocaciones con caída directa. Solo biblioteca estándar.
+"""Simulador de planificación: tablero de 10 × 22 (el de ALE/Tetris-v5), 7 tetrominós, colocaciones con caída directa. Solo biblioteca estándar.
 
 Tablero: tupla de `ALTO` enteros, uno por fila, con la fila 0 ABAJO; el bit `c` de una fila es la columna `c` (0 = izquierda).
 Una colocación es (giro, columna): `giro` indexa los giros DISTINTOS de la pieza (O 1, I/S/Z 2, T/L/J 4) y `columna` es la
@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-ANCHO, ALTO = 10, 20
+ANCHO, ALTO = 10, 22  # ALE/Tetris-v5: 22 filas (mapa de la RAM en ale_juego.py)
 ZONA_APARICION = 2  # una pieza que queda con alguna celda en las dos filas de arriba termina la partida
 PIEZAS = "OISZTLJ"
 

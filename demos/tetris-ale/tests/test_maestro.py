@@ -2,7 +2,7 @@ import random
 import unittest
 
 from tetris_ale import maestro as M
-from tetris_ale.motor import Juego, colocaciones, tablero_desde_texto, aplicar
+from tetris_ale.motor import ALTO, TABLERO_VACIO, Juego, colocaciones, tablero_desde_texto, aplicar
 from tetris_ale.partida import AgenteAleatorio, AgenteMaestro, jugar_partida
 
 SEMILLAS = range(1, 21)
@@ -18,24 +18,24 @@ class TestMaestro(unittest.TestCase):
 
     def test_desempate_determinista(self):
         # tablero vacío: la O tiene 9 sitios; los pesos no distinguen simetrías, gana la menor (giro, columna) entre las de mayor valor
-        a = M.maestro(tuple([0] * 20), colocaciones(tuple([0] * 20), "O"))
-        b = M.maestro(tuple([0] * 20), list(reversed(colocaciones(tuple([0] * 20), "O"))))
+        a = M.maestro(TABLERO_VACIO, colocaciones(TABLERO_VACIO, "O"))
+        b = M.maestro(TABLERO_VACIO, list(reversed(colocaciones(TABLERO_VACIO, "O"))))
         self.assertEqual((a.giro, a.col), (b.giro, b.col))
 
     def test_veto_descarta_lo_que_termina_la_partida(self):
-        t = tablero_desde_texto(["#........."] * 18)
+        t = tablero_desde_texto(["#........."] * (ALTO - 2))
         cols = colocaciones(t, "O")
         self.assertTrue(any(aplicar(t, c).terminado for c in cols))
         self.assertFalse(any(e[1]["terminado"] for e in M.ranking(t, cols)))
         self.assertNotEqual(M.maestro(t, cols).col, 0)
 
     def test_veto_sin_alternativa_mantiene_todas(self):
-        t = tablero_desde_texto(["#########." if i % 2 else "##########" for i in range(0)] or ["#........."] * 18)
+        t = tablero_desde_texto(["#########." if i % 2 else "##########" for i in range(0)] or ["#........."] * (ALTO - 2))
         solo_malas = [c for c in colocaciones(t, "O") if aplicar(t, c).terminado]
         self.assertEqual(len(M.ranking(t, solo_malas)), len(solo_malas))
 
     def test_el_veto_alcanza_al_aleatorio(self):
-        t = tablero_desde_texto(["#........."] * 18)
+        t = tablero_desde_texto(["#........."] * (ALTO - 2))
         j = Juego(1, t)
         j.pieza = "O"
         for s in range(30):

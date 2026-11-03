@@ -49,7 +49,7 @@ class TestMotor(unittest.TestCase):
         self.assertEqual(ef.tablero, TABLERO_VACIO)
 
     def test_game_over(self):
-        t = tablero_desde_texto(["#........."] * 18)
+        t = tablero_desde_texto(["#........."] * (ALTO - 2))
         sobre = [c for c in colocaciones(t, "O") if c.col == 0][0]
         self.assertTrue(aplicar(t, sobre).terminado)
         suelo = [c for c in colocaciones(t, "O") if c.col == 5][0]
