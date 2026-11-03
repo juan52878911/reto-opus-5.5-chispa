@@ -1,0 +1,253 @@
+{
+  "entorno": "ALE/Tetris-v5 frameskip=1 sticky=0",
+  "decidir": "argmax",
+  "url": "http://127.0.0.1:8090",
+  "semillas": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "max_piezas": 500,
+  "apertura": 3,
+  "agentes": {
+    "chispa": {
+      "resumen": {
+        "partidas": 20,
+        "lineas_media": 0.0,
+        "lineas_min": 0,
+        "lineas_max": 0,
+        "piezas_media": 23.85,
+        "game_overs": 20,
+        "decisiones": 417,
+        "coincidencia": null,
+        "pct_bajo_tau": 100.0,
+        "intervenciones_escudo": 0,
+        "errores_red": 0,
+        "latencia_ms_p50": 163.829,
+        "latencia_ms_p99": 206.023,
+        "fieles": 439,
+        "piezas": 477,
+        "fallos_control": 36
+      },
+      "por_partida": [
+        {
+          "semilla": 1,
+          "piezas": 21,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 20,
+          "fallos_control": 1,
+          "fotogramas": 1138
+        },
+        {
+          "semilla": 2,
+          "piezas": 28,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 27,
+          "fallos_control": 1,
+          "fotogramas": 1536
+        },
+        {
+          "semilla": 3,
+          "piezas": 23,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 21,
+          "fallos_control": 2,
+          "fotogramas": 1234
+        },
+        {
+          "semilla": 4,
+          "piezas": 23,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 22,
+          "fallos_control": 1,
+          "fotogramas": 1312
+        },
+        {
+          "semilla": 5,
+          "piezas": 23,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 21,
+          "fallos_control": 2,
+          "fotogramas": 1346
+        },
+        {
+          "semilla": 6,
+          "piezas": 24,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 22,
+          "fallos_control": 2,
+          "fotogramas": 1360
+        },
+        {
+          "semilla": 7,
+          "piezas": 19,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 17,
+          "fallos_control": 2,
+          "fotogramas": 1116
+        },
+        {
+          "semilla": 8,
+          "piezas": 21,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 19,
+          "fallos_control": 1,
+          "fotogramas": 1186
+        },
+        {
+          "semilla": 9,
+          "piezas": 17,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 14,
+          "fallos_control": 3,
+          "fotogramas": 1000
+        },
+        {
+          "semilla": 10,
+          "piezas": 24,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 22,
+          "fallos_control": 2,
+          "fotogramas": 1362
+        },
+        {
+          "semilla": 11,
+          "piezas": 25,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 21,
+          "fallos_control": 4,
+          "fotogramas": 1320
+        },
+        {
+          "semilla": 12,
+          "piezas": 28,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 26,
+          "fallos_control": 2,
+          "fotogramas": 1568
+        },
+        {
+          "semilla": 13,
+          "piezas": 25,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 24,
+          "fallos_control": 1,
+          "fotogramas": 1400
+        },
+        {
+          "semilla": 14,
+          "piezas": 28,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 26,
+          "fallos_control": 2,
+          "fotogramas": 1426
+        },
+        {
+          "semilla": 15,
+          "piezas": 26,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 24,
+          "fallos_control": 1,
+          "fotogramas": 1362
+        },
+        {
+          "semilla": 16,
+          "piezas": 21,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 19,
+          "fallos_control": 2,
+          "fotogramas": 1132
+        },
+        {
+          "semilla": 17,
+          "piezas": 27,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 25,
+          "fallos_control": 2,
+          "fotogramas": 1468
+        },
+        {
+          "semilla": 18,
+          "piezas": 20,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 19,
+          "fallos_control": 1,
+          "fotogramas": 1202
+        },
+        {
+          "semilla": 19,
+          "piezas": 29,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 27,
+          "fallos_control": 2,
+          "fotogramas": 1634
+        },
+        {
+          "semilla": 20,
+          "piezas": 25,
+          "lineas": 0,
+          "lineas_sim": 0,
+          "game_over": true,
+          "fieles": 23,
+          "fallos_control": 2,
+          "fotogramas": 1436
+        }
+      ]
+    }
+  }
+}

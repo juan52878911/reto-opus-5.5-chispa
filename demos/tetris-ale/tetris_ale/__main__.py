@@ -1,9 +1,9 @@
 """`python -m tetris_ale evaluar|generar …`"""
 import sys
 
-from . import ale, evaluar, generar
+from . import ale, evaluar, generar, renderizar
 
-ORDENES = {"evaluar": evaluar.main, "generar": generar.main, "ale": ale.main}
+ORDENES = {"evaluar": evaluar.main, "generar": generar.main, "ale": ale.main, "renderizar": renderizar.main}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in ORDENES:
