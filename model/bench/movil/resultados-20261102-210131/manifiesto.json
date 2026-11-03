@@ -1,0 +1,41 @@
+{
+ "checkpoint": {
+  "s3": "s3://chispa-pruebas-879381269751/ajuste-80ab8ef/ckpt/mejor.pt",
+  "sha256": "4336e97148dc37ea89c0e2a3ff3158ae2e50c3c2b4f7bbd2811081ec34dcaa9c",
+  "bytes": 4113441,
+  "texto_torre": "v1"
+ },
+ "ficheros": {
+  "modelo-fp16.chispa": {
+   "bytes": 332090384,
+   "sha256": "0bcd532712b60db50c783dc34f0392bc96c4b75d53b9d6a3f9757082fc61ea33"
+  },
+  "modelo-int8.chispa": {
+   "bytes": 249716640,
+   "sha256": "995dd6a7276a7026ce12ad3e04a5324714f62dc05a1c20b11141a580c30db6f4",
+   "perfil": "movil-int8",
+   "trae_torr": true,
+   "texto_torre": "v1",
+   "secciones": [
+    "CALIB",
+    "ESQUEMAS",
+    "L0",
+    "L1",
+    "L2",
+    "META",
+    "SOPL1",
+    "TORR"
+   ],
+   "checkpoint_sha256": "4336e97148dc37ea89c0e2a3ff3158ae2e50c3c2b4f7bbd2811081ec34dcaa9c"
+  },
+  "e5.chispa-tok": {
+   "bytes": 12111120,
+   "sha256": "356d7ef09425121e93a0a595ca5a4591fbebeb8785b0fc5f405a374459cd1ed6"
+  },
+  "esquema.json": {
+   "bytes": 746,
+   "sha256": "f028dd5c99a8362238e06e799f6f41ca8466596effc93a393fa58d3fa5ecb438"
+  }
+ },
+ "fp16_reexportado": "model/bench/movil/reexportar_fp16.py (W15: LayerNorm/Softmax/atenci\u00f3n en fp32), desde el fp16 del ajuste 1"
+}

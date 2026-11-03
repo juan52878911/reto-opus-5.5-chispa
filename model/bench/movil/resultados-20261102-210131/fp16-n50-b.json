@@ -1,0 +1,223 @@
+{
+  "etiqueta": "ChispaMedir",
+  "version": 1,
+  "fecha_ms": 1793671403133,
+  "dispositivo": {
+    "fabricante": "motorola",
+    "modelo": "moto g24 power",
+    "dispositivo": "fogorow",
+    "soc": "MT6769",
+    "android": "14",
+    "sdk_int": 34,
+    "abi": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "armeabi"
+    ],
+    "cpus": 8,
+    "ram_total_mb": 7791,
+    "ram_disponible_mb": 5040,
+    "pss_proceso_mb": 888
+  },
+  "ort": {
+    "proveedores_disponibles": [
+      "CPU",
+      "NNAPI",
+      "XNNPACK"
+    ],
+    "proveedores_pedidos": [
+      "CPU",
+      "XNNPACK",
+      "NNAPI"
+    ],
+    "proveedores_usados": [
+      "CPU",
+      "XNNPACK",
+      "NNAPI"
+    ],
+    "nota": "XNNPACK, NNAPI y CPU se miden por separado; si uno falla al crear la sesión, el escenario dice CPU"
+  },
+  "config": {
+    "n": 50,
+    "calentamiento": 100,
+    "umbral_p99_ms": 150,
+    "modelo": "modelo.chispa",
+    "modelo_bytes": 332090384,
+    "tokenizador": "e5.chispa-tok",
+    "capas_cascada": [
+      "L0",
+      "L1",
+      "L2"
+    ],
+    "textos_distintos": 40
+  },
+  "escenarios": [
+    {
+      "nombre": "zero-shot · L1 solo",
+      "esquema": "zero-shot",
+      "capa": "L1",
+      "n": 50,
+      "p50_ms": 0.569,
+      "p95_ms": 0.749,
+      "p99_ms": 0.874,
+      "max_ms": 0.874,
+      "media_ms": 0.582,
+      "decisiones_por_s": 1706.615,
+      "primera_llamada_ms": 9.039,
+      "capa_que_respondio": {
+        "L1": 50
+      },
+      "errores": 0,
+      "proveedor": "n\/a",
+      "proveedor_pedido": "n\/a",
+      "nota": null
+    },
+    {
+      "nombre": "zero-shot · cascada L0→L1→L2 [CPU]",
+      "esquema": "zero-shot",
+      "capa": "cascada L0→L1→L2 [CPU]",
+      "n": 50,
+      "p50_ms": 150.64,
+      "p95_ms": 166.433,
+      "p99_ms": 170.956,
+      "max_ms": 170.956,
+      "media_ms": 148.952,
+      "decisiones_por_s": 6.713,
+      "primera_llamada_ms": 2258.563,
+      "capa_que_respondio": {
+        "L2": 2,
+        "escalar": 48
+      },
+      "errores": 0,
+      "proveedor": "CPU",
+      "proveedor_pedido": "CPU",
+      "nota": null
+    },
+    {
+      "nombre": "few-shot · L1 solo",
+      "esquema": "few-shot",
+      "capa": "L1",
+      "n": 50,
+      "p50_ms": 0.424,
+      "p95_ms": 0.564,
+      "p99_ms": 0.786,
+      "max_ms": 0.786,
+      "media_ms": 0.448,
+      "decisiones_por_s": 2210.403,
+      "primera_llamada_ms": 2.099,
+      "capa_que_respondio": {
+        "L1": 50
+      },
+      "errores": 0,
+      "proveedor": "n\/a",
+      "proveedor_pedido": "n\/a",
+      "nota": null
+    },
+    {
+      "nombre": "few-shot · cascada L0→L1→L2 [CPU]",
+      "esquema": "few-shot",
+      "capa": "cascada L0→L1→L2 [CPU]",
+      "n": 50,
+      "p50_ms": 0.768,
+      "p95_ms": 156.249,
+      "p99_ms": 167.504,
+      "max_ms": 167.504,
+      "media_ms": 49.739,
+      "decisiones_por_s": 20.101,
+      "primera_llamada_ms": 124.481,
+      "capa_que_respondio": {
+        "L0": 33,
+        "escalar": 17
+      },
+      "errores": 0,
+      "proveedor": "CPU",
+      "proveedor_pedido": "CPU",
+      "nota": null
+    },
+    {
+      "nombre": "zero-shot · cascada L0→L1→L2 [XNNPACK]",
+      "esquema": "zero-shot",
+      "capa": "cascada L0→L1→L2 [XNNPACK]",
+      "n": 50,
+      "p50_ms": 149.313,
+      "p95_ms": 169.81,
+      "p99_ms": 177.508,
+      "max_ms": 177.508,
+      "media_ms": 149.951,
+      "decisiones_por_s": 6.668,
+      "primera_llamada_ms": 2156.256,
+      "capa_que_respondio": {
+        "L2": 2,
+        "escalar": 48
+      },
+      "errores": 0,
+      "proveedor": "XNNPACK",
+      "proveedor_pedido": "XNNPACK",
+      "nota": null
+    },
+    {
+      "nombre": "few-shot · cascada L0→L1→L2 [XNNPACK]",
+      "esquema": "few-shot",
+      "capa": "cascada L0→L1→L2 [XNNPACK]",
+      "n": 50,
+      "p50_ms": 0.783,
+      "p95_ms": 163.469,
+      "p99_ms": 171.555,
+      "max_ms": 171.555,
+      "media_ms": 50.5,
+      "decisiones_por_s": 19.798,
+      "primera_llamada_ms": 129.217,
+      "capa_que_respondio": {
+        "L0": 33,
+        "escalar": 17
+      },
+      "errores": 0,
+      "proveedor": "XNNPACK",
+      "proveedor_pedido": "XNNPACK",
+      "nota": null
+    },
+    {
+      "nombre": "zero-shot · cascada L0→L1→L2 [NNAPI]",
+      "esquema": "zero-shot",
+      "capa": "cascada L0→L1→L2 [NNAPI]",
+      "n": 50,
+      "p50_ms": 151.563,
+      "p95_ms": 166.51,
+      "p99_ms": 171.733,
+      "max_ms": 171.733,
+      "media_ms": 150.321,
+      "decisiones_por_s": 6.652,
+      "primera_llamada_ms": 2415.631,
+      "capa_que_respondio": {
+        "L2": 2,
+        "escalar": 48
+      },
+      "errores": 0,
+      "proveedor": "NNAPI",
+      "proveedor_pedido": "NNAPI",
+      "nota": null
+    },
+    {
+      "nombre": "few-shot · cascada L0→L1→L2 [NNAPI]",
+      "esquema": "few-shot",
+      "capa": "cascada L0→L1→L2 [NNAPI]",
+      "n": 50,
+      "p50_ms": 0.737,
+      "p95_ms": 160.88,
+      "p99_ms": 177.625,
+      "max_ms": 177.625,
+      "media_ms": 51.032,
+      "decisiones_por_s": 19.593,
+      "primera_llamada_ms": 123.465,
+      "capa_que_respondio": {
+        "L0": 33,
+        "escalar": 17
+      },
+      "errores": 0,
+      "proveedor": "NNAPI",
+      "proveedor_pedido": "NNAPI",
+      "nota": null
+    }
+  ],
+  "notas": []
+}
