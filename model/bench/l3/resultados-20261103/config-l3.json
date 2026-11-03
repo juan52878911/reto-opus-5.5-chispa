@@ -1,0 +1,1 @@
+{"l3": {"url": "http://127.0.0.1:11434/v1", "modelo": "qwen3-4b-instruct-4h", "timeout": "120s", "max_por_peticion": 1, "tau": 0.6}}
