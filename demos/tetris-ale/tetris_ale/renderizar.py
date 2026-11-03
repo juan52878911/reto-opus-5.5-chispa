@@ -17,9 +17,13 @@ W, H, FPS = 1920, 1080, 30
 # Identidad visual de Chispa (la de Caída): fondo noche, ámbar «chispa», menta para lo que elige Chispa.
 FONDO, PANEL, BORDE = (14, 18, 32), (24, 30, 52), (52, 62, 98)
 AMBAR, MENTA, CORAL, AZUL, TEXTO, TENUE = (255, 176, 32), (64, 214, 178), (255, 107, 107), (110, 142, 255), (234, 238, 250), (136, 146, 178)
-ESCALA = 4.8  # 160 × 210 → 768 × 1008
-EX0, EY0 = 70, (H - int(210 * ESCALA)) // 2
-PX0 = EX0 + int(160 * ESCALA) + 80
+# Solo el campo de juego del fotograma real (x 20–66, y 26–206), con escala entera para que se vea nítido y el píxel del Atari
+# al doble de ancho que de alto (como en la tele): 46 × 180 → 552 × 900.
+RECORTE = (20, 26, 66, 206)
+EX_ESC, EY_ESC = 12, 5
+EMU_W, EMU_H = (RECORTE[2] - RECORTE[0]) * EX_ESC, (RECORTE[3] - RECORTE[1]) * EY_ESC
+EX0, EY0 = 150, (H - EMU_H) // 2
+PX0 = EX0 + EMU_W + 150
 
 
 def _fuente(tam: int, negrita: bool = False):
@@ -90,7 +94,7 @@ def _barra(d, x, y, w, h, p, color):
 def dibujar(foto, t: Optional[dict], n_pieza: int, lineas: int, titulo: str, stats: dict):
     from PIL import Image, ImageDraw
     im = Image.new("RGB", (W, H), FONDO)
-    emu = Image.fromarray(foto).resize((int(160 * ESCALA), int(210 * ESCALA)), Image.NEAREST)
+    emu = Image.fromarray(foto).crop(RECORTE).resize((EMU_W, EMU_H), Image.NEAREST)
     im.paste(emu, (EX0, EY0))
     d = ImageDraw.Draw(im)
     d.rounded_rectangle([EX0 - 6, EY0 - 6, EX0 + emu.width + 6, EY0 + emu.height + 6], radius=8, outline=BORDE, width=4)
@@ -117,7 +121,7 @@ def dibujar(foto, t: Optional[dict], n_pieza: int, lineas: int, titulo: str, sta
             for i, trozo in enumerate(partir(b["descripcion"], 46)[:2]):
                 d.text((x0 + 380, y - 4 + i * 22), trozo, font=_fuente(17), fill=color_t)
             if b["maestro"]:
-                d.text((x0 + 830, y + 2), "← maestro", font=_fuente(17, True), fill=AMBAR)
+                d.text((x0 + 720, y + 2), "← maestro", font=_fuente(17, True), fill=AMBAR)
             y += 54
         y += 16
         lat = t.get("ms_cliente")
@@ -158,7 +162,7 @@ def crear_mp4(ims, salida: str, fps: int = FPS) -> int:
     if not ff:
         raise RuntimeError("no hay ffmpeg: ni en el PATH ni imageio-ffmpeg")
     cmd = [ff, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
-           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", "-movflags", "+faststart", salida]
+           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "14", "-tune", "animation", "-movflags", "+faststart", salida]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     n = 0
     try:
