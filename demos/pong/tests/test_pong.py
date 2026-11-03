@@ -48,6 +48,16 @@ class Opciones(unittest.TestCase):
         self.assertEqual(c["state"], l["state"])
         self.assertEqual({o["id"]: o["description"] for o in c["questions"][0]["options"]}, l["criteria"])
 
+    def test_cualitativo_sin_cifras_y_coherente(self):
+        e = Estado(bx=320, by=240, vx=6, vy=0)
+        e.palas["derecha"] = 100
+        estado, ops = O.construir(e, "derecha", random.Random(1), "cualitativo")
+        d = {o.nombre: o.descripcion for o in ops}
+        self.assertFalse(any(ch.isdigit() for t in d.values() for ch in t))
+        self.assertIn("aleja la pala", d["subir"])
+        self.assertIn("quieta: la pala se queda lejos", d["quieta"])
+        self.assertEqual(O.peticion_chispa(estado, ops, "cualitativo")["questions"][0]["question"], O.PREGUNTA_CUALITATIVA)
+
 
 if __name__ == "__main__":
     unittest.main()

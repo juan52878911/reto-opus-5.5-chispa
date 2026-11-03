@@ -53,11 +53,11 @@ class AgenteOptimo:
 class AgenteChispa:
     nombre = "Chispa"
 
-    def __init__(self, url: str, timeout: float = 5.0):
-        self.url, self.timeout = url.rstrip("/") + "/v1/decide", timeout
+    def __init__(self, url: str, timeout: float = 5.0, texto: str = "px"):
+        self.url, self.timeout, self.texto = url.rstrip("/") + "/v1/decide", timeout, texto
 
     def decidir(self, estado: str, ops: List[O.Opcion]) -> Respuesta:
-        r = _post(self.url, O.peticion_chispa(estado, ops), self.timeout)
+        r = _post(self.url, O.peticion_chispa(estado, ops, self.texto), self.timeout)
         ch = next((x for x in r.get("results", []) if x.get("id") == O.ID_PREGUNTA), {})
         probs = {k: float(v) for k, v in (ch.get("probs") or {}).items()}
         ids = [o.id for o in ops]
@@ -70,11 +70,11 @@ class AgenteChispa:
 class AgenteLaya:
     nombre = "Laya"
 
-    def __init__(self, url: str, timeout: float = 5.0):
-        self.url, self.timeout = url.rstrip("/") + "/decide", timeout
+    def __init__(self, url: str, timeout: float = 5.0, texto: str = "px"):
+        self.url, self.timeout, self.texto = url.rstrip("/") + "/decide", timeout, texto
 
     def decidir(self, estado: str, ops: List[O.Opcion]) -> Respuesta:
-        r = _post(self.url, O.peticion_laya(estado, ops), self.timeout)
+        r = _post(self.url, O.peticion_laya(estado, ops, self.texto), self.timeout)
         probs = {k: float(v) for k, v in (r.get("probs") or {}).items()}
         ids = [o.id for o in ops]
         elegido = r.get("choice") if r.get("choice") in ids else (max(ids, key=lambda i: probs.get(i, -1.0)) if probs else None)
@@ -102,6 +102,7 @@ class Partida:
     juego: Juego
     agentes: Dict[str, object]
     semilla: int = 1
+    texto: str = "px"
     tics: List[list] = field(default_factory=list)
     decisiones: List[Decision] = field(default_factory=list)
 
@@ -136,7 +137,7 @@ class Partida:
         while not self.parar.is_set():
             with self.cerrojo:
                 e = self.juego.e.copia()
-            estado, ops = O.construir(e, lado, rng)
+            estado, ops = O.construir(e, lado, rng, self.texto)
             opt = O.optima(ops)
             t0 = time.perf_counter()
             try:
@@ -168,7 +169,7 @@ class Partida:
 
     def resumen(self) -> dict:
         e = self.juego.e
-        out = {"semilla": self.semilla, "tics": e.tic, "segundos": round(e.tic / TICS_POR_S, 1), "puntos": dict(e.puntos),
+        out = {"semilla": self.semilla, "texto": self.texto, "tics": e.tic, "segundos": round(e.tic / TICS_POR_S, 1), "puntos": dict(e.puntos),
                "golpes": dict(e.golpes), "agentes": {}}
         for lado in LADOS:
             ds = [d for d in self.decisiones if d.lado == lado]

@@ -10,6 +10,8 @@ from .motor import ALTO, Estado, VEL_PALA, ALTO_PALA, corte
 
 ID_PREGUNTA = "pala"
 PREGUNTA = "¿Qué hago con la pala?"
+PREGUNTA_CUALITATIVA = "¿Qué movimiento devuelve la pelota?"
+TEXTOS = ("px", "cualitativo")
 ACCIONES = (("subir", -1), ("bajar", 1), ("quieta", 0))
 HORIZONTE = 12  # tics que se proyecta la acción (≈ 0,4 s)
 
@@ -32,7 +34,25 @@ def objetivo(e: Estado, lado: str) -> Tuple[float, str]:
     return y, f"La pelota viene hacia ti y llega en {tics / 30:.1f} s; punto de corte a {round(y)} px de altura"
 
 
-def construir(e: Estado, lado: str, rng: random.Random) -> Tuple[str, List[Opcion]]:
+def _cualitativa(nombre: str, d: int, d0: float, viene: bool) -> str:
+    """Sin cifras: si la pala alcanza el objetivo (a menos de media pala), se acerca sin llegar o se aleja."""
+    meta = "punto donde llegará la pelota" if viene else "centro"
+    alcanza = d < ALTO_PALA / 2
+    if nombre == "quieta":
+        return (f"quieta: la pala ya está en el {meta}, la alcanza" if alcanza
+                else f"quieta: la pala se queda lejos del {meta}, falla")
+    if alcanza:
+        return f"{nombre}: lleva la pala al {meta}, la alcanza"
+    if d < d0:
+        return f"{nombre}: acerca la pala al {meta}, pero no llega"
+    return f"{nombre}: aleja la pala del {meta}, falla"
+
+
+def pregunta(texto: str) -> str:
+    return PREGUNTA_CUALITATIVA if texto == "cualitativo" else PREGUNTA
+
+
+def construir(e: Estado, lado: str, rng: random.Random, texto: str = "px") -> Tuple[str, List[Opcion]]:
     y, frase = objetivo(e, lado)
     c = corte(e, lado)
     pasos = HORIZONTE if c is None else max(1, min(HORIZONTE, int(c[1])))
@@ -43,10 +63,16 @@ def construir(e: Estado, lado: str, rng: random.Random) -> Tuple[str, List[Opcio
         ops.append((nombre, a, d))
     rng.shuffle(ops)
     out = []
+    d0 = abs(e.palas[lado] - y)
     for i, (nombre, a, d) in enumerate(ops, 1):
         punto = "punto de corte" if c is not None else "centro"
-        out.append(Opcion(str(i), nombre, a, d, f"{nombre}: la pala queda a {d} px del {punto}"))
-    estado = f"{frase}. Tu pala está a {round(e.palas[lado])} px."
+        desc = (_cualitativa(nombre, d, d0, c is not None) if texto == "cualitativo"
+                else f"{nombre}: la pala queda a {d} px del {punto}")
+        out.append(Opcion(str(i), nombre, a, d, desc))
+    if texto == "cualitativo":
+        estado = "La pelota viene hacia tu pala." if c is not None else "La pelota se aleja de tu pala."
+    else:
+        estado = f"{frase}. Tu pala está a {round(e.palas[lado])} px."
     return estado, out
 
 
@@ -56,11 +82,11 @@ def optima(ops: List[Opcion]) -> Opcion:
     return min(ops, key=lambda o: (o.distancia, o.accion != 0, orden[o.nombre]))
 
 
-def peticion_chispa(estado: str, ops: List[Opcion]) -> dict:
-    return {"state": estado, "questions": [{"id": ID_PREGUNTA, "question": PREGUNTA, "kind": "choice",
+def peticion_chispa(estado: str, ops: List[Opcion], texto: str = "px") -> dict:
+    return {"state": estado, "questions": [{"id": ID_PREGUNTA, "question": pregunta(texto), "kind": "choice",
                                             "options": [{"id": o.id, "description": o.descripcion} for o in ops]}]}
 
 
-def peticion_laya(estado: str, ops: List[Opcion]) -> dict:
+def peticion_laya(estado: str, ops: List[Opcion], texto: str = "px") -> dict:
     """Para `laya_servidor.py` (envuelve `laya.Router.predict`): misma pregunta y mismas opciones."""
-    return {"state": estado, "instructions": PREGUNTA, "criteria": {o.id: o.descripcion for o in ops}}
+    return {"state": estado, "instructions": pregunta(texto), "criteria": {o.id: o.descripcion for o in ops}}
