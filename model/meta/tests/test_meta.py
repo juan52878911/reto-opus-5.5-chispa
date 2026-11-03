@@ -221,7 +221,7 @@ class TestCorrer(Base):
                     for linea in fh:
                         row = json.loads(linea)
                         self.assertEqual(validar.errores_fila(row), [])
-                        self.assertTrue(row["uso_comercial"])
+                        self.assertTrue(row["uso_comercial"] or row["split"] == "test")  # lo no comercial (sib200, SA) solo en test
                         self.assertIsNone(comun.prohibida(row["fuente"], row["tarea"]))
                         n += 1
             self.assertEqual(n, r["filas_total"])
