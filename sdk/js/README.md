@@ -114,3 +114,8 @@ corte de red, 503 y reintento con el mismo nonce, límites en bytes).
 
 Sin verificar: contra un `chispa-server` real (aquí no hay Go) y en navegador; los tipos de `index.d.ts` no se han pasado por `tsc`
 (no está en el nodo). Comando para otro nodo: `npx -p typescript tsc --noEmit --strict --module nodenext src/index.d.ts`.
+
+## Licencia
+
+Apache-2.0 (ver `LICENSE`). Las atribuciones de terceros están en `NOTICE`. Los datasets con SA, NC o con términos pendientes
+(XNLI, clima, datos.gov.co, SIB-200, etiquetas de ALIA, salidas de Haiku) no se redistribuyen y solo se usan como test.

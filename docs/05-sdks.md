@@ -12,7 +12,7 @@
 Los móviles y WASM no hablan con el servidor. Abren el `.chispa` y deciden en el dispositivo.
 
 ## Python
-Sin dependencias obligatorias. Python ≥ 3.9. Se empaqueta como wheel (versión 0.1.0, licencia propietaria de Juan Bedoya, ver `LICENSE`):
+Sin dependencias obligatorias. Python ≥ 3.9. Se empaqueta como wheel (versión 0.1.0, licencia Apache-2.0 de Juan Bedoya, ver `LICENSE` y `NOTICE`):
 
 ```
 pip wheel ./sdk/python --no-deps --no-build-isolation -w dist/

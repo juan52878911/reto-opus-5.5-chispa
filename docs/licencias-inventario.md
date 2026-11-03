@@ -1,4 +1,6 @@
-# Inventario de licencias (solo lectura: no cambia `LICENSE` ni añade cabeceras)
+# Inventario de licencias
+
+**Decisión (2026-11-03): Apache-2.0 para todo lo propio** (código, SDK, servidor, pesos propios y `.chispa` publicados), titular Juan Bedoya. `LICENSE`, `sdk/LICENSE` y `NOTICE` ya reflejan esa decisión; el texto de abajo es el inventario previo, sin cambios (donde habla del `LICENSE` «propietario», se refiere a la situación anterior). Datasets con SA, NC o términos pendientes: no se redistribuyen y solo se usan como test. Se añadió `demo/wasm/LICENSE.go` (BSD de Go). Quedan sin su `LICENSE` de JevBench las copias de `model/` (`model/l2/tests/fixtures_largos/jevbench/`, `model/l2/resultados/ajuste-20261029/{g8,nuevo}/jev/`): son de otra sesión.
 
 Fecha: 2026-11-03. Para que Juan elija una licencia open source. El `LICENSE` actual es propietario (`LICENSE` y `sdk/LICENSE`, el mismo texto: «Chispa — Licencia propietaria», © 2026 Juan Bedoya).
 Cada licencia de un tercero lleva la **ruta del fichero donde se leyó**. Lo que no se pudo leer (sin red, sin caché) dice **«sin verificar»** y no se da por cierto.
