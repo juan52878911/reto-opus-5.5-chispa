@@ -81,6 +81,9 @@ def _panel(d, caja, nombre: str, lado: str, dec: Optional[dict], hist: List[dict
         d.text((cx, y0 + 180), f"{p * 100:.0f} %", font=_fuente(48, True), fill=TEXTO)
 
 
+PIE = "zero-shot · mismas opciones · tiempo real"
+
+
 def dibujar(t: list, nombres: dict, ultima: dict, hist: dict, titulo: Optional[str] = None):
     from PIL import Image, ImageDraw
     tic, bx, by, pl, pr, ptl, ptr = t[:7]
@@ -106,7 +109,7 @@ def dibujar(t: list, nombres: dict, ultima: dict, hist: dict, titulo: Optional[s
     r = RADIO * ESC * 1.2
     d.ellipse([px - r, py - r, px + r, py + r], fill=TEXTO)
     _panel(d, PANEL_CHISPA, nombres["derecha"], "derecha", ultima.get("derecha"), hist["derecha"])
-    d.text((W // 2, PANEL_CHISPA[3] + 30), "zero-shot · mismas opciones · tiempo real", font=_fuente(30), fill=TENUE, anchor="mm")
+    d.text((W // 2, PANEL_CHISPA[3] + 30), PIE, font=_fuente(30), fill=TENUE, anchor="mm")
     if titulo:
         capa = Image.new("RGBA", (W, H), (14, 18, 32, 215))
         im = Image.alpha_composite(im.convert("RGBA"), capa).convert("RGB")
@@ -143,12 +146,14 @@ def main(argv=None) -> int:
     ap.add_argument("salida")
     ap.add_argument("--segundos", type=float, default=40.0)
     ap.add_argument("--titulo", default="Laya vs Chispa · Pong en tiempo real")
+    ap.add_argument("--pie", default=PIE)
     a = ap.parse_args(argv)
     with open(a.traza, encoding="utf-8") as f:
         traza = json.load(f)
     ini = traza["tics"][mejor_tramo(traza["tics"], a.segundos)][0]
     fin = ini + int(a.segundos * TICS_POR_S)
     R.W, R.H = W, H   # crear_mp4 usa el tamaño del módulo
+    globals()["PIE"] = a.pie
     n = crear_mp4(fotogramas(traza, ini, fin, a.titulo), a.salida)
     print(f"vertical: {n} fotogramas ({n / TICS_POR_S:.1f} s, desde {ini / TICS_POR_S:.1f} s de partida) en {a.salida}", file=sys.stderr)
     return 0

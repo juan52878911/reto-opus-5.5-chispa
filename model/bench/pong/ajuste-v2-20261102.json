@@ -1,0 +1,266 @@
+{
+ "juegos": {
+  "laya-vs-optimo": {
+   "peloteo_medio": 16.83,
+   "semilla": 1,
+   "texto": "px",
+   "tics": 5400,
+   "segundos": 180.0,
+   "puntos": {
+    "izquierda": 0,
+    "derecha": 6
+   },
+   "golpes": {
+    "izquierda": 51,
+    "derecha": 50
+   },
+   "agentes": {
+    "izquierda": {
+     "nombre": "Laya",
+     "decisiones": 915,
+     "errores": 0,
+     "coincide_optima_pct": 87.2,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 86.8,
+     "p99_ms": 147.5,
+     "decisiones_por_s": 5.1,
+     "ms_servidor_p50": 84.86
+    },
+    "derecha": {
+     "nombre": "óptimo",
+     "decisiones": 2598,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 0.0,
+     "p99_ms": 0.0,
+     "decisiones_por_s": 14.4,
+     "ms_servidor_p50": null
+    }
+   }
+  },
+  "chispa-vs-optimo": {
+   "peloteo_medio": 180.0,
+   "semilla": 1,
+   "texto": "px",
+   "tics": 5400,
+   "segundos": 180.0,
+   "puntos": {
+    "izquierda": 0,
+    "derecha": 0
+   },
+   "golpes": {
+    "izquierda": 90,
+    "derecha": 90
+   },
+   "agentes": {
+    "izquierda": {
+     "nombre": "óptimo",
+     "decisiones": 2707,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 0.0,
+     "p99_ms": 0.0,
+     "decisiones_por_s": 15.0,
+     "ms_servidor_p50": null
+    },
+    "derecha": {
+     "nombre": "Chispa",
+     "decisiones": 2692,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 4.5,
+     "p99_ms": 6.1,
+     "decisiones_por_s": 15.0,
+     "ms_servidor_p50": 0.026
+    }
+   }
+  },
+  "duelo-1": {
+   "peloteo_medio": 27.25,
+   "semilla": 1,
+   "texto": "px",
+   "tics": 5400,
+   "segundos": 180.0,
+   "puntos": {
+    "izquierda": 0,
+    "derecha": 4
+   },
+   "golpes": {
+    "izquierda": 55,
+    "derecha": 54
+   },
+   "agentes": {
+    "izquierda": {
+     "nombre": "Laya",
+     "decisiones": 908,
+     "errores": 0,
+     "coincide_optima_pct": 91.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 87.1,
+     "p99_ms": 139.8,
+     "decisiones_por_s": 5.0,
+     "ms_servidor_p50": 85.13
+    },
+    "derecha": {
+     "nombre": "Chispa",
+     "decisiones": 2640,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 4.0,
+     "p99_ms": 5.6,
+     "decisiones_por_s": 14.7,
+     "ms_servidor_p50": 0.025
+    }
+   }
+  },
+  "duelo-2": {
+   "peloteo_medio": 16.17,
+   "semilla": 2,
+   "texto": "px",
+   "tics": 5400,
+   "segundos": 180.0,
+   "puntos": {
+    "izquierda": 0,
+    "derecha": 6
+   },
+   "golpes": {
+    "izquierda": 49,
+    "derecha": 48
+   },
+   "agentes": {
+    "izquierda": {
+     "nombre": "Laya",
+     "decisiones": 915,
+     "errores": 0,
+     "coincide_optima_pct": 86.3,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 86.5,
+     "p99_ms": 145.2,
+     "decisiones_por_s": 5.1,
+     "ms_servidor_p50": 84.66
+    },
+    "derecha": {
+     "nombre": "Chispa",
+     "decisiones": 2611,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 4.0,
+     "p99_ms": 5.5,
+     "decisiones_por_s": 14.5,
+     "ms_servidor_p50": 0.025
+    }
+   }
+  },
+  "duelo-3": {
+   "peloteo_medio": 16.17,
+   "semilla": 3,
+   "texto": "px",
+   "tics": 5400,
+   "segundos": 180.0,
+   "puntos": {
+    "izquierda": 0,
+    "derecha": 6
+   },
+   "golpes": {
+    "izquierda": 49,
+    "derecha": 48
+   },
+   "agentes": {
+    "izquierda": {
+     "nombre": "Laya",
+     "decisiones": 917,
+     "errores": 0,
+     "coincide_optima_pct": 90.4,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 87.0,
+     "p99_ms": 149.6,
+     "decisiones_por_s": 5.1,
+     "ms_servidor_p50": 84.94
+    },
+    "derecha": {
+     "nombre": "Chispa",
+     "decisiones": 2600,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 4.1,
+     "p99_ms": 5.5,
+     "decisiones_por_s": 14.4,
+     "ms_servidor_p50": 0.025
+    }
+   }
+  },
+  "vuelta-1": {
+   "peloteo_medio": 8.43,
+   "semilla": 1,
+   "texto": "px",
+   "tics": 3681,
+   "segundos": 122.7,
+   "puntos": {
+    "izquierda": 7,
+    "derecha": 0
+   },
+   "golpes": {
+    "izquierda": 30,
+    "derecha": 29
+   },
+   "agentes": {
+    "izquierda": {
+     "nombre": "Chispa",
+     "decisiones": 1696,
+     "errores": 0,
+     "coincide_optima_pct": 100.0,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 4.1,
+     "p99_ms": 5.6,
+     "decisiones_por_s": 13.8,
+     "ms_servidor_p50": 0.025
+    },
+    "derecha": {
+     "nombre": "Laya",
+     "decisiones": 643,
+     "errores": 0,
+     "coincide_optima_pct": 85.4,
+     "bajo_tau_pct": 0.0,
+     "p50_ms": 86.8,
+     "p99_ms": 144.4,
+     "decisiones_por_s": 5.2,
+     "ms_servidor_p50": 84.87
+    }
+   }
+  }
+ },
+ "dev": {
+  "chispa": {
+   "n": 1564,
+   "exactitud": 1.0,
+   "log_loss": -0.0,
+   "ece": 0.0,
+   "escala_pct": 0.0,
+   "p50_ms": 0.81,
+   "p99_ms": 1.18,
+   "mayoritaria": 0.6049,
+   "capas": {
+    "L0": 1564
+   }
+  },
+  "laya": {
+   "n": 1564,
+   "exactitud": 0.9079,
+   "log_loss": 0.2149,
+   "ece": 0.0582,
+   "escala_pct": 0.0,
+   "p50_ms": 98.87,
+   "p99_ms": 113.13,
+   "mayoritaria": 0.6049,
+   "capas": {
+    "laya": 1564
+   }
+  }
+ }
+}

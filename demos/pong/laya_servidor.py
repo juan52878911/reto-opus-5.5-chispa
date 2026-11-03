@@ -35,7 +35,9 @@ def decidir(cuerpo: dict) -> dict:
     crit = cuerpo["criteria"]
     ids, descs = list(crit), list(crit.values())
     t0 = time.perf_counter()
-    r = ROUTER.predict(cuerpo["state"], {"q": {"type": "choice", "instructions": cuerpo["instructions"], "criteria": crit}},
+    # Lista de descripciones, no dict: Laya pinta un dict como «id: descripción» y una lista como «descripción», que es como
+    # `laya.train_cli` sintetiza la pregunta al ajustar; con el dict, la cabeza ajustada ve otro texto y falla con confianza.
+    r = ROUTER.predict(cuerpo["state"], {"q": {"type": "choice", "instructions": cuerpo["instructions"], "criteria": descs}},
                        model=MODELO)
     ms = (time.perf_counter() - t0) * 1000
     a = r["answers"]["q"]
