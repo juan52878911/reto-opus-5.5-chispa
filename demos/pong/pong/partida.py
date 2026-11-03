@@ -154,6 +154,8 @@ class Partida:
                                             r.id, opt.id, r.probs, r.bajo_tau, err))
             if err:
                 time.sleep(0.2)
+            while not self.parar.is_set() and self.juego.e.tic <= tic:  # como mucho una decisión por tic (30/s)
+                time.sleep(0.002)
 
     def jugar(self, ritmo: float = 1.0) -> None:
         hilos = [threading.Thread(target=self._motor, args=(ritmo,), daemon=True)]
