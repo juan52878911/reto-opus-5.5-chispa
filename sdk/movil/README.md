@@ -29,3 +29,8 @@ CHISPA_L1_RECORTADO=ruta/potion-es.chispa-l1 go test -run Huella -v ./...
 ```
 La última exige **la misma huella** de embeddings (`4ce4952c…8166c`) y las mismas 50 respuestas que `demo/wasm` sobre
 las 50 frases del sondeo; sin el modelo recortado (no va a git, ver `demo/wasm/README.md`) se salta.
+
+## Licencia
+
+Apache-2.0 (ver `LICENSE` de la raíz del repositorio). Las atribuciones de terceros están en `NOTICE`. Los datasets con SA, NC o con términos pendientes
+(XNLI, clima, datos.gov.co, SIB-200, etiquetas de ALIA, salidas de Haiku) no se redistribuyen y solo se usan como test.
