@@ -14,6 +14,7 @@ docker run --rm --platform linux/amd64 --name chispa-android-compilar -v chispa-
   chispa-android bash -euo pipefail -c '
     export GOPROXY=file:///src/gomod-proxy,https://proxy.golang.org
     cd /src/sdk/movil/chispamovil
+    go get golang.org/x/mobile@latest   # gomobile bind exige la dependencia en go.mod (como arranque.sh)
     go install golang.org/x/mobile/cmd/gomobile@latest golang.org/x/mobile/cmd/gobind@latest
     gomobile init
     mkdir -p /src/sdk/android/chispa/libs
