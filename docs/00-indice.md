@@ -11,7 +11,7 @@ Esta documentación es para quien integra Chispa. El detalle de desarrollo está
 | [01-que-es.md](01-que-es.md) | Propósito general; preguntas `choice`, `noul` y `score`; los tres modos; la cascada; cuándo escala |
 | [02-inicio-rapido.md](02-inicio-rapido.md) | Un esquema nuevo: zero-shot, few-shot (k = 5, con soporte opcional `--shrinkage-lambda`), `--torre` y `--conjunta`, hasta una petición `curl` |
 | [03-api.md](03-api.md) | `/v1/decide`, `/healthz`, `/metrics` y sus límites |
-| [04-formato-chispa.md](04-formato-chispa.md) | El fichero `.chispa` v3 y sus diez secciones, con `TORR` y `SOPL1` |
+| [04-formato-chispa.md](04-formato-chispa.md) | El fichero `.chispa` v3 y sus once secciones, con `TORR`, `SOPL1` y `L0MULTI` |
 | [05-sdks.md](05-sdks.md) | Python (wheel y extras), Android e iOS (proveedores de ORT, torre al vuelo), núcleo móvil, WASM |
 | [06-despliegue.md](06-despliegue.md) | Compilar con ORT, flags, imagen OCI, imagen de kindling, arnés de carga y AWS |
 | [07-rendimiento-y-limites.md](07-rendimiento-y-limites.md) | Benchmarks por modo, límites del zero-shot, carga y excepciones de G2 |
@@ -22,7 +22,7 @@ Esta documentación es para quien integra Chispa. El detalle de desarrollo está
 ## Piezas del repo y su README
 | Pieza | Qué es | README |
 |---|---|---|
-| Formato `.chispa` v3 | contenedor con L0, L1, L2, `ESQUEMAS`, `CALIB`, `CONJ`, `L0TF`, `TORR`, `SOPL1` | [`format/chispa3`](../format/chispa3/README.md) |
+| Formato `.chispa` v3 | contenedor con L0, L1, L2, `ESQUEMAS`, `CALIB`, `CONJ`, `L0TF`, `TORR`, `SOPL1`, `L0MULTI` | [`format/chispa3`](../format/chispa3/README.md) |
 | Servidor | `chispa-server`, cascada, ORT, tokenizador | [`server`](../server/README.md) |
 | Torre de L2 al vuelo | `server/torre`, ORT real sobre la sección `TORR` | [`server/torre`](../server/torre/README.md) |
 | Especificación del API | `server/api/openapi.yaml` | [`openapi.yaml`](../server/api/openapi.yaml) |

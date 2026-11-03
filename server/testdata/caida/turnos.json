@@ -1,0 +1,762 @@
+[
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n....*....\n...###...\n######...\n#.##.#...\n#.##.#...\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 6 6 6 7 8 7 3 2 0\nAltura máxima 8, huecos 13, piezas colocadas 11.\nPieza: punta (4 celdas, sin chispa)\n#..\n#..\n#.#\nOpciones:\n1) columna 6, giro 1: limpia 1 fila, deja 11 huecos, altura máxima 7\n2) columna 6, giro 2: limpia 0 filas, deja 14 huecos, altura máxima 8\n3) columna 0, giro 0: limpia 0 filas, deja 13 huecos, altura máxima 9\n4) columna 3, giro 0: limpia 0 filas, deja 13 huecos, altura máxima 10\n5) columna 0, giro 3: limpia 0 filas, deja 14 huecos, altura máxima 9\n6) columna 1, giro 0: limpia 0 filas, deja 14 huecos, altura máxima 10",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n#........\n#...*....\n#.####...\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 3 6 6 7 6 4 2 0\nAltura máxima 8, huecos 11, piezas colocadas 13.\nPieza: domino (2 celdas, sin chispa)\n##\nOpciones:\n1) columna 1, giro 1: limpia 0 filas, deja 11 huecos, altura máxima 8\n2) columna 6, giro 1: limpia 0 filas, deja 11 huecos, altura máxima 8\n3) columna 3, giro 1: limpia 0 filas, deja 11 huecos, altura máxima 8\n4) columna 7, giro 1: limpia 0 filas, deja 11 huecos, altura máxima 8\n5) columna 2, giro 0: limpia 0 filas, deja 11 huecos, altura máxima 8\n6) columna 8, giro 1: limpia 0 filas, deja 11 huecos, altura máxima 8",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n..#......\n..#......\n..#.#....\n#####....\n##.#*#...\n#.#####..\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 8 11 8 9 7 6 2 0\nAltura máxima 11, huecos 16, piezas colocadas 17.\nPieza: diagonal (2 celdas, sin chispa)\n#.\n.#\nOpciones:\n1) columna 5, giro 0: limpia 0 filas, deja 16 huecos, altura máxima 11\n2) columna 0, giro 1: limpia 0 filas, deja 17 huecos, altura máxima 11\n3) columna 4, giro 0: limpia 0 filas, deja 17 huecos, altura máxima 11\n4) columna 3, giro 1: limpia 0 filas, deja 16 huecos, altura máxima 11\n5) columna 7, giro 0: limpia 0 filas, deja 17 huecos, altura máxima 11\n6) columna 0, giro 0: limpia 0 filas, deja 17 huecos, altura máxima 11",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.#.......\n.#.......\n.........\n#.##.....\n#....##..\nAlturas por columna: 2 5 2 2 0 1 1 0 0\nAltura máxima 5, huecos 5, piezas colocadas 2.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##\nOpciones:\n1) columna 2, giro 0: limpia 0 filas, deja 5 huecos, altura máxima 5\n2) columna 7, giro 1: limpia 0 filas, deja 8 huecos, altura máxima 5\n3) columna 4, giro 0: limpia 0 filas, deja 6 huecos, altura máxima 5\n4) columna 3, giro 0: limpia 0 filas, deja 8 huecos, altura máxima 5\n5) columna 0, giro 1: limpia 0 filas, deja 5 huecos, altura máxima 7\n6) columna 4, giro 1: limpia 0 filas, deja 7 huecos, altura máxima 5",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n..###....\n.*...#...\n#.#..#...\n###..#.#.\n#*#..####\n####.####\n..######.\n#.##.##..\n#....##..\nAlturas por columna: 7 8 9 9 9 8 5 6 5\nAltura máxima 9, huecos 24, piezas colocadas 15.\nPieza: punta (4 celdas, con chispa)\n#..\n#..\n*.#\nOpciones:\n1) columna 6, giro 0: limpia 0 filas, deja 24 huecos, altura máxima 9\n2) columna 2, giro 0: limpia 0 filas, deja 24 huecos, altura máxima 12\n3) columna 2, giro 3: limpia 0 filas, deja 25 huecos, altura máxima 12\n4) columna 6, giro 2: limpia 0 filas, deja 26 huecos, altura máxima 9\n5) columna 5, giro 2: limpia 0 filas, deja 24 huecos, altura máxima 9\n6) columna 0, giro 1: limpia 0 filas, deja 26 huecos, altura máxima 10",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n....#....\n#.##.....\n#.##.....\n####.#...\n#*...#.#.\n#.#.####.\n###.####.\n#*#..###.\n####.###.\n..##*###.\n#.#####..\n#...###..\nAlturas por columna: 11 9 11 11 12 9 7 8 0\nAltura máxima 12, huecos 20, piezas colocadas 26.\nPieza: domino (2 celdas, sin chispa)\n##\nOpciones:\n1) columna 1, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 12\n2) columna 6, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 12\n3) columna 8, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 12\n4) columna 0, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 13\n5) columna 2, giro 0: limpia 0 filas, deja 20 huecos, altura máxima 12\n6) columna 5, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 12",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n....#....\n####.....\n####.....\n####.#.#.\n#*...###.\n#.#.####.\n###.####.\n#*#..###.\n####.###.\n..##*###.\n#.#####.#\n#...###.#\nAlturas por columna: 11 11 11 11 12 9 8 9 2\nAltura máxima 12, huecos 20, piezas colocadas 29.\nPieza: pinza (4 celdas, sin chispa)\n#.#\n#.#\nOpciones:\n1) columna 5, giro 0: limpia 0 filas, deja 20 huecos, altura máxima 12\n2) columna 2, giro 0: limpia 0 filas, deja 21 huecos, altura máxima 14\n3) columna 1, giro 0: limpia 0 filas, deja 20 huecos, altura máxima 13\n4) columna 0, giro 1: limpia 0 filas, deja 22 huecos, altura máxima 14\n5) columna 3, giro 0: limpia 0 filas, deja 22 huecos, altura máxima 13\n6) columna 0, giro 0: limpia 0 filas, deja 20 huecos, altura máxima 13",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n..#.#....\n..###....\n####.#.#.\n####.#.#.\n####.#.#.\n#*...###.\n#.#.####.\n###.####.\n#*#..###.\n####.###.\n..##*###.\n#.#####.#\n#...###.#\nAlturas por columna: 11 11 13 12 13 11 8 11 2\nAltura máxima 13, huecos 20, piezas colocadas 32.\nPieza: recta3 (3 celdas, sin chispa)\n###\nOpciones:\n1) columna 6, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 13\n2) columna 5, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 14\n3) columna 3, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 15\n4) columna 1, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 14\n5) columna 8, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 13\n6) columna 0, giro 1: limpia 0 filas, deja 20 huecos, altura máxima 14",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n#####*...\n#.######.\n#.####.#.\n####.###.\n####.###.\n####.###.\n#*...###.\n#.#.####.\n###.####.\n#*#..###.\n####.####\n..##*####\n#.#####.#\n#...###.#\nAlturas por columna: 14 14 14 14 14 14 13 13 4\nAltura máxima 14, huecos 23, piezas colocadas 40.\nPieza: domino (2 celdas, con chispa)\n*#\nOpciones:\n1) columna 8, giro 1: limpia 0 filas, deja 23 huecos, altura máxima 14\n2) columna 6, giro 2: limpia 0 filas, deja 23 huecos, altura máxima 14\n3) columna 8, giro 3: limpia 0 filas, deja 23 huecos, altura máxima 14\n4) columna 6, giro 0: limpia 0 filas, deja 23 huecos, altura máxima 14\n5) columna 0, giro 2: limpia 0 filas, deja 23 huecos, altura máxima 15\n6) columna 0, giro 0: limpia 0 filas, deja 23 huecos, altura máxima 15",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "colocacion",
+"question": "¿Dónde coloco la pieza?",
+"kind": "choice",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.....*...\n.....##..\n......#..\n#.#......\nAlturas por columna: 1 0 1 0 0 4 3 0 0\nAltura máxima 4, huecos 3, piezas colocadas 9.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##\nOpciones:\n1) columna 0, giro 0: limpia 0 filas, deja 4 huecos, altura máxima 4\n2) columna 7, giro 1: limpia 0 filas, deja 6 huecos, altura máxima 5\n3) columna 4, giro 1: limpia 0 filas, deja 4 huecos, altura máxima 6\n4) columna 0, giro 1: limpia 0 filas, deja 7 huecos, altura máxima 6\n5) columna 1, giro 1: limpia 0 filas, deja 5 huecos, altura máxima 5\n6) columna 3, giro 1: limpia 0 filas, deja 6 huecos, altura máxima 5",
+"options": [
+{
+"id": "1",
+"description": "la colocación número 1 de la lista de opciones"
+},
+{
+"id": "2",
+"description": "la colocación número 2 de la lista de opciones"
+},
+{
+"id": "3",
+"description": "la colocación número 3 de la lista de opciones"
+},
+{
+"id": "4",
+"description": "la colocación número 4 de la lista de opciones"
+},
+{
+"id": "5",
+"description": "la colocación número 5 de la lista de opciones"
+},
+{
+"id": "6",
+"description": "la colocación número 6 de la lista de opciones"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\nAlturas por columna: 0 0 0 0 0 0 0 0 0\nAltura máxima 0, huecos 0, piezas colocadas 0.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n...#.#...\n#..#.#...\n#*##.....\n##.##....\n...##.*#.\nAlturas por columna: 4 3 3 5 2 5 1 1 0\nAltura máxima 5, huecos 7, piezas colocadas 5.\nPieza: diagonal (2 celdas, sin chispa)\n#.\n.#",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n#........\n#...*....\n#.####...\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 3 6 6 7 6 4 2 0\nAltura máxima 8, huecos 11, piezas colocadas 13.\nPieza: domino (2 celdas, sin chispa)\n##",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n....#....\n....#....\n....*.#..\n..###....\n.*...#...\n#.#..#...\n###..#.#.\n#*#..####\n####.####\n..######.\n#.##.##..\n#....##..\nAlturas por columna: 7 8 9 9 12 8 10 6 5\nAltura máxima 12, huecos 28, piezas colocadas 16.\nPieza: ele3 (3 celdas, sin chispa)\n#.\n##",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.###.....\n.#*#..#..\n..#.#.#..\n....*.#..\n..#####..\n..#.##...\n..#.#*...\n######...\n##.#*#...\n#.#####..\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 15 15 15 13 11 14 2 0\nAltura máxima 15, huecos 30, piezas colocadas 23.\nPieza: diagonal (2 celdas, sin chispa)\n#.\n.#",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\nAlturas por columna: 0 0 0 0 0 0 0 0 0\nAltura máxima 0, huecos 0, piezas colocadas 0.\nPieza: pinza (4 celdas, sin chispa)\n#.#\n#.#",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.#.......\n.#.......\n.........\n#.##.....\n#....##..\nAlturas por columna: 2 5 2 2 0 1 1 0 0\nAltura máxima 5, huecos 5, piezas colocadas 2.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n...#.....\n####.#...\n#*...#.#.\n#.#..#.#.\n###..#.#.\n#*#..###.\n####.###.\n..##.###.\n#.##.##..\n#....##..\nAlturas por columna: 9 9 9 10 0 9 5 8 0\nAltura máxima 10, huecos 14, piezas colocadas 22.\nPieza: pinza (4 celdas, sin chispa)\n#.#\n#.#",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n....#....\n#.##.....\n#.##.....\n####.#...\n#*...#.#.\n#.#.####.\n###.####.\n#*#..###.\n####.###.\n..##*###.\n#.#####..\n#...###..\nAlturas por columna: 11 9 11 11 12 9 7 8 0\nAltura máxima 12, huecos 20, piezas colocadas 26.\nPieza: domino (2 celdas, sin chispa)\n##",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "riesgo",
+"question": "Riesgo de quedarse sin salida",
+"kind": "score",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n..#......\n..#.#....\n####.#.#.\n####.#.#.\n####.#.#.\n#*...###.\n#.#.####.\n###.####.\n#*#..###.\n####.###.\n..##*###.\n#.#####.#\n#...###.#\nAlturas por columna: 11 11 13 11 12 11 8 11 2\nAltura máxima 13, huecos 20, piezas colocadas 31.\nPieza: diagonal (2 celdas, sin chispa)\n#.\n.#",
+"options": [
+{
+"id": "1",
+"description": "sin riesgo: tablero bajo y limpio"
+},
+{
+"id": "2",
+"description": "riesgo bajo"
+},
+{
+"id": "3",
+"description": "riesgo medio"
+},
+{
+"id": "4",
+"description": "riesgo alto"
+},
+{
+"id": "5",
+"description": "a punto de quedarse sin salida"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\nAlturas por columna: 0 0 0 0 0 0 0 0 0\nAltura máxima 0, huecos 0, piezas colocadas 0.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n..##.....\n##.##....\n...##.*#.\nAlturas por columna: 2 2 3 3 2 0 1 1 0\nAltura máxima 3, huecos 4, piezas colocadas 3.\nPieza: pinza (4 celdas, sin chispa)\n#.#\n#.#",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.#.......\n#..#.#...\n#..#.#...\n#*##.....\n##.##....\n...##.*#.\nAlturas por columna: 5 6 3 5 2 5 1 1 0\nAltura máxima 6, huecos 9, piezas colocadas 6.\nPieza: ele3 (3 celdas, sin chispa)\n#.\n##",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n...##....\n######...\n#.##.#...\n#.##.#...\n#*##.....\n##.##....\n...##.*#.\nAlturas por columna: 6 6 6 7 7 6 1 1 0\nAltura máxima 7, huecos 12, piezas colocadas 9.\nPieza: diagonal (2 celdas, con chispa)\n#.\n.*",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n#........\n#...*....\n#.####...\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 3 6 6 7 6 4 2 0\nAltura máxima 8, huecos 11, piezas colocadas 13.\nPieza: domino (2 celdas, sin chispa)\n##",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n..#......\n..#......\n..#.#....\n#####....\n##.#*....\n#.####...\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 8 11 8 9 6 4 2 0\nAltura máxima 11, huecos 15, piezas colocadas 16.\nPieza: diagonal (2 celdas, sin chispa)\n#.\n.#",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n..#.#....\n....*....\n..###....\n..#.#....\n..#.#....\n#####....\n##.#*#...\n#.#####..\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 8 13 11 13 7 6 2 0\nAltura máxima 13, huecos 19, piezas colocadas 19.\nPieza: recta3 (3 celdas, con chispa)\n#*#",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.###.....\n.#*#.....\n..#.#....\n....*.#..\n..###.#..\n..#.#....\n..#.#*...\n######...\n##.#*#...\n#.#####..\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 15 15 15 13 9 12 2 0\nAltura máxima 15, huecos 30, piezas colocadas 22.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.#####...\n.#*####..\n..#.###..\n....*.#..\n..#####..\n..#.##...\n..#.#*...\n######...\n##.#*#...\n#.#####..\n#.##.#...\n#.##.##..\n#*##..#..\n##.##..#.\n...##.*#.\nAlturas por columna: 8 15 15 15 15 15 14 2 0\nAltura máxima 15, huecos 31, piezas colocadas 25.\nPieza: punta (4 celdas, con chispa)\n#..\n#..\n*.#",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+},
+{
+"id": "completa",
+"question": "¿Esta pieza puede completar una fila?",
+"kind": "noul",
+"estado": "Tablero 9x15 (arriba primero; . vacío, # bloque, * chispa):\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.........\n.#.......\n.#.......\n.........\n#.##.....\n#....##..\nAlturas por columna: 2 5 2 2 0 1 1 0 0\nAltura máxima 5, huecos 5, piezas colocadas 2.\nPieza: gancho (4 celdas, sin chispa)\n##...\n...##",
+"options": [
+{
+"id": "false",
+"description": "ninguna colocación de la pieza completa una fila"
+},
+{
+"id": "true",
+"description": "alguna colocación de la pieza completa una fila"
+}
+]
+}
+]

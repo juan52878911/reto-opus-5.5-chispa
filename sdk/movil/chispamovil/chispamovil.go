@@ -267,18 +267,19 @@ func (c *Chispa) montar() error {
 			c.sopl = sopl
 		}
 	}
-	if f.Tiene(chispa3.L0TF) {
-		m, err := f.L0TF()
-		if err != nil {
-			return fmt.Errorf("sección L0TF: %w", err)
+	// L0TF (o L0 si no hay) y los de L0MULTI, uno por pregunta few-shot; dos con las mismas etiquetas es un error, como en el servidor.
+	ms, err := f.L0Todos()
+	if err != nil {
+		return fmt.Errorf("L0: %w", err)
+	}
+	vistas := map[string]string{}
+	for _, m := range ms {
+		fi := firma(m.Etiquetas())
+		if o, ok := vistas[fi]; ok {
+			return fmt.Errorf("L0: %s y %s tienen las mismas etiquetas %v", o, m.Nombre, m.Etiquetas())
 		}
-		c.l0 = append(c.l0, modeloL0{firma: firma(m.Etiquetas), tf: m})
-	} else if f.Tiene(chispa3.L0) {
-		m, err := f.L0Modelo()
-		if err != nil {
-			return fmt.Errorf("sección L0: %w", err)
-		}
-		c.l0 = append(c.l0, modeloL0{firma: firma(m.Labels), m: m})
+		vistas[fi] = m.Nombre
+		c.l0 = append(c.l0, modeloL0{firma: fi, tf: m.TF, m: m.M})
 	}
 	if f.Tiene(chispa3.L1) {
 		b, err := f.L1()
