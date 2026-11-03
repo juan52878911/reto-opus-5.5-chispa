@@ -102,15 +102,56 @@ def generar(n: int = 16000, semilla: int = 1, ruido: float = 0.3, t: float = 20.
     return filas[:n]
 
 
+def generar_v2(n: int = 16000, semilla: int = 1, ruido: float = 0.3, cada: int = 4, max_tics: int = 900) -> List[dict]:
+    """Diseño v2 (`diseno`): se pregunta solo con la pelota viniendo; el estado se calcula sobre la pala prevista tras una
+    latencia al azar de 0–15 tics (0–0,5 s); ruido en la jugada, etiqueta del maestro; 1 de cada 10 partidas a dev."""
+    from . import diseno as D
+    rng = random.Random(semilla)
+    filas, partida = [], 0
+    while len(filas) < n:
+        partida += 1
+        j = Juego(semilla * 100003 + partida)
+        split = "dev" if partida % 10 == 0 else "train"
+        while not j.e.terminada and j.e.tic < max_tics and len(filas) < n:
+            for lado in ("izquierda", "derecha"):
+                e = j.e
+                if not D.viene(e, lado):
+                    D.regla_alejandose(j, lado)
+                elif e.tic % cada == 0:
+                    _, _, d = D.relacion(e, lado, rng.uniform(0, 15))
+                    m = D.maestro(d)
+                    filas.append({"partida": partida, "split": split, "lado": lado, "texto": D.texto(d), "etiqueta": m,
+                                  "d": round(d, 1)})
+                    jugada = rng.choice(D.NOMBRES) if rng.random() < ruido else m
+                    D.aplicar(j, lado, jugada, corte(e, lado)[0])
+            j.paso()
+    return filas[:n]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="imitar", description=__doc__.splitlines()[0])
     ap.add_argument("--salida", required=True)
     ap.add_argument("--n", type=int, default=16000)
     ap.add_argument("--semilla", type=int, default=1)
     ap.add_argument("--ruido", type=float, default=0.3)
+    ap.add_argument("--diseno", choices=("v1", "v2"), default="v2")
     ap.add_argument("--t", type=float, default=20.0, help="T de la etiqueta blanda softmax(−distancia/T), en px")
     a = ap.parse_args(argv)
     os.makedirs(a.salida, exist_ok=True)
+    if a.diseno == "v2":
+        from collections import Counter
+        from . import diseno as D
+        filas = generar_v2(a.n, a.semilla, a.ruido)
+        with open(os.path.join(a.salida, "esquema.json"), "w", encoding="utf-8") as f:
+            json.dump({"id": D.ID, "pregunta": D.PREGUNTA, "tipo": "choice", "opciones": dict(D.DESCRIPCIONES)}, f, ensure_ascii=False, indent=1)
+        for sp in ("train", "dev"):
+            with open(os.path.join(a.salida, f"{sp}.jsonl"), "w", encoding="utf-8") as f:
+                for x in filas:
+                    if x["split"] == sp:
+                        f.write(json.dumps({"texto": x["texto"], "etiqueta": x["etiqueta"]}, ensure_ascii=False) + "\n")
+        print(json.dumps({"filas": len(filas), "split": Counter(x["split"] for x in filas), "etiquetas": Counter(x["etiqueta"] for x in filas),
+                          "textos_distintos": len({x["texto"] for x in filas}), "partidas": filas[-1]["partida"]}, ensure_ascii=False))
+        return 0
     filas = generar(a.n, a.semilla, a.ruido, a.t)
     with open(os.path.join(a.salida, "esquema.json"), "w", encoding="utf-8") as f:
         json.dump(esquema(), f, ensure_ascii=False, indent=1)

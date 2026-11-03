@@ -16,9 +16,10 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Dict, List, Optional
 
+from . import diseno as D
 from . import imitar as I
 from . import opciones as O
-from .motor import LADOS, TICS_POR_S, Juego
+from .motor import LADOS, TICS_POR_S, Juego, corte
 
 
 class ErrorRed(Exception):
@@ -97,6 +98,47 @@ class AgenteLayaFijo:
         return Respuesta(elegido, probs, r.get("ms"))
 
 
+class AgenteOptimoV2:
+    """Diseño v2: el maestro con una latencia simulada (para ajustar el juego y como rival de referencia)."""
+    nombre, v2 = "óptimo", True
+
+    def __init__(self, latencia_ms: float = 0.0):
+        self.latencia_ms = latencia_ms
+
+    def decidir(self, estado: str, rng, d: float = 0.0) -> Respuesta:
+        if self.latencia_ms:
+            time.sleep(self.latencia_ms / 1000)
+        m = D.maestro(d)
+        return Respuesta(m, {n: float(n == m) for n in D.NOMBRES})
+
+
+class AgenteChispaV2:
+    nombre, v2 = "Chispa", True
+
+    def __init__(self, url: str, timeout: float = 5.0):
+        self.url, self.timeout = url.rstrip("/") + "/v1/decide", timeout
+
+    def decidir(self, estado: str, rng, d: float = 0.0) -> Respuesta:
+        r = _post(self.url, D.peticion_chispa(estado, rng), self.timeout)
+        ch = next((x for x in r.get("results", []) if x.get("id") == D.ID), {})
+        probs = {k: float(v) for k, v in (ch.get("probs") or {}).items()}
+        elegido = max(D.NOMBRES, key=lambda i: probs.get(i, -1.0)) if probs else None
+        return Respuesta(elegido, probs, ch.get("ms"), bajo_tau=bool(ch.get("escalate")))
+
+
+class AgenteLayaV2:
+    nombre, v2 = "Laya", True
+
+    def __init__(self, url: str, timeout: float = 5.0):
+        self.url, self.timeout = url.rstrip("/") + "/decide", timeout
+
+    def decidir(self, estado: str, rng, d: float = 0.0) -> Respuesta:
+        r = _post(self.url, D.peticion_laya(estado, rng), self.timeout)
+        probs = {k: float(v) for k, v in (r.get("probs") or {}).items()}
+        elegido = r.get("choice") if r.get("choice") in D.NOMBRES else (max(D.NOMBRES, key=lambda i: probs.get(i, -1.0)) if probs else None)
+        return Respuesta(elegido, probs, r.get("ms"))
+
+
 class AgenteLaya:
     nombre = "Laya"
 
@@ -162,7 +204,49 @@ class Partida:
                 time.sleep(espera)
         self.parar.set()
 
+    def _esperar_tic(self, tic: int) -> None:
+        while not self.parar.is_set() and self.juego.e.tic <= tic:
+            time.sleep(0.002)
+
+    def _agente_v2(self, lado: str, agente) -> None:
+        """Diseño v2 (ver `diseno`): pregunta solo cuando la pelota viene; vuelve al centro por regla cuando se aleja."""
+        rng = random.Random(self.semilla * 7 + (1 if lado == "derecha" else 0))
+        lats: List[float] = []
+        while not self.parar.is_set():
+            with self.cerrojo:
+                e = self.juego.e.copia()
+                if not D.viene(e, lado):
+                    D.regla_alejandose(self.juego, lado)
+            if not D.viene(e, lado):
+                self._esperar_tic(e.tic)
+                continue
+            tipica = sorted(lats[-20:])[len(lats[-20:]) // 2] if lats else 0.0
+            _, _, d = D.relacion(e, lado, tipica / 1000 * TICS_POR_S * self.ritmo)
+            estado, opt = D.texto(d), D.maestro(d)
+            t0 = time.perf_counter()
+            try:
+                r, err = agente.decidir(estado, rng, d), ""
+            except ErrorRed as ex:
+                r, err = Respuesta(None, {}), str(ex)[:120]
+            ms = (time.perf_counter() - t0) * 1000
+            if not err:
+                lats.append(ms)
+            with self.cerrojo:
+                ahora = self.juego.e
+                if r.id in D.ACCION and D.viene(ahora, lado):
+                    D.aplicar(self.juego, lado, r.id, corte(ahora, lado)[0])
+                tic = ahora.tic
+            ops = [{"id": n, "nombre": n, "accion": D.ACCION[n], "distancia": int(abs(d)), "descripcion": D.DESCRIPCIONES[n]}
+                   for n in D.NOMBRES]
+            self.decisiones.append(Decision(lado, e.tic, tic, round(ms, 2), r.ms_servidor, estado, ops, r.id, opt, r.probs,
+                                            r.bajo_tau, err))
+            if err:
+                time.sleep(0.2)
+            self._esperar_tic(tic)
+
     def _agente(self, lado: str, agente) -> None:
+        if getattr(agente, "v2", False):
+            return self._agente_v2(lado, agente)
         rng = random.Random(self.semilla * 7 + (1 if lado == "derecha" else 0))
         while not self.parar.is_set():
             with self.cerrojo:
@@ -195,6 +279,7 @@ class Partida:
                 time.sleep(0.002)
 
     def jugar(self, ritmo: float = 1.0) -> None:
+        self.ritmo = ritmo
         hilos = [threading.Thread(target=self._motor, args=(ritmo,), daemon=True)]
         hilos += [threading.Thread(target=self._agente, args=(lado, ag), daemon=True) for lado, ag in self.agentes.items()]
         for h in hilos:
@@ -205,7 +290,9 @@ class Partida:
 
     def resumen(self) -> dict:
         e = self.juego.e
-        out = {"semilla": self.semilla, "texto": self.texto, "tics": e.tic, "segundos": round(e.tic / TICS_POR_S, 1), "puntos": dict(e.puntos),
+        pts = sum(e.puntos.values())
+        out = {"peloteo_medio": round(sum(e.golpes.values()) / max(1, pts), 2),
+               "semilla": self.semilla, "texto": self.texto, "tics": e.tic, "segundos": round(e.tic / TICS_POR_S, 1), "puntos": dict(e.puntos),
                "golpes": dict(e.golpes), "agentes": {}}
         for lado in LADOS:
             ds = [d for d in self.decisiones if d.lado == lado]

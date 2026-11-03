@@ -10,18 +10,18 @@ import math
 import time
 from typing import Dict, List
 
-from . import imitar as I
+from . import diseno as I
 from .partida import _post
 
 
 def pedir_chispa(url: str, texto: str):
-    r = _post(url.rstrip("/") + "/v1/decide", I.peticion(texto), 30)
+    r = _post(url.rstrip("/") + "/v1/decide", I.peticion_chispa(texto), 30)
     ch = next(x for x in r["results"] if x["id"] == I.ID)
     return {k: float(v) for k, v in (ch.get("probs") or {}).items()}, bool(ch.get("escalate")), ch.get("layer")
 
 
 def pedir_laya(url: str, texto: str):
-    r = _post(url.rstrip("/") + "/decide", {"state": texto, "instructions": I.PREGUNTA, "criteria": dict(I.DESCRIPCIONES)}, 30)
+    r = _post(url.rstrip("/") + "/decide", I.peticion_laya(texto), 30)
     return {k: float(v) for k, v in (r.get("probs") or {}).items()}, False, r.get("capa", "laya")
 
 

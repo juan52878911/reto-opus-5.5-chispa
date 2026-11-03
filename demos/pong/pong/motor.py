@@ -14,7 +14,7 @@ from typing import Dict, Optional
 ANCHO, ALTO = 640, 480
 ALTO_PALA, GROSOR_PALA, MARGEN_PALA = 80, 12, 24
 VEL_PALA = 8.0
-VEL_SAQUE, VEL_MAX, ACELERACION = 7.0, 13.0, 1.04
+VEL_SAQUE, VEL_MAX, ACELERACION = 7.0, 22.0, 1.06  # v2: la pelota acelera hasta que los peloteos largos acaban
 RADIO = 7
 TICS_POR_S = 30
 PUNTOS_FIN = 7
@@ -35,10 +35,11 @@ class Estado:
     puntos: Dict[str, int] = field(default_factory=lambda: {"izquierda": 0, "derecha": 0})
     golpes: Dict[str, int] = field(default_factory=lambda: {"izquierda": 0, "derecha": 0})
     terminada: bool = False
+    objetivos: Dict[str, Optional[float]] = field(default_factory=lambda: {"izquierda": None, "derecha": None})
 
     def copia(self) -> "Estado":
         return Estado(self.tic, self.bx, self.by, self.vx, self.vy, dict(self.palas), dict(self.acciones), dict(self.puntos),
-                      dict(self.golpes), self.terminada)
+                      dict(self.golpes), self.terminada, dict(self.objetivos))
 
 
 def _limitar_pala(y: float) -> float:
@@ -81,8 +82,10 @@ class Juego:
         sentido = -1 if hacia_lado == "izquierda" else 1
         e.vx, e.vy = sentido * VEL_SAQUE * math.cos(ang), VEL_SAQUE * math.sin(ang)
 
-    def accion(self, lado: str, a: int) -> None:
+    def accion(self, lado: str, a: int, objetivo: Optional[float] = None) -> None:
+        """`objetivo` (y del centro de la pala): la pala se mueve en el sentido `a` y se para al llegar a él."""
         self.e.acciones[lado] = max(-1, min(1, int(a)))
+        self.e.objetivos[lado] = objetivo
 
     def paso(self) -> Optional[str]:
         """Avanza un tic. Devuelve el lado que anota en este tic (o None)."""
@@ -91,7 +94,11 @@ class Juego:
             return None
         e.tic += 1
         for lado in LADOS:
-            e.palas[lado] = _limitar_pala(e.palas[lado] + e.acciones[lado] * VEL_PALA)
+            a, obj, y = e.acciones[lado], e.objetivos[lado], e.palas[lado]
+            nuevo = y + a * VEL_PALA
+            if obj is not None and a and (y - obj) * a < 0 <= (nuevo - obj) * a:  # va hacia él y llega: se queda ahí
+                nuevo, e.acciones[lado] = obj, 0
+            e.palas[lado] = _limitar_pala(nuevo)
         e.bx += e.vx
         e.by += e.vy
         if e.by < RADIO or e.by > ALTO - RADIO:

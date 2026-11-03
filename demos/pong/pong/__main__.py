@@ -4,7 +4,8 @@ import json
 import sys
 
 from .motor import Juego
-from .partida import AgenteChispa, AgenteChispaFijo, AgenteLaya, AgenteLayaFijo, AgenteOptimo, Partida
+from .partida import (AgenteChispa, AgenteChispaFijo, AgenteChispaV2, AgenteLaya, AgenteLayaFijo, AgenteLayaV2, AgenteOptimo,
+                      AgenteOptimoV2, Partida)
 
 
 def jugar(argv) -> int:
@@ -14,11 +15,15 @@ def jugar(argv) -> int:
     ap.add_argument("--semilla", type=int, default=1)
     ap.add_argument("--salida", required=True)
     ap.add_argument("--texto", choices=("px", "cualitativo"), default="px", help="redacción de las opciones (la misma para los dos)")
+    ap.add_argument("--diseno", choices=("v1", "v2"), default="v1", help="v2: pala con objetivo, pregunta solo con la pelota viniendo")
     ap.add_argument("--ajustados", action="store_true", help="esquema fijo (subir/bajar/quieta) para los modelos ajustados")
     ap.add_argument("--laya-derecha", action="store_true", help="partido de vuelta: Laya a la derecha y Chispa a la izquierda")
     ap.add_argument("--ritmo", type=float, default=1.0, help="1 = tiempo real (30 tics/s)")
     a = ap.parse_args(argv)
-    if a.ajustados:
+    if a.diseno == "v2":
+        laya = AgenteLayaV2(a.laya) if a.laya else AgenteOptimoV2()
+        chispa = AgenteChispaV2(a.chispa) if a.chispa else AgenteOptimoV2()
+    elif a.ajustados:
         laya, chispa = AgenteLayaFijo(a.laya), AgenteChispaFijo(a.chispa)
     else:
         laya = AgenteLaya(a.laya, texto=a.texto) if a.laya else AgenteOptimo()
