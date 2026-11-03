@@ -31,5 +31,8 @@ if __name__ == "__main__":
     if orden == "renderizar":
         from . import renderizar
         raise SystemExit(renderizar.main(sys.argv[2:]))
-    print("uso: python -m pong {jugar|renderizar} …", file=sys.stderr)
+    if orden == "vertical":
+        from . import vertical
+        raise SystemExit(vertical.main(sys.argv[2:]))
+    print("uso: python -m pong {jugar|renderizar|vertical} …", file=sys.stderr)
     raise SystemExit(2)
