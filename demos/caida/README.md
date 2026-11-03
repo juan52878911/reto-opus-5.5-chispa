@@ -105,8 +105,20 @@ PYTHONPATH=sdk/python python -m chispa train --ejemplos /tmp/fs/ejemplos-<q>.jso
 ```
 
 Con `N ≥ 60` hay ≥ 10 ejemplos por opción en `colocacion` y se entrena también L0; con menos, L0 no se entrena y L1 se calibra con los ejemplos (lo avisa `chispa train`).
-Sirve el `.chispa` con `chispa-server -modelo … -tok e5.chispa-tok` (compilado con `-tags ort`, ver `docs/06-despliegue.md`); un servidor lleva un `.chispa`, así que el few-shot de una pregunta
+Para servir las tres preguntas few-shot a la vez junto a un L2 de servidor, ver la receta de abajo («Las tres preguntas en un solo servidor»). Para una sola, sirve el `.chispa` con `chispa-server -modelo … -tok e5.chispa-tok` (compilado con `-tags ort`, ver `docs/06-despliegue.md`); un servidor lleva un `.chispa`, así que el few-shot de una pregunta
 no cambia las otras dos, que se deciden con L1 y la torre al vuelo del esquema de la petición.
+
+### Las tres preguntas en un solo servidor
+
+Entrena cada pregunta solo con L0 (sin `--l2` ni `--torre`) y sirve el `.chispa` de servidor aparte:
+
+```
+chispa-server -modelo servidor.chispa -tok e5.chispa-tok -config config.json
+# config.json: {"modelos": ["colocacion.chispa", "riesgo.chispa", "completa.chispa"]}
+```
+
+**La calibración es la del `-modelo`**: de cada `.chispa` de `modelos` solo se usa su L0 (L0TF); CALIB, SOPL1 y demás se ignoran con un aviso al arrancar, y si traen L1, L2 o TORR el arranque falla.
+L0 se elige por el conjunto de ids de las opciones: `colocacion` (choice 1…6), `riesgo` (score 1…5) y `completa` (noul, ids `false`/`true`) no chocan. Dos L0 con las mismas etiquetas hacen fallar el arranque. Detalle: `docs/06-despliegue.md`.
 
 ## Tests
 

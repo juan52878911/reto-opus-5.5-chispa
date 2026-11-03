@@ -94,6 +94,10 @@ final class MotorFalso: Motor {
         llamadas.append("L2T"); ultimasRanuras = ranuras; ultimosKs = ksJson; return marcar(l2())
     }
     func textosTorreL2(_ preguntaJson: String) -> [String] { torres ? [] : textosTorre }
+    var motivoRechazo = "motivo falso"
+    func instalarTorresL2Motivo(_ preguntaJson: String, torres bytes: Data, n: Int) -> String {
+        instalarTorresL2(preguntaJson, torres: bytes, n: n) ? "" : motivoRechazo
+    }
     func instalarTorresL2(_ preguntaJson: String, torres bytes: Data, n: Int) -> Bool {
         llamadas.append("TORRES")
         if !aceptaTorres { return false }

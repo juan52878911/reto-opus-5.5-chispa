@@ -1,8 +1,16 @@
 package decide
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -20,6 +28,8 @@ type L0 struct {
 	cache   *LRU[*modelo] // clave de esquema → modelo (nil = sin modelo)
 	Hits    atomic.Uint64
 	Misses  atomic.Uint64
+	// Avisos: uno por fichero v3 de "modelos" que trae secciones que se ignoran (ya escritos en el log).
+	Avisos []string
 }
 
 type modelo struct {
@@ -63,9 +73,20 @@ func (l *L0) AnadirTF(nombre string, m *chispa3.L0TFModelo) error {
 	return nil
 }
 
-// Cargar lee ficheros .chispa.
-func (l *L0) Cargar(paths ...string) error {
+// Cargar lee ficheros .chispa con el tope de tamaño por defecto de chispa3.
+func (l *L0) Cargar(paths ...string) error { return l.CargarCon(chispa3.Limites{}, paths...) }
+
+// CargarCon lee ficheros .chispa: un v1/v2 de kindling, o un v3 solo-L0 (sección L0TF, o L0 si no hay), que se abre con chispa3
+// respetando lim (max_fichero). Del v3 solo se usa su L0: CALIB, SOPL1, ESQUEMAS, CONJ y demás se ignoran con un aviso por fichero
+// (en l.Avisos y en el log); L1, L2 o TORR son un error, porque ese fichero es un -modelo. META no se avisa: no cambia lo que se sirve.
+func (l *L0) CargarCon(lim chispa3.Limites, paths ...string) error {
 	for _, p := range paths {
+		if esV3(p) {
+			if err := l.cargarV3(p, lim); err != nil {
+				return err
+			}
+			continue
+		}
 		m, err := chispa.LoadFile(p)
 		if err != nil {
 			return fmt.Errorf("L0: %s: %w", p, err)
@@ -75,6 +96,81 @@ func (l *L0) Cargar(paths ...string) error {
 		}
 	}
 	return nil
+}
+
+func (l *L0) cargarV3(p string, lim chispa3.Limites) error {
+	f, err := chispa3.AbrirCon(p, lim)
+	if err != nil {
+		if errors.Is(err, chispa3.ErrTamano) {
+			return fmt.Errorf("modelos: %s: %w (tope aplicado: %d bytes; suba \"max_fichero\" en la config si es legítimo)", p, err, lim.MaxFichero)
+		}
+		return fmt.Errorf("modelos: %s: %w", p, err)
+	}
+	defer f.Close()
+	var pesadas []string
+	for _, t := range []chispa3.Tipo{chispa3.L1, chispa3.L2, chispa3.TORR} {
+		if f.Tiene(t) {
+			pesadas = append(pesadas, t.String())
+		}
+	}
+	if len(pesadas) > 0 {
+		return fmt.Errorf("modelos: %s: \"modelos\" es solo para L0; ese fichero lleva %s; úselo como -modelo", p, strings.Join(pesadas, ", "))
+	}
+	if !f.Tiene(chispa3.L0TF) && !f.Tiene(chispa3.L0) {
+		return fmt.Errorf("modelos: %s: el .chispa v3 no trae L0 ni L0TF", p)
+	}
+	usada := chispa3.L0
+	if f.Tiene(chispa3.L0TF) { // como ArmarDesde: L0TF manda sobre L0
+		usada = chispa3.L0TF
+	}
+	if usada == chispa3.L0TF {
+		m, err := f.L0TF()
+		if err != nil {
+			return fmt.Errorf("modelos: %s: sección L0TF: %w", p, err)
+		}
+		if err := l.AnadirTF(p, m); err != nil {
+			return err
+		}
+	} else {
+		m, err := f.L0Modelo()
+		if err != nil {
+			return fmt.Errorf("modelos: %s: sección L0: %w", p, err)
+		}
+		if err := l.Anadir(p, m); err != nil {
+			return err
+		}
+	}
+	var ign []string
+	for _, t := range f.Tipos() {
+		if t != usada && t != chispa3.META {
+			ign = append(ign, t.String())
+		}
+	}
+	if len(ign) > 0 {
+		sort.Strings(ign)
+		aviso := fmt.Sprintf("modelos: %s: se usa solo su %s; se ignoran %s", filepath.Base(p), usada, strings.Join(ign, ", "))
+		if slices.Contains(ign, "CALIB") {
+			aviso += ": la calibración es la del -modelo"
+		}
+		l.Avisos = append(l.Avisos, aviso)
+		log.Print("AVISO: " + aviso)
+	}
+	return nil
+}
+
+// esV3 dice si el fichero empieza con la cabecera de un .chispa v3 (misma magia que v1/v2, versión 3 en el byte 8).
+func esV3(ruta string) bool {
+	f, err := os.Open(ruta)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var cab [10]byte
+	if _, err := io.ReadFull(f, cab[:]); err != nil {
+		return false
+	}
+	return bytes.Equal(cab[:8], []byte{0x89, 'C', 'H', 'I', '\r', '\n', 0x1a, '\n'}) &&
+		binary.LittleEndian.Uint16(cab[8:]) == chispa3.Version
 }
 
 func (l *L0) Nombre() string { return "L0" }

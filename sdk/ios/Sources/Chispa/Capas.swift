@@ -58,6 +58,8 @@ public protocol Motor: AnyObject {
     /// `textosTorreL2`); el motor las cuantiza y las cachea, así que la siguiente `torresL2` de ese esquema da true sin
     /// volver a calcular. false si no las acepta.
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool
+    /// Como `instalarTorresL2` pero devuelve el motivo del rechazo ("" si las instaló): n, d, Dim de TORR, valores no finitos…
+    func instalarTorresL2Motivo(_ preguntaJson: String, torres: Data, n: Int) -> String
 
     /// El fichero trae TORR (el ONNX de la torre de opción, para esquemas nuevos).
     func tieneTorre() -> Bool
@@ -90,6 +92,9 @@ public extension Motor {
     func torreAlVueloMotivo() -> String { "" }
     func avisos() -> String { "" }
     func instalarTorresL2(_ preguntaJson: String, torres: Data, n: Int) -> Bool { false }
+    func instalarTorresL2Motivo(_ preguntaJson: String, torres: Data, n: Int) -> String {
+        instalarTorresL2(preguntaJson, torres: torres, n: n) ? "" : "motivo no informado por el motor"
+    }
     func tieneTorre() -> Bool { false }
     func onnxTorre() -> Data? { nil }
     func idsPasaje(_ texto: String) -> Data? { nil }
@@ -349,8 +354,9 @@ struct CapaL2: Capa {
             }
             let plano = torres.flatMap { $0 }
             let bytes = plano.withUnsafeBufferPointer { Data(buffer: $0) } // float32 little endian
-            guard motor.instalarTorresL2(preguntaJson, torres: bytes, n: torres.count) else {
-                throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=\(d), n=\(torres.count))")
+            let motivo = motor.instalarTorresL2Motivo(preguntaJson, torres: bytes, n: torres.count)
+            guard motivo.isEmpty else {
+                throw ErrorChispa("L2: el motor rechazó las torres al vuelo (d=\(d), n=\(torres.count)): \(motivo)")
             }
             return true
         } catch {
