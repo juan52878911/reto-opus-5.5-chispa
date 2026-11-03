@@ -77,11 +77,15 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--modelo", default="multilingual")
     ap.add_argument("--hilos", type=int, default=4)
+    ap.add_argument("--ruta", help="checkpoint local (p. ej. el ajustado con `laya.train_cli --out`); se sirve como modelo «ajustado»")
     a = ap.parse_args()
     import torch
     torch.set_num_threads(a.hilos)
     from laya import Router
-    ROUTER, MODELO = Router(), a.modelo
+    if a.ruta:
+        ROUTER, MODELO = Router(models={"ajustado": a.ruta}), "ajustado"
+    else:
+        ROUTER, MODELO = Router(), a.modelo
     decidir({"state": "calentamiento", "instructions": "¿Qué hago?", "criteria": {"1": "subir", "2": "bajar", "3": "quieta"}})
     print(f"laya_servidor: {MODELO} listo en http://{a.host}:{a.puerto}", flush=True)
     ThreadingHTTPServer((a.host, a.puerto), Manejador).serve_forever()

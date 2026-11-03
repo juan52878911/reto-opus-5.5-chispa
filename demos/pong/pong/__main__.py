@@ -4,7 +4,7 @@ import json
 import sys
 
 from .motor import Juego
-from .partida import AgenteChispa, AgenteLaya, AgenteOptimo, Partida
+from .partida import AgenteChispa, AgenteChispaFijo, AgenteLaya, AgenteLayaFijo, AgenteOptimo, Partida
 
 
 def jugar(argv) -> int:
@@ -14,10 +14,16 @@ def jugar(argv) -> int:
     ap.add_argument("--semilla", type=int, default=1)
     ap.add_argument("--salida", required=True)
     ap.add_argument("--texto", choices=("px", "cualitativo"), default="px", help="redacción de las opciones (la misma para los dos)")
+    ap.add_argument("--ajustados", action="store_true", help="esquema fijo (subir/bajar/quieta) para los modelos ajustados")
+    ap.add_argument("--laya-derecha", action="store_true", help="partido de vuelta: Laya a la derecha y Chispa a la izquierda")
     ap.add_argument("--ritmo", type=float, default=1.0, help="1 = tiempo real (30 tics/s)")
     a = ap.parse_args(argv)
-    agentes = {"izquierda": AgenteLaya(a.laya, texto=a.texto) if a.laya else AgenteOptimo(),
-               "derecha": AgenteChispa(a.chispa, texto=a.texto) if a.chispa else AgenteOptimo()}
+    if a.ajustados:
+        laya, chispa = AgenteLayaFijo(a.laya), AgenteChispaFijo(a.chispa)
+    else:
+        laya = AgenteLaya(a.laya, texto=a.texto) if a.laya else AgenteOptimo()
+        chispa = AgenteChispa(a.chispa, texto=a.texto) if a.chispa else AgenteOptimo()
+    agentes = {"izquierda": chispa, "derecha": laya} if a.laya_derecha else {"izquierda": laya, "derecha": chispa}
     p = Partida(Juego(a.semilla), agentes, a.semilla, a.texto)
     p.jugar(a.ritmo)
     p.guardar(a.salida)
@@ -32,6 +38,12 @@ if __name__ == "__main__":
     if orden == "renderizar":
         from . import renderizar
         raise SystemExit(renderizar.main(sys.argv[2:]))
+    if orden == "evaluar_dev":
+        from . import evaluar_dev
+        raise SystemExit(evaluar_dev.main(sys.argv[2:]))
+    if orden == "imitar":
+        from . import imitar
+        raise SystemExit(imitar.main(sys.argv[2:]))
     if orden == "vertical":
         from . import vertical
         raise SystemExit(vertical.main(sys.argv[2:]))

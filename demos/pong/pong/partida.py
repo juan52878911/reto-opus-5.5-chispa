@@ -16,6 +16,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Dict, List, Optional
 
+from . import imitar as I
 from . import opciones as O
 from .motor import LADOS, TICS_POR_S, Juego
 
@@ -65,6 +66,35 @@ class AgenteChispa:
             return Respuesta(ch["answer"], probs, ch.get("ms"))
         elegido = max(ids, key=lambda i: probs.get(i, -1.0)) if probs else None
         return Respuesta(elegido, probs, ch.get("ms"), bajo_tau=True)
+
+
+class AgenteChispaFijo:
+    """Chispa ajustada: pregunta de esquema fijo (`imitar.peticion`); lo de cada turno va en el texto de estado."""
+    nombre, fijo = "Chispa", True
+
+    def __init__(self, url: str, timeout: float = 5.0):
+        self.url, self.timeout = url.rstrip("/") + "/v1/decide", timeout
+
+    def decidir(self, estado: str, ops: List[O.Opcion]) -> Respuesta:
+        r = _post(self.url, I.peticion(estado), self.timeout)
+        ch = next((x for x in r.get("results", []) if x.get("id") == I.ID), {})
+        probs = {k: float(v) for k, v in (ch.get("probs") or {}).items()}
+        elegido = max(I.NOMBRES, key=lambda i: probs.get(i, -1.0)) if probs else None
+        return Respuesta(elegido, probs, ch.get("ms"), bajo_tau=bool(ch.get("escalate")))
+
+
+class AgenteLayaFijo:
+    """Laya ajustada: misma pregunta de esquema fijo contra `laya_servidor.py --modelo <checkpoint ajustado>`."""
+    nombre, fijo = "Laya", True
+
+    def __init__(self, url: str, timeout: float = 5.0):
+        self.url, self.timeout = url.rstrip("/") + "/decide", timeout
+
+    def decidir(self, estado: str, ops: List[O.Opcion]) -> Respuesta:
+        r = _post(self.url, {"state": estado, "instructions": I.PREGUNTA, "criteria": dict(I.DESCRIPCIONES)}, self.timeout)
+        probs = {k: float(v) for k, v in (r.get("probs") or {}).items()}
+        elegido = r.get("choice") if r.get("choice") in I.NOMBRES else (max(I.NOMBRES, key=lambda i: probs.get(i, -1.0)) if probs else None)
+        return Respuesta(elegido, probs, r.get("ms"))
 
 
 class AgenteLaya:
@@ -137,8 +167,14 @@ class Partida:
         while not self.parar.is_set():
             with self.cerrojo:
                 e = self.juego.e.copia()
-            estado, ops = O.construir(e, lado, rng, self.texto)
-            opt = O.optima(ops)
+            if getattr(agente, "fijo", False):  # esquema fijo: opciones subir/bajar/quieta, el turno en el texto de estado
+                dist, _, _ = I.distancias(e, lado)
+                estado = I.texto(e, lado, self.texto)
+                ops = [O.Opcion(n, n, dict(O.ACCIONES)[n], dist[n], I.DESCRIPCIONES[n]) for n in I.NOMBRES]
+                opt = next(o for o in ops if o.id == I.maestro(e, lado))
+            else:
+                estado, ops = O.construir(e, lado, rng, self.texto)
+                opt = O.optima(ops)
             t0 = time.perf_counter()
             try:
                 r = agente.decidir(estado, ops)
