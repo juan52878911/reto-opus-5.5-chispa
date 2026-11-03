@@ -4,6 +4,8 @@
 //
 // Con -unir a.chispa,b.chispa escribe en -out un v3 con la unión de las secciones de los ficheros (si una sección está
 // en varios, gana el primero): chispa-server solo acepta un -modelo, y en S3 L0+L1 y L2 van en ficheros distintos.
+// Los L0 no compiten: los L0 / L0TF de todos los ficheros (y los de sus L0MULTI) se juntan, uno por pregunta few-shot, en una
+// sección L0MULTI (o L0 / L0TF si es uno solo). Dos con las mismas etiquetas hacen fallar la unión y se nombran los dos orígenes.
 package main
 
 import (
@@ -157,14 +159,29 @@ func main() {
 
 func fusionar(rutas []string, out string, lim chispa3.Limites) error {
 	var secs []chispa3.Seccion
+	var l0s []chispa3.EntradaL0
 	vistas := map[chispa3.Tipo]string{}
+	esL0 := func(t chispa3.Tipo) bool { return t == chispa3.L0 || t == chispa3.L0TF || t == chispa3.L0MULTI }
 	for _, r := range rutas {
 		f, err := chispa3.AbrirCon(r, lim)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
+		// Los L0 no «ganan»: se juntan todos (el de L0TF o L0 de cada fichero y los de su L0MULTI) y se escriben como L0 / L0TF si
+		// es uno y como L0MULTI si son varios. Dos con las mismas etiquetas son un error.
+		es, err := f.EntradasL0(r)
+		if err != nil {
+			return err
+		}
+		for _, e := range es {
+			log.Printf("L0 %v (%d bytes): %s", e.Tipo, len(e.Datos), e.Nombre)
+		}
+		l0s = append(l0s, es...)
 		for _, t := range f.Tipos() {
+			if esL0(t) {
+				continue
+			}
 			if o, ok := vistas[t]; ok {
 				log.Printf("sección %v en %s y en %s: gana la primera", t, o, r)
 				continue
@@ -178,6 +195,11 @@ func fusionar(rutas []string, out string, lim chispa3.Limites) error {
 			log.Printf("sección %v (%d bytes) de %s", t, len(b), r)
 		}
 	}
+	s0, err := chispa3.SeccionesL0(l0s)
+	if err != nil {
+		return err
+	}
+	secs = append(secs, s0...)
 	var buf bytes.Buffer
 	if err := chispa3.Escribir(&buf, secs); err != nil {
 		return err

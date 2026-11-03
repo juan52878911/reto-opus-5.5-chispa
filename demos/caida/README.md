@@ -120,6 +120,10 @@ chispa-server -modelo servidor.chispa -tok e5.chispa-tok -config config.json
 **La calibración es la del `-modelo`**: de cada `.chispa` de `modelos` solo se usa su L0 (L0TF); CALIB, SOPL1 y demás se ignoran con un aviso al arrancar, y si traen L1, L2 o TORR el arranque falla.
 L0 se elige por el conjunto de ids de las opciones: `colocacion` (choice 1…6), `riesgo` (score 1…5) y `completa` (noul, ids `false`/`true`) no chocan. Dos L0 con las mismas etiquetas hacen fallar el arranque. Detalle: `docs/06-despliegue.md`.
 
+### Un fichero por cliente
+
+Las tres preguntas también caben en **un solo `.chispa`** (sin `modelos`): `cd server && go run ./deploy/mkmodelo -unir servidor.chispa,colocacion.chispa,riesgo.chispa,completa.chispa -out cliente.chispa` y `chispa-server -modelo cliente.chispa -tok e5.chispa-tok`. Los L0 van en una sección `L0MULTI`; la calibración sigue siendo la del primer fichero (`servidor.chispa`). Da las mismas respuestas que `-modelo` + `modelos` (test `server/decide/caida_unido_test.go`, fixtures en `server/testdata/caida/`: 30 turnos, `choice`, `layer` y probs a 1e-6; y a mano contra dos `chispa-server` reales).
+
 ## Tests
 
 `python3 -m pytest demos/caida` (o, sin pytest, `python3 -m unittest discover -s demos/caida/tests -t demos/caida`): determinismo por semilla, regla de chispa, piezas propias,
